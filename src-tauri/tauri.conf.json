@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TCHLauncher",
+  "version": "0.2.0",
+  "identifier": "com.tchlauncher.desktop",
+  "build": {
+    "beforeDevCommand": "node ./node_modules/vite/bin/vite.js --configLoader runner",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "node ./node_modules/typescript/bin/tsc -b && node ./node_modules/vite/bin/vite.js build --configLoader runner",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "TCHLauncher", "width": 1280, "height": 800, "minWidth": 900, "minHeight": 620, "backgroundColor": "#ffffff" }],
+    "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'" }
+  },
+  "bundle": { "active": true, "targets": "all" }
+}

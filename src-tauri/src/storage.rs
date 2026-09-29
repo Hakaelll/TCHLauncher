@@ -1,0 +1,357 @@
+use crate::model::{Backup, CreateServer, ImportInspection, ImportServer, Server};
+use base64::Engine;
+use rusqlite::{params, Connection, OptionalExtension};
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
+
+pub fn connect(root: &Path) -> Result<Connection, String> {
+    let db_dir = root.join("database");
+    std::fs::create_dir_all(&db_dir).map_err(|e| e.to_string())?;
+    let db = Connection::open(db_dir.join("tchlauncher.sqlite")).map_err(|e| e.to_string())?;
+    db.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
+      CREATE TABLE IF NOT EXISTS servers (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, version TEXT NOT NULL,
+        platform TEXT NOT NULL, directory TEXT NOT NULL UNIQUE,
+        jar_path TEXT, java_path TEXT, memory_min_mb INTEGER NOT NULL,
+        memory_max_mb INTEGER NOT NULL, created_at TEXT NOT NULL,
+        storage_target_gb INTEGER NOT NULL DEFAULT 20
+      );
+      CREATE TABLE IF NOT EXISTS backups (
+        id TEXT PRIMARY KEY, server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL, size_bytes INTEGER NOT NULL, path TEXT NOT NULL
+      );")
+        .map_err(|e| e.to_string())?;
+    let schema_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0)).map_err(|e| e.to_string())?;
+    if schema_version < 1 {
+        db.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        let migration = (|| -> Result<(), String> {
+            let mut columns = db.prepare("PRAGMA table_info(servers)").map_err(|e| e.to_string())?;
+            let names = columns.query_map([], |row| row.get::<_, String>(1)).map_err(|e| e.to_string())?;
+            let names = names.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?;
+            if !names.iter().any(|name| name == "storage_target_gb") {
+                db.execute("ALTER TABLE servers ADD COLUMN storage_target_gb INTEGER NOT NULL DEFAULT 20", []).map_err(|e| e.to_string())?;
+            }
+            db.execute_batch("PRAGMA user_version=1").map_err(|e| e.to_string())
+        })();
+        if migration.is_ok() { db.execute_batch("COMMIT").map_err(|e| e.to_string())?; }
+        else { let _ = db.execute_batch("ROLLBACK"); migration?; }
+    }
+    Ok(db)
+}
+
+fn row_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<Server> {
+    Ok(Server {
+        id: row.get(0)?, name: row.get(1)?, version: row.get(2)?,
+        platform: row.get(3)?, directory: row.get(4)?, jar_path: row.get(5)?,
+        java_path: row.get(6)?, memory_min_mb: row.get(7)?,
+        memory_max_mb: row.get(8)?, created_at: row.get(9)?, storage_target_gb: row.get(10)?,
+        state: "stopped".into(), image_data: None,
+    })
+}
+
+const SERVER_SELECT: &str = "SELECT id,name,version,platform,directory,jar_path,java_path,memory_min_mb,memory_max_mb,created_at,storage_target_gb FROM servers";
+
+pub fn list(root: &Path) -> Result<Vec<Server>, String> {
+    let db = connect(root)?;
+    let mut stmt = db.prepare(&format!("{SERVER_SELECT} ORDER BY created_at DESC"))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], row_server).map_err(|e| e.to_string())?;
+    let mut servers = rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?;
+    for server in &mut servers { server.image_data = read_image(root, &server.id); }
+    Ok(servers)
+}
+
+pub fn get(root: &Path, id: &str) -> Result<Server, String> {
+    let db = connect(root)?;
+    db.query_row(&format!("{SERVER_SELECT} WHERE id=?1"), [id], row_server)
+        .optional().map_err(|e| e.to_string())?
+        .ok_or_else(|| "No se encontró el servidor".to_string())
+}
+
+fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") { Some("image/png") }
+    else if bytes.starts_with(&[0xff, 0xd8, 0xff]) { Some("image/jpeg") }
+    else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" { Some("image/webp") }
+    else { None }
+}
+
+fn image_file(root: &Path, id: &str) -> PathBuf { root.join("server-images").join(id) }
+
+fn read_image(root: &Path, id: &str) -> Option<String> {
+    let path = image_file(root, id);
+    if std::fs::metadata(&path).ok()?.len() > 2_000_000 { return None; }
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.len() > 2_000_000 { return None; }
+    let mime = image_mime(&bytes)?;
+    Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+fn image_bytes(path: &Path) -> Result<Vec<u8>, String> {
+    let size = std::fs::metadata(path).map_err(|e| format!("No se pudo abrir la imagen: {e}"))?.len();
+    if size > 2_000_000 { return Err("La imagen debe ocupar menos de 2 MB".into()); }
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    if bytes.len() > 2_000_000 { return Err("La imagen debe ocupar menos de 2 MB".into()); }
+    if image_mime(&bytes).is_none() { return Err("Selecciona un archivo PNG, JPG o WebP válido".into()); }
+    Ok(bytes)
+}
+
+pub fn preview_image(path: &Path) -> Result<String, String> {
+    let bytes = image_bytes(path)?;
+    let mime = image_mime(&bytes).ok_or("Formato de imagen no válido")?;
+    Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+fn write_image(root: &Path, id: &str, bytes: &[u8]) -> Result<(), String> {
+    let dir = root.join("server-images");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let target = image_file(root, id);
+    let temporary = dir.join(format!(".{id}.part"));
+    std::fs::write(&temporary, bytes).map_err(|e| e.to_string())?;
+    if target.exists() { std::fs::remove_file(&target).map_err(|e| e.to_string())?; }
+    std::fs::rename(&temporary, &target).map_err(|e| e.to_string())
+}
+
+pub fn set_image(root: &Path, id: &str, source: &Path) -> Result<Server, String> {
+    get(root, id)?;
+    let bytes = image_bytes(source)?;
+    write_image(root, id, &bytes)?;
+    let mut server = get(root, id)?;
+    server.image_data = read_image(root, id);
+    Ok(server)
+}
+
+pub fn clear_image(root: &Path, id: &str) -> Result<Server, String> {
+    get(root, id)?;
+    match std::fs::remove_file(image_file(root, id)) {
+        Ok(()) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+        Err(e) => return Err(e.to_string()),
+    }
+    get(root, id)
+}
+
+pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
+    validate(&input)?;
+    let image = input.image_path.as_ref().map(|path| image_bytes(Path::new(path))).transpose()?;
+    let id = Uuid::new_v4().to_string();
+    let dir = root.join("servers").join(&id);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let props = format!("# Managed by TCHLauncher\nserver-port={}\nmax-players={}\nmotd={}\nonline-mode=true\n", input.port, input.max_players, input.name.replace(['\n', '\r'], " "));
+    std::fs::write(dir.join("server.properties"), props).map_err(|e| e.to_string())?;
+    let db = connect(root)?;
+    db.execute("INSERT INTO servers (id,name,version,platform,directory,memory_min_mb,memory_max_mb,created_at,storage_target_gb) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        params![id,input.name,input.version,input.platform,dir.to_string_lossy(),input.memory_min_mb,input.memory_max_mb,now,input.storage_target_gb])
+        .map_err(|e| e.to_string())?;
+    if let Some(bytes) = image { write_image(root, &id, &bytes)?; }
+    let mut server = get(root, &id)?;
+    server.image_data = read_image(root, &id);
+    Ok(server)
+}
+
+pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
+    let source = path.canonicalize().map_err(|e| format!("No se pudo abrir la carpeta: {e}"))?;
+    if !source.is_dir() || !source.join("server.properties").is_file() {
+        return Err("La carpeta no contiene server.properties".into());
+    }
+    let mut jars = std::fs::read_dir(&source).map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("jar")))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect::<Vec<_>>();
+    jars.sort();
+    if jars.is_empty() { return Err("No se encontró un archivo .jar en la carpeta".into()); }
+    let detected_version = jars.iter().find_map(|jar| detect_jar_version(&source.join(jar)));
+    Ok(ImportInspection {
+        path:source.to_string_lossy().into(),
+        suggested_name:source.file_name().map(|n| n.to_string_lossy().into()).unwrap_or_else(|| "Servidor importado".into()),
+        jar_files:jars,detected_version,
+    })
+}
+
+fn detect_jar_version(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).ok()?;
+    let mut archive = zip::ZipArchive::new(file).ok()?;
+    let mut entry = archive.by_name("version.json").ok()?;
+    if entry.size() > 32_000 { return None; }
+    let mut text = String::new();
+    entry.read_to_string(&mut text).ok()?;
+    serde_json::from_str::<serde_json::Value>(&text).ok()?["id"].as_str().map(str::to_owned)
+}
+
+pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
+    let source = PathBuf::from(&input.path).canonicalize().map_err(|e| e.to_string())?;
+    let inspection = inspect_import(&source)?;
+    if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo .jar seleccionado no existe en esa carpeta".into()); }
+    let jar_lower = input.jar_file.to_ascii_lowercase();
+    if ["fabric","forge","neoforge"].iter().any(|loader| jar_lower.contains(loader)) {
+        return Err("El loader de este servidor aún no es compatible con la importación".into());
+    }
+    let properties = crate::properties::read(&source.join("server.properties"))?;
+    let port = properties.get("server-port").and_then(|v| v.parse::<u16>().ok()).unwrap_or(25565);
+    let max_players = properties.get("max-players").and_then(|v| v.parse::<u32>().ok()).unwrap_or(20);
+    validate(&CreateServer {name:input.name.clone(),version:input.version.clone(),platform:input.platform.clone(),memory_min_mb:1024,memory_max_mb:2048,max_players,port,storage_target_gb:input.storage_target_gb,image_path:input.image_path.clone()})?;
+    let image = input.image_path.as_ref().map(|path| image_bytes(Path::new(path))).transpose()?;
+    let id = Uuid::new_v4().to_string();
+    let target = if input.copy {
+        let target = root.join("servers").join(&id);
+        let stage = root.join("servers").join(format!(".{id}.part"));
+        if let Err(e) = crate::backup::copy_tree(&source,&stage) { let _ = std::fs::remove_dir_all(&stage); return Err(e); }
+        std::fs::rename(&stage,&target).map_err(|e| e.to_string())?;
+        target
+    } else { source };
+    let jar = target.join(&input.jar_file);
+    let db = connect(root)?;
+    let inserted = db.execute("INSERT INTO servers (id,name,version,platform,directory,jar_path,memory_min_mb,memory_max_mb,created_at,storage_target_gb) VALUES (?1,?2,?3,?4,?5,?6,1024,2048,?7,?8)",
+        params![id,input.name,input.version,input.platform,target.to_string_lossy(),jar.to_string_lossy(),chrono::Utc::now().to_rfc3339(),input.storage_target_gb])
+        .map_err(|e| e.to_string());
+    if inserted.is_err() && input.copy { let _ = std::fs::remove_dir_all(&target); }
+    inserted?;
+    if let Some(bytes) = image { write_image(root, &id, &bytes)?; }
+    get(root,&id)
+}
+
+fn validate(input: &CreateServer) -> Result<(), String> {
+    let name = input.name.trim();
+    if name.is_empty() || name.len() > 64 || name.chars().any(char::is_control) {
+        return Err("El nombre debe tener entre 1 y 64 caracteres, sin saltos de línea".into());
+    }
+    if !matches!(input.platform.as_str(), "vanilla" | "paper") {
+        return Err("Esta plataforma aún no tiene instalación compatible".into());
+    }
+    if input.version.len() > 24 || !input.version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
+        return Err("Versión de Minecraft no válida".into());
+    }
+    if input.memory_min_mb < 512 || input.memory_max_mb > 65536 || input.memory_min_mb > input.memory_max_mb {
+        return Err("La memoria inicial debe ser al menos 512 MB y no superar la máxima".into());
+    }
+    if input.max_players == 0 || input.max_players > 1000 || input.port == 0 {
+        return Err("Revisa el número de jugadores y el puerto".into());
+    }
+    if !(1..=2048).contains(&input.storage_target_gb) { return Err("El objetivo de espacio debe estar entre 1 y 2048 GB".into()); }
+    Ok(())
+}
+
+pub fn update_install(root: &Path, id: &str, jar: &Path, java: &Path) -> Result<(), String> {
+    let db = connect(root)?;
+    db.execute("UPDATE servers SET jar_path=?2, java_path=?3 WHERE id=?1",
+        params![id, jar.to_string_lossy(), java.to_string_lossy()])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn update_java(root: &Path, id: &str, java: &Path) -> Result<(), String> {
+    let db = connect(root)?;
+    db.execute("UPDATE servers SET java_path=?2 WHERE id=?1",params![id,java.to_string_lossy()])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn update_memory(root: &Path, id: &str, min: u32, max: u32) -> Result<(), String> {
+    if min < 512 || max > 65536 || min > max { return Err("Valores de memoria no válidos".into()); }
+    let db = connect(root)?;
+    db.execute("UPDATE servers SET memory_min_mb=?2,memory_max_mb=?3 WHERE id=?1", params![id,min,max])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn update_storage_target(root: &Path, id: &str, gb: u32) -> Result<(), String> {
+    if !(1..=2048).contains(&gb) { return Err("El objetivo de espacio debe estar entre 1 y 2048 GB".into()); }
+    let db = connect(root)?;
+    let updated = db.execute("UPDATE servers SET storage_target_gb=?2 WHERE id=?1", params![id,gb]).map_err(|e| e.to_string())?;
+    if updated == 0 { return Err("No se encontró el servidor".into()); }
+    Ok(())
+}
+
+pub fn add_backup(root: &Path, backup: &Backup) -> Result<(), String> {
+    let db = connect(root)?;
+    db.execute("INSERT INTO backups (id,server_id,created_at,size_bytes,path) VALUES (?1,?2,?3,?4,?5)",
+        params![backup.id, backup.server_id, backup.created_at, i64::try_from(backup.size_bytes).map_err(|e| e.to_string())?, backup.path])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn list_backups(root: &Path, server_id: &str) -> Result<Vec<Backup>, String> {
+    let db = connect(root)?;
+    let mut stmt = db.prepare("SELECT id,server_id,created_at,size_bytes,path FROM backups WHERE server_id=?1 ORDER BY created_at DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([server_id], |r| Ok(Backup { id:r.get(0)?,server_id:r.get(1)?,created_at:r.get(2)?,size_bytes:r.get::<_,i64>(3)?.max(0) as u64,path:r.get(4)? }))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())
+}
+
+pub fn backup_path(root: &Path, server_id: &str, backup_id: &str) -> Result<PathBuf, String> {
+    let db = connect(root)?;
+    let path: Option<String> = db.query_row("SELECT path FROM backups WHERE server_id=?1 AND id=?2", params![server_id,backup_id], |r| r.get(0))
+        .optional().map_err(|e| e.to_string())?;
+    path.map(PathBuf::from).ok_or_else(|| "No se encontró el backup".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn migrates_existing_servers_and_persists_storage_target() {
+        let root = std::env::temp_dir().join(format!("tch-migration-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(root.join("database")).unwrap();
+        let db_path = root.join("database").join("tchlauncher.sqlite");
+        {
+            let old = Connection::open(&db_path).unwrap();
+            old.execute_batch("CREATE TABLE servers (
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, version TEXT NOT NULL,
+                platform TEXT NOT NULL, directory TEXT NOT NULL UNIQUE,
+                jar_path TEXT, java_path TEXT, memory_min_mb INTEGER NOT NULL,
+                memory_max_mb INTEGER NOT NULL, created_at TEXT NOT NULL
+            );
+            INSERT INTO servers (id,name,version,platform,directory,memory_min_mb,memory_max_mb,created_at)
+            VALUES ('old','Existing','1.21.4','vanilla','C:/test-server',1024,2048,'2026-01-01');").unwrap();
+        }
+        assert_eq!(get(&root, "old").unwrap().storage_target_gb, 20);
+        update_storage_target(&root, "old", 48).unwrap();
+        assert_eq!(get(&root, "old").unwrap().storage_target_gb, 48);
+        assert!(update_storage_target(&root, "old", 0).is_err());
+        assert_eq!(list(&root).unwrap()[0].storage_target_gb, 48);
+        let _ = std::fs::remove_dir_all(root);
+    }
+    #[test]
+    fn rejects_unsafe_versions_and_memory() {
+        let mut input = CreateServer {name:"Test".into(), version:"../x".into(), platform:"vanilla".into(), memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None};
+        assert!(validate(&input).is_err());
+        input.version="1.21.4".into();
+        input.memory_min_mb=4096;
+        assert!(validate(&input).is_err());
+    }
+    #[test]
+    fn imports_copy_without_mutating_source() {
+        let root = std::env::temp_dir().join(format!("tch-import-{}",Uuid::new_v4()));
+        let source = root.join("existing");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("server.properties"),"server-port=25566\nmax-players=12\n").unwrap();
+        std::fs::write(source.join("server.jar"),b"jar fixture").unwrap();
+        let inspection = inspect_import(&source).unwrap();
+        assert_eq!(inspection.jar_files,vec!["server.jar"]);
+        let server = import(&root,ImportServer {path:source.to_string_lossy().into(),name:"Existing".into(),version:"1.21.4".into(),platform:"vanilla".into(),jar_file:"server.jar".into(),copy:true,storage_target_gb:20,image_path:None}).unwrap();
+        assert_ne!(Path::new(&server.directory),source);
+        assert_eq!(std::fs::read(source.join("server.jar")).unwrap(),b"jar fixture");
+        assert_eq!(std::fs::read(server.jar_path.unwrap()).unwrap(),b"jar fixture");
+        let _ = std::fs::remove_dir_all(root);
+    }
+    #[test]
+    fn server_image_is_local_and_can_be_changed_or_removed() {
+        let root = std::env::temp_dir().join(format!("tch-image-{}",Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let image = root.join("icon.png");
+        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l3sAAAAASUVORK5CYII=").unwrap();
+        std::fs::write(&image, png).unwrap();
+        let server = create(&root, CreateServer {name:"With icon".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:Some(image.to_string_lossy().into())}).unwrap();
+        assert!(server.image_data.as_deref().unwrap().starts_with("data:image/png;base64,"));
+        assert!(list(&root).unwrap()[0].image_data.is_some());
+        std::fs::write(&image, b"not an image").unwrap();
+        assert!(set_image(&root,&server.id,&image).is_err());
+        assert!(list(&root).unwrap()[0].image_data.is_some());
+        clear_image(&root,&server.id).unwrap();
+        assert!(list(&root).unwrap()[0].image_data.is_none());
+        let _ = std::fs::remove_dir_all(root);
+    }
+}
