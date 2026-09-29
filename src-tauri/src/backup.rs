@@ -25,13 +25,17 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
 
 pub fn create(root: &Path, server_id: &str) -> Result<Backup, String> {
     let server = storage::get(root,server_id)?;
+    let source = Path::new(&server.directory).canonicalize().map_err(|e| e.to_string())?;
     let id = Uuid::new_v4().to_string();
     let base = root.join("backups").join(server_id);
     fs::create_dir_all(&base).map_err(|e| e.to_string())?;
+    if base.canonicalize().map_err(|e| e.to_string())?.starts_with(&source) {
+        return Err("La carpeta de backups está dentro del servidor; elige otra ubicación para el servidor".into());
+    }
     let stage = base.join(format!(".{id}.part"));
     let target = base.join(&id);
     let result = (|| {
-        copy_tree(Path::new(&server.directory), &stage)?;
+        copy_tree(&source, &stage)?;
         fs::rename(&stage,&target).map_err(|e| e.to_string())?;
         let backup = Backup {id,server_id:server_id.into(),created_at:chrono::Utc::now().to_rfc3339(),size_bytes:size(&target),path:target.to_string_lossy().into()};
         storage::add_backup(root,&backup)?;

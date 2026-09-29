@@ -10,11 +10,15 @@ La instalación consulta el catálogo oficial de Mojang y la API de PaperMC. La 
 
 `ProcessManager` mantiene los procesos activos y emite eventos Tauri de estado y consola. Envía `stop` por stdin y fuerza la terminación solo tras 30 segundos. Si se cierra la ventana con servidores activos, el usuario puede cancelarlo, detenerlos o mantener la aplicación en la bandeja del sistema. Al iniciar la aplicación, el estado se reconstruye a partir de los procesos bajo control de esta instancia; no se recuperan procesos externos u huérfanos.
 
+`log.rs` añade una marca UTC a cada línea capturada, clasifica el nivel y algunos eventos operativos, y lee un tramo reciente para la Consola y el Resumen. Acepta líneas antiguas sin marca. La exportación copia el log completo a una ruta elegida por el usuario sin modificar el original. Limpiar la vista de Consola es un filtro local y conserva el historial y los eventos del Resumen.
+
 La sección Jugadores lee los archivos Vanilla que Minecraft mantiene para jugadores conocidos, lista blanca, operadores y bloqueos. Las modificaciones con el servidor en marcha se envían por la consola, y los conectados se derivan de los eventos de entrada y salida del proceso gestionado. Tras reiniciar la aplicación, la lista de conectados se reconstruye a partir de nuevos eventos.
 
 Las copias se hacen con el servidor detenido y se activan por intercambio de directorios. La restauración crea antes una copia del estado actual.
 
 La importación inspecciona una carpeta existente mediante un selector nativo. Puede registrarla en su ubicación original o copiarla a la biblioteca. El `.jar` importado permanece intacto; se prepara únicamente el runtime Java compatible.
+
+`world.rs` identifica carpetas de mundo inmediatas mediante `level.dat` comprimido y datos NBT básicos. Puede importar, duplicar y exportar a través de copias preparadas en directorios temporales y renombradas al finalizar. Rechaza nombres de ruta inseguros y enlaces simbólicos. Cambiar el mundo principal actualiza `level-name` después de guardar una copia; borrar también crea antes una copia y nunca permite eliminar el mundo activo. La creación de un servidor puede importar un mundo elegido a `world` antes de instalarlo. Las operaciones de archivos reservan el servidor y bloquean su inicio hasta terminar.
 
 ## Limitaciones actuales
 

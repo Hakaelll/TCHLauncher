@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
-import { api, type Backup, type CreateInput, type ImportInput, type ImportInspection, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type Version } from './api'
+import { api, type Backup, type CreateInput, type DeleteOutcome, type DeletePreview, type ImportInput, type ImportInspection, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type Version, type WorldInspection } from './api'
 import { PlayersView } from './PlayersView'
 import { SliderField } from './SliderField'
 import { ConsoleView } from './ConsoleView'
+import { WorldView } from './WorldView'
 
-type View = 'overview' | 'players' | 'console' | 'backups' | 'settings'
+type View = 'overview' | 'players' | 'worlds' | 'console' | 'backups' | 'settings'
 const labels: Record<ServerState, string> = {
   stopped: 'Detenido', installing: 'Instalando', starting: 'Iniciando',
   running: 'En ejecución', stopping: 'Deteniendo', crashed: 'Se ha cerrado inesperadamente', error: 'Error',
@@ -50,6 +51,7 @@ function App() {
   const [importing, setImporting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [progress, setProgress] = useState<Progress | null>(null)
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [players, setPlayers] = useState<PlayersSnapshot | null>(null)
@@ -107,13 +109,20 @@ function App() {
 
   useEffect(() => {
     if (!selectedId) return
+    let active = true
     setMetrics(null); setPlayers(null); setLogs([]); setBackups([]); setProps({})
     Promise.all([api.metrics(selectedId), api.log(selectedId), api.backups(selectedId), api.properties(selectedId), api.eulaAccepted(selectedId)])
       .then(([m, log, b, p, accepted]) => {
-        setMetrics(m); setLogs(log);
+        if (!active) return
+        setMetrics(m)
+        setLogs(current => {
+          const loaded = new Set(log.map(item => `${item.timestamp ?? ''}\0${item.line}`))
+          return [...log, ...current.filter(item => !loaded.has(`${item.timestamp ?? ''}\0${item.line}`))].slice(-1000)
+        })
         setBackups(b); setProps(p); setEula(accepted)
-      }).catch(e => setError(errorText(e)))
-    api.players(selectedId).then(setPlayers).catch(e => setError(errorText(e)))
+      }).catch(e => { if (active) setError(errorText(e)) })
+    api.players(selectedId).then(value => { if (active) setPlayers(value) }).catch(e => { if (active) setError(errorText(e)) })
+    return () => { active = false }
   }, [selectedId])
 
   useEffect(() => {
@@ -147,11 +156,12 @@ function App() {
     return false
   }
 
-  const create = async (input: CreateInput) => {
+  const create = async (input: CreateInput, worldSource?: string) => {
     await act(async () => {
       const server = await api.create(input)
       setCreating(false); setSelectedId(server.id); setView('overview')
       await refresh()
+      if (worldSource) await api.importWorld(server.id,worldSource,'world')
       await api.install(server.id)
       await refresh()
     })
@@ -167,10 +177,29 @@ function App() {
     })
   }
 
+  const removeServer = async (server: Server): Promise<DeleteOutcome> => {
+    setError(null); setNotice(null); setBusy(true)
+    try {
+      const outcome = await api.deleteServer(server.id)
+      setSelectedId(null)
+      setView('overview')
+      await refresh()
+      setNotice(outcome.cleanupWarnings.length
+        ? `Se quitó «${server.name}» de la biblioteca. Algunos archivos no se pudieron limpiar: ${outcome.cleanupWarnings.join(' ')}${outcome.retainedDirectory ? ` La carpeta original sigue en ${outcome.retainedDirectory}.` : ''}`
+        : outcome.retainedDirectory
+          ? `Se quitó «${server.name}» de la biblioteca. La carpeta original permanece en ${outcome.retainedDirectory}.`
+          : `Se eliminó «${server.name}» y sus archivos locales.`)
+      return outcome
+    } catch (cause) {
+      setError(errorText(cause))
+      throw cause
+    } finally { setBusy(false) }
+  }
+
   const selectedName = selected?.name ?? 'Servidores'
   return <div className={`shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <aside className="sidebar" aria-label="Servidores">
-      <div className="sidebar-top"><div className="brand-mark" aria-hidden="true"><Icon name="server" size={18}/></div><div className="wordmark">TCHLauncher</div><button className="sidebar-toggle icon-button" aria-label={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} title={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><Icon name={sidebarCollapsed ? 'expand' : 'collapse'} size={18}/></button></div>
+      <div className="sidebar-top"><div className="wordmark">TCHLauncher</div><button className="sidebar-toggle icon-button" aria-label={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} title={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><Icon name={sidebarCollapsed ? 'expand' : 'collapse'} size={18}/></button></div>
       <div className="sidebar-label">Mis servidores <span>{servers.length}</span></div>
       <nav className="server-list" aria-label="Lista de servidores" onScroll={() => setSidebarTooltip(null)}>
         {servers.map(server => <button key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing ? 'active' : ''}`} onClick={() => { setSidebarTooltip(null); setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => setSidebarTooltip(null)} onFocus={event => showSidebarTooltip(server,event.currentTarget)} onBlur={() => setSidebarTooltip(null)} aria-label={sidebarCollapsed ? `${server.name}, ${server.platform === 'paper' ? 'Paper' : 'Vanilla'} ${server.version}, ${stateText(server.state)}` : undefined} aria-current={selectedId === server.id && !creating && !importing ? 'page' : undefined}>
@@ -179,24 +208,26 @@ function App() {
       </nav>
       <div className="sidebar-actions"><button className="new-server-link" aria-label="Nuevo servidor" title={sidebarCollapsed ? 'Nuevo servidor' : undefined} onClick={() => { setImporting(false); setCreating(true) }}><Icon name="plus" size={17}/><span>Nuevo servidor</span></button>
       <button className="new-server-link" aria-label="Importar servidor" title={sidebarCollapsed ? 'Importar servidor' : undefined} onClick={() => { setCreating(false); setImporting(true) }}><Icon name="folder" size={17}/><span>Importar servidor</span></button></div>
-      <div className="sidebar-footer"><span>Servidores locales</span><span>v0.2</span></div>
+      <div className="sidebar-footer"><span>Servidores locales</span><span>v0.4</span></div>
     </aside>
 
     <main className="main">
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
+      {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
       {creating ? <CreateView onCancel={() => setCreating(false)} onCreate={create} busy={busy} systemMemory={systemMemory}/>
       : importing ? <ImportView onCancel={() => setImporting(false)} onImport={importExisting} busy={busy}/>
       : !selected ? <div className="empty-state"><div className="empty-intro"><div className="empty-symbol"><Icon name="server" size={31}/></div><h1>Prepara tu servidor.</h1><p>Crea un servidor nuevo o incorpora uno que ya tengas. TCHLauncher se ocupa de Java, los archivos y el proceso; tus mundos se quedan en este ordenador.</p></div><div className="empty-choices"><button className="empty-choice primary" onClick={() => setCreating(true)}><span className="empty-choice-icon"><Icon name="plus" size={25}/></span><span><strong>Crear servidor</strong><small>Elige versión, tipo y capacidad.</small></span><Icon name="arrow" size={21}/></button><button className="empty-choice" onClick={() => setImporting(true)}><span className="empty-choice-icon"><Icon name="folder" size={25}/></span><span><strong>Importar una carpeta</strong><small>Usa tus archivos actuales o cópialos a la biblioteca.</small></span><Icon name="arrow" size={21}/></button></div><p className="empty-footnote">Vanilla y Paper · Servidores locales · Datos bajo tu control</p></div>
       : <>
         <header className="page-head"><div className="page-identity"><ServerArtwork server={selected}/><div><div className="page-context">{selected.platform === 'paper' ? 'Paper' : 'Vanilla'} <span>/</span> Minecraft {selected.version}</div><h1>{selectedName}</h1></div></div><div className="head-actions"><span className={`status-label ${selected.state}`}><span className={`state-dot ${selected.state}`} aria-hidden="true"/>{stateText(selected.state)}</span>{selected.jarPath && selected.javaPath ? selected.state === 'running' ? <button className="primary-button" disabled={busy} onClick={() => act(() => api.stop(selected.id))}>Detener</button> : selected.state === 'stopped' || selected.state === 'crashed' || selected.state === 'error' ? <button className="primary-button" disabled={busy || !eula} onClick={() => act(() => api.start(selected.id))}>Iniciar servidor <Icon name="arrow" size={15}/></button> : null : <button className="primary-button" disabled={busy} onClick={() => act(() => api.install(selected.id))}>{selected.jarPath ? 'Preparar Java' : 'Instalar'} <Icon name="arrow" size={15}/></button>}</div></header>
-        <nav className="tabs" aria-label="Secciones del servidor">{(['overview','players','console','backups','settings'] as View[]).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} className={view === item ? 'active' : ''} onClick={() => setView(item)}>{ {overview:'Resumen',players:'Jugadores',console:'Consola',backups:'Copias',settings:'Configuración'}[item] }</button>)}</nav>
+        <nav className="tabs" aria-label="Secciones del servidor">{(['overview','players','worlds','console','backups','settings'] as View[]).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} className={view === item ? 'active' : ''} onClick={() => setView(item)}>{ {overview:'Resumen',players:'Jugadores',worlds:'Mundos',console:'Consola',backups:'Copias',settings:'Configuración'}[item] }</button>)}</nav>
         <div className="content">
           {progress?.serverId === selected.id && <div className="progress-block" role="status"><div><strong>{progress.label}</strong><span>{progress.total ? `${Math.round(progress.received / progress.total * 100)} %` : fmtBytes(progress.received)}</span></div>{progress.total ? <progress value={progress.received} max={progress.total}/> : <progress/>}</div>}
           {view === 'overview' && <Overview server={selected} metrics={metrics} players={players} logs={logs} backups={backups} port={props['server-port'] || '25565'} eula={eula} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => act(() => api.install(selected.id))} onConsole={() => setView('console')}/>} 
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
+          {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
           {view === 'console' && <ConsoleView serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
           {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { await api.createBackup(selected.id); setBackups(await api.backups(selected.id)) })}>Crear copia</button></div>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table"><div className="table-head"><span>Fecha</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" key={backup.id}><span>{new Date(backup.createdAt).toLocaleString()}</span><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => { if (window.confirm('Se guardará una copia del estado actual y después se restaurará esta versión. ¿Continuar?')) act(() => api.restoreBackup(selected.id,backup.id)) }}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
-          {view === 'settings' && <Settings server={selected} props={props} setProps={setProps} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)) })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))}/>} 
+          {view === 'settings' && <Settings server={selected} props={props} setProps={setProps} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)) })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => removeServer(selected)}/>}
         </div>
       </>}
     </main>
@@ -244,15 +275,23 @@ function Overview({server,metrics,players,logs,backups,port,eula,onAccept,onInst
   </div>
 }
 
-function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;onCreate:(input:CreateInput)=>Promise<void>;busy:boolean;systemMemory:number}) {
+function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;onCreate:(input:CreateInput,worldSource?:string)=>Promise<void>;busy:boolean;systemMemory:number}) {
+  const steps = ['Identidad','Versión','Mundo','Capacidad','Revisar'] as const
+  const [step,setStep] = useState(0)
+  const [furthestStep,setFurthestStep] = useState(0)
   const [versions,setVersions] = useState<Version[]>([])
   const [versionError,setVersionError] = useState<string|null>(null)
   const [imagePreview,setImagePreview] = useState<string|null>(null)
   const [imageError,setImageError] = useState<string|null>(null)
+  const [worldMode,setWorldMode] = useState<'new'|'existing'>('new')
+  const [worldSource,setWorldSource] = useState<WorldInspection|null>(null)
+  const [worldError,setWorldError] = useState<string|null>(null)
   const [input,setInput] = useState<CreateInput>({ name:'',version:'',platform:'vanilla',memoryMinMb:1024,memoryMaxMb:2048,maxPlayers:20,port:25565,storageTargetGb:20,imagePath:null })
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(input.memoryMaxMb,systemMemoryMb || 16384))
-  const invalidCapacity = input.memoryMinMb < 512 || input.memoryMaxMb < input.memoryMinMb || input.memoryMaxMb > 65536 || input.maxPlayers < 1 || input.maxPlayers > 1000 || input.storageTargetGb < 1 || input.storageTargetGb > 2048
+  const invalidCapacity = input.memoryMinMb < 512 || input.memoryMaxMb < input.memoryMinMb || input.memoryMaxMb > 65536 || input.maxPlayers < 1 || input.maxPlayers > 1000 || input.storageTargetGb < 1 || input.storageTargetGb > 2048 || input.port < 1 || input.port > 65535 || ![input.memoryMinMb,input.memoryMaxMb,input.maxPlayers,input.storageTargetGb,input.port].every(Number.isFinite)
+  const readyToCreate = !!input.name.trim() && !!input.version && !versionError && !invalidCapacity && (worldMode === 'new' || !!worldSource)
+  const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError : step === 2 ? worldMode === 'new' || !!worldSource : step === 3 ? !invalidCapacity : readyToCreate
   const loadVersions = () => api.versions().then(items => {
     setVersions(items); setVersionError(null)
     setInput(old => ({ ...old,version:old.version || items[0]?.id || '' }))
@@ -268,19 +307,52 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       if (image) { setImagePreview(image.data); setInput(old => ({...old,imagePath:image.path})) }
     } catch(e) { setImageError(errorText(e)) }
   }
+  const chooseWorld = async () => {
+    setWorldError(null)
+    try { const selected = await api.pickWorldFolder(); if (selected) setWorldSource(selected) }
+    catch(e) { setWorldError(errorText(e)) }
+  }
+  useEffect(() => { if (step > 0) document.querySelector<HTMLElement>('.wizard-panel h2')?.focus() },[step])
+  const advance = () => {
+    if (!canAdvance || busy) return
+    if (step < steps.length - 1) {
+      const next = step + 1
+      setStep(next)
+      setFurthestStep(current => Math.max(current,next))
+    } else onCreate(input,worldMode === 'existing' ? worldSource?.path : undefined)
+  }
   return <div className="form-page">
-    <div className="form-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><h1>Crear servidor</h1><p>Lo esencial para poner tu mundo en marcha. Podrás ajustar todo después.</p></div>
-    <div className="form-layout"><form className="create-form" onSubmit={e => { e.preventDefault(); onCreate(input) }}>
-      <div className="form-section-title"><span>01</span><div><h2>Identidad</h2><p>Cómo aparecerá en tu biblioteca.</p></div></div>
+    <div className="form-heading wizard-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><span className="wizard-counter">Paso {step + 1} de {steps.length}</span><h1>Crear servidor</h1><p>Tomaremos una decisión a la vez. Al final podrás revisar todo antes de instalarlo.</p></div>
+    <nav className="wizard-steps" aria-label="Pasos de creación">{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => setStep(index)}><span>{String(index + 1).padStart(2,'0')}</span><strong>{label}</strong></button>)}</nav>
+    <div className="form-layout wizard-layout"><form className="create-form wizard-form" onSubmit={e => { e.preventDefault(); advance() }}>
+      <div className="wizard-panel" key={step}>
+      {step === 0 && <>
+      <div className="wizard-panel-heading"><span>Identidad</span><h2 tabIndex={-1}>Ponle un nombre propio</h2><p>La imagen y el nombre te ayudarán a reconocerlo en la biblioteca.</p></div>
       <div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt="Vista previa de la imagen"/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage} disabled={!isTauri()}>Elegir imagen</button><p>PNG, JPG o WebP · hasta 2 MB</p>{imageError && <p className="form-error" role="alert">{imageError}</p>}</div><div className="form-row"><label htmlFor="new-name">Nombre del servidor</label><input id="new-name" autoFocus required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})} placeholder="Mi servidor"/><p className="field-help">Solo lo verás tú en este launcher.</p></div></div>
-      <div className="form-section-title"><span>02</span><div><h2>Versión y tipo</h2><p>Selecciona cómo quieres jugar.</p></div></div>
+      </>}
+      {step === 1 && <>
+      <div className="wizard-panel-heading"><span>Versión</span><h2 tabIndex={-1}>Elige cómo quieres jugar</h2><p>Vanilla mantiene la experiencia original. Paper aporta compatibilidad con plugins y ajustes de rendimiento.</p></div>
       <div className="form-pair"><div className="form-row"><label htmlFor="new-version">Versión de Minecraft</label>{versionError ? <div className="form-error" role="alert">No se pudo cargar el catálogo: {versionError} <button type="button" onClick={loadVersions}>Reintentar</button></div> : <select id="new-version" required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versions.length ? 'Selecciona una versión' : 'Cargando versiones…'}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}</option>)}</select>}</div><div className="form-row"><label htmlFor="new-platform">Tipo de servidor</label><select id="new-platform" value={input.platform} onChange={e => setInput({...input,platform:e.target.value as CreateInput['platform']})}><option value="vanilla">Vanilla</option><option value="paper">Paper</option></select></div></div><p className="field-help type-help">{input.platform === 'paper' ? 'Paper admite plugins y opciones extra de rendimiento.' : 'Vanilla ofrece la experiencia original de Minecraft.'}</p>
-      <div className="form-section-title"><span>03</span><div><h2>Capacidad</h2><p>Un punto de partida que puedes cambiar luego.</p></div></div>
+      </>}
+      {step === 2 && <>
+      <div className="wizard-panel-heading"><span>Mundo</span><h2 tabIndex={-1}>¿Dónde empieza la aventura?</h2><p>Puedes generar un mundo nuevo o copiar uno de Minecraft Java sin modificar el original.</p></div>
+      <div className="world-choice"><label><input type="radio" name="world-mode" checked={worldMode === 'new'} onChange={() => setWorldMode('new')}/><span><strong>Mundo nuevo</strong><small>Minecraft lo generará en el primer inicio.</small></span></label><label><input type="radio" name="world-mode" checked={worldMode === 'existing'} onChange={() => setWorldMode('existing')}/><span><strong>Usar un mundo existente</strong><small>Se copiará a este servidor; el original se conserva.</small></span></label></div>
+      {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld}>Elegir carpeta del mundo</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldError && <p className="form-error" role="alert">{worldError}</p>}</div>}
+      </>}
+      {step === 3 && <>
+      <div className="wizard-panel-heading"><span>Capacidad</span><h2 tabIndex={-1}>Ajusta los recursos</h2><p>Empieza con valores moderados. Podrás cambiarlos después con el servidor detenido.</p></div>
       <div className="capacity-grid"><SliderField id="new-memory-min" label="RAM inicial" value={input.memoryMinMb} min={512} max={Math.max(input.memoryMinMb,input.memoryMaxMb)} maxInput={65536} step={256} unit="MB" onChange={value => setInput({...input,memoryMinMb:value,memoryMaxMb:value >= 512 && value <= 65536 ? Math.max(input.memoryMaxMb,value) : input.memoryMaxMb})}/><SliderField id="new-memory-max" label="RAM máxima" value={input.memoryMaxMb} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setInput({...input,memoryMaxMb:value,memoryMinMb:value >= 512 && value <= 65536 ? Math.min(input.memoryMinMb,value) : input.memoryMinMb})}/><SliderField id="new-players" label="Jugadores máximos" value={input.maxPlayers} min={1} max={Math.max(100,input.maxPlayers)} maxInput={1000} step={1} onChange={value => setInput({...input,maxPlayers:value})}/><SliderField id="new-storage" label="Objetivo de espacio" value={input.storageTargetGb} min={1} max={Math.max(200,input.storageTargetGb)} maxInput={2048} step={1} unit="GB" onChange={value => setInput({...input,storageTargetGb:value})}/></div><p className="field-help">{systemMemory ? `Tu equipo tiene ${fmtBytes(systemMemory)} de RAM.` : 'Deja memoria libre para el sistema y para jugar.'} El objetivo de espacio sirve para avisarte; no impone una cuota al disco.</p>{systemMemoryMb > 0 && input.memoryMaxMb > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física. Deja recursos para el sistema y para jugar.</p>}
       <details className="advanced"><summary>Opciones de red</summary><div className="form-row"><label htmlFor="new-port">Puerto del servidor</label><input id="new-port" type="number" min="1" max="65535" value={input.port} onChange={e => setInput({...input,port:Number(e.target.value)})}/></div></details>
-      {invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de crear el servidor.</p>}
-      <div className="form-actions"><button type="button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={busy || !input.version || !!versionError || invalidCapacity}>{busy ? 'Preparando…' : 'Crear e instalar'}<Icon name="arrow" size={16}/></button></div>
-    </form><aside className="form-aside"><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{input.platform === 'paper' ? 'Paper' : 'Vanilla'} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Memoria</dt><dd>{fmtBytes(input.memoryMaxMb * 1024 * 1024)}</dd></div><div><dt>Jugadores</dt><dd>Hasta {input.maxPlayers}</dd></div><div><dt>Objetivo de espacio</dt><dd>{input.storageTargetGb} GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
+      {invalidCapacity && <p className="form-error" role="alert">Revisa RAM, jugadores, espacio y puerto antes de continuar.</p>}
+      </>}
+      {step === 4 && <>
+      <div className="wizard-panel-heading"><span>Revisión</span><h2 tabIndex={-1}>Todo listo para crear tu servidor</h2><p>Comprueba los datos. Puedes volver a cualquier paso antes de empezar la instalación.</p></div>
+      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => setStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'} · {input.platform === 'paper' ? 'Paper' : 'Vanilla'}</strong><button type="button" className="text-button" onClick={() => setStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => setStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => setStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => setStep(3)}>Editar</button></div></div>
+      <p className="wizard-final-note">La instalación descargará Java y los archivos del servidor. Antes del primer inicio podrás leer y aceptar la EULA de Minecraft.</p>
+      </>}
+      </div>
+      <div className="form-actions wizard-actions"><span>{step < steps.length - 1 ? 'Podrás cambiar estos valores más adelante.' : 'La instalación puede tardar unos minutos.'}</span><div>{step > 0 && <button type="button" disabled={busy} onClick={() => setStep(value => value - 1)}>Anterior</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? 'Preparando…' : step === steps.length - 1 ? 'Crear e instalar' : 'Continuar'}<Icon name="arrow" size={16}/></button></div></div>
+    </form><aside className="form-aside"><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{input.platform === 'paper' ? 'Paper' : 'Vanilla'} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Mundo</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || 'Por elegir' : 'Nuevo'}</dd></div><div><dt>Memoria</dt><dd>{fmtBytes(input.memoryMaxMb * 1024 * 1024)}</dd></div><div><dt>Jugadores</dt><dd>Hasta {input.maxPlayers}</dd></div><div><dt>Objetivo de espacio</dt><dd>{input.storageTargetGb} GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
   </div>
 }
 
@@ -314,16 +386,51 @@ function ImportView({onCancel,onImport,busy}: {onCancel:()=>void;onImport:(input
   return <div className="form-page import-page"><div className="form-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><h1>Importar servidor</h1><p>Trae un servidor existente a tu biblioteca sin perder sus archivos.</p></div><div className="import-source"><div className="import-source-icon"><Icon name="folder" size={22}/></div><div><strong>{inspection ? 'Carpeta seleccionada' : 'Selecciona la carpeta del servidor'}</strong><p>{inspection ? inspection.path : 'Debe contener server.properties y un archivo .jar'}</p></div><button onClick={choose} disabled={picking || busy}>{picking ? 'Inspeccionando…' : inspection ? 'Cambiar carpeta' : 'Elegir carpeta'}</button></div>{formError && <p className="form-error" role="alert">{formError}</p>}{inspection && <form className="create-form import-form" onSubmit={e => { e.preventDefault(); onImport(input) }}><div className="form-section-title"><span>01</span><div><h2>Identidad</h2><p>Así aparecerá en tu biblioteca.</p></div></div><div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt="Vista previa de la imagen"/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage}>Elegir imagen</button><p>PNG, JPG o WebP · hasta 2 MB</p></div><div className="form-row"><label htmlFor="import-name">Nombre del servidor</label><input id="import-name" required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})}/></div></div><div className="form-section-title"><span>02</span><div><h2>Datos del servidor</h2><p>Revisa los valores detectados.</p></div></div><div className="form-pair"><div className="form-row"><label htmlFor="import-version">Versión de Minecraft</label><input id="import-version" list="import-versions" required value={input.version} onChange={e => setInput({...input,version:e.target.value})}/><datalist id="import-versions">{versions.map(v => <option key={v.id} value={v.id}/>)}</datalist></div><div className="form-row"><label htmlFor="import-platform">Tipo</label><select id="import-platform" value={input.platform} onChange={e => setInput({...input,platform:e.target.value as ImportInput['platform']})}><option value="vanilla">Vanilla</option><option value="paper">Paper</option></select></div></div><p className="field-help">Comprueba la versión del servidor original. La usaremos para elegir Java compatible.</p><div className="form-row"><label htmlFor="import-jar">Archivo del servidor</label><select id="import-jar" value={input.jarFile} onChange={e => setInput({...input,jarFile:e.target.value})}>{inspection.jarFiles.map(jar => <option key={jar} value={jar}>{jar}</option>)}</select></div><div className="import-storage"><SliderField id="import-storage" label="Objetivo de espacio" value={input.storageTargetGb} min={1} max={Math.max(200,input.storageTargetGb)} maxInput={2048} step={1} unit="GB" onChange={value => setInput({...input,storageTargetGb:value})}/><p className="field-help">Se usa para avisar cuando el servidor ocupa más espacio. No limita el disco.</p></div><fieldset className="import-mode"><legend>Ubicación de los archivos</legend><label><input type="radio" checked={input.copy} onChange={() => setInput({...input,copy:true})}/> Copiar a la biblioteca de TCHLauncher</label><label><input type="radio" checked={!input.copy} onChange={() => setInput({...input,copy:false})}/> Administrar la carpeta actual</label><p className="field-help">Si administras la carpeta actual, los cambios y las restauraciones afectarán a los archivos originales.</p></fieldset><div className="form-actions"><button type="button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={busy || !input.version || input.storageTargetGb < 1 || input.storageTargetGb > 2048}>{busy ? 'Importando…' : 'Importar servidor'}<Icon name="arrow" size={16}/></button></div></form>}</div>
 }
 
-const settingsFields = [
-  ['motd','Mensaje del servidor','text'],['server-port','Puerto','number'],
-  ['gamemode','Modo de juego','text'],['difficulty','Dificultad','text'],['pvp','Combate entre jugadores','boolean'],
-  ['online-mode','Verificación de cuentas','boolean'],['white-list','Lista blanca','boolean'],['enforce-whitelist','Expulsar a no autorizados','boolean'],
-  ['view-distance','Distancia de visión','number'],['simulation-distance','Distancia de simulación','number'],
-] as const
+type SettingField = {key:string;label:string;description:string;kind:'text'|'number'|'toggle'|'choice';min?:number;max?:number;options?:{value:string;label:string}[]}
+const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = [
+  {title:'Identidad y conexión',description:'Lo que verán los jugadores y cómo se conectarán.',fields:[
+    {key:'motd',label:'Mensaje del servidor',description:'Aparece en la lista de servidores de Minecraft.',kind:'text'},
+    {key:'server-port',label:'Puerto',description:'Puerto TCP usado para las conexiones.',kind:'number',min:1,max:65535},
+    {key:'online-mode',label:'Verificación de cuentas',description:'Comprueba las cuentas con los servicios oficiales de Minecraft.',kind:'toggle'},
+  ]},
+  {title:'Juego',description:'Reglas y distancia que se aplican al mundo.',fields:[
+    {key:'gamemode',label:'Modo de juego',description:'Modo inicial de los jugadores nuevos.',kind:'choice',options:[{value:'survival',label:'Supervivencia'},{value:'creative',label:'Creativo'},{value:'adventure',label:'Aventura'},{value:'spectator',label:'Espectador'}]},
+    {key:'difficulty',label:'Dificultad',description:'Afecta al combate y a las criaturas.',kind:'choice',options:[{value:'peaceful',label:'Pacífica'},{value:'easy',label:'Fácil'},{value:'normal',label:'Normal'},{value:'hard',label:'Difícil'}]},
+    {key:'pvp',label:'Combate entre jugadores',description:'Permite que los jugadores se dañen entre sí.',kind:'toggle'},
+    {key:'view-distance',label:'Distancia de visión',description:'Chunks que el servidor envía a cada jugador.',kind:'number',min:2,max:32},
+    {key:'simulation-distance',label:'Distancia de simulación',description:'Chunks donde el mundo sigue activo.',kind:'number',min:2,max:32},
+  ]},
+  {title:'Acceso',description:'Quién puede entrar y cómo se aplica la lista blanca.',fields:[
+    {key:'white-list',label:'Lista blanca',description:'Solo permite jugadores añadidos a la lista.',kind:'toggle'},
+    {key:'enforce-whitelist',label:'Expulsar a no autorizados',description:'Saca a quien deje de estar autorizado.',kind:'toggle'},
+  ]},
+]
+const knownSettings = new Set(settingsGroups.flatMap(group => group.fields.map(field => field.key)))
 
-function Settings({server,props,setProps,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,onSave,onPickImage,onClearImage}: {server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void}) {
+function SettingsPropertyGroups({values,onChange}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void}) {
+  const update = (key: string, value: string) => onChange({...values,[key]:value})
+  return <div className="settings-groups">{settingsGroups.map(group => <section className="settings-group" key={group.title} aria-label={group.title}><div className="settings-group-heading"><h4>{group.title}</h4><p>{group.description}</p></div><div className="settings-fields">{group.fields.map(field => <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{field.label}</strong><small>{field.description}</small></span>{field.kind === 'toggle' ? <input className="setting-toggle" type="checkbox" checked={values[field.key] === 'true'} onChange={event => update(field.key,String(event.target.checked))}/> : field.kind === 'choice' ? <select value={values[field.key] || field.options?.[0]?.value || ''} onChange={event => update(field.key,event.target.value)}>{field.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input type={field.kind} min={field.min} max={field.max} value={values[field.key] ?? ''} onChange={event => update(field.key,event.target.value)}/>}</label>)}</div></section>)}</div>
+}
+
+function Settings({server,props,setProps,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,onSave,onPickImage,onClearImage,onDelete}: {server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>Promise<DeleteOutcome>}) {
   const [newKey,setNewKey] = useState('')
   const [newValue,setNewValue] = useState('')
+  const [deletePreview,setDeletePreview] = useState<DeletePreview|null>(null)
+  const [deleteLoading,setDeleteLoading] = useState(false)
+  const [deleteError,setDeleteError] = useState<string|null>(null)
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (deletePreview) cancelDeleteRef.current?.focus() },[deletePreview])
+  const beginDelete = async () => {
+    setDeleteLoading(true); setDeleteError(null)
+    try { setDeletePreview(await api.previewDeleteServer(server.id)) }
+    catch (cause) { setDeleteError(errorText(cause)) }
+    finally { setDeleteLoading(false) }
+  }
+  const confirmDelete = async () => {
+    setDeleteLoading(true); setDeleteError(null)
+    try { await onDelete() }
+    catch (cause) { setDeleteError(errorText(cause)); setDeleteLoading(false) }
+  }
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(memory.max,systemMemoryMb || 16384))
   const maxPlayers = Number(props['max-players'] || 20)
@@ -331,8 +438,12 @@ function Settings({server,props,setProps,memory,setMemory,storageTarget,setStora
   return <section className="settings-view"><div className="section-heading"><div><h2>Configuración</h2><p>Personaliza la apariencia y los ajustes del servidor.</p></div><button className="primary-button" disabled={busy || invalidCapacity || !['stopped','crashed','error'].includes(server.state)} onClick={onSave}>Guardar cambios <Icon name="check" size={16}/></button></div>
     <h3>Imagen del servidor</h3><div className="settings-image"><ServerArtwork server={server}/><div><strong>{server.name}</strong><p>Esta imagen aparece junto al servidor en la barra lateral. PNG, JPG o WebP, hasta 2 MB.</p><div className="settings-image-actions"><button disabled={busy} onClick={onPickImage}>{server.imageData ? 'Cambiar imagen' : 'Elegir imagen'}</button>{server.imageData && <button className="text-button" disabled={busy} onClick={onClearImage}>Quitar imagen</button>}</div></div></div>
     {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">Detén el servidor para editar su configuración.</p>}
-    <h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}    <h3>Propiedades del servidor</h3><div className="settings-fields">{settingsFields.map(([key,label,kind]) => <label key={key} className="setting-line"><span>{label}</span>{kind === 'boolean' ? <select value={props[key] || 'false'} onChange={e => setProps({...props,[key]:e.target.value})}><option value="true">Activado</option><option value="false">Desactivado</option></select> : <input type={kind} value={props[key] ?? ''} onChange={e => setProps({...props,[key]:e.target.value})}/>}</label>)}</div>
-    <details className="advanced-properties"><summary>Otras propiedades</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !settingsFields.some(([known]) => known === key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label="Nombre de propiedad" placeholder="Nombre de propiedad" value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label="Valor" placeholder="Valor" value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>Añadir</button></div></details>
+    <h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}
+    <h3>Propiedades del servidor</h3><SettingsPropertyGroups values={props} onChange={setProps}/>
+    <details className="advanced-properties"><summary>Otras propiedades</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !knownSettings.has(key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label="Nombre de propiedad" placeholder="Nombre de propiedad" value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label="Valor" placeholder="Valor" value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>Añadir</button></div></details>
+    <div className="delete-server-section"><div><h3>Eliminar servidor</h3><p>Quita este servidor de la biblioteca. Si sus archivos están guardados aquí, también se eliminarán junto con sus copias de seguridad.</p></div><button className="danger-outline-button" disabled={busy || deleteLoading || !['stopped','crashed','error'].includes(server.state)} onClick={beginDelete}>Eliminar servidor</button></div>
+    {deleteError && !deletePreview && <p className="form-error" role="alert">{deleteError}</p>}
+    {deletePreview && <div className="modal-scrim" onMouseDown={event => { if (event.target === event.currentTarget && !deleteLoading) setDeletePreview(null) }}><div className="close-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-server-title" onKeyDown={event => { if (event.key === 'Escape' && !deleteLoading) setDeletePreview(null); if (event.key === 'Tab') { const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')); const index = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && index === 0) { event.preventDefault(); buttons.at(-1)?.focus() } else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0]?.focus() } } }}><div className="eyebrow">Confirmar eliminación</div><h2 id="delete-server-title">Eliminar «{server.name}»</h2><p>{deletePreview.managedFiles ? 'Se eliminarán los archivos de este servidor, su imagen y sus copias de seguridad. Esta acción no se puede deshacer.' : 'Se quitará de la biblioteca y se eliminarán su imagen y sus copias de seguridad. La carpeta original importada permanecerá en tu ordenador.'}</p><div className="delete-preview-details"><span>Carpeta</span><strong>{deletePreview.directory}</strong><span>Copias guardadas</span><strong>{deletePreview.backupCount}</strong></div>{deleteError && <p className="form-error" role="alert">{deleteError}</p>}<div className="world-confirm-actions"><button ref={cancelDeleteRef} disabled={deleteLoading} onClick={() => setDeletePreview(null)}>Cancelar</button><button className="danger-button" disabled={deleteLoading || busy} onClick={confirmDelete}>{deleteLoading ? 'Eliminando…' : 'Sí, eliminar servidor'}</button></div></div></div>}
   </section>
 }
 

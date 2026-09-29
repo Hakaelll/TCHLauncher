@@ -1,7 +1,8 @@
-use crate::model::{Backup, CreateServer, ImportInspection, ImportServer, Server};
+use crate::model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, Server};
 use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::{Path, PathBuf};
+use std::fs;
 use uuid::Uuid;
 
 pub fn connect(root: &Path) -> Result<Connection, String> {
@@ -66,6 +67,81 @@ pub fn get(root: &Path, id: &str) -> Result<Server, String> {
     db.query_row(&format!("{SERVER_SELECT} WHERE id=?1"), [id], row_server)
         .optional().map_err(|e| e.to_string())?
         .ok_or_else(|| "No se encontró el servidor".to_string())
+}
+
+fn managed_directory(root: &Path, id: &str, server: &Server) -> bool {
+    Path::new(&server.directory) == root.join("servers").join(id)
+}
+
+pub fn delete_preview(root: &Path, id: &str) -> Result<DeletePreview, String> {
+    Uuid::parse_str(id).map_err(|_| "Identificador de servidor no válido".to_string())?;
+    let server = get(root, id)?;
+    Ok(DeletePreview {
+        managed_files: managed_directory(root, id, &server),
+        directory: server.directory.clone(),
+        backup_count: list_backups(root, id)?.len(),
+    })
+}
+
+struct StagedDeletion { original: PathBuf, staged: PathBuf, directory: bool }
+
+fn rollback_deletion(items: &[StagedDeletion]) -> Vec<String> {
+    items.iter().rev().filter_map(|item| fs::rename(&item.staged, &item.original).err()
+        .map(|error| format!("{}: {error}", item.original.display()))).collect()
+}
+
+pub fn delete(root: &Path, id: &str) -> Result<DeleteOutcome, String> {
+    Uuid::parse_str(id).map_err(|_| "Identificador de servidor no válido".to_string())?;
+    let server = get(root, id)?;
+    let managed = managed_directory(root, id, &server);
+    let db = connect(root)?;
+    let root_canonical = root.canonicalize().map_err(|e| e.to_string())?;
+    let server_path = root.join("servers").join(id);
+    let backup_path = root.join("backups").join(id);
+    let image_path = root.join("server-images").join(id);
+    let mut candidates = Vec::new();
+    if managed { candidates.push((server_path, true)); }
+    candidates.push((backup_path, true));
+    candidates.push((image_path, false));
+    let mut staged = Vec::new();
+    for (source, directory) in candidates {
+        let result = (|| -> Result<(), String> {
+            let meta = match fs::symlink_metadata(&source) {
+                Ok(meta) => meta,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(error) => return Err(error.to_string()),
+            };
+            if meta.file_type().is_symlink() || meta.is_dir() != directory {
+                return Err(format!("Ruta inesperada: {}", source.display()));
+            }
+            let parent = source.parent().ok_or("Ruta de datos no válida")?.canonicalize().map_err(|e| e.to_string())?;
+            let actual = source.canonicalize().map_err(|e| e.to_string())?;
+            if !parent.starts_with(&root_canonical) || actual.parent() != Some(parent.as_path()) {
+                return Err(format!("La ruta sale de los datos de la aplicación: {}", source.display()));
+            }
+            let moved = source.with_file_name(format!(".tch-deleting-{}", Uuid::new_v4()));
+            fs::rename(&source, &moved).map_err(|e| format!("No se pudo preparar la eliminación: {e}"))?;
+            staged.push(StagedDeletion { original: source, staged: moved, directory });
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let rollback = rollback_deletion(&staged);
+            return Err(if rollback.is_empty() { error } else { format!("{error}. No se pudo restaurar: {}", rollback.join("; ")) });
+        }
+    }
+    match db.execute("DELETE FROM servers WHERE id=?1", [id]) {
+        Ok(1) => (),
+        result => {
+            let error = result.err().map(|e| e.to_string()).unwrap_or_else(|| "El servidor ya no estaba registrado".into());
+            let rollback = rollback_deletion(&staged);
+            return Err(if rollback.is_empty() { error } else { format!("{error}. No se pudo restaurar: {}", rollback.join("; ")) });
+        }
+    }
+    let cleanup_warnings = staged.into_iter().filter_map(|item| {
+        let result = if item.directory { fs::remove_dir_all(&item.staged) } else { fs::remove_file(&item.staged) };
+        result.err().map(|error| format!("{}: {error}", item.staged.display()))
+    }).collect();
+    Ok(DeleteOutcome { retained_directory: if managed { None } else { Some(server.directory) }, cleanup_warnings })
 }
 
 fn image_mime(bytes: &[u8]) -> Option<&'static str> {
@@ -353,5 +429,37 @@ mod tests {
         clear_image(&root,&server.id).unwrap();
         assert!(list(&root).unwrap()[0].image_data.is_none());
         let _ = std::fs::remove_dir_all(root);
+    }
+    #[test]
+    fn deletes_managed_files_but_preserves_external_imports() {
+        let root = std::env::temp_dir().join(format!("tch-delete-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let managed = create(&root, CreateServer {name:"Managed".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();
+        fs::write(Path::new(&managed.directory).join("server.jar"), b"managed").unwrap();
+        crate::backup::create(&root, &managed.id).unwrap();
+        fs::create_dir_all(root.join("server-images")).unwrap();
+        fs::write(root.join("server-images").join(&managed.id), b"image").unwrap();
+        let preview = delete_preview(&root, &managed.id).unwrap();
+        assert!(preview.managed_files);
+        assert_eq!(preview.backup_count, 1);
+        let result = delete(&root, &managed.id).unwrap();
+        assert!(result.retained_directory.is_none());
+        assert!(result.cleanup_warnings.is_empty());
+        assert!(!Path::new(&managed.directory).exists());
+        assert!(!root.join("backups").join(&managed.id).exists());
+        assert!(!root.join("server-images").join(&managed.id).exists());
+        assert!(get(&root, &managed.id).is_err());
+
+        let external = root.join("external");
+        fs::create_dir_all(&external).unwrap();
+        fs::write(external.join("server.properties"), b"server-port=25566\nmax-players=12\n").unwrap();
+        fs::write(external.join("server.jar"), b"external").unwrap();
+        let imported = import(&root, ImportServer {path:external.to_string_lossy().into(),name:"External".into(),version:"1.21.4".into(),platform:"vanilla".into(),jar_file:"server.jar".into(),copy:false,storage_target_gb:20,image_path:None}).unwrap();
+        assert!(!delete_preview(&root, &imported.id).unwrap().managed_files);
+        let result = delete(&root, &imported.id).unwrap();
+        assert_eq!(result.retained_directory.as_deref(), Some(imported.directory.as_str()));
+        assert_eq!(fs::read(external.join("server.jar")).unwrap(), b"external");
+        assert!(get(&root, &imported.id).is_err());
+        let _ = fs::remove_dir_all(root);
     }
 }

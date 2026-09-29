@@ -107,3 +107,18 @@ pub struct Backup {
     pub size_bytes: u64,
     pub path: String,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeletePreview {
+    pub managed_files: bool,
+    pub directory: String,
+    pub backup_count: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteOutcome {
+    pub retained_directory: Option<String>,
+    pub cleanup_warnings: Vec<String>,
+}

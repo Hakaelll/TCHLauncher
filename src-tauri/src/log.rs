@@ -21,7 +21,7 @@ fn minecraft_time(line: &str) -> Option<String> {
 
 fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     let lower = line.to_ascii_lowercase();
-    let message = line.rsplit_once("]: ").map(|(_, message)| message).unwrap_or(line);
+    let message = line.split_once("]: ").map(|(_, message)| message).unwrap_or(line);
     let message_lower = message.to_ascii_lowercase();
     if lower.contains("can't keep up") { return ("warn", Some("lag")); }
     if lower.contains("exception") || lower.contains("[severe]") || lower.contains("[fatal]") {
@@ -52,7 +52,7 @@ pub fn parse(server_id: &str, record: &str) -> LogEvent {
         server_id: server_id.to_string(),
         level: level.to_string(),
         line: line.to_string(),
-        message: line.rsplit_once("]: ").map(|(_, message)| message).unwrap_or(line).to_string(),
+        message: line.split_once("]: ").map(|(_, message)| message).unwrap_or(line).to_string(),
         timestamp,
         event: event.map(str::to_string),
     }
@@ -128,6 +128,7 @@ mod tests {
         assert_eq!(parse("server", "[21:04:32] [Server thread/WARN]: Can't keep up!").event.as_deref(), Some("lag"));
         assert_eq!(parse("server", "[21:04:33] [Server thread/ERROR]: Plugin example failed").event.as_deref(), Some("plugin_error"));
         assert_eq!(parse("server", "[21:04:34] [Server thread/INFO]: <Alex> Hola").level, "chat");
+        assert_eq!(parse("server", "[21:04:35] [Server thread/INFO]: Alex wrote ]: hello").message, "Alex wrote ]: hello");
     }
 
     #[test]

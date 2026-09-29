@@ -15,7 +15,7 @@ Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --ma
 
 ## Flujo disponible
 
-1. Crear un servidor Vanilla o Paper eligiendo una versión release del catálogo de Mojang.
+1. Crear un servidor Vanilla o Paper con un asistente de cinco pasos: identidad, versión, mundo, capacidad y revisión. Se elige una versión release del catálogo de Mojang y, opcionalmente, un mundo existente.
 2. Descargar un runtime Temurin local y el servidor desde Mojang o PaperMC. Los artefactos con hash publicado se verifican antes de usarse.
 3. Leer y aceptar explícitamente la EULA de Minecraft.
 4. Iniciar el servidor, ver la salida, enviar comandos y detenerlo de forma ordenada.
@@ -25,6 +25,10 @@ Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --ma
 8. Elegir una imagen PNG, JPG o WebP para un servidor nuevo, importado o ya existente. Se muestra en la barra lateral y junto al título del servidor.
 9. Ajustar RAM, jugadores y objetivo de espacio escribiendo un valor o moviendo un deslizador. El objetivo de espacio compara el tamaño de la carpeta del servidor y avisa al superarlo; no limita el disco.
 10. Consultar jugadores conocidos y conectados, lista blanca, operadores y bloqueos. Con el servidor en marcha, enviar comandos para gestionar permisos, expulsiones y bloqueos. Importar una lista blanca `.txt` o `whitelist.json` con vista previa.
+11. Buscar y filtrar la consola por nivel, copiar las líneas visibles y exportar el log completo. El Resumen muestra eventos recientes detectados en la salida.
+12. Reducir la barra lateral a una columna de imágenes de servidores, con nombre al pasar el cursor o enfocar con teclado. La elección se recuerda entre sesiones.
+13. Gestionar mundos locales: importar una copia, duplicar, exportar, cambiar el mundo principal, abrir su carpeta y eliminarlo con copia previa. La pestaña Mundos requiere detener el servidor para operaciones de archivos.
+14. Eliminar un servidor detenido desde Configuración con una confirmación que muestra el alcance. Las carpetas importadas administradas en su ubicación original permanecen en el disco.
 
 Los datos se almacenan en el directorio de datos de la aplicación del sistema. No hay cuentas ni servicio cloud propio. Algunas descargas requieren acceso a internet.
 
@@ -34,8 +38,8 @@ Los datos se almacenan en el directorio de datos de la aplicación del sistema. 
 pnpm tauri build --bundles nsis
 ```
 
-El instalador se genera en `src-tauri/target/release/bundle/nsis/`. El binario y el instalador actuales no están firmados digitalmente.
+El instalador se genera en `src-tauri/target/release/bundle/nsis/`. El binario y el instalador actuales no están firmados digitalmente. Los cambios de v0.4.0 se describen en [RELEASE_NOTES_v0.4.0.md](RELEASE_NOTES_v0.4.0.md).
 
 ## Estado del proyecto
 
-Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para la estructura, [design.md](design.md) para la referencia visual aportada y [NEXT_TODOS.md](NEXT_TODOS.md) para funciones pendientes. Fabric, NeoForge, mods, plugins, importación de mundos y modpacks y la configuración de red pública aún no están implementados.
+Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para la estructura, [design.md](design.md) para la referencia visual aportada y [NEXT_TODOS.md](NEXT_TODOS.md) para funciones pendientes. Fabric, NeoForge, mods, plugins, importación de modpacks y la configuración de red pública aún no están implementados.

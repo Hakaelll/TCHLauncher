@@ -6,13 +6,14 @@ mod players;
 mod process;
 mod properties;
 mod storage;
+mod world;
 
-use model::{Backup, CreateServer, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
+use model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
 use players::{PlayersSnapshot, WhitelistImport};
 use process::ProcessManager;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -26,6 +27,33 @@ pub struct Engine {
     metrics_system: Mutex<sysinfo::System>,
     sampled_pids: Mutex<HashSet<u32>>,
     size_cache: Mutex<HashMap<String,(Instant,u64)>>,
+    operations: Arc<Mutex<HashSet<String>>>,
+}
+
+struct OperationGuard {
+    id: String,
+    operations: Arc<Mutex<HashSet<String>>>,
+}
+
+impl Drop for OperationGuard {
+    fn drop(&mut self) {
+        if let Ok(mut operations) = self.operations.lock() { operations.remove(&self.id); }
+    }
+}
+
+impl Engine {
+    fn reserve_stopped(&self, id: &str) -> Result<OperationGuard, String> {
+        let mut operations = self.operations.lock().map_err(|e| e.to_string())?;
+        if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
+        if self.processes.is_active(id) { return Err("Detén el servidor antes de modificar sus archivos".into()); }
+        storage::get(&self.root, id)?;
+        operations.insert(id.into());
+        Ok(OperationGuard { id: id.into(), operations: self.operations.clone() })
+    }
+
+    fn invalidate_size(&self, id: &str) {
+        if let Ok(mut cache) = self.size_cache.lock() { cache.remove(id); }
+    }
 }
 
 #[tauri::command]
@@ -71,6 +99,24 @@ fn clear_server_image(engine: State<'_, Engine>, id: String) -> Result<Server, S
 }
 
 #[tauri::command]
+fn preview_delete_server(engine: State<'_, Engine>, id: String) -> Result<DeletePreview, String> {
+    storage::delete_preview(&engine.root, &id)
+}
+
+#[tauri::command]
+async fn delete_server(engine: State<'_, Engine>, id: String) -> Result<DeleteOutcome, String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let root = engine.root.clone();
+    let deleted_id = id.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        storage::delete(&root, &deleted_id)
+    }).await.map_err(|e| e.to_string())?;
+    if result.is_ok() { engine.invalidate_size(&id); }
+    result
+}
+
+#[tauri::command]
 async fn inspect_import(path: String) -> Result<ImportInspection, String> {
     tauri::async_runtime::spawn_blocking(move || storage::inspect_import(&PathBuf::from(path))).await.map_err(|e| e.to_string())?
 }
@@ -83,12 +129,15 @@ async fn import_server(engine: State<'_, Engine>, input: ImportServer) -> Result
 
 #[tauri::command]
 async fn install_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
-    if engine.processes.is_active(&id) { return Err("Detén el servidor antes de reinstalar".into()); }
+    let guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
     let server = storage::get(&root,&id)?;
     process::emit_state(&app,&id,"installing");
     let task_app = app.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || install::install(&root,&server,&task_app))
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        install::install(&root,&server,&task_app)
+    })
         .await.map_err(|e| e.to_string())?;
     process::emit_state(&app,&id,if result.is_ok() {"stopped"} else {"error"});
     result
@@ -96,6 +145,7 @@ async fn install_server(app: AppHandle, engine: State<'_, Engine>, id: String) -
 
 #[tauri::command]
 fn accept_eula(engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    let _guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root,&id)?;
     if server.jar_path.is_none() { return Err("Instala el servidor antes de aceptar la EULA".into()); }
     std::fs::write(PathBuf::from(server.directory).join("eula.txt"),"# Accepted explicitly in TCHLauncher\neula=true\n")
@@ -110,6 +160,8 @@ fn eula_accepted(engine: State<'_, Engine>, id: String) -> Result<bool, String> 
 
 #[tauri::command]
 fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    let operations = engine.operations.lock().map_err(|e| e.to_string())?;
+    if operations.contains(&id) { return Err("Espera a que termine la operación de archivos".into()); }
     let server = storage::get(&engine.root,&id)?;
     engine.processes.start(&server,app)
 }
@@ -189,15 +241,14 @@ fn get_properties(engine: State<'_, Engine>, id: String) -> Result<BTreeMap<Stri
 
 #[tauri::command]
 fn save_properties(engine: State<'_, Engine>, id: String, values: BTreeMap<String,String>) -> Result<(), String> {
-    if engine.processes.is_active(&id) { return Err("Detén el servidor antes de cambiar las propiedades".into()); }
+    let _guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root,&id)?;
     properties::write(&PathBuf::from(server.directory).join("server.properties"),values)
 }
 
 #[tauri::command]
 fn save_memory(engine: State<'_, Engine>, id: String, min: u32, max: u32) -> Result<(), String> {
-    if engine.processes.is_active(&id) { return Err("Detén el servidor antes de cambiar la memoria".into()); }
-    storage::get(&engine.root,&id)?;
+    let _guard = engine.reserve_stopped(&id)?;
     storage::update_memory(&engine.root,&id,min,max)
 }
 
@@ -208,9 +259,12 @@ fn save_storage_target(engine: State<'_, Engine>, id: String, gb: u32) -> Result
 
 #[tauri::command]
 async fn create_backup(engine: State<'_, Engine>, id: String) -> Result<Backup, String> {
-    if engine.processes.is_active(&id) { return Err("Detén el servidor antes de crear un backup consistente".into()); }
+    let guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
-    tauri::async_runtime::spawn_blocking(move || backup::create(&root,&id)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        backup::create(&root,&id)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -221,9 +275,96 @@ fn list_backups(engine: State<'_, Engine>, id: String) -> Result<Vec<Backup>, St
 
 #[tauri::command]
 async fn restore_backup(engine: State<'_, Engine>, id: String, backup_id: String) -> Result<(), String> {
-    if engine.processes.is_active(&id) { return Err("Detén el servidor antes de restaurar".into()); }
+    let guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
-    tauri::async_runtime::spawn_blocking(move || backup::restore(&root,&id,&backup_id)).await.map_err(|e| e.to_string())?
+    let restored_id = id.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        backup::restore(&root,&restored_id,&backup_id)
+    }).await.map_err(|e| e.to_string())?;
+    if result.is_ok() { engine.invalidate_size(&id); }
+    result
+}
+
+#[tauri::command]
+async fn list_worlds(engine: State<'_, Engine>, id: String) -> Result<Vec<world::WorldInfo>, String> {
+    let server = storage::get(&engine.root, &id)?;
+    tauri::async_runtime::spawn_blocking(move || world::list(&server)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn pick_world_folder() -> Result<Option<world::WorldInspection>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(path) = rfd::FileDialog::new().pick_folder() else { return Ok(None); };
+        world::inspect(&path).map(Some)
+    }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn import_world(engine: State<'_, Engine>, id: String, path: String, name: String) -> Result<world::WorldInfo, String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let server = storage::get(&engine.root, &id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        world::import(&server, &PathBuf::from(path), &name)
+    }).await.map_err(|e| e.to_string())?;
+    if result.is_ok() { engine.invalidate_size(&id); }
+    result
+}
+
+#[tauri::command]
+async fn duplicate_world(engine: State<'_, Engine>, id: String, name: String, new_name: String) -> Result<world::WorldInfo, String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let server = storage::get(&engine.root, &id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        world::duplicate(&server, &name, &new_name)
+    }).await.map_err(|e| e.to_string())?;
+    if result.is_ok() { engine.invalidate_size(&id); }
+    result
+}
+
+#[tauri::command]
+async fn export_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Option<String>, String> {
+    let destination = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
+        .await.map_err(|e| e.to_string())?;
+    let Some(destination) = destination else { return Ok(None); };
+    let guard = engine.reserve_stopped(&id)?;
+    let server = storage::get(&engine.root, &id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        world::export(&server, &name, &destination).map(|path| Some(path.to_string_lossy().into_owned()))
+    }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn set_active_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Option<Backup>, String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let root = engine.root.clone();
+    let server = storage::get(&root, &id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        world::set_active(&root, &server, &name)
+    }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn delete_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Backup, String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let root = engine.root.clone();
+    let server = storage::get(&root, &id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        world::delete(&root, &server, &name)
+    }).await.map_err(|e| e.to_string())?;
+    if result.is_ok() { engine.invalidate_size(&id); }
+    result
+}
+
+#[tauri::command]
+fn open_world_folder(engine: State<'_, Engine>, id: String, name: String) -> Result<(), String> {
+    let server = storage::get(&engine.root, &id)?;
+    world::open_folder(&server, &name)
 }
 
 #[tauri::command]
@@ -285,7 +426,7 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             storage::connect(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Mutex::new(sysinfo::System::new()),sampled_pids:Mutex::new(HashSet::new()),size_cache:Mutex::new(HashMap::new()) });
+            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Mutex::new(sysinfo::System::new()),sampled_pids:Mutex::new(HashSet::new()),size_cache:Mutex::new(HashMap::new()),operations:Arc::new(Mutex::new(HashSet::new())) });
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
@@ -321,7 +462,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,inspect_import,import_server,install_server,accept_eula,eula_accepted,start_server,stop_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,get_metrics,system_memory,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![list_servers,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,accept_eula,eula_accepted,start_server,stop_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }
