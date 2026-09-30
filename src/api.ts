@@ -19,7 +19,7 @@ export type Server = {
 }
 export type Version = { id: string; kind: string }
 export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
-export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null}
+export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null;requiredMajor:number|null;compatibility:'unknown'|'compatible'|'incompatible'}
 export type LogLine = { serverId: string; level: string; line: string; message: string; timestamp: string | null; event: string | null }
 export type Metrics = { serverId: string; sampledAt: number; pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; diskReadBytes: number | null; diskWrittenBytes: number | null; sizeBytes: number }
 export type Backup = { id: string; serverId: string; createdAt: string; sizeBytes: number; path: string }
@@ -62,6 +62,8 @@ export const api = {
   importServer: (input: ImportInput) => invoke<Server>('import_server', { input }),
   install: (id: string) => invoke<void>('install_server', { id }),
   cancelInstall: (id: string, taskId: string) => invoke<boolean>('cancel_install', { id, taskId }),
+  pickCustomRuntime: (id:string) => invoke<RuntimeInfo|null>('pick_custom_runtime',{id}),
+  setCustomRuntime: (id:string,path:string) => invoke<void>('set_custom_runtime',{id,path}),
   runtimeInfo: (id:string) => invoke<RuntimeInfo>('get_runtime_info',{id}),
   playerHead: (uuid:string) => invoke<string|null>('get_player_head',{uuid}),
   prepareRuntime: (id:string,reinstall:boolean) => invoke<void>('prepare_runtime',{id,reinstall}),

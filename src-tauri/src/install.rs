@@ -58,6 +58,15 @@ fn version_metadata(task: &DownloadTask, version: &str) -> Result<Value, String>
     task.json(url, "Consultando requisitos de Minecraft")
 }
 
+pub fn required_java(root:&Path,version:&str)->Result<u64,String> {
+    if let Some(major)=crate::runtime::cached_requirement(root,version){return Ok(major);}
+    let task=DownloadTask::new("runtime-check","runtime",|_|{})?;
+    let meta=version_metadata(&task,version)?;
+    let major=meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
+    crate::runtime::remember_requirement(root,version,major)?;
+    Ok(major)
+}
+
 fn platform_archive() -> Result<(&'static str, &'static str, &'static str), String> {
     let os = match std::env::consts::OS { "windows" => "windows", "linux" => "linux", _ => return Err("La instalación automática de Java no está disponible en este sistema".into()) };
     let arch = match std::env::consts::ARCH { "x86_64" => "x64", "aarch64" => "aarch64", _ => return Err("Arquitectura no compatible con Java gestionado".into()) };
@@ -194,6 +203,7 @@ pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), 
     task.cancellation.check()?;
     let meta = version_metadata(task, &server.version)?;
     let major = meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
+    crate::runtime::remember_requirement(root,&server.version,major)?;
     if let Some(jar) = &server.jar_path {
         if !Path::new(jar).is_file() { return Err("El archivo .jar importado ya no existe".into()); }
         let java = ensure_java(root,major,task,false)?;
@@ -233,6 +243,7 @@ pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), 
 pub fn prepare_runtime(root: &Path,server: &Server,task: &DownloadTask,reinstall: bool) -> Result<(),String> {
     let meta = version_metadata(task,&server.version)?;
     let major = meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
+    crate::runtime::remember_requirement(root,&server.version,major)?;
     let java = ensure_java(root,major,task,reinstall)?;
     task.cancellation.check()?;
     storage::update_java(root,&server.id,&java)

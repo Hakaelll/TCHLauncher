@@ -382,3 +382,5 @@ button.danger-outline-button:hover:not(:disabled) { background: var(--danger-was
 @media(max-width:850px) { .performance-charts { grid-template-columns: minmax(0,1fr); gap: 26px; } }
 @media(prefers-reduced-motion:no-preference) { .server-context-menu { animation: menu-enter 120ms ease-out; transform-origin: top left; } }
 @keyframes menu-enter { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+.runtime-advanced { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }.runtime-advanced summary { cursor: pointer; font-size: 13px; font-weight: 560; }.runtime-advanced button { margin-top: 12px; }

@@ -167,6 +167,30 @@ async fn get_runtime_info(engine: State<'_, Engine>,id: String) -> Result<runtim
 }
 
 #[tauri::command]
+async fn pick_custom_runtime(engine: State<'_,Engine>,id:String)->Result<Option<runtime::RuntimeInfo>,String> {
+    let _guard=engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let dialog=rfd::FileDialog::new().set_title("Elegir ejecutable Java");
+        #[cfg(windows)] let dialog=dialog.add_filter("Ejecutable Java",&["exe"]);
+        let Some(path)=dialog.pick_file() else {return Ok(None);};
+        let major=install::required_java(&root,&server.version)?;
+        runtime::candidate(&root,&server,&path,major).map(Some)
+    }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn set_custom_runtime(engine: State<'_,Engine>,id:String,path:String)->Result<(),String> {
+    let _guard=engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let major=install::required_java(&root,&server.version)?;
+        let info=runtime::candidate(&root,&server,&PathBuf::from(path),major)?;
+        storage::update_java(&root,&server.id,&PathBuf::from(info.path.ok_or("Java no devolvió una ruta")?))
+    }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
 async fn get_player_head(engine: State<'_, Engine>,uuid: String) -> Result<Option<String>,String> {
     let root=engine.root.clone();
     tauri::async_runtime::spawn_blocking(move ||skin::player_head(&root,&uuid)).await.map_err(|e|e.to_string())?
@@ -219,13 +243,17 @@ fn eula_accepted(engine: State<'_, Engine>, id: String) -> Result<bool, String> 
 }
 
 #[tauri::command]
-fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
-    let operations = engine.operations.lock().map_err(|e| e.to_string())?;
-    if operations.contains(&id) { return Err("Espera a que termine la operación de archivos".into()); }
-    if engine.processes.is_active(&id) {return Err("Este servidor ya está en ejecución".into());}
-    storage::sync_legacy_icon(&engine.root,&id)?;
-    let server = storage::get(&engine.root,&id)?;
-    engine.processes.start(&server,app)
+async fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    let guard = engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();
+    let processes=engine.processes.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard=guard;
+        storage::sync_legacy_icon(&root,&id)?;
+        let server=storage::get(&root,&id)?;
+        runtime::validate_configured(&root,&server)?;
+        processes.start(&server,app)
+    }).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -249,6 +277,7 @@ async fn restart_server(app: AppHandle, engine: State<'_, Engine>, id: String) -
             std::thread::sleep(Duration::from_millis(200));
         }
         let server = storage::get(&root, &id)?;
+        runtime::validate_configured(&root,&server)?;
         processes.start(&server, app)
     }).await.map_err(|e| e.to_string())?
 }
@@ -580,7 +609,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_player_head,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,pick_custom_runtime,set_custom_runtime,get_player_head,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }

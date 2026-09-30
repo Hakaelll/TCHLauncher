@@ -45,3 +45,7 @@ La v0.6.0 se ha verificado mediante compilación y revisión del código; su apa
 Revisión de código y compilación, sin computer use ni subagentes por petición del usuario. La comprobación visual en Windows, navegación completa con teclado y conexión desde un cliente Minecraft quedan para prueba manual.
 
 El paso Versión permite Vanilla, Paper y Fabric. Al elegir Fabric se consulta su catálogo compatible; el avance se desactiva mientras carga y ofrece reintento si falla. Las respuestas de la plataforma anterior se descartan. Importación detecta nombres de launchers Fabric y propone el archivo correspondiente; tipo y versión siguen editables.
+
+## Java avanzado (0.6.3)
+
+El selector personalizado permanece en un desplegable de Configuración. Muestra versión, ruta y compatibilidad antes de confirmar, con Cancelar como foco inicial. El panel distingue runtime gestionado, externo, incompatible y versión comprobada sin metadatos. Los errores se muestran junto al control; el runtime previo se conserva si la selección falla.

@@ -62,8 +62,14 @@ Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para la estructura, [design.md](desi
 - Descargas cancelables con progreso, velocidad, reintentos y limpieza de parciales.
 - Gestión visible de Java y fallback de JRE a JDK de la misma versión para Temurin 16.
 
-Validación 0.6.1: 30 pruebas Rust locales, 6 de telemetría y las 2 comprobaciones con servicios oficiales aprobadas. Las comprobaciones con servicios oficiales son optativas: `cargo test --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture`. Usan carpetas temporales y no aceptan la EULA. La prueba Fabric arranca Minecraft hasta el aviso de EULA y comprueba que no se haya creado un mundo. La revisión visual y la conexión desde un cliente Minecraft requieren prueba manual.
+Validación 0.6.1: 30 pruebas Rust locales, 6 de telemetría y las 2 comprobaciones con servicios oficiales aprobadas. Las comprobaciones con servicios oficiales son optativas: `cargo test --manifest-path src-tauri/Cargo.toml installs_real_minecraft_1171_and_temurin16_without_accepting_eula -- --ignored --nocapture`. Usan carpetas temporales y no aceptan la EULA. La prueba Fabric arranca Minecraft hasta el aviso de EULA y comprueba que no se haya creado un mundo. La revisión visual y la conexión desde un cliente Minecraft requieren prueba manual.
 
 ### Cambios de 0.6.2
 
 Fabric aparece en creación e importación. Su catálogo muestra versiones de Minecraft compatibles, y la instalación elige un loader estable con bibliotecas verificadas y publicación atómica. La importación mantiene los archivos existentes, incluidas generaciones creadas por TCHLauncher. La comprobación real usa Minecraft 1.21.4 y Fabric Loader 0.19.5 y llega al aviso de EULA sin aceptarla. NeoForge, gestión de mods y actualización de loaders siguen pendientes.
+
+### Java personalizado
+
+En Configuración, abre **Java personalizado** y elige `bin/java.exe` (Windows) o `bin/java` (Linux). La aplicación verifica la versión requerida por Minecraft y muestra la ruta antes de confirmar. Puedes volver a Temurin gestionado desde el mismo panel. La comprobación de arranque usa los requisitos oficiales guardados, sin modificar el Java global.
+
+Prueba dirigida con Java 21 instalado: define `TCH_TEST_JAVA` con la ruta del ejecutable y ejecuta `cargo test --manifest-path src-tauri/Cargo.toml verifies_real_custom_java_without_changing_an_incompatible_selection -- --ignored`.

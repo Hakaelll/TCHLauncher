@@ -10,3 +10,7 @@
 - La cancelación interrumpe conexiones y cuerpos HTTP, limpia parciales y mantiene los artefactos anteriores hasta verificar la descarga nueva. Los reintentos automáticos se limitan a fallos transitorios.
 
 Pendiente antes de distribuir: auditoría completa de hosts de descarga y política de cierre durante tareas activas, y prueba de restauración ante fallos de disco.
+
+## Custom Java executables
+
+Custom Java requires an explicit executable selection and a separate confirmation. Only `java`/`java.exe` filenames are accepted; paths are canonicalized and must reference a file. Filename validation does not establish executable trust: selecting a custom runtime executes that user-chosen program with `-version`. Inspection has a five-second timeout, hidden Windows console and bounded output reading. Compatibility is checked before persistence and at launch when the official requirement is cached. No system Java settings are changed.
