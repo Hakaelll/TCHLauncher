@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 const MANIFEST: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
 fn client() -> Result<Client, String> {
-    Client::builder().user_agent("TCHLauncher/0.1 (local desktop server manager)")
+    Client::builder().user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")," (https://github.com/Hakaelll/TCHLauncher)"))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.url().scheme() != "https" { attempt.error("HTTPS required") }
             else if attempt.previous().len() > 10 { attempt.error("too many redirects") }

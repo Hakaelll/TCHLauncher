@@ -91,10 +91,14 @@ pub struct LogEvent {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Metrics {
+    pub server_id: String,
+    pub sampled_at: i64,
     pub pid: Option<u32>,
     pub uptime_seconds: Option<u64>,
     pub memory_bytes: Option<u64>,
     pub cpu_percent: Option<f32>,
+    pub disk_read_bytes: Option<u64>,
+    pub disk_written_bytes: Option<u64>,
     pub size_bytes: u64,
 }
 

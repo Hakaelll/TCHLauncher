@@ -17,9 +17,10 @@ pub struct ProcessControl {
     online: Mutex<HashSet<String>>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ProcessManager {
     pub processes: Arc<Mutex<HashMap<String, Arc<ProcessControl>>>>,
+    terminal_states: Arc<Mutex<HashMap<String,String>>>,
 }
 
 pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
@@ -32,9 +33,12 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
             let Ok(line) = line else { break; };
             let event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &line).ok())
                 .unwrap_or_else(|| log::parse(&id, &log::stamp(&line)));
-            if line.contains("Done (") {
-                *control.state.lock().unwrap() = "running".into();
-                emit_state(&app, &id, "running");
+            if event.event.as_deref() == Some("startup") {
+                let mut state = control.state.lock().unwrap();
+                if *state == "starting" {
+                    *state = "running".into();
+                    emit_state(&app, &id, "running");
+                }
             }
             if let Some((name, joined)) = crate::players::log_player_change(&line) {
                 let mut online = control.online.lock().unwrap();
@@ -57,7 +61,8 @@ impl ProcessManager {
 
     pub fn state(&self, id: &str) -> String {
         self.processes.lock().unwrap().get(id)
-            .map(|p| p.state.lock().unwrap().clone()).unwrap_or_else(|| "stopped".into())
+            .map(|p| p.state.lock().unwrap().clone())
+            .unwrap_or_else(|| self.terminal_states.lock().unwrap().get(id).cloned().unwrap_or_else(|| "stopped".into()))
     }
 
     pub fn is_active(&self, id: &str) -> bool { self.processes.lock().unwrap().contains_key(id) }
@@ -105,19 +110,24 @@ impl ProcessManager {
         let stderr = child.stderr.take().ok_or("No se pudo abrir la salida de errores")?;
         let control = Arc::new(ProcessControl { child: Mutex::new(child), stdin: Mutex::new(stdin), started: Instant::now(),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()) });
         map.insert(server.id.clone(), control.clone());
+        self.terminal_states.lock().unwrap().remove(&server.id);
         drop(map);
         emit_state(&app, &server.id, "starting");
         pump(stdout, app.clone(), server.id.clone(), log_file.clone(),control.clone());
         pump(stderr, app.clone(), server.id.clone(), log_file.clone(),control.clone());
         let all = self.processes.clone();
+        let terminal_states = self.terminal_states.clone();
         let id = server.id.clone();
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(500));
             let exit = control.child.lock().unwrap().try_wait();
             match exit {
                 Ok(Some(status)) => {
+                    let final_state = if status.success() { "stopped" } else { "crashed" };
+                    *control.state.lock().unwrap() = final_state.into();
+                    terminal_states.lock().unwrap().insert(id.clone(),final_state.into());
+                    emit_state(&app, &id, final_state);
                     all.lock().unwrap().remove(&id);
-                    emit_state(&app, &id, if status.success() { "stopped" } else { "crashed" });
                     let message = format!("Proceso finalizado: {status}");
                     let mut event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &message).ok())
                         .unwrap_or_else(|| log::parse(&id, &log::stamp(&message)));
@@ -128,8 +138,10 @@ impl ProcessManager {
                 Ok(None) => (),
                 Err(e) => {
                     let _ = control.child.lock().unwrap().kill();
-                    all.lock().unwrap().remove(&id);
+                    *control.state.lock().unwrap() = "crashed".into();
+                    terminal_states.lock().unwrap().insert(id.clone(),"crashed".into());
                     emit_state(&app, &id, "crashed");
+                    all.lock().unwrap().remove(&id);
                     let message = format!("No se pudo consultar el proceso: {e}");
                     let mut event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &message).ok())
                         .unwrap_or_else(|| log::parse(&id, &log::stamp(&message)));
@@ -153,10 +165,21 @@ impl ProcessManager {
     }
 
     pub fn stop(&self, id: &str, app: AppHandle) -> Result<(), String> {
-        self.send(id, "stop")?;
-        emit_state(&app, id, "stopping");
         let process = self.processes.lock().unwrap().get(id).cloned().ok_or("El servidor no está en ejecución")?;
-        *process.state.lock().unwrap() = "stopping".into();
+        let previous_state = {
+            let mut state = process.state.lock().unwrap();
+            if *state == "stopping" { return Ok(()); }
+            if *state != "starting" && *state != "running" { return Err("El proceso ya ha terminado".into()); }
+            let previous = state.clone();
+            *state = "stopping".into();
+            emit_state(&app,id,"stopping");
+            previous
+        };
+        if let Err(error) = self.send(id,"stop") {
+            let mut state = process.state.lock().unwrap();
+            if *state == "stopping" { *state = previous_state; emit_state(&app,id,&state); }
+            return Err(error);
+        }
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_secs(30));
             if let Ok(mut child) = process.child.lock() {
@@ -164,6 +187,19 @@ impl ProcessManager {
             }
         });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn a_finished_crash_remains_visible_without_an_active_process() {
+        let manager = ProcessManager::default();
+        manager.terminal_states.lock().unwrap().insert("server".into(),"crashed".into());
+        assert!(!manager.is_active("server"));
+        assert_eq!(manager.state("server"),"crashed");
+        assert_eq!(manager.state("unknown"),"stopped");
     }
 }
 

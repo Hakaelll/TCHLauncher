@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Modal } from './Modal'
 import { api, type Server, type World, type WorldInspection } from './api'
 
 const sizeLabel = (bytes: number) => bytes < 1024 * 1024
@@ -38,7 +39,6 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
     return () => { active = false }
   },[server.id])
 
-  useEffect(() => { if (confirm) cancelRef.current?.focus() },[confirm])
 
   const refresh = async () => setWorlds(await api.worlds(server.id))
   const run = async (operation: () => Promise<void>, success: string, backupsChanged = false) => {
@@ -107,6 +107,6 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
       {duplicate?.source === world.name && <form className="world-duplicate" onSubmit={duplicateSelected}><label htmlFor="duplicate-world-name">Nombre de la copia</label><input id="duplicate-world-name" autoFocus required maxLength={64} value={duplicate.name} onChange={event => setDuplicate({...duplicate,name:event.target.value})}/><button className="primary-button" disabled={busy || !duplicate.name.trim()}>Crear copia</button><button className="text-button" type="button" onClick={() => setDuplicate(null)}>Cancelar</button></form>}
     </div>)}</div>
     {!!worlds.length && <p className="world-footnote">Las copias incluyen el servidor completo y todos sus mundos.</p>}
-    {confirm && <div className="modal-scrim" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setConfirm(null) }}><div className="close-dialog world-confirm" role="dialog" aria-modal="true" aria-labelledby="world-confirm-title" onKeyDown={event => { if (event.key === 'Escape' && !busy) setConfirm(null); if (event.key === 'Tab') { const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')); const index = buttons.indexOf(document.activeElement as HTMLButtonElement); if (event.shiftKey && index === 0) { event.preventDefault(); buttons.at(-1)?.focus() } else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0]?.focus() } } }}><div className="eyebrow">Mundos del servidor</div><h2 id="world-confirm-title">{confirm.kind === 'activate' ? 'Cambiar mundo principal' : 'Eliminar mundo'}</h2><p>{confirm.kind === 'activate' ? `«${confirm.name}» se cargará en el próximo inicio. Guardaremos una copia del estado actual antes de cambiar.` : `«${confirm.name}» se borrará de la carpeta del servidor. Guardaremos una copia de seguridad antes.`}</p><div className="world-confirm-actions"><button ref={cancelRef} disabled={busy} onClick={() => setConfirm(null)}>Cancelar</button><button className={confirm.kind === 'delete' ? 'danger-button' : 'primary-button'} disabled={busy} onClick={confirmAction}>{confirm.kind === 'activate' ? 'Cambiar mundo' : 'Guardar copia y eliminar'}</button></div></div></div>}
+    {confirm && <Modal labelledBy="world-confirm-title" describedBy="world-confirm-description" busy={busy} initialFocusRef={cancelRef} onClose={() => setConfirm(null)}><h2 id="world-confirm-title">{confirm.kind === 'activate' ? 'Cambiar mundo principal' : 'Eliminar mundo'}</h2><p id="world-confirm-description">{confirm.kind === 'activate' ? `«${confirm.name}» se cargará en el próximo inicio. Guardaremos una copia del estado actual antes de cambiar.` : `«${confirm.name}» se borrará de la carpeta del servidor. Guardaremos una copia de seguridad antes.`}</p><div className="world-confirm-actions"><button ref={cancelRef} disabled={busy} onClick={() => setConfirm(null)}>Cancelar</button><button className={confirm.kind === 'delete' ? 'danger-button' : 'primary-button'} disabled={busy} onClick={confirmAction}>{confirm.kind === 'activate' ? 'Cambiar mundo' : 'Guardar copia y eliminar'}</button></div></Modal>}
   </section>
 }

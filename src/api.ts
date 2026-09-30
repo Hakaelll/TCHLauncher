@@ -19,7 +19,7 @@ export type Server = {
 export type Version = { id: string; kind: string }
 export type Progress = { serverId: string; label: string; received: number; total: number | null }
 export type LogLine = { serverId: string; level: string; line: string; message: string; timestamp: string | null; event: string | null }
-export type Metrics = { pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; sizeBytes: number }
+export type Metrics = { serverId: string; sampledAt: number; pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; diskReadBytes: number | null; diskWrittenBytes: number | null; sizeBytes: number }
 export type Backup = { id: string; serverId: string; createdAt: string; sizeBytes: number; path: string }
 export type PlayerIdentity = { name: string; uuid: string | null }
 export type KnownPlayer = PlayerIdentity & { expiresOn: string | null }
@@ -36,6 +36,14 @@ export type DeletePreview = { managedFiles: boolean; directory: string; backupCo
 export type DeleteOutcome = { retainedDirectory: string | null; cleanupWarnings: string[] }
 export type World = { name: string; sizeBytes: number; active: boolean; iconData: string | null }
 export type WorldInspection = { path: string; suggestedName: string; sizeBytes: number }
+export type NetworkSnapshot = {
+  localIp: string | null
+  configuredIp: string | null
+  port: number
+  lanAddress: string | null
+  localAddress: string
+  portState: 'listening' | 'starting' | 'not_responding' | 'available' | 'occupied' | 'unknown'
+}
 
 export const api = {
   listServers: () => invoke<Server[]>('list_servers'),
@@ -54,6 +62,7 @@ export const api = {
   acceptEula: (id: string) => invoke<void>('accept_eula', { id }),
   start: (id: string) => invoke<void>('start_server', { id }),
   stop: (id: string) => invoke<void>('stop_server', { id }),
+  restart: (id: string) => invoke<void>('restart_server', { id }),
   send: (id: string, command: string) => invoke<void>('send_command', { id, command }),
   players: (id: string) => invoke<PlayersSnapshot>('get_players', { id }),
   managePlayer: (id: string, action: string, target?: string, reason?: string) => invoke<void>('manage_player', { id, action, target: target || null, reason: reason || null }),
@@ -78,6 +87,8 @@ export const api = {
   openWorldFolder: (id: string, name: string) => invoke<void>('open_world_folder', { id, name }),
   metrics: (id: string) => invoke<Metrics>('get_metrics', { id }),
   systemMemory: () => invoke<number>('system_memory'),
+  networkStatus: (id: string) => invoke<NetworkSnapshot>('get_network_status', { id }),
+  publicIp: () => invoke<string>('get_public_ip'),
   hideWindow: () => invoke<void>('hide_window'),
   stopAllAndExit: () => invoke<void>('stop_all_and_exit'),
 }

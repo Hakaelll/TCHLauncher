@@ -11,14 +11,14 @@ pnpm install
 pnpm tauri dev
 ```
 
-Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --manifest-path src-tauri/Cargo.toml`.
+Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --manifest-path src-tauri/Cargo.toml`. Las pruebas de telemetría se ejecutan con `pnpm test` (Node.js 24).
 
 ## Flujo disponible
 
 1. Crear un servidor Vanilla o Paper con un asistente de cinco pasos: identidad, versión, mundo, capacidad y revisión. Se elige una versión release del catálogo de Mojang y, opcionalmente, un mundo existente.
 2. Descargar un runtime Temurin local y el servidor desde Mojang o PaperMC. Los artefactos con hash publicado se verifican antes de usarse.
 3. Leer y aceptar explícitamente la EULA de Minecraft.
-4. Iniciar el servidor, ver la salida, enviar comandos y detenerlo de forma ordenada.
+4. Iniciar el servidor, ver la salida, enviar comandos y detenerlo de forma ordenada, también durante el inicio.
 5. Editar `server.properties` y memoria con el servidor detenido.
 6. Crear y restaurar copias de seguridad locales con el servidor detenido.
 7. Importar una carpeta existente, copiándola a la biblioteca o administrándola en su ubicación original, y preparar Java sin sustituir su `.jar`.
@@ -29,8 +29,17 @@ Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --ma
 12. Reducir la barra lateral a una columna de imágenes de servidores, con nombre al pasar el cursor o enfocar con teclado. La elección se recuerda entre sesiones.
 13. Gestionar mundos locales: importar una copia, duplicar, exportar, cambiar el mundo principal, abrir su carpeta y eliminarlo con copia previa. La pestaña Mundos requiere detener el servidor para operaciones de archivos.
 14. Eliminar un servidor detenido desde Configuración con una confirmación que muestra el alcance. Las carpetas importadas administradas en su ubicación original permanecen en el disco.
+15. Reiniciar un servidor en marcha: se envía `stop`, se espera al cierre del proceso y se vuelve a iniciar. La parada forzada permanece como último recurso.
+16. Ver la dirección LAN y el estado TCP del puerto configurado; copiar la dirección local. La consulta de IP pública mediante [ipify](https://www.ipify.org/) es opcional y no implica que el puerto sea accesible desde internet.
+17. Seguir RAM y CPU mediante una gráfica de dos minutos que se conserva al cambiar de sección. Consultar valores actuales y picos, tasas de lectura/escritura, PID y heap máximo. Los valores proceden del proceso Java y no representan TPS.
 
 Los datos se almacenan en el directorio de datos de la aplicación del sistema. No hay cuentas ni servicio cloud propio. Algunas descargas requieren acceso a internet.
+
+## Probar un servidor real en v0.6.0
+
+Crear un servidor Vanilla, instalarlo, leer y aceptar su EULA e iniciarlo. La Consola permite seguir el arranque; el estado pasa a En marcha cuando Minecraft termina de cargar el mundo. Abre Minecraft Java Edition con la misma versión y conecta a la dirección LAN mostrada; desde el equipo anfitrión puedes usar `localhost:<puerto configurado>`. Comprueba jugadores, métricas y comandos y después detén el servidor antes de modificar propiedades o hacer una copia.
+
+Paper también está disponible si publica un build estable para la versión elegida. El selector utiliza el catálogo de releases de Mojang. La v0.6.0 ha pasado compilación, 21 pruebas Rust y 6 de telemetría; la instalación nativa, el ciclo completo con Java y la conexión desde el juego siguen pendientes de prueba manual.
 
 ## Generar un instalador de Windows
 
@@ -38,7 +47,7 @@ Los datos se almacenan en el directorio de datos de la aplicación del sistema. 
 pnpm tauri build --bundles nsis
 ```
 
-El instalador se genera en `src-tauri/target/release/bundle/nsis/`. El binario y el instalador actuales no están firmados digitalmente. Los cambios de v0.4.0 se describen en [RELEASE_NOTES_v0.4.0.md](RELEASE_NOTES_v0.4.0.md).
+El instalador v0.6.0 de Windows x64 se ha generado en `src-tauri/target/release/bundle/nsis/TCHLauncher_0.6.0_x64-setup.exe`. El binario y el instalador actuales no están firmados digitalmente. Los cambios y las limitaciones se describen en inglés en [RELEASE_NOTES_v0.6.0.md](RELEASE_NOTES_v0.6.0.md).
 
 ## Estado del proyecto
 

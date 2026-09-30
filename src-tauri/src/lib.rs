@@ -2,6 +2,7 @@ mod backup;
 mod install;
 mod log;
 mod model;
+mod network;
 mod players;
 mod process;
 mod properties;
@@ -24,9 +25,9 @@ struct ImageSelection { path: String, data: String }
 pub struct Engine {
     root: PathBuf,
     processes: ProcessManager,
-    metrics_system: Mutex<sysinfo::System>,
-    sampled_pids: Mutex<HashSet<u32>>,
-    size_cache: Mutex<HashMap<String,(Instant,u64)>>,
+    metrics_system: Arc<Mutex<sysinfo::System>>,
+    sampled_pids: Arc<Mutex<HashSet<u32>>>,
+    size_cache: Arc<Mutex<HashMap<String,(Instant,u64)>>>,
     operations: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -47,6 +48,14 @@ impl Engine {
         if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
         if self.processes.is_active(id) { return Err("Detén el servidor antes de modificar sus archivos".into()); }
         storage::get(&self.root, id)?;
+        operations.insert(id.into());
+        Ok(OperationGuard { id: id.into(), operations: self.operations.clone() })
+    }
+
+    fn reserve_running(&self, id: &str) -> Result<OperationGuard, String> {
+        let mut operations = self.operations.lock().map_err(|e| e.to_string())?;
+        if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
+        if self.processes.state(id) != "running" { return Err("El servidor debe estar en ejecución para reiniciarlo".into()); }
         operations.insert(id.into());
         Ok(OperationGuard { id: id.into(), operations: self.operations.clone() })
     }
@@ -168,7 +177,27 @@ fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result
 
 #[tauri::command]
 fn stop_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    let operations = engine.operations.lock().map_err(|e| e.to_string())?;
+    if operations.contains(&id) { return Err("Espera a que termine la operación en curso".into()); }
     engine.processes.stop(&id,app)
+}
+
+#[tauri::command]
+async fn restart_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    let guard = engine.reserve_running(&id)?;
+    let processes = engine.processes.clone();
+    let root = engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        processes.stop(&id, app.clone())?;
+        let deadline = Instant::now() + Duration::from_secs(45);
+        while processes.is_active(&id) {
+            if Instant::now() >= deadline { return Err("El servidor no se cerró a tiempo. Comprueba su estado antes de volver a iniciarlo".into()); }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let server = storage::get(&root, &id)?;
+        processes.start(&server, app)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -368,29 +397,51 @@ fn open_world_folder(engine: State<'_, Engine>, id: String, name: String) -> Res
 }
 
 #[tauri::command]
-fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, String> {
+async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, String> {
     let server = storage::get(&engine.root,&id)?;
     let pid_uptime = engine.processes.pid_and_uptime(&id);
-    let (memory_bytes,cpu_percent) = if let Some((pid,_)) = pid_uptime {
-        let mut system = engine.metrics_system.lock().unwrap();
+    let metrics_system = engine.metrics_system.clone();
+    let sampled_pids = engine.sampled_pids.clone();
+    let size_cache = engine.size_cache.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+    let (memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes) = if let Some((pid,_)) = pid_uptime {
+        let mut system = metrics_system.lock().map_err(|e| e.to_string())?;
         let sys_pid = sysinfo::Pid::from_u32(pid);
         system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[sys_pid]),true);
         let process = system.process(sys_pid);
-        let sampled = engine.sampled_pids.lock().unwrap().insert(pid);
-        (process.map(|p| p.memory()),if sampled { None } else { process.map(|p| p.cpu_usage()) })
-    } else { (None,None) };
-    let cached = engine.size_cache.lock().unwrap().get(&id).copied()
+        let sampled = sampled_pids.lock().map_err(|e| e.to_string())?.insert(pid);
+        let cores = std::thread::available_parallelism().map(|count| count.get()).unwrap_or(1) as f32;
+        let disk = process.map(|p| p.disk_usage());
+        (process.map(|p| p.memory()),if sampled { None } else { process.map(|p| (p.cpu_usage() / cores).clamp(0.0,100.0)) },disk.map(|d| d.total_read_bytes),disk.map(|d| d.total_written_bytes))
+    } else { (None,None,None,None) };
+    let sampled_at = chrono::Utc::now().timestamp_millis();
+    let cached = size_cache.lock().map_err(|e| e.to_string())?.get(&id).copied()
         .filter(|(when,_)| when.elapsed() < Duration::from_secs(60));
     let size_bytes = if let Some((_,size)) = cached { size } else {
         let size = backup::size(&PathBuf::from(server.directory));
-        engine.size_cache.lock().unwrap().insert(id, (Instant::now(),size));
+        size_cache.lock().map_err(|e| e.to_string())?.insert(id.clone(), (Instant::now(),size));
         size
     };
-    Ok(Metrics {pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),memory_bytes,cpu_percent,size_bytes})
+    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes})
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 fn system_memory() -> u64 { sysinfo::System::new_all().total_memory() }
+
+#[tauri::command]
+async fn get_network_status(engine: State<'_, Engine>, id: String) -> Result<network::NetworkSnapshot, String> {
+    let server = storage::get(&engine.root, &id)?;
+    let state = engine.processes.state(&id);
+    tauri::async_runtime::spawn_blocking(move || network::inspect(&server, &state))
+        .await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn get_public_ip() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(network::public_ip)
+        .await.map_err(|e| e.to_string())?
+}
 
 #[tauri::command]
 fn hide_window(app: AppHandle) -> Result<(), String> {
@@ -426,7 +477,7 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             storage::connect(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Mutex::new(sysinfo::System::new()),sampled_pids:Mutex::new(HashSet::new()),size_cache:Mutex::new(HashMap::new()),operations:Arc::new(Mutex::new(HashSet::new())) });
+            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())) });
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
@@ -462,7 +513,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,accept_eula,eula_accepted,start_server,stop_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![list_servers,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }
