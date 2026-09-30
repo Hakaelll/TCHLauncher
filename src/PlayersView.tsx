@@ -1,5 +1,6 @@
+import { MovingIndicator, useListMotion } from './motion'
 import {PlayerHead} from './PlayerHead'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { api, type PlayersSnapshot, type Server, type WhitelistImport } from './api'
 
 type Group = 'online' | 'known' | 'whitelist' | 'operators' | 'banned'
@@ -19,7 +20,7 @@ const actionLabel: Record<Action, string> = {
 }
 
 function PlayerRow({name,uuid,detail,action,disabled,onAction}: {name:string;uuid?:string|null;detail?:string;action?:string;disabled:boolean;onAction?:()=>void}) {
-  return <div className="player-row"><PlayerHead name={name} uuid={uuid}/><div className="player-row-info"><strong>{name}</strong>{detail && <small title={detail}>{detail}</small>}</div>{action && <button className="text-button" disabled={disabled} onClick={onAction}>{action}</button>}</div>
+  return <div className="player-row" data-layout-id={uuid || name}><PlayerHead name={name} uuid={uuid}/><div className="player-row-info"><strong>{name}</strong>{detail && <small title={detail}>{detail}</small>}</div>{action && <button className="text-button" disabled={disabled} onClick={onAction}>{action}</button>}</div>
 }
 
 export function PlayersView({server,players,busy,onAction,onToggleWhitelist,onImportWhitelist,onRefresh}: {
@@ -32,6 +33,8 @@ export function PlayersView({server,players,busy,onAction,onToggleWhitelist,onIm
   onRefresh: () => Promise<void>;
 }) {
   const [group,setGroup] = useState<Group>('online')
+  const listRef=useRef<HTMLDivElement>(null)
+  useListMotion(listRef,`${server.id}:${group}:${JSON.stringify(players)}`)
   const [action,setAction] = useState<Action>('whitelist_add')
   const [target,setTarget] = useState('')
   const [reason,setReason] = useState('')
@@ -79,8 +82,8 @@ export function PlayersView({server,players,busy,onAction,onToggleWhitelist,onIm
   return <section className="players-view"><div className="section-heading"><div><h2>Jugadores</h2><p>Conexiones actuales y permisos guardados por Minecraft.</p></div><button onClick={onRefresh}>Actualizar</button></div>
     <div className="players-overview"><div><strong>{players ? players.online.length : '—'}<span> / {players ? players.maxPlayers : '—'}</span></strong><small>Conectados</small></div><div><strong>{players ? players.whitelisted.length : '—'}</strong><small>En lista blanca</small></div><div><strong>{players ? players.operators.length : '—'}</strong><small>Operadores</small></div></div>
     <div className="players-toolbar"><div><strong>Acceso al servidor</strong><p>{players?.whitelistEnabled ? `Lista blanca activa${players.enforceWhitelist ? ' · acceso estricto' : ''}` : 'Cualquier cuenta válida puede entrar si conoce la dirección.'}</p></div><button disabled={!canSetWhitelist || busy || !players} onClick={toggleWhitelist}>{players?.whitelistEnabled ? 'Desactivar lista blanca' : 'Activar lista blanca'}</button></div>
-    <nav className="player-tabs" aria-label="Categorías de jugadores">{groups.map(item => <button key={item.id} className={`player-tab ${group === item.id ? 'active' : ''}`} aria-current={group === item.id ? 'page' : undefined} onClick={() => setGroup(item.id)}>{item.label}<span>{players ? item.count(players) : '—'}</span></button>)}</nav>
-    <div className="player-list">
+    <nav className="player-tabs" aria-label="Categorías de jugadores"><MovingIndicator active={group} axis="horizontal"/>{groups.map(item => <button key={item.id} className={`player-tab ${group === item.id ? 'active' : ''}`} aria-current={group === item.id ? 'page' : undefined} onClick={() => setGroup(item.id)}>{item.label}<span>{players ? item.count(players) : '—'}</span></button>)}</nav>
+    <div className="player-list" ref={listRef}>
       {group === 'online' && (items.online.length ? items.online.map(name => <PlayerRow key={name} name={name} uuid={[...items.known,...items.whitelisted,...items.operators].find(player=>player.name.toLowerCase()===name.toLowerCase())?.uuid} detail="En el servidor" action="Expulsar" disabled={!running || busy} onAction={() => act('kick',name)}/>) : <p className="empty-inline">No hay jugadores conectados ahora.</p>)}
       {group === 'known' && (items.known.length ? items.known.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid || 'UUID no disponible'} disabled={false}/>) : <p className="empty-inline">El servidor aún no ha guardado jugadores en usercache.json.</p>)}
       {group === 'whitelist' && (items.whitelisted.length ? items.whitelisted.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid || undefined} action="Quitar" disabled={!running || busy} onAction={() => act('whitelist_remove',player.name)}/>) : <p className="empty-inline">No hay jugadores en la lista blanca.</p>)}

@@ -14,3 +14,7 @@ Pendiente antes de distribuir: auditoría completa de hosts de descarga y polít
 ## Custom Java executables
 
 Custom Java requires an explicit executable selection and a separate confirmation. Only `java`/`java.exe` filenames are accepted; paths are canonicalized and must reference a file. Filename validation does not establish executable trust: selecting a custom runtime executes that user-chosen program with `-version`. Inspection has a five-second timeout, hidden Windows console and bounded output reading. Compatibility is checked before persistence and at launch when the official requirement is cached. No system Java settings are changed.
+
+## JVM profiles and cover artwork
+
+Custom options are individual process arguments, never shell text. Memory, entrypoint and external argument-file overrides are rejected. Java agents remain available to advanced users and execute user-selected code during validation; the editor states that they must be trusted. Artwork inputs remain bounded to 2 MB, 4096×4096 and 64 MB decode allocation. The full cover is private local application data; the Minecraft icon is derived from the same image. Publication rolls back previous files on failure.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, type LogLine, type ServerState } from './api'
+import { motion, reducedMotion } from './motion'
 
 const levels = [
   ['all','Todos'], ['info','Información'], ['system','Sistema'], ['player','Jugadores'],
@@ -28,6 +29,9 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   const [notice,setNotice] = useState<string|null>(null)
   const [exporting,setExporting] = useState(false)
   const windowRef = useRef<HTMLDivElement>(null)
+  const automaticScroll=useRef(false)
+  const scrollFrame=useRef(0)
+  const pauseFollowing=()=>{cancelAnimationFrame(scrollFrame.current);automaticScroll.current=false;setFollowing(false)}
   useEffect(() => { setQuery(''); setLevel('all'); setCommand(''); setClearedAt(null); setFollowing(true); setNotice(null) },[serverId])
   const visible = useMemo(() => logs.filter(item => {
     if (clearedAt && (!item.timestamp?.includes('T') || item.timestamp <= clearedAt)) return false
@@ -35,8 +39,20 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
     return !query || item.line.toLocaleLowerCase().includes(query.toLocaleLowerCase())
   }),[logs,clearedAt,level,query])
   useEffect(() => {
-    const window = windowRef.current
-    if (following && window) window.scrollTop = window.scrollHeight
+    const element = windowRef.current
+    if (!following || !element)return
+    const start=element.scrollTop,target=Math.max(0,element.scrollHeight-element.clientHeight)
+    if(reducedMotion() || target-start>element.clientHeight){element.scrollTop=target;return}
+    automaticScroll.current=true
+    const began=performance.now()
+    const tick=(now:number)=>{
+      const progress=Math.min(1,(now-began)/motion.interaction)
+      element.scrollTop=start+(target-start)*(1-(1-progress)**3)
+      if(progress<1)scrollFrame.current=requestAnimationFrame(tick)
+      else automaticScroll.current=false
+    }
+    scrollFrame.current=requestAnimationFrame(tick)
+    return()=>{cancelAnimationFrame(scrollFrame.current);automaticScroll.current=false}
   },[visible,following])
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -59,7 +75,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   return <section className="console-view">
     <div className="section-heading console-heading"><div><h2>Consola</h2><p>Registro del servidor. Las líneas se pueden buscar, copiar y exportar.</p></div><span className="console-count">{visible.length} líneas</span></div>
     <div className="console-tools"><label className="search-label">Buscar<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Texto del log"/></label><label className="console-level-select">Nivel<select value={level} onChange={event => setLevel(event.target.value)}>{levels.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="quiet-checkbox"><input type="checkbox" checked={following} onChange={event => setFollowing(event.target.checked)}/> Seguir salida</label><div className="console-tool-actions"><button className="text-button" disabled={!visible.length} onClick={copy}>Copiar vista</button><button className="text-button" disabled={exporting || !logs.length} onClick={exportFile}>{exporting ? 'Exportando…' : 'Exportar log'}</button><button className="text-button" disabled={!visible.length && !clearedAt} onClick={() => { if (clearedAt) setClearedAt(null); else setClearedAt(new Date().toISOString()); setNotice(null) }}>{clearedAt ? 'Mostrar historial' : 'Limpiar vista'}</button></div></div>
-    <div className="log-window" ref={windowRef} role="log" aria-live="off" onScroll={event => { const el = event.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight > 48) setFollowing(false) }}>
+    <div className="log-window" ref={windowRef} role="log" aria-live="off" onWheel={pauseFollowing} onTouchStart={pauseFollowing} onPointerDown={pauseFollowing} onScroll={event => { const el = event.currentTarget; if (!automaticScroll.current && el.scrollHeight - el.scrollTop - el.clientHeight > 48) setFollowing(false) }}>
       {visible.length ? visible.map((item,index) => <div className={`log-line ${item.level}`} key={`${item.timestamp ?? 'legacy'}-${index}`}><time dateTime={item.timestamp?.includes('T') ? item.timestamp : undefined}>{clockTime(item.timestamp)}</time><span className="log-level">{item.level}</span><span className="log-message">{item.message}</span></div>) : <div className="log-empty">{clearedAt ? 'Vista limpia. Las nuevas líneas aparecerán aquí.' : query || level !== 'all' ? 'No hay líneas que coincidan con el filtro.' : 'Aún no hay salida. Inicia el servidor para ver su actividad.'}</div>}
     </div>
     {notice && <p className="console-notice" role="status">{notice}</p>}

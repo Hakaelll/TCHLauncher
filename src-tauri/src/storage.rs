@@ -43,6 +43,11 @@ pub fn connect(root: &Path) -> Result<Connection, String> {
         if !names.iter().any(|name|name=="pinned") {db.execute("ALTER TABLE servers ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",[]).map_err(|e|e.to_string())?;}
         db.execute_batch("PRAGMA user_version=2").map_err(|e|e.to_string())?;
     }
+    db.execute_batch("CREATE TABLE IF NOT EXISTS jvm_settings (
+      server_id TEXT PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+      mode TEXT NOT NULL CHECK(mode IN ('recommended','custom')),
+      arguments TEXT NOT NULL DEFAULT ''
+    );").map_err(|e|e.to_string())?;
     Ok(db)
 }
 
@@ -115,6 +120,7 @@ pub fn delete(root: &Path, id: &str) -> Result<DeleteOutcome, String> {
     if managed { candidates.push((server_path, true)); }
     candidates.push((backup_path, true));
     candidates.push((image_path, false));
+    candidates.push((root.join("server-covers").join(id), false));
     let mut staged = Vec::new();
     for (source, directory) in candidates {
         let result = (|| -> Result<(), String> {
@@ -182,7 +188,8 @@ fn image_bytes(path: &Path) -> Result<Vec<u8>, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     if bytes.len() > 2_000_000 { return Err("La imagen debe ocupar menos de 2 MB".into()); }
     if image_mime(&bytes).is_none() { return Err("Selecciona un archivo PNG, JPG o WebP válido".into()); }
-    icon_png(&bytes)
+    icon_png(&bytes)?;
+    Ok(bytes)
 }
 
 fn icon_png(bytes: &[u8]) -> Result<Vec<u8>,String> {
@@ -206,22 +213,55 @@ pub fn preview_image(path: &Path) -> Result<String, String> {
     Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
 }
 
+pub fn read_cover(root:&Path,id:&str)->Result<Option<String>,String> {
+    get(root,id)?;
+    Uuid::parse_str(id).map_err(|_|"Identificador de servidor no válido")?;
+    let path=root.join("server-covers").join(id);
+    if !path.exists(){return Ok(None);}
+    if fs::symlink_metadata(&path).map_err(|e|e.to_string())?.file_type().is_symlink() || !path.canonicalize().map_err(|e|e.to_string())?.starts_with(root.canonicalize().map_err(|e|e.to_string())?) {return Err("La imagen sale de los datos de la aplicación".into());}
+    let bytes=image_bytes(&path)?;
+    let mime=image_mime(&bytes).ok_or("Imagen no válida")?;
+    Ok(Some(format!("data:{mime};base64,{}",base64::engine::general_purpose::STANDARD.encode(bytes))))
+}
+
 fn write_image(root: &Path, id: &str, bytes: &[u8]) -> Result<(), String> {
+    Uuid::parse_str(id).map_err(|_|"Identificador de servidor no válido")?;
     let server=get(root,id)?;
-    let dir=Path::new(&server.directory);
-    let target=dir.join("server-icon.png");
-    if fs::symlink_metadata(&target).is_ok_and(|meta|meta.file_type().is_symlink()) {return Err("El icono del servidor no puede ser un enlace simbólico".into());}
-    let temporary=dir.join(format!(".server-icon-{}.part",Uuid::new_v4()));
-    fs::write(&temporary,bytes).map_err(|e|e.to_string())?;
+    let icon=icon_png(bytes)?;
+    let cover_dir=root.join("server-covers");
+    fs::create_dir_all(&cover_dir).map_err(|e|e.to_string())?;
+    if fs::symlink_metadata(&cover_dir).map_err(|e|e.to_string())?.file_type().is_symlink() || !cover_dir.canonicalize().map_err(|e|e.to_string())?.starts_with(root.canonicalize().map_err(|e|e.to_string())?) {return Err("La carpeta de imágenes sale de los datos de la aplicación".into());}
+    let targets=[Path::new(&server.directory).join("server-icon.png"),cover_dir.join(id)];
     let legacy=image_file(root,id);
-    let migrated=legacy.with_file_name(format!(".migrated-{id}-{}",Uuid::new_v4()));
-    let moved=if legacy.exists() {fs::rename(&legacy,&migrated).map_err(|e|{let _=fs::remove_file(&temporary);e.to_string()})?;true} else {false};
-    let result=crate::download::replace_file(&temporary,&target);
-    if result.is_err() {
-        let _=fs::remove_file(&temporary);
-        if moved {fs::rename(&migrated,&legacy).map_err(|e|format!("No se pudo recuperar la imagen anterior: {e}"))?;}
-    } else if moved {let _=fs::remove_file(migrated);}
-    result
+    let mut backups=Vec::new();let mut temporary=Vec::new();let mut published=Vec::new();
+    let result=(||->Result<(),String>{
+        for path in targets.iter().chain(std::iter::once(&legacy)) {
+            if let Ok(meta)=fs::symlink_metadata(path) {if !meta.is_file() || meta.file_type().is_symlink(){return Err("La imagen no puede ser un enlace ni una carpeta".into());}}
+        }
+        for (target,data) in targets.iter().zip([icon.as_slice(),bytes]) {
+            let stage=target.with_file_name(format!(".image-{}.part",Uuid::new_v4()));
+            temporary.push(stage.clone());fs::write(stage,data).map_err(|e|e.to_string())?;
+        }
+        for path in targets.iter().chain(std::iter::once(&legacy)) {
+            if path.exists() {
+                let backup=path.with_file_name(format!(".image-{}.previous",Uuid::new_v4()));
+                fs::rename(path,&backup).map_err(|e|e.to_string())?;backups.push((path.clone(),backup));
+            }
+        }
+        for (stage,target) in temporary.iter().zip(targets.iter()) {
+            fs::rename(stage,target).map_err(|e|e.to_string())?;published.push(target.clone());
+        }
+        Ok(())
+    })();
+    if let Err(error)=result {
+        for path in published {let _=fs::remove_file(path);}
+        let mut failures=Vec::new();
+        for (target,backup) in backups.into_iter().rev(){if let Err(cause)=fs::rename(backup,&target){failures.push(format!("{}: {cause}",target.display()));}}
+        for stage in temporary{let _=fs::remove_file(stage);}
+        return Err(if failures.is_empty(){error}else{format!("{error}. No se pudo recuperar la imagen anterior: {}",failures.join("; "))});
+    }
+    for (_,backup) in backups{let _=fs::remove_file(backup);}
+    Ok(())
 }
 
 pub fn sync_legacy_icon(root: &Path,id: &str) -> Result<(),String> {
@@ -241,7 +281,7 @@ pub fn set_image(root: &Path, id: &str, source: &Path) -> Result<Server, String>
 
 pub fn clear_image(root: &Path, id: &str) -> Result<Server, String> {
     let server=get(root,id)?;
-    for path in [image_file(root,id),Path::new(&server.directory).join("server-icon.png")] {
+    for path in [image_file(root,id),root.join("server-covers").join(id),Path::new(&server.directory).join("server-icon.png")] {
         match std::fs::remove_file(path) {
             Ok(()) => (),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
@@ -491,6 +531,7 @@ mod tests {
         let server = create(&root, CreateServer {name:"With icon".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:Some(image.to_string_lossy().into())}).unwrap();
         assert!(server.image_data.as_deref().unwrap().starts_with("data:image/png;base64,"));
         assert!(list(&root).unwrap()[0].image_data.is_some());
+        assert_eq!(read_cover(&root,&server.id).unwrap(),Some(format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(fs::read(&image).unwrap()))));
         let legacy_path=root.join("server-images").join(&server.id);
         fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();
         fs::write(&legacy_path,fs::read(&image).unwrap()).unwrap();
@@ -507,6 +548,7 @@ mod tests {
         clear_image(&root,&server.id).unwrap();
         assert!(list(&root).unwrap()[0].image_data.is_none());
         assert!(!icon_path.exists());
+        assert!(read_cover(&root,&server.id).unwrap().is_none());
         let _ = std::fs::remove_dir_all(root);
     }
     #[test]

@@ -12,6 +12,7 @@ Estados: `DONE` solo para flujos conectados al backend y verificados por pruebas
 | CORE-06 | Alta | REVIEW | Cierre con procesos activos | Ofrecer detener, mantener en segundo plano o cancelar el cierre. |
 | CORE-07 | Alta | REVIEW | Estado y métricas completas | RAM, CPU, historial de dos minutos, I/O, PID y jugadores conectados implementados. Pruebas de telemetría aprobadas; verificar con Java real y añadir TPS fiable. |
 | CORE-08 | Alta | REVIEW | Descargas cancelables y reintentos | Cancelación, limpieza de parciales, reintentos transitorios y nuevo intento desde UI implementados; verificar interacción nativa. No hay reanudación por HTTP Range. |
+| JVM-01 | Alta | REVIEW | Argumentos JVM | Perfiles, vista previa, validación, persistencia y arranque conectados; comprobar con servidor real y Linux. |
 | JAVA-01 | Alta | REVIEW | Runtime personalizado | Selección nativa, vista previa y verificación real implementadas; comprobar interacción en escritorio y Linux. |
 | LOAD-01 | Alta | REVIEW | Fabric | Catálogo compatible, instalación verificada y arranque hasta EULA implementados; probar conexión con mods y añadir actualización de loader. |
 | LOAD-02 | Alta | TODO | NeoForge | Instalación, arranque y actualizaciones compatibles. |
@@ -30,10 +31,12 @@ Estados: `DONE` solo para flujos conectados al backend y verificados por pruebas
 | UX-04 | Media | REVIEW | Asistente y configuración | Verificar los cinco pasos, la revisión final, los grupos de propiedades y el comportamiento con teclado. |
 | UX-05 | Media | REVIEW | Eliminación de servidor | Confirmar en escritorio el diálogo centrado desde Configuración desplazada, restauración de foco, borrado administrado y conservación de carpetas externas importadas. |
 | REL-01 | Alta | TODO | Distribución | Iconos, firmas y paquetes de Windows/Linux. |
-| REL-02 | Media | REVIEW | Instalador Windows v0.6.3 | NSIS x64 generado; 33 pruebas Rust locales y verificación con Java 21 aprobadas. Falta instalación, conexión desde Minecraft y revisión visual manual. |
+| REL-02 | Media | REVIEW | Instalador Windows v0.6.4 | NSIS x64 generado; 35 pruebas Rust locales y perfiles JVM con Java 21 aprobados. Falta instalación, conexión desde Minecraft y revisión visual manual. |
 
 Revisión 0.6.1: descargas cancelables y con reintento, Temurin JDK 16 como alternativa al JRE ausente, perfiles de skins, icono Minecraft compartido, fijados persistentes, menú contextual y gráficas simultáneas implementados. Prueba visual manual pendiente; no se usaron computer use ni subagentes.
 
 Revisión 0.6.2: Fabric añadido al asistente y a importación. Bibliotecas verificadas por SHA-256, Minecraft por SHA-1, generación atómica y arranque sin descargas externas ocultas. La comprobación con Java real alcanza la EULA sin aceptarla; conexión desde el juego, mods y actualizaciones siguen pendientes.
 
 Revisión 0.6.3: Java personalizado con vista previa, confirmación, verificación real y requisitos oficiales cacheados. Prueba con Java 21 aprobada; revisión nativa del selector y compatibilidad en Linux pendientes.
+
+Revisión 0.6.4: biblioteca con búsqueda y vistas, rail oscuro y navegación lateral clara, controles antracita según la última preferencia, imágenes originales y sistema de motion implementados. Perfiles JVM recomendados/personalizados conectados al arranque. La revisión visual nativa y la medición de fluidez están pendientes; no se usaron subagentes ni computer use.

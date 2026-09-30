@@ -12,7 +12,10 @@ import { Modal } from './Modal'
 import { ResourceMonitor } from './ResourceMonitor'
 import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
-import { Welcome } from './Welcome'
+import { JvmPanel } from './JvmPanel'
+import { ServerLibrary } from './ServerLibrary'
+import { ServerCover } from './ServerCover'
+import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMotion } from './motion'
 import { ServerMenu, type ServerMenuTarget } from './ServerMenu'
 import { ServerDeleteDialog } from './ServerDeleteDialog'
 import { recordSample, type MetricSample } from './telemetry'
@@ -21,6 +24,21 @@ type View = 'overview' | 'performance' | 'players' | 'worlds' | 'console' | 'bac
 const labels: Record<ServerState, string> = {
   stopped: 'Detenido', installing: 'Instalando', starting: 'Iniciando',
   running: 'En ejecución', stopping: 'Deteniendo', crashed: 'Se ha cerrado inesperadamente', error: 'Error',
+}
+const viewOrder:View[]=['overview','performance','players','worlds','console','backups','settings']
+const viewLabels:Record<View,string>={overview:'Resumen',performance:'Rendimiento',players:'Jugadores',worlds:'Mundos',console:'Consola',backups:'Copias',settings:'Configuración'}
+function SectionIcon({name}:{name:View|'library'}) {
+  const paths={
+    library:<><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h3v3H8zM14 8h2M8 14h2M14 14h2"/></>,
+    overview:<><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m7 13 3-4 3 5 4-5"/></>,
+    performance:<><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m6 14 4-5 4 6 4-5"/></>,
+    players:<><circle cx="9" cy="8" r="3"/><path d="M3 20v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5"/></>,
+    worlds:<><path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9"/></>,
+    console:<><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></>,
+    backups:<><path d="M3 7h7l3 3h8v10H3zM3 7V4h7l3 3h8"/></>,
+    settings:<><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></>,
+  }
+  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 const platformName = (platform:Server['platform']) => ({vanilla:'Vanilla',paper:'Paper',fabric:'Fabric'})[platform]
 const stateText = (state: string) => labels[state as ServerState] || state
@@ -61,10 +79,19 @@ function App() {
     if(restoreFocus && menuTargetRef.current?.trigger.isConnected) menuTargetRef.current.trigger.focus({preventScroll:true})
     menuTargetRef.current=null;setMenuTarget(null)
   },[])
+  const tooltipTimer=useRef<number>(0)
+  const hideSidebarTooltip=()=>{clearTimeout(tooltipTimer.current);setSidebarTooltip(null)}
+  useEffect(()=>()=>clearTimeout(tooltipTimer.current),[])
   const mainRef = useRef<HTMLElement>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selectedRef = useRef<string | null>(null)
   const [view, setView] = useState<View>('overview')
+  const [libraryOpen,setLibraryOpen]=useState(true)
+  const railRef=useRef<HTMLElement>(null)
+  const backupListRef=useRef<HTMLDivElement>(null)
+  const contentRef=useRef<HTMLDivElement>(null)
+  const [navigationDirection,setNavigationDirection]=useState(1)
+  const navigate=(next:View)=>{setNavigationDirection(viewOrder.indexOf(next)>viewOrder.indexOf(view)?1:-1);setView(next)}
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [operationBusy,setBusy] = useState(false)
@@ -94,17 +121,17 @@ function App() {
 
   useEffect(() => {
     try { window.localStorage.setItem('tch-sidebar-collapsed',String(sidebarCollapsed)) } catch { /* La preferencia no impide usar la barra. */ }
-    setSidebarTooltip(null)
+    hideSidebarTooltip()
   },[sidebarCollapsed])
-  const showSidebarTooltip = (server: Server, button: HTMLButtonElement) => {
-    if (!sidebarCollapsed) return
+  const showSidebarTooltip = (server: Server, button: HTMLButtonElement, immediate=false) => {
+    clearTimeout(tooltipTimer.current)
     const rect = button.getBoundingClientRect()
-    setSidebarTooltip({
+    tooltipTimer.current=window.setTimeout(()=>setSidebarTooltip({
       name:server.name,
       subtitle:`${platformName(server.platform)} · ${server.version} · ${stateText(server.state)}`,
       top:Math.max(12,Math.min(window.innerHeight - 72,rect.top + rect.height / 2 - 28)),
       left:rect.right + 12,
-    })
+    }),immediate?0:motion.tooltipDelay)
   }
 
   const refresh = useCallback(async () => {
@@ -209,12 +236,12 @@ function App() {
   }
   const create = async(input:CreateInput,worldSource?:string)=>{
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
+    const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
     if(ready && id)await runInstallation(id)
   }
   const importExisting = async(input:ImportInput)=>{
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.importServer(input);setImporting(false);setSelectedId(server.id);setView('overview');await refresh();id=server.id})
+    const ready=await act(async()=>{const server=await api.importServer(input);setImporting(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();id=server.id})
     if(ready && id)await runInstallation(id)
   }
 
@@ -237,27 +264,43 @@ function App() {
     } finally { setBusy(false) }
   }
 
+  useListMotion(backupListRef,`${view}:${backups.map(backup=>backup.id).join()}`)
+  useListMotion(railRef,servers.map(server=>server.id).join(','))
+  useNavigationMotion(contentRef,`${selectedId}:${view}`,navigationDirection)
   const selectedName = selected?.name ?? 'Servidores'
+  const openLibrary=()=>{setLibraryOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip()}
+  const openServer=(server:Server)=>{setLibraryOpen(false);setCreating(false);setImporting(false);setSelectedId(server.id);setView('overview')}
+  const openMenu=(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>{const target={server,trigger,x,y};menuTargetRef.current=target;setMenuTarget(target)}
   return <div className={`shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-    <aside className="sidebar" aria-label="Servidores">
-      <div className="sidebar-top"><div className="wordmark">TCHLauncher</div><button className="sidebar-toggle icon-button" aria-label={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} title={sidebarCollapsed ? 'Ampliar barra lateral' : 'Reducir barra lateral'} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><Icon name={sidebarCollapsed ? 'expand' : 'collapse'} size={18}/></button></div>
-      <div className="sidebar-label">Mis servidores <span>{servers.length}</span></div>
-      <nav className="server-list" aria-label="Lista de servidores" onScroll={() => setSidebarTooltip(null)}>
-        {servers.map(server => <button key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing ? 'active' : ''}`} onClick={() => { setSidebarTooltip(null); setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();setSidebarTooltip(null);const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => setSidebarTooltip(null)} onFocus={event => showSidebarTooltip(server,event.currentTarget)} onBlur={() => setSidebarTooltip(null)} aria-label={sidebarCollapsed ? `${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}` : undefined} aria-current={selectedId === server.id && !creating && !importing ? 'page' : undefined}>
+    <aside className="server-rail" aria-label="Servidores">
+      <button className={`rail-library ${libraryOpen && !creating && !importing?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span>T</span></button>
+      <nav className="server-list" ref={railRef} aria-label="Lista de servidores" onScroll={() => hideSidebarTooltip()}>
+        <MovingIndicator active={`${selectedId}:${creating}:${importing}:${libraryOpen}:${servers.map(s=>s.id).join()}`} className="rail-active-indicator"/>{servers.map(server => <button data-layout-id={server.id} key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing && !libraryOpen ? 'active' : ''}`} onClick={() => { hideSidebarTooltip(); setLibraryOpen(false);setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();hideSidebarTooltip();const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => hideSidebarTooltip()} onFocus={event => showSidebarTooltip(server,event.currentTarget,true)} onBlur={() => hideSidebarTooltip()} aria-label={`${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}`} aria-current={selectedId === server.id && !creating && !importing && !libraryOpen ? 'page' : undefined}>
           <span className="server-artwork-wrap"><ServerArtwork server={server}/>{server.pinned && <span className="server-pin" title="Servidor fijado" aria-label="Fijado"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 3 6 6-4 1-4 5-4-4 5-4zM9 15l-6 6"/></svg></span>}<span className={`state-dot ${server.state}`} aria-hidden="true"/></span><span className="server-row-name">{server.name}<small>{platformName(server.platform)} · {server.version}</small></span>
         </button>)}
       </nav>
-      <div className="sidebar-actions"><button className="new-server-link" aria-label="Nuevo servidor" title={sidebarCollapsed ? 'Nuevo servidor' : undefined} onClick={() => { setImporting(false); setCreating(true) }}><Icon name="plus" size={17}/><span>Nuevo servidor</span></button>
-      <button className="new-server-link" aria-label="Importar servidor" title={sidebarCollapsed ? 'Importar servidor' : undefined} onClick={() => { setCreating(false); setImporting(true) }}><Icon name="folder" size={17}/><span>Importar servidor</span></button></div>
-      <div className="sidebar-footer"><span>TCHLauncher</span><span>v0.6.3</span></div>
+      <button className="rail-add" onClick={()=>{setImporting(false);setCreating(true)}} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/></button>
+      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/></button>
+    </aside>
+    <aside className="sidebar" aria-label="Navegación" aria-hidden={sidebarCollapsed || undefined} inert={sidebarCollapsed}>
+      <div className="sidebar-top"><div className="wordmark">TCHLauncher</div></div>
+      {selected && !libraryOpen && !creating && !importing && <div className="sidebar-server"><ServerArtwork server={selected}/><div><strong>{selected.name}</strong><small>{platformName(selected.platform)} · {selected.version}</small></div></div>}
+      <nav className="section-nav" aria-label="Secciones"><MovingIndicator active={`${view}:${libraryOpen}:${creating}:${importing}`} className="section-active-indicator"/>
+        {selected && !libraryOpen && !creating && !importing ? viewOrder.map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{viewLabels[item]}</span></button>) : <>
+          <button aria-current={!creating && !importing?'page':undefined} onClick={openLibrary}><SectionIcon name="library"/><span>Mis servidores</span><small>{servers.length}</small></button>
+          <button aria-current={creating?'page':undefined} onClick={()=>{setImporting(false);setCreating(true)}}><Icon name="plus" size={17}/><span>Nuevo servidor</span></button>
+          <button aria-current={importing?'page':undefined} onClick={()=>{setCreating(false);setImporting(true)}}><Icon name="folder" size={17}/><span>Importar servidor</span></button>
+        </>}
+      </nav>
+      <div className="sidebar-bottom">{selected && !libraryOpen && <button className="new-server-link" onClick={openLibrary}><Icon name="back" size={16}/><span>Mis servidores</span></button>}<div className="sidebar-footer"><span>v0.6.4</span><span>Local</span></div></div>
     </aside>
 
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
-      {creating ? <CreateView onCancel={() => setCreating(false)} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
-      : importing ? <ImportView onCancel={() => setImporting(false)} onImport={importExisting} busy={operationBusy}/>
-      : !selected ? <Welcome onCreate={()=>setCreating(true)} onImport={()=>setImporting(true)}/>
+      {creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
+      : importing ? <ImportView onCancel={openLibrary} onImport={importExisting} busy={operationBusy}/>
+      : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={()=>setCreating(true)} onImport={()=>setImporting(true)} onSelect={openServer} onMenu={openMenu}/>
       : <>
         <header className="page-head">
           <div className="page-identity"><ServerArtwork server={selected}/><div><h1>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
@@ -269,23 +312,22 @@ function App() {
             </> : selected.state === 'starting' ? <button disabled={busy} onClick={() => act(() => api.stop(selected.id))}>Detener inicio</button> : selected.state === 'stopped' || selected.state === 'crashed' || selected.state === 'error' ? <button className="primary-button" disabled={busy || !eula} onClick={() => act(() => api.start(selected.id))}>Iniciar servidor <Icon name="arrow" size={15}/></button> : null : <button className="primary-button" disabled={busy} onClick={() => runInstallation(selected.id)}>{selected.jarPath ? 'Preparar Java' : 'Instalar'} <Icon name="arrow" size={15}/></button>}
           </div>
         </header>
-        <nav className="tabs" aria-label="Secciones del servidor">{(['overview','performance','players','worlds','console','backups','settings'] as View[]).map(item => <button key={item} aria-current={view === item ? 'page' : undefined} className={view === item ? 'active' : ''} onClick={() => setView(item)}>{ {overview:'Resumen',performance:'Rendimiento',players:'Jugadores',worlds:'Mundos',console:'Consola',backups:'Copias',settings:'Configuración'}[item] }</button>)}</nav>
-        <div className="content">
+        <div className="content" ref={contentRef}>
           {progress && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>runInstallation(selected.id,progress.kind)} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
           {view === 'console' && <ConsoleView serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
-          {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { await api.createBackup(selected.id); setBackups(await api.backups(selected.id)) })}>Crear copia</button></div>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table"><div className="table-head"><span>Fecha</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" key={backup.id}><span>{new Date(backup.createdAt).toLocaleString()}</span><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => { if (window.confirm('Se guardará una copia del estado actual y después se restaurará esta versión. ¿Continuar?')) act(() => api.restoreBackup(selected.id,backup.id)) }}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
+          {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { await api.createBackup(selected.id); setBackups(await api.backups(selected.id)) })}>Crear copia</button></div>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table" ref={backupListRef}><div className="table-head"><span>Fecha</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><span>{new Date(backup.createdAt).toLocaleString()}</span><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => { if (window.confirm('Se guardará una copia del estado actual y después se restaurará esta versión. ¿Continuar?')) act(() => api.restoreBackup(selected.id,backup.id)) }}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
           {view === 'settings' && <Settings onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={values => { propsDirtyRef.current = true; setProps(values) }} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)); propsDirtyRef.current = false })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}
     </main>
-    {sidebarCollapsed && sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
-    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
+    {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
+    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
     {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
-    {closing && <Modal labelledBy="close-title" describedBy="close-description" busy={closingBusy} onClose={() => setClosing(false)}><h2 id="close-title">Hay servidores en ejecución</h2><p id="close-description">Elige qué hacer antes de cerrar.</p><div className="close-options"><button disabled={closingBusy} onClick={() => { setError(null); api.hideWindow().then(() => setClosing(false)).catch(e => setError(errorText(e))) }}>Mantener en segundo plano</button><button disabled={closingBusy} onClick={() => { setClosingBusy(true); api.stopAllAndExit().catch(e => { setClosingBusy(false); setError(errorText(e)); setClosing(false) }) }}>{closingBusy ? 'Deteniendo servidores…' : 'Detener y salir'}</button><button autoFocus disabled={closingBusy} onClick={() => setClosing(false)}>Cancelar</button></div></Modal>}
+    {closing && <Modal labelledBy="close-title" describedBy="close-description" busy={closingBusy} onClose={() => setClosing(false)}><h2 id="close-title">Hay servidores en ejecución</h2><p id="close-description">Elige qué hacer antes de cerrar.</p><div className="close-options"><button disabled={closingBusy} onClick={() => { setError(null); api.hideWindow().then(() => setClosing(false)).catch(e => setError(errorText(e))) }}>Mantener en segundo plano</button><button disabled={closingBusy} onClick={() => { setClosingBusy(true); api.stopAllAndExit().catch(e => { setClosingBusy(false); setError(errorText(e)); setClosing(false) }) }}>{closingBusy ? 'Deteniendo servidores…' : 'Detener y salir'}</button><button data-modal-close autoFocus disabled={closingBusy} onClick={() => setClosing(false)}>Cancelar</button></div></Modal>}
   </div>
 }
 
@@ -319,9 +361,10 @@ function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInst
     : server.jarPath && server.javaPath ? 'Todo preparado para el próximo inicio.'
     : 'Instala Minecraft y Java para empezar.'
   return <div className="overview">
+    <div className={`server-panorama ${server.imageData ? 'has-image' : ''}`} aria-hidden="true"><ServerCover server={server}/></div>
     <section className={`server-stage ${server.state}`} aria-label="Estado del servidor">
-      <div className="stage-main"><div className="stage-copy" key={server.state} role="status"><h2><span className={`state-dot large ${server.state}`} aria-hidden="true"/>{stateText(server.state)}</h2><p>{description}</p></div>{['starting','stopping','crashed','error'].includes(server.state) && <button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button>}</div>
-      <div className="stage-stats"><div><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong></div><div><span>Tiempo activo</span><strong>{fmtUptime(metrics?.uptimeSeconds)}</strong></div><div><span>Memoria</span><strong>{fmtBytes(metrics?.memoryBytes)}</strong></div><div><span>CPU</span><strong>{metrics?.cpuPercent == null ? '—' : `${metrics.cpuPercent.toFixed(1)} %`}</strong></div></div>
+      <div className="stage-main"><div className="stage-copy" role="status"><h2><span className={`state-dot large ${server.state}`} aria-hidden="true"/>{stateText(server.state)}</h2><p>{description}</p></div>{['starting','stopping','crashed','error'].includes(server.state) && <button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button>}</div>
+      <div className="stage-stats"><div><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong></div><div><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong></div><div><span>Memoria</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong></div><div><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong></div></div>
     </section>
     {(!server.jarPath || !server.javaPath) && <div className="callout"><div><strong>Instalación pendiente</strong><p>{server.jarPath ? 'Prepararemos Java sin reemplazar el archivo .jar existente.' : `Descargaremos Minecraft ${server.version} y Java.`}</p></div><button disabled={busy} onClick={onInstall}>{server.jarPath ? 'Preparar Java' : 'Instalar ahora'}</button></div>}
     {server.jarPath && !eula && <div className="callout"><div><strong>Antes del primer inicio</strong><p>Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a> antes de aceptarla.</p></div><button disabled={busy} onClick={onAccept}>He leído y acepto</button></div>}
@@ -336,6 +379,10 @@ function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInst
 function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;onCreate:(input:CreateInput,worldSource?:string)=>Promise<void>;busy:boolean;systemMemory:number}) {
   const steps = ['Identidad','Versión','Mundo','Capacidad','Revisar'] as const
   const [step,setStep] = useState(0)
+  const wizardRef=useRef<HTMLDivElement>(null)
+  const [stepDirection,setStepDirection]=useState(1)
+  const moveStep=(next:number)=>{setStepDirection(next>step?1:-1);setStep(next)}
+  useNavigationMotion(wizardRef,String(step),stepDirection,16)
   const [furthestStep,setFurthestStep] = useState(0)
   const [versions,setVersions] = useState<Version[]>([])
   const [versionLoading,setVersionLoading]=useState(true)
@@ -381,15 +428,15 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
     if (!canAdvance || busy) return
     if (step < steps.length - 1) {
       const next = step + 1
-      setStep(next)
+      moveStep(next)
       setFurthestStep(current => Math.max(current,next))
     } else onCreate(input,worldMode === 'existing' ? worldSource?.path : undefined)
   }
   return <div className="form-page">
     <div className="form-heading wizard-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><div className="wizard-title-row"><h1>Nuevo servidor</h1><span className="wizard-counter">Paso {step + 1} de {steps.length}</span></div></div>
-    <nav className="wizard-steps" aria-label="Pasos de creación">{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => setStep(index)}><span>{String(index + 1).padStart(2,'0')}</span><strong>{label}</strong></button>)}</nav>
+    <nav className="wizard-steps" aria-label="Pasos de creación"><MovingIndicator active={String(step)} axis="horizontal"/>{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => moveStep(index)}><span>{String(index + 1).padStart(2,'0')}</span><strong>{label}</strong></button>)}</nav>
     <div className="form-layout wizard-layout"><form className="create-form wizard-form" onSubmit={e => { e.preventDefault(); advance() }}>
-      <div className="wizard-panel" key={step}>
+      <div className="wizard-panel" key={step} ref={wizardRef}>
       {step === 0 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Nombre e imagen</h2><p>Así aparecerá en tu biblioteca.</p></div>
       <div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt="Vista previa de la imagen"/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage} disabled={!isTauri()}>Elegir imagen</button><p>PNG, JPG o WebP · hasta 2 MB</p>{imageError && <p className="form-error" role="alert">{imageError}</p>}</div><div className="form-row"><label htmlFor="new-name">Nombre del servidor</label><input id="new-name" autoFocus required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})} placeholder="Mi servidor"/><p className="field-help">Solo lo verás tú en este launcher.</p></div></div>
@@ -411,12 +458,12 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       </>}
       {step === 4 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Revisar y crear</h2><p>Comprueba los datos antes de instalar.</p></div>
-      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => setStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => setStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => setStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => setStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => setStep(3)}>Editar</button></div></div>
+      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => moveStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => moveStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => moveStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div></div>
       <p className="wizard-final-note">La instalación descargará Java y los archivos del servidor. Antes del primer inicio podrás leer y aceptar la EULA de Minecraft.</p>
       </>}
       </div>
-      <div className="form-actions wizard-actions"><span>{step === steps.length - 1 ? 'Se descargarán Java y Minecraft.' : ''}</span><div>{step > 0 && <button type="button" disabled={busy} onClick={() => setStep(value => value - 1)}>Anterior</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? 'Preparando…' : step === steps.length - 1 ? 'Crear e instalar' : 'Continuar'}<Icon name="arrow" size={16}/></button></div></div>
-    </form><aside className="form-aside"><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{platformName(input.platform)} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Mundo</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || 'Por elegir' : 'Nuevo'}</dd></div><div><dt>Memoria</dt><dd>{fmtBytes(input.memoryMaxMb * 1024 * 1024)}</dd></div><div><dt>Jugadores</dt><dd>Hasta {input.maxPlayers}</dd></div><div><dt>Objetivo de espacio</dt><dd>{input.storageTargetGb} GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
+      <div className="form-actions wizard-actions"><span>{step === steps.length - 1 ? 'Se descargarán Java y Minecraft.' : ''}</span><div>{step > 0 && <button type="button" disabled={busy} onClick={() => moveStep(step - 1)}>Anterior</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? 'Preparando…' : step === steps.length - 1 ? 'Crear e instalar' : 'Continuar'}<Icon name="arrow" size={16}/></button></div></div>
+    </form><aside className="form-aside"><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{platformName(input.platform)} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Mundo</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || 'Por elegir' : 'Nuevo'}</dd></div><div><dt>Memoria</dt><dd><AnimatedValue value={input.memoryMaxMb * 1024 * 1024} format={fmtBytes}/></dd></div><div><dt>Jugadores</dt><dd>Hasta <AnimatedValue value={input.maxPlayers}/></dd></div><div><dt>Objetivo de espacio</dt><dd><AnimatedValue value={input.storageTargetGb}/> GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
   </div>
 }
 
@@ -487,6 +534,7 @@ function Settings({onRuntimeChanged,onPrepareRuntime,server,props,setProps,memor
     <h3>Imagen del servidor</h3><div className="settings-image"><ServerArtwork server={server}/><div><strong>{server.name}</strong><p>La misma imagen en el launcher y en la lista de Minecraft. Se adapta a 64 × 64. PNG, JPG o WebP, hasta 2 MB.</p><div className="settings-image-actions"><button disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onPickImage}>{server.imageData ? 'Cambiar imagen' : 'Elegir imagen'}</button>{server.imageData && <button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onClearImage}>Quitar imagen</button>}</div></div></div>
     {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">Detén el servidor para editar su configuración.</p>}
     <RuntimePanel key={server.id} onChanged={onRuntimeChanged} server={server} busy={busy} onPrepare={onPrepareRuntime}/>
+    <JvmPanel key={`jvm-${server.id}`} server={server} busy={busy}/>
     <h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}
     <h3>Propiedades del servidor</h3><SettingsPropertyGroups values={props} onChange={setProps}/>
     <details className="advanced-properties"><summary>Otras propiedades</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !knownSettings.has(key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label="Nombre de propiedad" placeholder="Nombre de propiedad" value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label="Valor" placeholder="Valor" value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>Añadir</button></div></details>

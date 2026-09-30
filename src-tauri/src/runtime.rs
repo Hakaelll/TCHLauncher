@@ -97,6 +97,10 @@ pub fn parse_version(output: &str) -> Option<String> {
 }
 
 pub fn version_output(path: &Path) -> Result<String,String> {
+    version_output_with_args(path,&[])
+}
+
+pub fn version_output_with_args(path: &Path,args:&[String]) -> Result<String,String> {
     // Use a temporary file rather than pipes: an unexpected executable cannot fill a pipe and block inspection.
     let output_path = std::env::temp_dir().join(format!("tch-java-{}.log",uuid::Uuid::new_v4()));
     let result = (|| {
@@ -106,16 +110,19 @@ pub fn version_output(path: &Path) -> Result<String,String> {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x08000000);
         }
-        let mut child = command.arg("-version").stdin(Stdio::null()).stdout(output.try_clone().map_err(|e|e.to_string())?).stderr(output)
+        let mut child = command.args(args).arg("-version").stdin(Stdio::null()).stdout(output.try_clone().map_err(|e|e.to_string())?).stderr(output)
             .spawn().map_err(|e|format!("No se pudo ejecutar Java: {e}"))?;
         let started = Instant::now();
         loop {
             match child.try_wait() {
                 Ok(Some(status)) => {
-                    if !status.success() {return Err("Java no pudo completar la comprobación de versión.".into());}
                     use std::io::Read;
                     let mut text = String::new();
                     fs::File::open(&output_path).map_err(|e|e.to_string())?.take(16_384).read_to_string(&mut text).map_err(|e|e.to_string())?;
+                    if !status.success() {
+                        let detail=text.lines().take(2).collect::<Vec<_>>().join(" ").chars().take(400).collect::<String>();
+                        return Err(format!("Java no pudo completar la comprobación de versión. {detail}"));
+                    }
                     return Ok(text);
                 },
                 Ok(None) if started.elapsed() < Duration::from_secs(5) => std::thread::sleep(Duration::from_millis(25)),

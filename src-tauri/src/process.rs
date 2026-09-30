@@ -77,7 +77,7 @@ impl ProcessManager {
             .map(|p| (p.child.lock().unwrap().id(),p.started.elapsed().as_secs()))
     }
 
-    pub fn start(&self, server: &Server, app: AppHandle) -> Result<(), String> {
+    pub fn start(&self, server: &Server, app: AppHandle, jvm:&crate::jvm::Settings) -> Result<(), String> {
         let jar = server.jar_path.as_ref().ok_or("Instala primero el servidor")?;
         let java = server.java_path.as_ref().ok_or("Java no está instalado")?;
         if !std::path::Path::new(jar).is_file() || !std::path::Path::new(java).is_file() {
@@ -100,14 +100,8 @@ impl ProcessManager {
             .map_err(|e| format!("No se pudo abrir el log del launcher: {e}"))?));
         let mut command=Command::new(java);
         #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
-        if let Some(game)=crate::fabric::game_jar(server) {
-            if !game.is_file() {return Err("Falta el servidor Minecraft de Fabric. Comprueba la instalación.".into());}
-            command.arg(format!("-Dfabric.gameJarPath={}",game.display()));
-        }
         let mut child = command
-            .arg(format!("-Xms{}M",server.memory_min_mb))
-            .arg(format!("-Xmx{}M",server.memory_max_mb))
-            .arg("-jar").arg(jar).arg("nogui")
+            .args(crate::jvm::launch_arguments(server,jvm)?)
             .current_dir(&server.directory)
             .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
             .spawn().map_err(|e| format!("Java no pudo arrancar: {e}"))?;

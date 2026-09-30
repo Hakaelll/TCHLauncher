@@ -73,3 +73,7 @@ Fabric aparece en creación e importación. Su catálogo muestra versiones de Mi
 En Configuración, abre **Java personalizado** y elige `bin/java.exe` (Windows) o `bin/java` (Linux). La aplicación verifica la versión requerida por Minecraft y muestra la ruta antes de confirmar. Puedes volver a Temurin gestionado desde el mismo panel. La comprobación de arranque usa los requisitos oficiales guardados, sin modificar el Java global.
 
 Prueba dirigida con Java 21 instalado: define `TCH_TEST_JAVA` con la ruta del ejecutable y ejecuta `cargo test --manifest-path src-tauri/Cargo.toml verifies_real_custom_java_without_changing_an_incompatible_selection -- --ignored`.
+
+### Biblioteca y perfiles JVM (0.6.4)
+
+La biblioteca permite buscar y alternar tarjetas/lista. La navegación del servidor está junto al rail oscuro, que conserva los menús contextuales. Para imágenes grandes de servidores anteriores, vuelve a elegir el archivo original: su icono anterior ya estaba reducido a 64 × 64. En Configuración, abre Argumentos JVM para elegir el perfil recomendado o introducir una opción por línea. Guarda RAM antes de revisar la vista previa; los cambios de perfil se aplican en el siguiente inicio.

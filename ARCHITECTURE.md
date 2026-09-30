@@ -53,3 +53,7 @@ El arranque añade `fabric.gameJarPath` para localizar el JAR Mojang de esa gene
 ## Custom runtime validation (0.6.3)
 
 Each server can select a canonical Java executable through a native picker. Selection inspects `java -version`, checks the exact Java major from official Minecraft metadata and returns a preview. Confirmation repeats verification before persisting the path. Start/restart validate the configured executable in a blocking worker under the server operation reservation. Requirements are cached per Minecraft version; legacy records with no cache remain version-verified without claiming compatibility or forcing network access at launch. Managed installation refreshes the requirement cache.
+
+## JVM and artwork (0.6.4)
+
+JVM profiles live in a separate SQLite table linked to servers with cascading deletion. The same native argument builder supplies preview and launch, including Fabric paths. Custom saves verify the installed Java in a blocking worker under a stopped-server reservation. Artwork publication stages the original and a derived Minecraft icon, backs up previous files and rolls back the pair on failure. Full covers are loaded lazily, refreshed through a server-artwork-changed event and omitted from recurring server-list IPC payloads.

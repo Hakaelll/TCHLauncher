@@ -22,6 +22,6 @@ export function ServerDeleteDialog({server,onClose,onDelete}: {server:Server;onC
     <p id="delete-server-description">{loading ? 'Comprobando los archivos del servidor…' : preview?.managedFiles ? 'Se eliminarán sus archivos, imagen y copias de seguridad. Esta acción no se puede deshacer.' : preview ? 'Se quitará de la biblioteca junto con sus copias. La carpeta original importada y su icono se conservarán.' : 'No se pudo comprobar el alcance de la eliminación.'}</p>
     {preview && <div className="delete-preview-details"><span>Carpeta</span><strong>{preview.directory}</strong><span>Copias guardadas</span><strong>{preview.backupCount}</strong></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    <div className="world-confirm-actions"><button ref={cancelRef} disabled={deleting} onClick={onClose}>Cancelar</button><button className="danger-button" disabled={loading || deleting || !preview} onClick={confirm}>{deleting ? 'Eliminando…' : 'Eliminar servidor'}</button></div>
+    <div className="world-confirm-actions"><button data-modal-close ref={cancelRef} disabled={deleting} onClick={onClose}>Cancelar</button><button className="danger-button" disabled={loading || deleting || !preview} onClick={confirm}>{deleting ? 'Eliminando…' : 'Eliminar servidor'}</button></div>
   </Modal>
 }

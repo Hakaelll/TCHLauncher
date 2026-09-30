@@ -2,6 +2,7 @@ mod backup;
 mod download;
 mod fabric;
 mod install;
+mod jvm;
 mod log;
 mod model;
 mod network;
@@ -109,9 +110,11 @@ async fn pick_server_image() -> Result<Option<ImageSelection>, String> {
 }
 
 #[tauri::command]
-fn set_server_image(engine: State<'_, Engine>, id: String, path: String) -> Result<Server, String> {
+fn set_server_image(app:AppHandle,engine: State<'_, Engine>, id: String, path: String) -> Result<Server, String> {
     let _guard=engine.reserve_stopped(&id)?;
-    storage::set_image(&engine.root, &id, &PathBuf::from(path))
+    let server=storage::set_image(&engine.root, &id, &PathBuf::from(path))?;
+    let _=app.emit("server-artwork-changed",&id);
+    Ok(server)
 }
 
 #[tauri::command]
@@ -167,6 +170,26 @@ async fn get_runtime_info(engine: State<'_, Engine>,id: String) -> Result<runtim
 }
 
 #[tauri::command]
+fn get_jvm_settings(engine:State<'_,Engine>,id:String)->Result<jvm::Settings,String> {
+    jvm::get(&engine.root,&id)
+}
+
+#[tauri::command]
+fn preview_jvm(engine:State<'_,Engine>,id:String,settings:jvm::Settings)->Result<jvm::Preview,String> {
+    jvm::preview(&storage::get(&engine.root,&id)?,&settings)
+}
+
+#[tauri::command]
+async fn save_jvm_settings(engine:State<'_,Engine>,id:String,settings:jvm::Settings)->Result<(),String> {
+    let guard=engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard=guard;
+        jvm::save_checked(&root,&id,&settings)
+    }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
 async fn pick_custom_runtime(engine: State<'_,Engine>,id:String)->Result<Option<runtime::RuntimeInfo>,String> {
     let _guard=engine.reserve_stopped(&id)?;
     let root=engine.root.clone();let server=storage::get(&root,&id)?;
@@ -188,6 +211,12 @@ async fn set_custom_runtime(engine: State<'_,Engine>,id:String,path:String)->Res
         let info=runtime::candidate(&root,&server,&PathBuf::from(path),major)?;
         storage::update_java(&root,&server.id,&PathBuf::from(info.path.ok_or("Java no devolvió una ruta")?))
     }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn get_server_cover(engine:State<'_,Engine>,id:String)->Result<Option<String>,String> {
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move||storage::read_cover(&root,&id)).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -252,7 +281,7 @@ async fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> 
         storage::sync_legacy_icon(&root,&id)?;
         let server=storage::get(&root,&id)?;
         runtime::validate_configured(&root,&server)?;
-        processes.start(&server,app)
+        processes.start(&server,app,&jvm::get(&root,&id)?)
     }).await.map_err(|e|e.to_string())?
 }
 
@@ -278,7 +307,7 @@ async fn restart_server(app: AppHandle, engine: State<'_, Engine>, id: String) -
         }
         let server = storage::get(&root, &id)?;
         runtime::validate_configured(&root,&server)?;
-        processes.start(&server, app)
+        processes.start(&server, app,&jvm::get(&root,&id)?)
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -609,7 +638,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,pick_custom_runtime,set_custom_runtime,get_player_head,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }
