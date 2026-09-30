@@ -186,7 +186,7 @@ mod tests {
         fs::write(directory.join("whitelist.json"), r#"[{"name":"Alex","uuid":"abc"}]"#).unwrap();
         fs::write(directory.join("ops.json"), r#"[{"name":"Alex","uuid":"abc","level":4,"bypassesPlayerLimit":false}]"#).unwrap();
         fs::write(directory.join("banned-players.json"), r#"[{"name":"Steve","uuid":"def","created":"2026-01-01","source":"Console","expires":"forever","reason":"Griefing"}]"#).unwrap();
-        let server = Server {id:"id".into(),name:"Test".into(),version:"1.21.4".into(),platform:"vanilla".into(),directory:directory.to_string_lossy().into(),jar_path:None,java_path:None,memory_min_mb:1024,memory_max_mb:2048,storage_target_gb:20,created_at:String::new(),state:"stopped".into(),image_data:None};
+        let server = Server {pinned:false,id:"id".into(),name:"Test".into(),version:"1.21.4".into(),platform:"vanilla".into(),directory:directory.to_string_lossy().into(),jar_path:None,java_path:None,memory_min_mb:1024,memory_max_mb:2048,storage_target_gb:20,created_at:String::new(),state:"stopped".into(),image_data:None};
         let data = snapshot(&server,vec!["Alex".into()]).unwrap();
         assert_eq!(data.online, vec!["Alex"]);
         assert_eq!(data.known[0].uuid.as_deref(), Some("abc"));

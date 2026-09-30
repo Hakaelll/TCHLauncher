@@ -1,18 +1,17 @@
-use crate::model::{Progress, Server, VersionInfo};
+use crate::model::{Server, VersionInfo};
+use crate::download::DownloadTask;
 use crate::storage;
 use reqwest::blocking::Client;
 use serde_json::Value;
-use sha1::{Digest as _, Sha1};
-use sha2::Sha256;
 use std::fs::{self, File};
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use tauri::{AppHandle, Emitter};
+use std::collections::HashMap;
+use std::sync::{Arc,Mutex,OnceLock,TryLockError};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
 const MANIFEST: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+static RUNTIME_LOCKS: OnceLock<Mutex<HashMap<PathBuf,Arc<Mutex<()>>>>> = OnceLock::new();
 
 fn client() -> Result<Client, String> {
     Client::builder().user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")," (https://github.com/Hakaelll/TCHLauncher)"))
@@ -41,62 +40,22 @@ pub fn versions() -> Result<Vec<VersionInfo>, String> {
     }).take(50).collect())
 }
 
-fn version_metadata(client: &Client, version: &str) -> Result<Value, String> {
-    let manifest = json(client, MANIFEST)?;
+pub fn platform_versions(platform:&str) -> Result<Vec<VersionInfo>,String> {
+    if matches!(platform,"vanilla"|"paper") {return versions();}
+    if platform!="fabric" {return Err("Plataforma de servidor no compatible".into());}
+    let task=DownloadTask::new("catalog","install",|_|{})?;
+    let data=task.json("https://meta.fabricmc.net/v2/versions/game","Consultando versiones Fabric")?;
+    let items=data.as_array().ok_or("Catálogo de Minecraft para Fabric no válido")?;
+    Ok(items.iter().filter(|item|item["stable"]==true).filter_map(|item|Some(VersionInfo{id:item["version"].as_str()?.into(),kind:"release".into()})).collect())
+}
+
+fn version_metadata(task: &DownloadTask, version: &str) -> Result<Value, String> {
+    let manifest = task.json(MANIFEST, "Consultando versiones de Minecraft")?;
     let entry = manifest["versions"].as_array().ok_or("Respuesta de Mojang no válida")?
         .iter().find(|v| v["id"].as_str() == Some(version))
         .ok_or_else(|| format!("Minecraft {version} no está en el catálogo oficial"))?;
     let url = entry["url"].as_str().ok_or("Falta la URL de la versión")?;
-    json(client, url)
-}
-
-fn hex(bytes: &[u8]) -> String { bytes.iter().map(|b| format!("{b:02x}")).collect() }
-
-fn replace_file(part: &Path, target: &Path) -> Result<(), String> {
-    if !target.exists() { return fs::rename(part,target).map_err(|e| e.to_string()); }
-    let previous = target.with_extension(format!("previous-{}",Uuid::new_v4()));
-    fs::rename(target,&previous).map_err(|e| e.to_string())?;
-    if let Err(e) = fs::rename(part,target) {
-        let _ = fs::rename(&previous,target);
-        return Err(e.to_string());
-    }
-    let _ = fs::remove_file(previous);
-    Ok(())
-}
-
-fn download(client: &Client, url: &str, target: &Path, expected_hash: Option<(&str, &str)>, app: &AppHandle, server_id: &str, label: &str) -> Result<(), String> {
-    if !url.starts_with("https://") { return Err("La descarga debe usar HTTPS".into()); }
-    let mut response = client.get(url).send().and_then(|r| r.error_for_status())
-        .map_err(|e| format!("No se pudo descargar {label}: {e}"))?;
-    let total = response.content_length();
-    if total.is_some_and(|n| n > 2_000_000_000) { return Err("La descarga supera el límite de 2 GB".into()); }
-    let part = target.with_extension("part");
-    let result = (|| -> Result<(), String> {
-        let mut file = File::create(&part).map_err(|e| e.to_string())?;
-        let mut sha1 = Sha1::new();
-        let mut sha256 = Sha256::new();
-        let mut received = 0;
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let n = response.read(&mut buffer).map_err(|e| e.to_string())?;
-            if n == 0 { break; }
-            if received + n as u64 > 2_000_000_000 { return Err("La descarga supera el límite de 2 GB".into()); }
-            file.write_all(&buffer[..n]).map_err(|e| e.to_string())?;
-            sha1.update(&buffer[..n]); sha256.update(&buffer[..n]);
-            received += n as u64;
-            let _ = app.emit("install-progress", Progress { server_id:server_id.into(), label:label.into(), received, total });
-        }
-        file.sync_all().map_err(|e| e.to_string())?;
-        drop(file);
-        if let Some((kind, expected)) = expected_hash {
-            let actual = match kind { "sha1" => hex(&sha1.finalize()), "sha256" => hex(&sha256.finalize()), _ => return Err("Algoritmo de hash no compatible".into()) };
-            if !actual.eq_ignore_ascii_case(expected) { return Err(format!("La suma de comprobación de {label} no coincide")); }
-        }
-        replace_file(&part,target)?;
-        Ok(())
-    })();
-    if result.is_err() { let _ = fs::remove_file(&part); }
-    result
+    task.json(url, "Consultando requisitos de Minecraft")
 }
 
 fn platform_archive() -> Result<(&'static str, &'static str, &'static str), String> {
@@ -105,13 +64,14 @@ fn platform_archive() -> Result<(&'static str, &'static str, &'static str), Stri
     Ok((os, arch, if os == "windows" { "zip" } else { "tar.gz" }))
 }
 
-fn extract_archive(archive: &Path, destination: &Path, format: &str) -> Result<(), String> {
+fn extract_archive(archive: &Path, destination: &Path, format: &str, task: &DownloadTask) -> Result<(), String> {
     fs::create_dir_all(destination).map_err(|e| e.to_string())?;
     if format == "zip" {
         let mut zip = zip::ZipArchive::new(File::open(archive).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         if zip.len() > 20_000 { return Err("El archivo Java tiene demasiadas entradas".into()); }
         let mut unpacked_size = 0u64;
         for i in 0..zip.len() {
+            task.cancellation.check()?;
             let mut entry = zip.by_index(i).map_err(|e| e.to_string())?;
             unpacked_size = unpacked_size.saturating_add(entry.size());
             if unpacked_size > 2_000_000_000 { return Err("El archivo Java extraído supera 2 GB".into()); }
@@ -133,6 +93,7 @@ fn extract_archive(archive: &Path, destination: &Path, format: &str) -> Result<(
         let mut unpacked_size = 0u64;
         let mut entry_count = 0usize;
         for item in tar.entries().map_err(|e| e.to_string())? {
+            task.cancellation.check()?;
             let mut entry = item.map_err(|e| e.to_string())?;
             entry_count += 1;
             unpacked_size = unpacked_size.saturating_add(entry.size());
@@ -152,30 +113,48 @@ fn java_executable(root: &Path) -> Option<PathBuf> {
 }
 
 fn verify_java(path: &Path, major: u64) -> Result<(), String> {
-    let output = Command::new(path).arg("-version").output().map_err(|e| format!("No se pudo ejecutar Java: {e}"))?;
-    let version = String::from_utf8_lossy(&output.stderr);
-    if !output.status.success() || !version.contains(&format!("\"{major}.")) && !(major == 8 && version.contains("\"1.8.")) {
+    let output = crate::runtime::version_output(path)?;
+    let version = crate::runtime::parse_version(&output).ok_or("Java no devolvió una versión reconocible")?;
+    if !version.starts_with(&format!("{major}.")) && !(major == 8 && version.starts_with("1.8.")) {
         return Err(format!("Java no devolvió la versión {major} esperada: {version}"));
     }
     Ok(())
 }
 
-fn ensure_java(root: &Path, major: u64, client: &Client, app: &AppHandle, server_id: &str) -> Result<PathBuf, String> {
-    let target = root.join("runtimes").join(format!("temurin-{major}-{}-{}", std::env::consts::OS, std::env::consts::ARCH));
+fn ensure_java(root: &Path, major: u64, task: &DownloadTask, reinstall: bool) -> Result<PathBuf, String> {
+    let name = format!("temurin-{major}-{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+    // A fresh generation does not replace a runtime another server may be using.
+    let target = root.join("runtimes").join(if reinstall {format!("{name}-{}",Uuid::new_v4())} else {name});
+    let runtime_lock = RUNTIME_LOCKS.get_or_init(||Mutex::new(HashMap::new())).lock().map_err(|e|e.to_string())?
+        .entry(target.clone()).or_insert_with(||Arc::new(Mutex::new(()))).clone();
+    let mut waiting = false;
+    let _runtime_guard = loop {
+        task.cancellation.check()?;
+        match runtime_lock.try_lock() {
+            Ok(guard) => break guard,
+            Err(TryLockError::WouldBlock) => {
+                if !waiting {task.report("Esperando a que termine la preparación de Java","preparing");waiting=true;}
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            },
+            Err(TryLockError::Poisoned(_)) => return Err("La preparación de Java se interrumpió. Reinicia el launcher para volver a intentarlo.".into()),
+        }
+    };
     if let Some(path) = java_executable(&target) { if verify_java(&path, major).is_ok() { return Ok(path); } }
     let (os, arch, format) = platform_archive()?;
-    let meta = json(client, &format!("https://api.adoptium.net/v3/assets/latest/{major}/hotspot?architecture={arch}&image_type=jre&os={os}&vendor=eclipse"))?;
-    let item = meta.as_array().and_then(|a| a.first()).ok_or("No se encontró un runtime Temurin compatible")?;
-    let package = &item["binary"]["package"];
-    let url = package["link"].as_str().ok_or("Temurin no proporcionó descarga")?;
-    let checksum = package["checksum"].as_str().ok_or("Temurin no proporcionó checksum")?;
+    let mut package = None;
+    for kind in ["jre","jdk"] {
+        let meta = task.json(&format!("https://api.adoptium.net/v3/assets/latest/{major}/hotspot?architecture={arch}&image_type={kind}&os={os}&vendor=eclipse"), "Buscando Java compatible")?;
+        if let Some(asset) = temurin_package(&meta,major,format) {package = Some(asset);break;}
+    }
+    let (url,checksum) = package.ok_or_else(||format!("Adoptium no ofrece Temurin Java {major} para {os}/{arch}, ni como JRE ni como JDK"))?;
     let stage = root.join("runtimes").join(format!(".stage-{}", Uuid::new_v4()));
     fs::create_dir_all(&stage).map_err(|e| e.to_string())?;
     let archive = stage.join(format!("java.{format}"));
     let result = (|| {
-        download(client, url, &archive, Some(("sha256", checksum)), app, server_id, &format!("Java {major}"))?;
+        task.download(&url, &archive, Some(("sha256", &checksum)), &format!("Temurin Java {major}"))?;
         let unpacked = stage.join("unpacked");
-        extract_archive(&archive, &unpacked, format)?;
+        task.report("Extrayendo Java", "extracting");
+        extract_archive(&archive, &unpacked, format, task)?;
         let path = java_executable(&unpacked).ok_or("El paquete Java no contiene java ejecutable")?;
         #[cfg(unix)] {
             use std::os::unix::fs::PermissionsExt;
@@ -183,7 +162,10 @@ fn ensure_java(root: &Path, major: u64, client: &Client, app: &AppHandle, server
             perms.set_mode(0o755);
             fs::set_permissions(&path, perms).map_err(|e| e.to_string())?;
         }
+        task.cancellation.check()?;
+        task.report("Comprobando Java", "verifying");
         verify_java(&path, major)?;
+        task.cancellation.check()?;
         let previous = target.with_extension(format!("previous-{}",Uuid::new_v4()));
         if target.exists() { fs::rename(&target,&previous).map_err(|e| e.to_string())?; }
         if let Err(e) = fs::rename(&unpacked, &target) {
@@ -197,15 +179,33 @@ fn ensure_java(root: &Path, major: u64, client: &Client, app: &AppHandle, server
     result
 }
 
-pub fn install(root: &Path, server: &Server, app: &AppHandle) -> Result<(), String> {
-    let client = client()?;
-    let meta = version_metadata(&client, &server.version)?;
+fn temurin_package(meta: &Value,major: u64,format: &str) -> Option<(String,String)> {
+    meta.as_array()?.iter().find_map(|item| {
+        if item["version"]["major"].as_u64()? != major {return None;}
+        let package = &item["binary"]["package"];
+        let link = package["link"].as_str()?;
+        let checksum = package["checksum"].as_str()?;
+        if !link.starts_with("https://") || !package["name"].as_str()?.ends_with(format) || checksum.len() != 64 || !checksum.chars().all(|c|c.is_ascii_hexdigit()) {return None;}
+        Some((link.into(),checksum.into()))
+    })
+}
+
+pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), String> {
+    task.cancellation.check()?;
+    let meta = version_metadata(task, &server.version)?;
     let major = meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
     if let Some(jar) = &server.jar_path {
         if !Path::new(jar).is_file() { return Err("El archivo .jar importado ya no existe".into()); }
-        let java = ensure_java(root,major,&client,app,&server.id)?;
+        let java = ensure_java(root,major,task,false)?;
         storage::update_java(root,&server.id,&java)?;
         return Ok(());
+    }
+    if server.platform=="fabric" {
+        let java=ensure_java(root,major,task,false)?;
+        let jar=crate::fabric::install(server,&meta,task)?;
+        let result=task.cancellation.check().and_then(|_|storage::update_install(root,&server.id,&jar,&java));
+        if result.is_err() {if let Some(parent)=jar.parent(){let _=fs::remove_dir_all(parent);}}
+        return result;
     }
     let (url, checksum): (String, Option<(&str, String)>) = if server.platform == "vanilla" {
         let artifact = &meta["downloads"]["server"];
@@ -213,7 +213,7 @@ pub fn install(root: &Path, server: &Server, app: &AppHandle) -> Result<(), Stri
         let hash = artifact["sha1"].as_str().ok_or("Mojang no proporcionó checksum")?;
         (url.into(), Some(("sha1", hash.into())))
     } else {
-        let builds = json(&client, &format!("https://fill.papermc.io/v3/projects/paper/versions/{}/builds", server.version))?;
+        let builds = task.json(&format!("https://fill.papermc.io/v3/projects/paper/versions/{}/builds", server.version), "Buscando Paper compatible")?;
         let stable = builds.as_array().ok_or("Respuesta de Paper no válida")?.iter()
             .find(|b| b["channel"].as_str() == Some("STABLE"))
             .ok_or("Paper no tiene una versión estable para esta versión de Minecraft")?;
@@ -222,18 +222,109 @@ pub fn install(root: &Path, server: &Server, app: &AppHandle) -> Result<(), Stri
         let hash = download["checksums"]["sha256"].as_str().map(|s| ("sha256",s.into()));
         (url.into(), hash)
     };
-    let java = ensure_java(root, major, &client, app, &server.id)?;
+    let java = ensure_java(root, major, task,false)?;
     let jar = Path::new(&server.directory).join("server.jar");
-    download(&client, &url, &jar, checksum.as_ref().map(|(a,b)| (*a,b.as_str())), app, &server.id, "Servidor Minecraft")?;
+    task.download(&url, &jar, checksum.as_ref().map(|(a,b)| (*a,b.as_str())), "Servidor Minecraft")?;
+    task.cancellation.check()?;
     storage::update_install(root, &server.id, &jar, &java)?;
     Ok(())
+}
+
+pub fn prepare_runtime(root: &Path,server: &Server,task: &DownloadTask,reinstall: bool) -> Result<(),String> {
+    let meta = version_metadata(task,&server.version)?;
+    let major = meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
+    let java = ensure_java(root,major,task,reinstall)?;
+    task.cancellation.check()?;
+    storage::update_java(root,&server.id,&java)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    #[ignore="Downloads official Fabric and Minecraft 1.21.4; checks EULA refusal without accepting it"]
+    fn installs_fabric_and_reaches_minecraft_eula_gate() {
+        use std::process::{Command,Stdio};
+        let root=std::env::temp_dir().join(format!("tch fabric live {}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let result=(|| -> Result<(),String> {
+            let server=storage::create(&root,crate::model::CreateServer {name:"Fabric validation".into(),version:"1.21.4".into(),platform:"fabric".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
+            let task=DownloadTask::new(&server.id,"install",|event| {if event.stage!="downloading" {eprintln!("{}: {}",event.stage,event.label);}})?;
+            install(&root,&server,&task)?;
+            let installed=storage::get(&root,&server.id)?;
+            let jar=Path::new(installed.jar_path.as_ref().ok_or("Missing launcher")?);
+            assert!(jar.is_file());assert!(crate::fabric::game_jar(&installed).unwrap().is_file());
+            let output_path=root.join("boot.log");let output=File::create(&output_path).map_err(|e|e.to_string())?;
+            let mut command=Command::new(installed.java_path.as_ref().unwrap());
+            #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+            let mut child=command.args(["-Xms512M","-Xmx1024M"])
+                .arg(format!("-Dfabric.gameJarPath={}",crate::fabric::game_jar(&installed).unwrap().display()))
+                .arg("-jar").arg(jar).arg("nogui").current_dir(&installed.directory)
+                .stdin(Stdio::null()).stdout(output.try_clone().unwrap()).stderr(output).spawn().map_err(|e|e.to_string())?;
+            let started=std::time::Instant::now();
+            loop {
+                if child.try_wait().map_err(|e|e.to_string())?.is_some(){break;}
+                if started.elapsed()>std::time::Duration::from_secs(90) {let _=child.kill();let _=child.wait();return Err("Fabric did not reach the EULA gate in time".into());}
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            let log=fs::read_to_string(output_path).map_err(|e|e.to_string())?;
+            eprintln!("{log}");
+            assert!(log.contains("Loading Minecraft 1.21.4 with Fabric Loader"),"{log}");
+            assert!(log.to_ascii_lowercase().contains("agree to the eula"),"{log}");
+            assert!(!fs::read_to_string(Path::new(&installed.directory).join("eula.txt")).unwrap_or_default().lines().any(|line|line.trim()=="eula=true"));
+            assert!(!Path::new(&installed.directory).join("world").exists());
+            let inspection=storage::inspect_import(Path::new(&installed.directory))?;
+            assert_eq!(inspection.detected_version.as_deref(),Some("1.21.4"));
+            let selected_jar=inspection.jar_files.iter().find(|name|name.ends_with("fabric-server-launch.jar")).ok_or("Inspection did not find Fabric launcher")?;
+            let imported=storage::import(&root,crate::model::ImportServer {path:installed.directory.clone(),name:"Fabric import validation".into(),version:"1.21.4".into(),platform:"fabric".into(),jar_file:selected_jar.clone(),copy:true,storage_target_gb:2,image_path:None})?;
+            assert!(crate::fabric::game_jar(&imported).unwrap().is_file());
+            assert!(Path::new(imported.jar_path.as_ref().unwrap()).is_file());
+            assert!(jar.is_file());
+            let imported_jar=imported.jar_path.clone().unwrap();let before=fs::read(&imported_jar).unwrap();
+            install(&root,&imported,&task)?;
+            assert_eq!(fs::read(&imported_jar).unwrap(),before);
+            assert!(storage::get(&root,&imported.id)?.java_path.is_some());
+            Ok(())
+        })();
+        let _=fs::remove_dir_all(&root);
+        result.unwrap();
+    }
+    #[test]
     fn rejects_non_https_sources() {
         assert!(json(&client().unwrap(), "http://example.com").is_err());
+    }
+    #[test]
+    fn accepts_a_matching_jdk_archive_when_java_16_has_no_jre() {
+        let empty = serde_json::json!([]);
+        assert!(temurin_package(&empty,16,"zip").is_none());
+        let jdk = serde_json::json!([{ "version":{"major":16},"binary":{"image_type":"jdk","package":{
+            "name":"OpenJDK16U-jdk_x64_windows_hotspot_16.0.2_7.zip","link":"https://github.com/adoptium/temurin16-binaries/releases/download/jdk-16.0.2%2B7/runtime.zip","checksum":"40191ffbafd8a6f9559352d8de31e8d22a56822fb41bbcf45f34e3fd3afa5f9e"}}}]);
+        assert!(temurin_package(&jdk,16,"zip").is_some());
+        assert!(temurin_package(&jdk,17,"zip").is_none());
+        assert!(temurin_package(&jdk,16,"tar.gz").is_none());
+    }
+    #[test]
+    #[ignore = "Downloads official Java 16 and Minecraft 1.17.1; requires internet"]
+    fn installs_real_minecraft_1171_and_temurin16_without_accepting_eula() {
+        let root = std::env::temp_dir().join(format!("tch-install-live-{}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let result = (|| -> Result<(),String> {
+            storage::connect(&root)?;
+            let server = storage::create(&root,crate::model::CreateServer {name:"Runtime validation".into(),version:"1.17.1".into(),platform:"vanilla".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
+            let last = Arc::new(Mutex::new(String::new()));
+            let task = DownloadTask::new(&server.id,"install",move |event| {
+                let next = format!("{}: {}",event.stage,event.label);
+                let mut previous = last.lock().unwrap();
+                if *previous != next {*previous=next.clone();eprintln!("{next}");}
+            })?;
+            install(&root,&server,&task)?;
+            let installed = storage::get(&root,&server.id)?;
+            verify_java(Path::new(installed.java_path.as_ref().ok_or("Java path missing")?),16)?;
+            assert!(fs::metadata(installed.jar_path.ok_or("Server jar missing")?).unwrap().len()>1_000_000);
+            assert!(!fs::read_to_string(Path::new(&server.directory).join("eula.txt")).unwrap_or_default().lines().any(|line|line.trim()=="eula=true"));
+            Ok(())
+        })();
+        let _=fs::remove_dir_all(&root);
+        result.unwrap();
     }
 }

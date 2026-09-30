@@ -7,8 +7,8 @@ La referencia completa aportada por el usuario está en [design.md](design.md). 
 - Tipografía del sistema y escala compacta también en la entrada, con titulares de hasta 24 px.
 - Filas, tablas y divisores para datos operativos. Las tarjetas se reservan para grupos que de verdad necesitan un contenedor.
 - Controles de aproximadamente 10 px de radio. Estado de foco visible y movimiento reducido cuando el sistema lo pide.
-- Los estados de operación y errores se distinguen mediante texto, iconos y contraste dentro de la paleta gris.
-- Sin sombras ornamentales, gradientes, imágenes de relleno ni cuadrículas de tarjetas.
+- Por petición posterior del usuario, la paleta incorpora latón en acciones y navegación, verde en ejecución, ámbar en operaciones y rojo en errores y eliminación. Cada estado conserva su etiqueta textual.
+- Sin imágenes de relleno ni sombras ornamentales. El menú contextual usa una sombra discreta para distinguir su capa. La entrada admite dos tarjetas ornamentadas por la referencia explícita de aumentos de TFT, con geometría SVG propia.
 
 La navegación se divide en servidores en la barra lateral y secciones del servidor en pestañas, con el estado y la acción principal sobre el contenido. La barra lateral admite un modo reducido que conserva las imágenes, el estado y las acciones. La preferencia se recuerda localmente. Al pasar el cursor o enfocar una imagen se muestra el nombre y el contexto del servidor; el botón tiene un nombre accesible para teclado y lectores de pantalla.
 
@@ -18,9 +18,15 @@ Los controles de capacidad combinan un número editable y un deslizador con su e
 
 La creación recorre cinco pasos visibles, con avance controlado, retorno a pasos completados, resumen persistente y revisión final. Configuración agrupa las propiedades por identidad y conexión, juego y acceso; cada ajuste incluye una explicación breve. Eliminar un servidor requiere una confirmación que diferencia los archivos administrados de las carpetas externas importadas.
 
-La entrada muestra «Tu primer servidor», una frase breve y las acciones Crear e Importar. No usa un icono grande ni tarjetas de promoción. El Resumen agrupa estado, jugadores, tiempo activo, RAM y CPU en una franja clara. Rendimiento y Conexión comparten la siguiente fila; espacio, actividad y copias usan divisores. Jugadores usa una banda de cifras destacadas; Configuración da espacio a la imagen elegida; la Consola distingue hora, nivel y mensaje con búsqueda y filtro.
+La entrada presenta dos opciones visuales: Crear en marfil y latón, e Importar en salvia. Marcos finos, emblemas geométricos y acciones al pie hacen visibles las dos rutas sin añadir texto promocional. Las tarjetas aparecen una vez y responden al cursor y la pulsación; se respeta el movimiento reducido.
 
-Rendimiento permite alternar entre RAM y CPU, con una gráfica de los últimos dos minutos, valor actual y pico. El historial se conserva al cambiar de sección durante la sesión. Se muestran tasas medidas de lectura y escritura, PID y heap máximo de Java; el heap no se presenta como RAM física consumida. Las muestras ausentes aparecen como un guion y los huecos largos interrumpen la línea. Los contadores de advertencias y errores describen únicamente el tramo reciente del registro.
+Rendimiento tiene una pestaña propia. RAM y CPU se muestran simultáneamente, lado a lado cuando cabe y apiladas en ventanas estrechas. Ambas mantienen historial, valor actual, pico y huecos de datos reales. Las líneas usan latón y verde azulado. Resumen conserva las cifras inmediatas y la conexión.
+
+Consola mantiene neutro el texto del mensaje y aplica etiquetas coloreadas a INFO (azul), SYSTEM (violeta), PLAYER (verde), CHAT (verde azulado), COMMAND (latón), WARN (ámbar) y ERROR (rojo). El nombre del nivel siempre es visible. El autocompletado general de WebView2 y del campo de comandos se desactiva.
+
+El clic derecho en un servidor abre acciones de fijar/desfijar, configuración y eliminar. El menú se ajusta al viewport y admite flechas, Inicio/Fin y Escape. Los servidores fijados se guardan en SQLite y se ordenan primero. Eliminar reutiliza el diálogo nativo centrado con confirmación.
+
+Jugadores incorpora la cabeza pixelada real de la skin cuando hay UUID y un perfil disponible; muestra una inicial si falta. La imagen del servidor se adapta a PNG 64 × 64 y se comparte con `server-icon.png`, incluido el icono de una carpeta importada. Configuración permite verificar y reinstalar Java, con versión y ruta reales. Las descargas muestran fase, bytes, velocidad, cancelación y reintento.
 
 Mundos usa filas con la imagen real del mundo cuando existe `icon.png`, nombre, tamaño y estado principal. Las acciones de archivos están junto al mundo al que afectan. La importación se prepara en un formulario compacto; cambiar o borrar pide confirmación y explica la copia previa.
 
@@ -33,3 +39,9 @@ Los diálogos usan `dialog.showModal()` en la capa superior del navegador, media
 Conexión muestra una dirección LAN seleccionable y copiable, junto al estado local del puerto. La guía de internet está plegada por defecto y explica la configuración manual sin presentar la IP pública como prueba de accesibilidad.
 
 La v0.6.0 se ha verificado mediante compilación y revisión del código; su apariencia y funcionamiento con teclado en la aplicación nativa siguen pendientes de revisión manual.
+
+## Verificación de esta revisión
+
+Revisión de código y compilación, sin computer use ni subagentes por petición del usuario. La comprobación visual en Windows, navegación completa con teclado y conexión desde un cliente Minecraft quedan para prueba manual.
+
+El paso Versión permite Vanilla, Paper y Fabric. Al elegir Fabric se consulta su catálogo compatible; el avance se desactiva mientras carga y ofrece reintento si falla. Las respuestas de la plataforma anterior se descartan. Importación detecta nombres de launchers Fabric y propone el archivo correspondiente; tipo y versión siguen editables.

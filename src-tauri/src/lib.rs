@@ -1,4 +1,6 @@
 mod backup;
+mod download;
+mod fabric;
 mod install;
 mod log;
 mod model;
@@ -6,6 +8,8 @@ mod network;
 mod players;
 mod process;
 mod properties;
+mod runtime;
+mod skin;
 mod storage;
 mod world;
 
@@ -29,6 +33,7 @@ pub struct Engine {
     sampled_pids: Arc<Mutex<HashSet<u32>>>,
     size_cache: Arc<Mutex<HashMap<String,(Instant,u64)>>>,
     operations: Arc<Mutex<HashSet<String>>>,
+    installations: Arc<Mutex<HashMap<String,Arc<download::DownloadTask>>>>,
 }
 
 struct OperationGuard {
@@ -68,18 +73,24 @@ impl Engine {
 #[tauri::command]
 fn list_servers(engine: State<'_, Engine>) -> Result<Vec<Server>, String> {
     let mut servers = storage::list(&engine.root)?;
-    for server in &mut servers { server.state = engine.processes.state(&server.id); }
+    let installations = engine.installations.lock().map_err(|e| e.to_string())?;
+    for server in &mut servers { server.state = if installations.contains_key(&server.id) { "installing".into() } else {engine.processes.state(&server.id)}; }
     Ok(servers)
 }
 
 #[tauri::command]
-async fn get_versions() -> Result<Vec<VersionInfo>, String> {
-    tauri::async_runtime::spawn_blocking(install::versions).await.map_err(|e| e.to_string())?
+async fn get_versions(platform: Option<String>) -> Result<Vec<VersionInfo>, String> {
+    tauri::async_runtime::spawn_blocking(move || install::platform_versions(platform.as_deref().unwrap_or("vanilla"))).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 fn create_server(engine: State<'_, Engine>, input: CreateServer) -> Result<Server, String> {
     storage::create(&engine.root,input)
+}
+
+#[tauri::command]
+fn set_server_pinned(engine: State<'_, Engine>,id: String,pinned: bool) -> Result<(),String> {
+    storage::set_pinned(&engine.root,&id,pinned)
 }
 
 #[tauri::command]
@@ -99,11 +110,13 @@ async fn pick_server_image() -> Result<Option<ImageSelection>, String> {
 
 #[tauri::command]
 fn set_server_image(engine: State<'_, Engine>, id: String, path: String) -> Result<Server, String> {
+    let _guard=engine.reserve_stopped(&id)?;
     storage::set_image(&engine.root, &id, &PathBuf::from(path))
 }
 
 #[tauri::command]
 fn clear_server_image(engine: State<'_, Engine>, id: String) -> Result<Server, String> {
+    let _guard=engine.reserve_stopped(&id)?;
     storage::clear_image(&engine.root, &id)
 }
 
@@ -138,18 +151,56 @@ async fn import_server(engine: State<'_, Engine>, input: ImportServer) -> Result
 
 #[tauri::command]
 async fn install_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
-    let guard = engine.reserve_stopped(&id)?;
+    run_install(app,engine,id,false,false).await
+}
+
+#[tauri::command]
+async fn prepare_runtime(app: AppHandle, engine: State<'_, Engine>, id: String,reinstall: bool) -> Result<(),String> {
+    run_install(app,engine,id,true,reinstall).await
+}
+
+#[tauri::command]
+async fn get_runtime_info(engine: State<'_, Engine>,id: String) -> Result<runtime::RuntimeInfo,String> {
     let root = engine.root.clone();
     let server = storage::get(&root,&id)?;
+    tauri::async_runtime::spawn_blocking(move ||runtime::inspect(&root,&server)).await.map_err(|error|error.to_string())
+}
+
+#[tauri::command]
+async fn get_player_head(engine: State<'_, Engine>,uuid: String) -> Result<Option<String>,String> {
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move ||skin::player_head(&root,&uuid)).await.map_err(|e|e.to_string())?
+}
+
+async fn run_install(app: AppHandle, engine: State<'_, Engine>, id: String,runtime_only: bool,reinstall: bool) -> Result<(),String> {
+    let _guard = engine.reserve_stopped(&id)?;
+    let root = engine.root.clone();
+    let server = storage::get(&root,&id)?;
+    let emitter = app.clone();
+    let kind = if !runtime_only {"install"} else if reinstall {"runtime_reinstall"} else {"runtime"};
+    let task = Arc::new(download::DownloadTask::new(&id,kind,move |progress| { let _ = emitter.emit("install-progress",progress); })?);
+    engine.installations.lock().map_err(|e| e.to_string())?.insert(id.clone(),task.clone());
+    task.report("Preparando instalación","preparing");
     process::emit_state(&app,&id,"installing");
     let task_app = app.clone();
+    let worker = task.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let _guard = guard;
-        install::install(&root,&server,&task_app)
+        if runtime_only {install::prepare_runtime(&root,&server,&worker,reinstall)} else {install::install(&root,&server,&worker)}
     })
-        .await.map_err(|e| e.to_string())?;
-    process::emit_state(&app,&id,if result.is_ok() {"stopped"} else {"error"});
+        .await.unwrap_or_else(|error| Err(format!("La instalación se interrumpió: {error}")));
+    task.finish(&result);
+    engine.installations.lock().map_err(|e| e.to_string())?.remove(&id);
+    engine.invalidate_size(&id);
+    process::emit_state(&task_app,&id,if result.is_ok() || result.as_ref().err().is_some_and(|e| e == download::CANCELLED) {"stopped"} else {"error"});
     result
+}
+
+#[tauri::command]
+fn cancel_install(engine: State<'_, Engine>, id: String, task_id: String) -> Result<bool,String> {
+    let jobs = engine.installations.lock().map_err(|e| e.to_string())?;
+    let Some(task) = jobs.get(&id).filter(|task| task.id == task_id) else { return Ok(false); };
+    task.cancellation.cancel();
+    Ok(true)
 }
 
 #[tauri::command]
@@ -171,6 +222,8 @@ fn eula_accepted(engine: State<'_, Engine>, id: String) -> Result<bool, String> 
 fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
     let operations = engine.operations.lock().map_err(|e| e.to_string())?;
     if operations.contains(&id) { return Err("Espera a que termine la operación de archivos".into()); }
+    if engine.processes.is_active(&id) {return Err("Este servidor ya está en ejecución".into());}
+    storage::sync_legacy_icon(&engine.root,&id)?;
     let server = storage::get(&engine.root,&id)?;
     engine.processes.start(&server,app)
 }
@@ -474,10 +527,24 @@ fn show_main(app: &AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            #[cfg(windows)]
+            if let Some(window)=app.get_webview_window("main") {
+                window.with_webview(|webview| {
+                    use windows_core::Interface;
+                    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings4;
+                    // WebView2 settings must be accessed on the owning UI thread.
+                    let result=unsafe {(|| -> windows_core::Result<()> {
+                        let settings=webview.controller().CoreWebView2()?.Settings()?.cast::<ICoreWebView2Settings4>()?;
+                        settings.SetIsGeneralAutofillEnabled(false)?;
+                        settings.SetIsPasswordAutosaveEnabled(false)
+                    })()};
+                    if let Err(error)=result {eprintln!("Could not disable WebView autofill: {error}");}
+                })?;
+            }
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             storage::connect(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())) });
+            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())) });
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
@@ -513,7 +580,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_player_head,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }

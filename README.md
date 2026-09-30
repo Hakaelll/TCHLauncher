@@ -15,14 +15,14 @@ Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --ma
 
 ## Flujo disponible
 
-1. Crear un servidor Vanilla o Paper con un asistente de cinco pasos: identidad, versión, mundo, capacidad y revisión. Se elige una versión release del catálogo de Mojang y, opcionalmente, un mundo existente.
+1. Crear un servidor Vanilla, Paper o Fabric con un asistente de cinco pasos: identidad, versión, mundo, capacidad y revisión. Se elige una versión release del catálogo de Mojang y, opcionalmente, un mundo existente.
 2. Descargar un runtime Temurin local y el servidor desde Mojang o PaperMC. Los artefactos con hash publicado se verifican antes de usarse.
 3. Leer y aceptar explícitamente la EULA de Minecraft.
 4. Iniciar el servidor, ver la salida, enviar comandos y detenerlo de forma ordenada, también durante el inicio.
 5. Editar `server.properties` y memoria con el servidor detenido.
 6. Crear y restaurar copias de seguridad locales con el servidor detenido.
 7. Importar una carpeta existente, copiándola a la biblioteca o administrándola en su ubicación original, y preparar Java sin sustituir su `.jar`.
-8. Elegir una imagen PNG, JPG o WebP para un servidor nuevo, importado o ya existente. Se muestra en la barra lateral y junto al título del servidor.
+8. Elegir una imagen PNG, JPG o WebP para un servidor nuevo, importado o ya existente. Se adapta a `server-icon.png` de 64 × 64 y se muestra tanto en el launcher como en la lista de Minecraft.
 9. Ajustar RAM, jugadores y objetivo de espacio escribiendo un valor o moviendo un deslizador. El objetivo de espacio compara el tamaño de la carpeta del servidor y avisa al superarlo; no limita el disco.
 10. Consultar jugadores conocidos y conectados, lista blanca, operadores y bloqueos. Con el servidor en marcha, enviar comandos para gestionar permisos, expulsiones y bloqueos. Importar una lista blanca `.txt` o `whitelist.json` con vista previa.
 11. Buscar y filtrar la consola por nivel, copiar las líneas visibles y exportar el log completo. El Resumen muestra eventos recientes detectados en la salida.
@@ -31,7 +31,7 @@ Para compilar el frontend: `pnpm build`. Para las pruebas Rust: `cargo test --ma
 14. Eliminar un servidor detenido desde Configuración con una confirmación que muestra el alcance. Las carpetas importadas administradas en su ubicación original permanecen en el disco.
 15. Reiniciar un servidor en marcha: se envía `stop`, se espera al cierre del proceso y se vuelve a iniciar. La parada forzada permanece como último recurso.
 16. Ver la dirección LAN y el estado TCP del puerto configurado; copiar la dirección local. La consulta de IP pública mediante [ipify](https://www.ipify.org/) es opcional y no implica que el puerto sea accesible desde internet.
-17. Seguir RAM y CPU mediante una gráfica de dos minutos que se conserva al cambiar de sección. Consultar valores actuales y picos, tasas de lectura/escritura, PID y heap máximo. Los valores proceden del proceso Java y no representan TPS.
+17. Seguir RAM y CPU simultáneamente en la pestaña Rendimiento con gráficas de dos minutos que se conserva al cambiar de sección. Consultar valores actuales y picos, tasas de lectura/escritura, PID y heap máximo. Los valores proceden del proceso Java y no representan TPS.
 
 Los datos se almacenan en el directorio de datos de la aplicación del sistema. No hay cuentas ni servicio cloud propio. Algunas descargas requieren acceso a internet.
 
@@ -52,3 +52,18 @@ El instalador v0.6.0 de Windows x64 se ha generado en `src-tauri/target/release/
 ## Estado del proyecto
 
 Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para la estructura, [design.md](design.md) para la referencia visual aportada y [NEXT_TODOS.md](NEXT_TODOS.md) para funciones pendientes. Fabric, NeoForge, mods, plugins, importación de modpacks y la configuración de red pública aún no están implementados.
+
+### Cambios de 0.6.1
+
+- Entrada con opciones visuales inspiradas en aumentos de TFT, acentos de color y movimiento breve.
+- Menú de clic derecho para fijar/desfijar servidores, abrir configuración y solicitar eliminación confirmada.
+- Cabezas de skins reales por UUID, con caché local y alternativa cuando no están disponibles.
+- Etiquetas de consola coloreadas y autocompletado de WebView2 desactivado.
+- Descargas cancelables con progreso, velocidad, reintentos y limpieza de parciales.
+- Gestión visible de Java y fallback de JRE a JDK de la misma versión para Temurin 16.
+
+Validación 0.6.1: 30 pruebas Rust locales, 6 de telemetría y las 2 comprobaciones con servicios oficiales aprobadas. Las comprobaciones con servicios oficiales son optativas: `cargo test --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture`. Usan carpetas temporales y no aceptan la EULA. La prueba Fabric arranca Minecraft hasta el aviso de EULA y comprueba que no se haya creado un mundo. La revisión visual y la conexión desde un cliente Minecraft requieren prueba manual.
+
+### Cambios de 0.6.2
+
+Fabric aparece en creación e importación. Su catálogo muestra versiones de Minecraft compatibles, y la instalación elige un loader estable con bibliotecas verificadas y publicación atómica. La importación mantiene los archivos existentes, incluidas generaciones creadas por TCHLauncher. La comprobación real usa Minecraft 1.21.4 y Fabric Loader 0.19.5 y llega al aviso de EULA sin aceptarla. NeoForge, gestión de mods y actualización de loaders siguen pendientes.

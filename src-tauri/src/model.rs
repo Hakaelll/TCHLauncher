@@ -16,6 +16,7 @@ pub struct Server {
     pub created_at: String,
     pub state: String,
     pub image_data: Option<String>,
+    pub pinned: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,9 +66,15 @@ pub struct VersionInfo {
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
     pub server_id: String,
+    pub task_id: String,
+    pub kind: String,
     pub label: String,
+    pub stage: String,
     pub received: u64,
     pub total: Option<u64>,
+    pub bytes_per_second: Option<f64>,
+    pub attempt: u32,
+    pub error: Option<String>,
 }
 
 #[derive(Clone, Serialize)]

@@ -127,7 +127,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("tch-network-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join("server.properties"), "server-port=25565\nserver-ip=127.0.0.1\n").unwrap();
-        let server = Server {
+        let server = Server {pinned:false,
             id: "test".into(), name: "Test".into(), version: "1.21.4".into(), platform: "vanilla".into(),
             directory: root.to_string_lossy().into(), jar_path: None, java_path: None,
             memory_min_mb: 1024, memory_max_mb: 2048, storage_target_gb: 20,

@@ -37,6 +37,12 @@ pub fn connect(root: &Path) -> Result<Connection, String> {
         if migration.is_ok() { db.execute_batch("COMMIT").map_err(|e| e.to_string())?; }
         else { let _ = db.execute_batch("ROLLBACK"); migration?; }
     }
+    if schema_version < 2 {
+        let mut columns=db.prepare("PRAGMA table_info(servers)").map_err(|e|e.to_string())?;
+        let names=columns.query_map([],|row|row.get::<_,String>(1)).map_err(|e|e.to_string())?.collect::<rusqlite::Result<Vec<_>>>().map_err(|e|e.to_string())?;
+        if !names.iter().any(|name|name=="pinned") {db.execute("ALTER TABLE servers ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",[]).map_err(|e|e.to_string())?;}
+        db.execute_batch("PRAGMA user_version=2").map_err(|e|e.to_string())?;
+    }
     Ok(db)
 }
 
@@ -46,20 +52,26 @@ fn row_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<Server> {
         platform: row.get(3)?, directory: row.get(4)?, jar_path: row.get(5)?,
         java_path: row.get(6)?, memory_min_mb: row.get(7)?,
         memory_max_mb: row.get(8)?, created_at: row.get(9)?, storage_target_gb: row.get(10)?,
-        state: "stopped".into(), image_data: None,
+        state: "stopped".into(), image_data: None,pinned:row.get::<_,i64>(11)?!=0,
     })
 }
 
-const SERVER_SELECT: &str = "SELECT id,name,version,platform,directory,jar_path,java_path,memory_min_mb,memory_max_mb,created_at,storage_target_gb FROM servers";
+const SERVER_SELECT: &str = "SELECT id,name,version,platform,directory,jar_path,java_path,memory_min_mb,memory_max_mb,created_at,storage_target_gb,pinned FROM servers";
 
 pub fn list(root: &Path) -> Result<Vec<Server>, String> {
     let db = connect(root)?;
-    let mut stmt = db.prepare(&format!("{SERVER_SELECT} ORDER BY created_at DESC"))
+    let mut stmt = db.prepare(&format!("{SERVER_SELECT} ORDER BY pinned DESC,created_at DESC,id"))
         .map_err(|e| e.to_string())?;
     let rows = stmt.query_map([], row_server).map_err(|e| e.to_string())?;
     let mut servers = rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?;
     for server in &mut servers { server.image_data = read_image(root, &server.id); }
     Ok(servers)
+}
+
+pub fn set_pinned(root: &Path,id: &str,pinned: bool) -> Result<(),String> {
+    get(root,id)?;
+    connect(root)?.execute("UPDATE servers SET pinned=?2 WHERE id=?1",rusqlite::params![id,if pinned {1} else {0}]).map_err(|e|e.to_string())?;
+    Ok(())
 }
 
 pub fn get(root: &Path, id: &str) -> Result<Server, String> {
@@ -154,12 +166,14 @@ fn image_mime(bytes: &[u8]) -> Option<&'static str> {
 fn image_file(root: &Path, id: &str) -> PathBuf { root.join("server-images").join(id) }
 
 fn read_image(root: &Path, id: &str) -> Option<String> {
-    let path = image_file(root, id);
+    let legacy = image_file(root,id);
+    let server = get(root,id).ok()?;
+    let path = if legacy.exists() {legacy} else {Path::new(&server.directory).join("server-icon.png")};
     if std::fs::metadata(&path).ok()?.len() > 2_000_000 { return None; }
     let bytes = std::fs::read(path).ok()?;
     if bytes.len() > 2_000_000 { return None; }
-    let mime = image_mime(&bytes)?;
-    Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+    let icon = icon_png(&bytes).ok()?;
+    Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(icon)))
 }
 
 fn image_bytes(path: &Path) -> Result<Vec<u8>, String> {
@@ -168,7 +182,22 @@ fn image_bytes(path: &Path) -> Result<Vec<u8>, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     if bytes.len() > 2_000_000 { return Err("La imagen debe ocupar menos de 2 MB".into()); }
     if image_mime(&bytes).is_none() { return Err("Selecciona un archivo PNG, JPG o WebP válido".into()); }
-    Ok(bytes)
+    icon_png(&bytes)
+}
+
+fn icon_png(bytes: &[u8]) -> Result<Vec<u8>,String> {
+    use image::{ImageReader,imageops::FilterType};
+    use std::io::Cursor;
+    let mut reader=ImageReader::new(Cursor::new(bytes)).with_guessed_format().map_err(|e|e.to_string())?;
+    let mut limits=image::Limits::default();
+    limits.max_image_width=Some(4096);limits.max_image_height=Some(4096);limits.max_alloc=Some(64*1024*1024);
+    reader.limits(limits);
+    let image=reader.decode().map_err(|_|"No se pudo leer la imagen. Usa un PNG, JPG o WebP válido de hasta 4096 × 4096.")?;
+    if image.width()==64 && image.height()==64 && bytes.starts_with(b"\x89PNG\r\n\x1a\n") {return Ok(bytes.to_vec())}
+    let icon=image.resize_to_fill(64,64,FilterType::Lanczos3);
+    let mut output=Cursor::new(Vec::new());
+    icon.write_to(&mut output,image::ImageFormat::Png).map_err(|e|e.to_string())?;
+    Ok(output.into_inner())
 }
 
 pub fn preview_image(path: &Path) -> Result<String, String> {
@@ -178,13 +207,27 @@ pub fn preview_image(path: &Path) -> Result<String, String> {
 }
 
 fn write_image(root: &Path, id: &str, bytes: &[u8]) -> Result<(), String> {
-    let dir = root.join("server-images");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let target = image_file(root, id);
-    let temporary = dir.join(format!(".{id}.part"));
-    std::fs::write(&temporary, bytes).map_err(|e| e.to_string())?;
-    if target.exists() { std::fs::remove_file(&target).map_err(|e| e.to_string())?; }
-    std::fs::rename(&temporary, &target).map_err(|e| e.to_string())
+    let server=get(root,id)?;
+    let dir=Path::new(&server.directory);
+    let target=dir.join("server-icon.png");
+    if fs::symlink_metadata(&target).is_ok_and(|meta|meta.file_type().is_symlink()) {return Err("El icono del servidor no puede ser un enlace simbólico".into());}
+    let temporary=dir.join(format!(".server-icon-{}.part",Uuid::new_v4()));
+    fs::write(&temporary,bytes).map_err(|e|e.to_string())?;
+    let legacy=image_file(root,id);
+    let migrated=legacy.with_file_name(format!(".migrated-{id}-{}",Uuid::new_v4()));
+    let moved=if legacy.exists() {fs::rename(&legacy,&migrated).map_err(|e|{let _=fs::remove_file(&temporary);e.to_string()})?;true} else {false};
+    let result=crate::download::replace_file(&temporary,&target);
+    if result.is_err() {
+        let _=fs::remove_file(&temporary);
+        if moved {fs::rename(&migrated,&legacy).map_err(|e|format!("No se pudo recuperar la imagen anterior: {e}"))?;}
+    } else if moved {let _=fs::remove_file(migrated);}
+    result
+}
+
+pub fn sync_legacy_icon(root: &Path,id: &str) -> Result<(),String> {
+    let path=image_file(root,id);
+    if path.exists() {let bytes=image_bytes(&path)?;write_image(root,id,&bytes)?;}
+    Ok(())
 }
 
 pub fn set_image(root: &Path, id: &str, source: &Path) -> Result<Server, String> {
@@ -197,11 +240,13 @@ pub fn set_image(root: &Path, id: &str, source: &Path) -> Result<Server, String>
 }
 
 pub fn clear_image(root: &Path, id: &str) -> Result<Server, String> {
-    get(root, id)?;
-    match std::fs::remove_file(image_file(root, id)) {
-        Ok(()) => (),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
-        Err(e) => return Err(e.to_string()),
+    let server=get(root,id)?;
+    for path in [image_file(root,id),Path::new(&server.directory).join("server-icon.png")] {
+        match std::fs::remove_file(path) {
+            Ok(()) => (),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+            Err(e) => return Err(e.to_string()),
+        }
     }
     get(root, id)
 }
@@ -235,9 +280,26 @@ pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
         .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("jar")))
         .filter_map(|e| e.file_name().into_string().ok())
         .collect::<Vec<_>>();
+    let fabric_base=source.join(".tch-fabric");
+    if let Ok(generations)=fs::read_dir(&fabric_base) {
+        for entry in generations.take(1000).filter_map(Result::ok) {
+            let name=entry.file_name().to_string_lossy().into_owned();
+            if Uuid::parse_str(&name).is_ok() {
+                let launcher=entry.path().join("fabric-server-launch.jar");
+                if launcher.is_file() && launcher.canonicalize().is_ok_and(|path|path.starts_with(&source)) {jars.push(format!(".tch-fabric/{name}/fabric-server-launch.jar"));}
+            }
+        }
+    }
+    jars.retain(|name|source.join(name).canonicalize().is_ok_and(|path|path.starts_with(&source)));
     jars.sort();
     if jars.is_empty() { return Err("No se encontró un archivo .jar en la carpeta".into()); }
-    let detected_version = jars.iter().find_map(|jar| detect_jar_version(&source.join(jar)));
+    let detected_version = jars.iter().find_map(|jar|detect_jar_version(&source.join(jar)).or_else(||{
+        if !jar.starts_with(".tch-fabric/"){return None;}
+        let path=source.join(jar).parent()?.join("installation.json");
+        if fs::metadata(&path).ok()?.len()>4096{return None;}
+        let meta:serde_json::Value=serde_json::from_slice(&fs::read(path).ok()?).ok()?;
+        let version=meta["minecraft"].as_str()?;crate::fabric::validate_version(version).ok()?;Some(version.into())
+    }));
     Ok(ImportInspection {
         path:source.to_string_lossy().into(),
         suggested_name:source.file_name().map(|n| n.to_string_lossy().into()).unwrap_or_else(|| "Servidor importado".into()),
@@ -261,9 +323,10 @@ pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
     let inspection = inspect_import(&source)?;
     if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo .jar seleccionado no existe en esa carpeta".into()); }
     let jar_lower = input.jar_file.to_ascii_lowercase();
-    if ["fabric","forge","neoforge"].iter().any(|loader| jar_lower.contains(loader)) {
+    if ["forge","neoforge"].iter().any(|loader| jar_lower.contains(loader)) {
         return Err("El loader de este servidor aún no es compatible con la importación".into());
     }
+    if jar_lower.contains("fabric") && input.platform!="fabric" {return Err("Selecciona Fabric como tipo de este servidor".into());}
     let properties = crate::properties::read(&source.join("server.properties"))?;
     let port = properties.get("server-port").and_then(|v| v.parse::<u16>().ok()).unwrap_or(25565);
     let max_players = properties.get("max-players").and_then(|v| v.parse::<u32>().ok()).unwrap_or(20);
@@ -293,7 +356,7 @@ fn validate(input: &CreateServer) -> Result<(), String> {
     if name.is_empty() || name.len() > 64 || name.chars().any(char::is_control) {
         return Err("El nombre debe tener entre 1 y 64 caracteres, sin saltos de línea".into());
     }
-    if !matches!(input.platform.as_str(), "vanilla" | "paper") {
+    if !matches!(input.platform.as_str(), "vanilla" | "paper" | "fabric") {
         return Err("Esta plataforma aún no tiene instalación compatible".into());
     }
     if input.version.len() > 24 || !input.version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
@@ -384,6 +447,9 @@ mod tests {
             VALUES ('old','Existing','1.21.4','vanilla','C:/test-server',1024,2048,'2026-01-01');").unwrap();
         }
         assert_eq!(get(&root, "old").unwrap().storage_target_gb, 20);
+        assert!(!get(&root,"old").unwrap().pinned);
+        set_pinned(&root,"old",true).unwrap();
+        assert!(get(&root,"old").unwrap().pinned);
         update_storage_target(&root, "old", 48).unwrap();
         assert_eq!(get(&root, "old").unwrap().storage_target_gb, 48);
         assert!(update_storage_target(&root, "old", 0).is_err());
@@ -418,16 +484,29 @@ mod tests {
         let root = std::env::temp_dir().join(format!("tch-image-{}",Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         let image = root.join("icon.png");
-        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l3sAAAAASUVORK5CYII=").unwrap();
+        let mut image_data=std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgba8(120,80).write_to(&mut image_data,image::ImageFormat::Png).unwrap();
+        let png=image_data.into_inner();
         std::fs::write(&image, png).unwrap();
         let server = create(&root, CreateServer {name:"With icon".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:Some(image.to_string_lossy().into())}).unwrap();
         assert!(server.image_data.as_deref().unwrap().starts_with("data:image/png;base64,"));
         assert!(list(&root).unwrap()[0].image_data.is_some());
+        let legacy_path=root.join("server-images").join(&server.id);
+        fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();
+        fs::write(&legacy_path,fs::read(&image).unwrap()).unwrap();
+        sync_legacy_icon(&root,&server.id).unwrap();
+        assert!(!legacy_path.exists());
+        let icon_path=Path::new(&server.directory).join("server-icon.png");
+        let icon=image::open(&icon_path).unwrap();
+        assert_eq!((icon.width(),icon.height()),(64,64));
+        let expected=format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(fs::read(&icon_path).unwrap()));
+        assert_eq!(list(&root).unwrap()[0].image_data.as_deref(),Some(expected.as_str()));
         std::fs::write(&image, b"not an image").unwrap();
         assert!(set_image(&root,&server.id,&image).is_err());
         assert!(list(&root).unwrap()[0].image_data.is_some());
         clear_image(&root,&server.id).unwrap();
         assert!(list(&root).unwrap()[0].image_data.is_none());
+        assert!(!icon_path.exists());
         let _ = std::fs::remove_dir_all(root);
     }
     #[test]

@@ -4,9 +4,13 @@
 
 El registro de servidores y copias está en SQLite (`database/tchlauncher.sqlite`). Cada servidor tiene UUID y directorio propio bajo `servers/<uuid>`. Java gestionado está en `runtimes/` y las copias en `backups/<uuid>/`. El objetivo de espacio se guarda por servidor y se migra con un valor predeterminado de 20 GB para registros anteriores. Mide la carpeta del servidor, sin incluir las copias. `server.properties`, `eula.txt`, mundos y logs siguen siendo archivos ordinarios.
 
-Las imágenes elegidas por el usuario se validan por tamaño y firma PNG, JPG o WebP, y se copian a `server-images/<uuid>` bajo los datos de la aplicación. La interfaz recibe una URL de datos para mostrarlas; el archivo de origen no se modifica. Las imágenes se pueden sustituir o quitar desde Configuración.
+Las imágenes se decodifican con límites de tamaño y memoria, se recortan a 64 × 64 y se publican como PNG en `server-icon.png` dentro del servidor. Launcher y Minecraft comparten el mismo archivo. Los archivos antiguos `server-images/<uuid>` se migran antes del inicio; no se modifica la imagen original del usuario. Las operaciones requieren el servidor detenido.
 
-La instalación consulta el catálogo oficial de Mojang y la API de PaperMC. La versión de Java procede de los metadatos de Minecraft. El runtime se descarga desde Eclipse Temurin, se verifica mediante SHA-256 y se extrae en un directorio temporal antes de moverlo a su destino. El jar Vanilla se verifica con SHA-1; Paper utiliza SHA-256 cuando la respuesta del servicio lo proporciona. No se acepta EULA automáticamente.
+`skin.rs` obtiene perfiles por UUID desde Mojang, valida que la textura procede de `textures.minecraft.net` y recorta rostro y sombrero a una cabeza de 8 × 8. Cachea PNG durante 24 horas y limita respuestas y decodificación. Un fallo conserva una caché previa o una inicial; no inventa skins. Las consultas se ejecutan fuera del hilo de interfaz.
+
+La migración SQLite 2 añade `pinned`, con valor falso para registros anteriores. La lista ordena los fijados primero y persiste la elección.
+
+La instalación consulta el catálogo oficial de Mojang y la API de PaperMC. La versión de Java procede de los metadatos de Minecraft. El runtime se descarga desde Eclipse Temurin, buscando JRE y después JDK de la misma versión mayor (incluido Java 16 para Minecraft 1.17.1), se verifica mediante SHA-256 y se extrae en un directorio temporal antes de moverlo a su destino. El jar Vanilla se verifica con SHA-1; Paper utiliza SHA-256 cuando la respuesta del servicio lo proporciona. No se acepta EULA automáticamente.
 
 `ProcessManager` mantiene los procesos activos y emite eventos Tauri de estado y consola. Conserva el último estado terminal durante la sesión para que un fallo siga visible después de retirar el proceso. Envía `stop` por stdin durante inicio o ejecución y fuerza la terminación solo tras 30 segundos; las peticiones repetidas de parada se ignoran. La salida de inicio solo puede promover un proceso que aún esté en `starting`. Si se cierra la ventana con servidores activos, el usuario puede cancelarlo, detenerlos o mantener la aplicación en la bandeja del sistema. Al iniciar la aplicación, el estado se reconstruye a partir de los procesos bajo control de esta instancia; no se recuperan procesos externos u huérfanos.
 
@@ -28,4 +32,20 @@ La importación inspecciona una carpeta existente mediante un selector nativo. P
 
 ## Limitaciones actuales
 
-La base todavía no gestiona tareas cancelables, mapeo automático de puertos ni el resto de plataformas y gestores especificados. Se detallan en `NEXT_TODOS.md`.
+La base todavía no gestiona mapeo automático de puertos ni el resto de plataformas y gestores especificados. Se detallan en `NEXT_TODOS.md`.
+
+## Descargas y runtime
+
+`download.rs` usa HTTP asíncrono desde un worker, con cancelación durante conexiones, cuerpos y esperas de reintento. Hay hasta tres intentos para fallos transitorios; errores permanentes y discrepancias de hash no se reintentan automáticamente. Los bytes se escriben en archivos parciales únicos y solo se publican después de verificar el hash. Los parciales se limpian al cancelar o fallar; los artefactos ya verificados se pueden conservar.
+
+Cada evento lleva servidor, tarea, tipo de operación, fase, bytes, total, velocidad y número de intento. El frontend conserva el estado por servidor al navegar. El servidor permanece reservado hasta terminar la tarea. La extracción comprueba cancelación entre entradas y usa un directorio de preparación. Los runtimes compartidos tienen un bloqueo por ruta; reinstalar crea una generación nueva para no sustituir ejecutables usados por otro servidor.
+
+`runtime.rs` verifica `java -version` en un proceso oculto con tiempo límite. Configuración muestra la versión y ruta leídas, con acciones de instalar, reinstalar y verificar. En Windows se desactivan autofill y guardado de contraseñas de WebView2 sobre su hilo UI.
+
+## Fabric
+
+`fabric.rs` consulta el catálogo oficial, selecciona un loader estable compatible y descarga cada biblioteca desde Maven Fabric con SHA-256. Los checksums ausentes en el perfil se consultan en sus archivos oficiales `.sha256`, con tamaño acotado. El servidor Mojang conserva su comprobación SHA-1.
+
+La instalación se prepara bajo `.tch-fabric/.stage-<uuid>` dentro del servidor y se publica como una generación completa. Solo después se actualiza SQLite; un fallo o cancelación limpia la generación sin modificar mundos ni propiedades. El manifiesto del launcher se genera con classpath relativo, líneas plegadas y clase principal leída del loader verificado. `installation.json` conserva versiones y bibliotecas para inspección. No se ejecuta un instalador externo ni se acepta la EULA.
+
+El arranque añade `fabric.gameJarPath` para localizar el JAR Mojang de esa generación y conserva el directorio del servidor como raíz de mundos, mods, propiedades y logs. Las carpetas Fabric convencionales importadas mantienen su launcher y configuración; las generaciones de TCHLauncher también se reconocen y se copian con rutas relativas. El catálogo del asistente descarta respuestas obsoletas al cambiar de plataforma. Actualizar el loader y gestionar mods aún requiere implementación adicional.

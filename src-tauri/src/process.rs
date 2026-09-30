@@ -98,7 +98,13 @@ impl ProcessManager {
         let log_path = log_dir.join("latest.log");
         let log_file = Arc::new(Mutex::new(OpenOptions::new().create(true).append(true).open(&log_path)
             .map_err(|e| format!("No se pudo abrir el log del launcher: {e}"))?));
-        let mut child = Command::new(java)
+        let mut command=Command::new(java);
+        #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        if let Some(game)=crate::fabric::game_jar(server) {
+            if !game.is_file() {return Err("Falta el servidor Minecraft de Fabric. Comprueba la instalación.".into());}
+            command.arg(format!("-Dfabric.gameJarPath={}",game.display()));
+        }
+        let mut child = command
             .arg(format!("-Xms{}M",server.memory_min_mb))
             .arg(format!("-Xmx{}M",server.memory_max_mb))
             .arg("-jar").arg(jar).arg("nogui")

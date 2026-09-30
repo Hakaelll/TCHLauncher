@@ -5,7 +5,8 @@ export type Server = {
   id: string
   name: string
   version: string
-  platform: 'vanilla' | 'paper'
+  platform: 'vanilla' | 'paper' | 'fabric'
+  pinned: boolean
   directory: string
   jarPath: string | null
   javaPath: string | null
@@ -17,7 +18,8 @@ export type Server = {
   imageData: string | null
 }
 export type Version = { id: string; kind: string }
-export type Progress = { serverId: string; label: string; received: number; total: number | null }
+export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
+export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null}
 export type LogLine = { serverId: string; level: string; line: string; message: string; timestamp: string | null; event: string | null }
 export type Metrics = { serverId: string; sampledAt: number; pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; diskReadBytes: number | null; diskWrittenBytes: number | null; sizeBytes: number }
 export type Backup = { id: string; serverId: string; createdAt: string; sizeBytes: number; path: string }
@@ -28,9 +30,9 @@ export type BannedPlayer = PlayerIdentity & { created: string | null; source: st
 export type BannedIp = { ip: string; created: string | null; source: string | null; expires: string | null; reason: string | null }
 export type PlayersSnapshot = { online: string[]; known: KnownPlayer[]; whitelisted: PlayerIdentity[]; operators: Operator[]; bannedPlayers: BannedPlayer[]; bannedIps: BannedIp[]; whitelistEnabled: boolean; enforceWhitelist: boolean; maxPlayers: number }
 export type WhitelistImport = { fileName: string; names: string[] }
-export type CreateInput = { name: string; version: string; platform: 'vanilla' | 'paper'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
+export type CreateInput = { name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
 export type ImportInspection = { path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null }
-export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
+export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
 export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }
 export type DeleteOutcome = { retainedDirectory: string | null; cleanupWarnings: string[] }
@@ -47,8 +49,9 @@ export type NetworkSnapshot = {
 
 export const api = {
   listServers: () => invoke<Server[]>('list_servers'),
-  versions: () => invoke<Version[]>('get_versions'),
+  versions: (platform:Server['platform']='vanilla') => invoke<Version[]>('get_versions',{platform}),
   create: (input: CreateInput) => invoke<Server>('create_server', { input }),
+  setPinned: (id:string,pinned:boolean) => invoke<void>('set_server_pinned',{id,pinned}),
   pickImportFolder: () => invoke<string | null>('pick_import_folder'),
   pickServerImage: () => invoke<ImageSelection | null>('pick_server_image'),
   setServerImage: (id: string, path: string) => invoke<Server>('set_server_image', { id, path }),
@@ -58,6 +61,10 @@ export const api = {
   inspectImport: (path: string) => invoke<ImportInspection>('inspect_import', { path }),
   importServer: (input: ImportInput) => invoke<Server>('import_server', { input }),
   install: (id: string) => invoke<void>('install_server', { id }),
+  cancelInstall: (id: string, taskId: string) => invoke<boolean>('cancel_install', { id, taskId }),
+  runtimeInfo: (id:string) => invoke<RuntimeInfo>('get_runtime_info',{id}),
+  playerHead: (uuid:string) => invoke<string|null>('get_player_head',{uuid}),
+  prepareRuntime: (id:string,reinstall:boolean) => invoke<void>('prepare_runtime',{id,reinstall}),
   eulaAccepted: (id: string) => invoke<boolean>('eula_accepted', { id }),
   acceptEula: (id: string) => invoke<void>('accept_eula', { id }),
   start: (id: string) => invoke<void>('start_server', { id }),
