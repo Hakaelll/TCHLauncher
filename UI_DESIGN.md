@@ -24,3 +24,7 @@ CSS and JavaScript respect reduced motion. Keyboard controls and focus rings rem
 ## Verification status
 
 Type checking, production compilation and backend tests are executable checks. Native screenshots, frame timing and the full keyboard/desktop motion review remain manual because the user requested no computer use. No visual audit or 60 FPS guarantee is claimed without those measurements.
+
+## Content manager
+
+Operate surface: server-specific Mods or Plugins section, installed-file rows and a searchable Modrinth catalog. Project icons carry color; anthracite controls and restrained blue/teal compatibility and action accents preserve the desktop palette. A protected native modal reviews versions, dependency changes and backups before installation. Destructive removal has its own confirmation. Read-only browsing remains available while Java runs; file changes require a stopped server. Existing motion tokens, reduced motion, focus restoration and viewport-centered dialogs apply.

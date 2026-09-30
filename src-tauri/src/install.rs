@@ -42,6 +42,7 @@ pub fn versions() -> Result<Vec<VersionInfo>, String> {
 
 pub fn platform_versions(platform:&str) -> Result<Vec<VersionInfo>,String> {
     if matches!(platform,"vanilla"|"paper") {return versions();}
+    if platform=="neoforge" {return crate::neoforge::versions(&DownloadTask::new("catalog","install",|_|{})?,versions()?);}
     if platform!="fabric" {return Err("Plataforma de servidor no compatible".into());}
     let task=DownloadTask::new("catalog","install",|_|{})?;
     let data=task.json("https://meta.fabricmc.net/v2/versions/game","Consultando versiones Fabric")?;
@@ -210,6 +211,15 @@ pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), 
         storage::update_java(root,&server.id,&java)?;
         return Ok(());
     }
+    if server.platform=="neoforge" {
+        let java=ensure_java(root,major,task,false)?;
+        let entrypoint=crate::neoforge::install(server,&meta,&java,task)?;
+        let result=task.cancellation.check().and_then(|_|storage::update_install(root,&server.id,&entrypoint,&java));
+        if result.is_err() {
+            if let Some(generation)=entrypoint.ancestors().find(|path|path.parent().is_some_and(|parent|parent.file_name().is_some_and(|name|name==".tch-neoforge"))) {let _=fs::remove_dir_all(generation);}
+        }
+        return result;
+    }
     if server.platform=="fabric" {
         let java=ensure_java(root,major,task,false)?;
         let jar=crate::fabric::install(server,&meta,task)?;
@@ -252,6 +262,70 @@ pub fn prepare_runtime(root: &Path,server: &Server,task: &DownloadTask,reinstall
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore="Downloads official NeoForge/Minecraft; boots original and copied installations to EULA refusal"]
+    fn installs_neoforge_and_imports_without_accepting_eula() {
+        use std::process::{Command,Stdio};
+        let root=std::env::temp_dir().join(format!("tch neoforge live {}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let result=(|| -> Result<(),String> {
+            if let Ok(java)=std::env::var("TCH_TEST_JAVA") {
+                let java=Path::new(&java).canonicalize().map_err(|e|e.to_string())?;
+                verify_java(&java,21)?;
+                let directory=java.parent().and_then(Path::parent).ok_or("Java has no runtime directory")?;
+                let target=root.join("runtimes").join(format!("temurin-21-{}-{}",std::env::consts::OS,std::env::consts::ARCH));
+                crate::backup::copy_tree(directory,&target)?;
+            }
+            let server=storage::create(&root,crate::model::CreateServer{name:"NeoForge validation".into(),version:"1.21.4".into(),platform:"neoforge".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
+            let directory=Path::new(&server.directory);
+            let properties=fs::read(directory.join("server.properties")).map_err(|e|e.to_string())?;
+            fs::create_dir(directory.join("config")).map_err(|e|e.to_string())?;
+            fs::write(directory.join("config/preserved.txt"),b"keep this configuration").map_err(|e|e.to_string())?;
+            let task=DownloadTask::new(&server.id,"install",|event| {if event.stage!="downloading" {eprintln!("{}: {}",event.stage,event.label);}})?;
+            install(&root,&server,&task)?;
+            let installed=storage::get(&root,&server.id)?;
+            assert_eq!(fs::read(directory.join("server.properties")).unwrap(),properties);
+            assert_eq!(fs::read(directory.join("config/preserved.txt")).unwrap(),b"keep this configuration");
+            assert_eq!(crate::runtime::cached_requirement(&root,"1.21.4"),Some(21));
+            assert!(!directory.join("eula.txt").exists());
+            assert!(Path::new(installed.jar_path.as_ref().unwrap()).is_file());
+            let boot=|server:&Server,label:&str| -> Result<(),String> {
+                let output_path=root.join(format!("{label}.log"));let output=File::create(&output_path).map_err(|e|e.to_string())?;
+                let mut command=Command::new(server.java_path.as_ref().unwrap());
+                #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+                let mut child=command.args(crate::jvm::launch_arguments(server,&crate::jvm::Settings::default())?)
+                    .current_dir(&server.directory).stdin(Stdio::null()).stdout(output.try_clone().map_err(|e|e.to_string())?).stderr(output)
+                    .spawn().map_err(|e|e.to_string())?;
+                let began=std::time::Instant::now();
+                loop {
+                    if child.try_wait().map_err(|e|e.to_string())?.is_some(){break;}
+                    if began.elapsed()>std::time::Duration::from_secs(90) {let _=child.kill();let _=child.wait();return Err("NeoForge did not reach the EULA gate within 90 seconds".into());}
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                let log=fs::read_to_string(output_path).map_err(|e|e.to_string())?;
+                let eula=fs::read_to_string(Path::new(&server.directory).join("eula.txt")).map_err(|_|format!("No EULA file was generated: {log}"))?;
+                assert!(eula.lines().any(|line|line.trim()=="eula=false"),"{log}");
+                assert!(log.to_lowercase().contains("eula"),"{log}");
+                assert!(!Path::new(&server.directory).join("world/level.dat").exists());
+                Ok(())
+            };
+            boot(&installed,"original")?;
+            let inspection=storage::inspect_import(directory)?;
+            assert_eq!(inspection.detected_version.as_deref(),Some("1.21.4"));
+            let args=inspection.jar_files.iter().find(|path|path.contains(".tch-neoforge")).ok_or("NeoForge not detected by import")?;
+            let imported=storage::import(&root,crate::model::ImportServer{path:server.directory.clone(),name:"Copied NeoForge".into(),version:"1.21.4".into(),platform:"neoforge".into(),jar_file:args.clone(),copy:true,storage_target_gb:2,image_path:None})?;
+            storage::update_java(&root,&imported.id,Path::new(installed.java_path.as_ref().unwrap()))?;
+            let imported=storage::get(&root,&imported.id)?;
+            let launch=crate::jvm::launch_arguments(&imported,&crate::jvm::Settings::default())?;
+            assert!(!launch.iter().any(|arg|arg.contains(&server.id)));
+            assert!(launch.iter().any(|arg|arg.contains(&imported.id)));
+            boot(&imported,"imported")?;
+            assert_eq!(fs::read(Path::new(&imported.directory).join("config/preserved.txt")).unwrap(),b"keep this configuration");
+            Ok(())
+        })();
+        if result.is_ok(){let _=fs::remove_dir_all(&root);} else {eprintln!("NeoForge diagnostics retained at {}",root.display());}
+        result.unwrap();
+    }
     #[test]
     #[ignore="Downloads official Fabric and Minecraft 1.21.4; checks EULA refusal without accepting it"]
     fn installs_fabric_and_reaches_minecraft_eula_gate() {

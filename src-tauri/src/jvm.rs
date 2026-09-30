@@ -28,7 +28,7 @@ pub fn options(settings:&Settings)->Result<Vec<String>,String> {
         if lower.starts_with("-xms") || lower.starts_with("-xmx") || lower.starts_with("-xx:initialheapsize") || lower.starts_with("-xx:maxheapsize") {
             return Err(format!("Línea {}: configura la RAM en Capacidad, para mantener sus límites sincronizados.",index+1));
         }
-        if lower.starts_with("-dfabric.") || ["-djava.class.path=","-djava.home=","-duser.dir="].iter().any(|prefix|lower.starts_with(prefix)) {
+        if lower.starts_with("-dfabric.") || ["-djava.class.path=","-djava.home=","-duser.dir=","-dlibrarydirectory=","-dlegacyclasspath=","-dignorelist=","-dfml."].iter().any(|prefix|lower.starts_with(prefix)) {
             return Err(format!("Línea {}: esa propiedad está gestionada por el launcher.",index+1));
         }
         // Accept VM options only. Launcher options, argument files and replacement entrypoints
@@ -84,7 +84,8 @@ pub fn vm_arguments(server:&Server,settings:&Settings)->Result<Vec<String>,Strin
 
 pub fn launch_arguments(server:&Server,settings:&Settings)->Result<Vec<String>,String> {
     let mut args=vm_arguments(server,settings)?;
-    args.extend(["-jar".into(),server.jar_path.clone().ok_or("Instala primero el servidor")?,"nogui".into()]);
+    if server.platform=="neoforge" {args.extend(crate::neoforge::launch_arguments(server)?);}
+    else {args.extend(["-jar".into(),server.jar_path.clone().ok_or("Instala primero el servidor")?,"nogui".into()]);}
     Ok(args)
 }
 
@@ -104,7 +105,7 @@ mod tests {
     #[test]
     fn preserves_arguments_and_rejects_launcher_and_memory_overrides() {
         assert_eq!(options(&custom("-XX:+UseG1GC\n-Dexample.path=C:\\My Server\\data\n\n-ea")).unwrap(),vec!["-XX:+UseG1GC","-Dexample.path=C:\\My Server\\data","-ea"]);
-        for invalid in ["-X","-Xinternalversion","-Xmx8G","-Xms1G","-XX:MaxHeapSize=1234","-jar other.jar","@flags.txt","--class-path=x","-version","-Dfabric.gameJarPath=other.jar","-Duser.dir=x","-XX:Flags=flags.txt","-XX:+UseG1GC -XX:+UseZGC","-Dkey=a\u{0}b"] {assert!(options(&custom(invalid)).is_err(),"accepted {invalid}");}
+        for invalid in ["-X","-Xinternalversion","-Xmx8G","-Xms1G","-XX:MaxHeapSize=1234","-jar other.jar","@flags.txt","--class-path=x","-version","-Dfabric.gameJarPath=other.jar","-DlibraryDirectory=other","-DlegacyClassPath=other","-Dfml.pluginLayerLibraries=other","-Duser.dir=x","-XX:Flags=flags.txt","-XX:+UseG1GC -XX:+UseZGC","-Dkey=a\u{0}b"] {assert!(options(&custom(invalid)).is_err(),"accepted {invalid}");}
         assert!(options(&custom(&"-ea\n".repeat(65))).is_err());
         assert!(options(&Settings{mode:"unknown".into(),arguments:String::new()}).is_err());
     }

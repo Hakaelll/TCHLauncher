@@ -5,7 +5,7 @@ export type Server = {
   id: string
   name: string
   version: string
-  platform: 'vanilla' | 'paper' | 'fabric'
+  platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'
   pinned: boolean
   directory: string
   jarPath: string | null
@@ -18,7 +18,7 @@ export type Server = {
   imageData: string | null
 }
 export type Version = { id: string; kind: string }
-export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
+export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
 export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null;requiredMajor:number|null;compatibility:'unknown'|'compatible'|'incompatible'}
 export type JvmSettings = {mode:'recommended'|'custom';arguments:string}
 export type JvmPreview = {arguments:string[];installed:boolean}
@@ -32,9 +32,9 @@ export type BannedPlayer = PlayerIdentity & { created: string | null; source: st
 export type BannedIp = { ip: string; created: string | null; source: string | null; expires: string | null; reason: string | null }
 export type PlayersSnapshot = { online: string[]; known: KnownPlayer[]; whitelisted: PlayerIdentity[]; operators: Operator[]; bannedPlayers: BannedPlayer[]; bannedIps: BannedIp[]; whitelistEnabled: boolean; enforceWhitelist: boolean; maxPlayers: number }
 export type WhitelistImport = { fileName: string; names: string[] }
-export type CreateInput = { name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
+export type CreateInput = { name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
 export type ImportInspection = { path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null }
-export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
+export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
 export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }
 export type DeleteOutcome = { retainedDirectory: string | null; cleanupWarnings: string[] }
@@ -49,7 +49,28 @@ export type NetworkSnapshot = {
   portState: 'listening' | 'starting' | 'not_responding' | 'available' | 'occupied' | 'unknown'
 }
 
+export type ContentDependency = { project_id: string | null; version_id: string | null; file_name: string | null; dependency_type: 'required' | 'optional' | 'incompatible' | 'embedded' }
+export type ContentFile = { filename: string; url: string; hashes: Record<string,string>; size: number; primary: boolean }
+export type ContentVersion = { id: string; project_id: string; name: string; version_number: string; version_type: string; date_published: string; game_versions: string[]; loaders: string[]; environment: string | null; changelog: string | null; dependencies: ContentDependency[]; files: ContentFile[] }
+export type ContentProject = { id: string; title: string; description: string; icon_url: string | null; environment: string[]; server_side: string | null }
+export type ContentPlan = { minecraftVersion: string; loader: string; entries: {project: ContentProject; version: ContentVersion; file: ContentFile; required: boolean}[]; optional: ContentDependency[]; incompatible: ContentDependency[] }
+export type ContentSearch = { hits: {project_id: string; title: string; description: string; author: string; icon_url: string | null; categories: string[]; versions: string[]; environment?: string[]; server_side?: string}[]; offset: number; limit: number; total_hits: number }
+
+export type InstalledContent = {filename: string; title: string; projectId: string | null; versionId: string | null; versionNumber: string | null; sha512: string; size: number; modified: boolean}
+export type ContentReview = {token: string; plan: ContentPlan; changes: {title: string; filename: string; action: 'install' | 'update' | 'present'; previousVersion: string | null; version: string}[]; warnings: string[]}
+export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean}
+export type PackInspection = {path: string; archiveSha512: string; name: string; versionId: string; summary: string | null; minecraft: string; loader: string; loaderVersion: string | null; entries: PackEntry[]; excludedClientFiles: number; selectedBytes: number; blockers: string[]; warnings: string[]}
 export const api = {
+  pickModpack: () => invoke<PackInspection|null>('pick_modpack'),
+  inspectModpack: (path:string) => invoke<PackInspection>('inspect_modpack',{path}),
+  removeContent: (id:string,filename:string,sha512:string) => invoke<void>('remove_content',{id,filename,sha512}),
+  planContentUpdates: (id:string) => invoke<ContentReview>('plan_content_updates',{id}),
+  contentIcon: (url:string) => invoke<string>('content_icon',{url}),
+  listContent: (id:string) => invoke<InstalledContent[]>('list_content',{id}),
+  installContent: (id:string,token:string) => invoke<void>('install_content',{id,token}),
+  contentVersions: (id:string,projectId:string) => invoke<ContentVersion[]>('content_versions',{id,projectId}),
+  searchContent: (id:string,query:string,offset=0) => invoke<ContentSearch>('search_content',{id,query,offset}),
+  planContent: (id:string,projectId:string,versionId:string|null=null) => invoke<ContentReview>('plan_content',{id,projectId,versionId}),
   listServers: () => invoke<Server[]>('list_servers'),
   versions: (platform:Server['platform']='vanilla') => invoke<Version[]>('get_versions',{platform}),
   create: (input: CreateInput) => invoke<Server>('create_server', { input }),
@@ -74,6 +95,7 @@ export const api = {
   serverCover: (id:string) => invoke<string|null>('get_server_cover',{id}),
   prepareRuntime: (id:string,reinstall:boolean) => invoke<void>('prepare_runtime',{id,reinstall}),
   eulaAccepted: (id: string) => invoke<boolean>('eula_accepted', { id }),
+  eulaConsentRecorded: () => invoke<boolean>('eula_consent_recorded'),
   acceptEula: (id: string) => invoke<void>('accept_eula', { id }),
   start: (id: string) => invoke<void>('start_server', { id }),
   stop: (id: string) => invoke<void>('stop_server', { id }),

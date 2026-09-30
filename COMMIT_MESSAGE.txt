@@ -1,0 +1,6 @@
+feat: add verified mod and plugin management for v0.7.0
+
+- Add Modrinth browsing, compatible versions and dependency reviews for Fabric, NeoForge and Paper.
+- Verify SHA-512 downloads and stage installations, updates and removals with backups and interrupted-switch recovery.
+- Complete NeoForge preparation, persist first-download EULA consent and simplify navigation with the supplied emblem.
+- Package the Windows preview and document tested integrations and remaining validation.

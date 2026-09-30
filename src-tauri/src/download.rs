@@ -2,7 +2,7 @@ use crate::model::Progress;
 use reqwest::{Client, Response};
 use serde_json::Value;
 use sha1::{Digest as _, Sha1};
-use sha2::Sha256;
+use sha2::{Sha256, Sha512};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -63,7 +63,7 @@ impl DownloadTask {
 
     pub fn finish(&self, result: &Result<(), String>) {
         match result {
-            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else {"Java preparado"},"completed"),
+            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else {"Java preparado"},"completed"),
             Err(error) if error == CANCELLED => self.report("Instalación cancelada","cancelled"),
             Err(error) => self.progress("No se pudo instalar","failed",0,None,None,1,Some(error.clone())),
         }
@@ -169,6 +169,7 @@ impl DownloadTask {
         let mut file = File::create(&part.0).map_err(Failure::io)?;
         let mut sha1 = Sha1::new();
         let mut sha256 = Sha256::new();
+        let mut sha512 = Sha512::new();
         let mut received = 0u64;
         let mut last = Instant::now();
         let mut last_bytes = 0;
@@ -177,7 +178,7 @@ impl DownloadTask {
             received += chunk.len() as u64;
             if received > MAX_BYTES { return Err(Failure::local("La descarga supera el límite de 2 GB")); }
             file.write_all(&chunk).map_err(Failure::io)?;
-            sha1.update(&chunk); sha256.update(&chunk);
+            sha1.update(&chunk); sha256.update(&chunk); sha512.update(&chunk);
             let elapsed = last.elapsed().as_secs_f64();
             if elapsed >= 0.2 {
                 self.progress(label,"downloading",received,total,Some((received-last_bytes) as f64 / elapsed),attempt,None);
@@ -193,6 +194,7 @@ impl DownloadTask {
         if let Some((kind,expected)) = hash {
             let actual = match kind {
                 "sha1" => hex(&sha1.finalize()), "sha256" => hex(&sha256.finalize()),
+                "sha512" => hex(&sha512.finalize()),
                 _ => return Err(Failure::local("Algoritmo de hash no compatible")),
             };
             if !actual.eq_ignore_ascii_case(expected) { return Err(Failure::local(format!("La suma de comprobación de {label} no coincide"))); }
@@ -333,5 +335,16 @@ mod tests {
         let (url,worker)=fixture(vec!["HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"]);
         assert!(tauri::async_runtime::block_on(task.transfer(&url,&folder.target(),None,"Server")).is_err());worker.join().unwrap();
         assert!(!events.lock().unwrap().iter().any(|event|event.stage=="retrying"));assert!(folder.no_partials());
+    }
+
+    #[test]
+    fn verifies_modrinth_sha512_before_publishing() {
+        let folder=TestFolder::new();
+        let (url,worker)=fixture(vec!["HTTP/1.1 200 OK\r\nContent-Length: 3\r\nConnection: close\r\n\r\nnew"]);
+        let task=task(Arc::new(Mutex::new(Vec::new())));
+        let checksum=hex(&Sha512::digest(b"new"));
+        tauri::async_runtime::block_on(task.transfer(&url,&folder.target(),Some(("sha512",&checksum)),"Mod")).unwrap();
+        worker.join().unwrap();
+        assert_eq!(fs::read(folder.target()).unwrap(),b"new");assert!(folder.no_partials());
     }
 }

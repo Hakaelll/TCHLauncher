@@ -48,6 +48,7 @@ pub fn connect(root: &Path) -> Result<Connection, String> {
       mode TEXT NOT NULL CHECK(mode IN ('recommended','custom')),
       arguments TEXT NOT NULL DEFAULT ''
     );").map_err(|e|e.to_string())?;
+    db.execute_batch("CREATE TABLE IF NOT EXISTS application_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(|e|e.to_string())?;
     Ok(db)
 }
 
@@ -307,6 +308,7 @@ pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
     if let Some(bytes) = image { write_image(root, &id, &bytes)?; }
     let mut server = get(root, &id)?;
     server.image_data = read_image(root, &id);
+    crate::eula::apply_recorded(root,&server)?;
     Ok(server)
 }
 
@@ -330,10 +332,11 @@ pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
             }
         }
     }
+    jars.extend(crate::neoforge::discover(&source));
     jars.retain(|name|source.join(name).canonicalize().is_ok_and(|path|path.starts_with(&source)));
     jars.sort();
-    if jars.is_empty() { return Err("No se encontró un archivo .jar en la carpeta".into()); }
-    let detected_version = jars.iter().find_map(|jar|detect_jar_version(&source.join(jar)).or_else(||{
+    if jars.is_empty() { return Err("No se encontró un archivo de arranque compatible en la carpeta".into()); }
+    let detected_version = jars.iter().find_map(|jar|crate::neoforge::detected_version(&source.join(jar)).or_else(||detect_jar_version(&source.join(jar))).or_else(||{
         if !jar.starts_with(".tch-fabric/"){return None;}
         let path=source.join(jar).parent()?.join("installation.json");
         if fs::metadata(&path).ok()?.len()>4096{return None;}
@@ -361,11 +364,16 @@ fn detect_jar_version(path: &Path) -> Option<String> {
 pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
     let source = PathBuf::from(&input.path).canonicalize().map_err(|e| e.to_string())?;
     let inspection = inspect_import(&source)?;
-    if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo .jar seleccionado no existe en esa carpeta".into()); }
+    if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo de arranque seleccionado no existe en esa carpeta".into()); }
     let jar_lower = input.jar_file.to_ascii_lowercase();
-    if ["forge","neoforge"].iter().any(|loader| jar_lower.contains(loader)) {
+    if jar_lower.contains("forge") && !jar_lower.contains("neoforge") {
         return Err("El loader de este servidor aún no es compatible con la importación".into());
     }
+    if jar_lower.contains("neoforge") {
+        if input.platform!="neoforge" {return Err("Selecciona NeoForge como tipo de este servidor".into());}
+        crate::neoforge::validate_import(&source,&input.jar_file,&input.version)?;
+        if crate::neoforge::detected_version(&source.join(&input.jar_file)).as_deref()!=Some(&input.version) {return Err("La versión Minecraft no coincide con el arranque NeoForge".into());}
+    } else if input.platform=="neoforge" {return Err("Selecciona el archivo de argumentos de una instalación NeoForge, no un .jar".into());}
     if jar_lower.contains("fabric") && input.platform!="fabric" {return Err("Selecciona Fabric como tipo de este servidor".into());}
     let properties = crate::properties::read(&source.join("server.properties"))?;
     let port = properties.get("server-port").and_then(|v| v.parse::<u16>().ok()).unwrap_or(25565);
@@ -388,7 +396,9 @@ pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
     if inserted.is_err() && input.copy { let _ = std::fs::remove_dir_all(&target); }
     inserted?;
     if let Some(bytes) = image { write_image(root, &id, &bytes)?; }
-    get(root,&id)
+    let server=get(root,&id)?;
+    crate::eula::apply_recorded(root,&server)?;
+    Ok(server)
 }
 
 fn validate(input: &CreateServer) -> Result<(), String> {
@@ -396,7 +406,7 @@ fn validate(input: &CreateServer) -> Result<(), String> {
     if name.is_empty() || name.len() > 64 || name.chars().any(char::is_control) {
         return Err("El nombre debe tener entre 1 y 64 caracteres, sin saltos de línea".into());
     }
-    if !matches!(input.platform.as_str(), "vanilla" | "paper" | "fabric") {
+    if !matches!(input.platform.as_str(), "vanilla" | "paper" | "fabric" | "neoforge") {
         return Err("Esta plataforma aún no tiene instalación compatible".into());
     }
     if input.version.len() > 24 || !input.version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {

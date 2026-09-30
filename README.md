@@ -77,3 +77,18 @@ Prueba dirigida con Java 21 instalado: define `TCH_TEST_JAVA` con la ruta del ej
 ### Biblioteca y perfiles JVM (0.6.4)
 
 La biblioteca permite buscar y alternar tarjetas/lista. La navegación del servidor está junto al rail oscuro, que conserva los menús contextuales. Para imágenes grandes de servidores anteriores, vuelve a elegir el archivo original: su icono anterior ya estaba reducido a 64 × 64. En Configuración, abre Argumentos JVM para elegir el perfil recomendado o introducir una opción por línea. Guarda RAM antes de revisar la vista previa; los cambios de perfil se aplican en el siguiente inicio.
+
+
+### En desarrollo, sin nueva release
+
+La navegación ahora usa una sola barra de servidores plegable y las secciones dentro del área principal. El banner repetido del resumen se ha retirado y el emblema proporcionado sustituye a la T. La aceptación de EULA se solicita antes de la primera descarga y se recuerda en este equipo para los siguientes servidores; crear una instancia no registra consentimiento por sí solo.
+
+NeoForge dispone de catálogo estable compatible, instalación en una generación aislada y arranque mediante argumentos modulares de Java. Los mundos, mods y configuración siguen en el directorio del servidor. El instalador y las bibliotecas se verifican; los mappings oficiales se añaden a la caché del instalador para preparar offline. No se ejecutan los scripts run.bat o run.sh ni se aplican automáticamente argumentos de user_jvm_args.txt; utiliza el editor JVM del launcher.
+
+Comprobación dirigida: `cargo test --manifest-path src-tauri/Cargo.toml installs_neoforge_and_imports_without_accepting_eula -- --ignored --nocapture`. Descarga archivos oficiales y arranca la instalación original y su copia hasta el rechazo de EULA, sin aceptarla. Si defines TCH_TEST_JAVA con un Java 21 instalado, la prueba copia ese runtime a su carpeta temporal; no modifica la instalación original. La conexión desde Minecraft con mods, la actualización de loader y Linux siguen pendientes.
+
+## Mods and plugins in 0.7.0
+
+Fabric and NeoForge servers show Mods; Paper servers show Plugins, including compatible Bukkit/Spigot releases. Browse Modrinth, review the selected version and dependency changes, then install while the server is stopped. Downloads are verified with SHA-512 and staged before switching directories. Individual and combined updates create a backup; removal requires confirmation and also saves a backup. Files added outside the launcher remain visible and are preserved, but their dependencies cannot be inferred automatically.
+
+Release notes: [0.7.0](RELEASE_NOTES_v0.7.0.md). Native visual review and in-game connections remain manual.

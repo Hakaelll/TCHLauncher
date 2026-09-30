@@ -1,10 +1,15 @@
 mod backup;
+mod content;
+mod content_storage;
 mod download;
+mod eula;
 mod fabric;
+mod neoforge;
 mod install;
 mod jvm;
 mod log;
 mod model;
+mod modpack;
 mod network;
 mod players;
 mod process;
@@ -35,6 +40,7 @@ pub struct Engine {
     size_cache: Arc<Mutex<HashMap<String,(Instant,u64)>>>,
     operations: Arc<Mutex<HashSet<String>>>,
     installations: Arc<Mutex<HashMap<String,Arc<download::DownloadTask>>>>,
+    content_plans: Arc<Mutex<HashMap<String,content_storage::PreparedPlan>>>,
 }
 
 struct OperationGuard {
@@ -82,6 +88,108 @@ fn list_servers(engine: State<'_, Engine>) -> Result<Vec<Server>, String> {
 #[tauri::command]
 async fn get_versions(platform: Option<String>) -> Result<Vec<VersionInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || install::platform_versions(platform.as_deref().unwrap_or("vanilla"))).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn search_content(engine: State<'_, Engine>, id: String, query: String, offset: u32) -> Result<serde_json::Value, String> {
+    let server = storage::get(&engine.root, &id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let task = download::DownloadTask::new(&server.id, "content_search", |_| {})?;
+        content::search(&task, &server, &query, offset)
+    }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn plan_content(engine: State<'_, Engine>, id: String, project_id: String, version_id: Option<String>) -> Result<content_storage::ContentReview, String> {
+    prepare_content_plan(engine,id,Some(project_id),version_id).await
+}
+
+#[tauri::command]
+async fn plan_content_updates(engine: State<'_, Engine>, id: String) -> Result<content_storage::ContentReview, String> {
+    prepare_content_plan(engine,id,None,None).await
+}
+
+async fn prepare_content_plan(engine: State<'_, Engine>, id: String, project_id: Option<String>, version_id: Option<String>) -> Result<content_storage::ContentReview, String> {
+    let guard=engine.reserve_stopped(&id)?;
+    let server = storage::get(&engine.root, &id)?;
+    let plans=engine.content_plans.clone();
+    let token=tauri::async_runtime::spawn_blocking(move || {
+        let _guard=guard;
+        content_storage::recover(&server)?;
+        let task = download::DownloadTask::new(&server.id, "content_plan", |_| {})?;
+        let plan=if let Some(project_id)=project_id {content::plan(&task, &server, &project_id, version_id.as_deref())?} else {content::updates(&task,&server)?};
+        content::check_existing(&task,&content_storage::list(&server)?,&plan)?;
+        let prepared=content_storage::review(&server,plan)?;
+        let token=prepared.review.token.clone();
+        let mut plans=plans.lock().map_err(|e|e.to_string())?;
+        plans.retain(|_,plan|plan.created.elapsed()<Duration::from_secs(900));
+        if plans.len()>=64 {plans.clear();}
+        plans.insert(token.clone(),prepared);
+        Ok::<_,String>(token)
+    }).await.map_err(|e| e.to_string())??;
+    // Return a review copy while retaining the authoritative native plan.
+    let plans=engine.content_plans.lock().map_err(|e|e.to_string())?;
+    Ok(plans.get(&token).ok_or("La revisión ha caducado")?.review.clone())
+}
+
+#[tauri::command]
+async fn list_content(engine:State<'_,Engine>,id:String)->Result<Vec<content_storage::InstalledContent>,String> {
+    let server=storage::get(&engine.root,&id)?;
+    tauri::async_runtime::spawn_blocking(move ||content_storage::list(&server)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn content_icon(engine:State<'_,Engine>,url:String)->Result<String,String> {
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move ||content::icon(&root,&url)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn pick_modpack()->Result<Option<modpack::PackInspection>,String> {
+    let Some(file)=rfd::AsyncFileDialog::new().add_filter("Modrinth modpack",&["mrpack"]).pick_file().await else {return Ok(None);};
+    let path=file.path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move ||modpack::inspect(&path).map(|pack|Some(pack.inspection))).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn inspect_modpack(path:String)->Result<modpack::PackInspection,String> {
+    tauri::async_runtime::spawn_blocking(move ||modpack::inspect(std::path::Path::new(&path)).map(|pack|pack.inspection)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn remove_content(engine:State<'_,Engine>,id:String,filename:String,sha512:String)->Result<(),String> {
+    let guard=engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    let result=tauri::async_runtime::spawn_blocking(move ||{let _guard=guard;content_storage::remove(&root,&server,&filename,&sha512)}).await.map_err(|e|e.to_string())?;
+    engine.invalidate_size(&id);result
+}
+
+#[tauri::command]
+async fn install_content(app:AppHandle,engine:State<'_,Engine>,id:String,token:String)->Result<(),String> {
+    let _guard=engine.reserve_stopped(&id)?;
+    let prepared=engine.content_plans.lock().map_err(|e|e.to_string())?.remove(&token).ok_or("La revisión ha caducado. Revisa los cambios de nuevo.")?;
+    if prepared.server_id!=id {return Err("La revisión pertenece a otro servidor".into());}
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    let emitter=app.clone();
+    let task=Arc::new(download::DownloadTask::new(&id,"content_install",move |progress|{let _=emitter.emit("install-progress",progress);})?);
+    engine.installations.lock().map_err(|e|e.to_string())?.insert(id.clone(),task.clone());
+    process::emit_state(&app,&id,"installing");
+    let worker=task.clone();
+    let result=tauri::async_runtime::spawn_blocking(move ||content_storage::install(&root,&server,&prepared,&worker)).await.unwrap_or_else(|e|Err(e.to_string()));
+    task.finish(&result);
+    engine.installations.lock().map_err(|e|e.to_string())?.remove(&id);
+    engine.invalidate_size(&id);
+    process::emit_state(&app,&id,"stopped");
+    result
+}
+
+#[tauri::command]
+async fn content_versions(engine: State<'_, Engine>, id: String, project_id: String) -> Result<Vec<content::ContentVersion>, String> {
+    let server = storage::get(&engine.root, &id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let task=download::DownloadTask::new(&server.id,"content_versions",|_| {})?;
+        content::versions(&task,&server,&project_id)
+    }).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -229,6 +337,7 @@ async fn run_install(app: AppHandle, engine: State<'_, Engine>, id: String,runti
     let _guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
     let server = storage::get(&root,&id)?;
+    eula::require_download_consent(&root,&server)?;
     let emitter = app.clone();
     let kind = if !runtime_only {"install"} else if reinstall {"runtime_reinstall"} else {"runtime"};
     let task = Arc::new(download::DownloadTask::new(&id,kind,move |progress| { let _ = emitter.emit("install-progress",progress); })?);
@@ -260,16 +369,17 @@ fn cancel_install(engine: State<'_, Engine>, id: String, task_id: String) -> Res
 fn accept_eula(engine: State<'_, Engine>, id: String) -> Result<(), String> {
     let _guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root,&id)?;
-    if server.jar_path.is_none() { return Err("Instala el servidor antes de aceptar la EULA".into()); }
-    std::fs::write(PathBuf::from(server.directory).join("eula.txt"),"# Accepted explicitly in TCHLauncher\neula=true\n")
-        .map_err(|e| e.to_string())
+    eula::accept(&engine.root,&server)
 }
 
 #[tauri::command]
 fn eula_accepted(engine: State<'_, Engine>, id: String) -> Result<bool, String> {
     let server = storage::get(&engine.root,&id)?;
-    Ok(std::fs::read_to_string(PathBuf::from(server.directory).join("eula.txt")).unwrap_or_default().lines().any(|l| l.trim()=="eula=true"))
+    Ok(eula::recorded(&engine.root)? || eula::file_accepted(&server))
 }
+
+#[tauri::command]
+fn eula_consent_recorded(engine: State<'_,Engine>) -> Result<bool,String> {eula::recorded(&engine.root)}
 
 #[tauri::command]
 async fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<(), String> {
@@ -280,6 +390,8 @@ async fn start_server(app: AppHandle, engine: State<'_, Engine>, id: String) -> 
         let _guard=guard;
         storage::sync_legacy_icon(&root,&id)?;
         let server=storage::get(&root,&id)?;
+        content_storage::recover(&server)?;
+        eula::apply_recorded(&root,&server)?;
         runtime::validate_configured(&root,&server)?;
         processes.start(&server,app,&jvm::get(&root,&id)?)
     }).await.map_err(|e|e.to_string())?
@@ -306,6 +418,8 @@ async fn restart_server(app: AppHandle, engine: State<'_, Engine>, id: String) -
             std::thread::sleep(Duration::from_millis(200));
         }
         let server = storage::get(&root, &id)?;
+        content_storage::recover(&server)?;
+        eula::apply_recorded(&root,&server)?;
         runtime::validate_configured(&root,&server)?;
         processes.start(&server, app,&jvm::get(&root,&id)?)
     }).await.map_err(|e| e.to_string())?
@@ -602,7 +716,7 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             storage::connect(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
@@ -638,7 +752,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }

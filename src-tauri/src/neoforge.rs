@@ -1,12 +1,22 @@
 use crate::{download::DownloadTask, model::{Server, VersionInfo}};
 use serde_json::Value;
-use sha1::{Digest, Sha1};
-use std::{collections::{BTreeMap, HashSet}, fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::{Path, PathBuf}, process::{Child, Command, Stdio}, time::{Duration, Instant}};
+use std::{collections::{BTreeMap, HashSet}, fs::{self, File}, io::{Read, Seek, SeekFrom}, path::{Path, PathBuf}, process::{Child, Command, Stdio}, time::{Duration, Instant}};
 use uuid::Uuid;
 
 const CATALOG: &str = "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge";
 const MAVEN: &str = "https://maven.neoforged.net/releases/net/neoforged/neoforge";
 const MAX_TEXT: u64 = 128 * 1024;
+
+// Windows canonicalization returns a verbatim path. Java's JAR URL classloader
+// cannot resolve that prefix, even when the native executable opens the JAR.
+fn java_path(path: &Path) -> String {
+    let value=path.to_string_lossy();
+    if cfg!(windows) {
+        if let Some(rest)=value.strip_prefix("\\\\?\\UNC\\") {return format!("\\\\{rest}");}
+        if let Some(rest)=value.strip_prefix("\\\\?\\") {return rest.to_owned();}
+    }
+    value.into_owned()
+}
 
 fn stable_parts(version: &str) -> Option<Vec<u32>> {
     let parts = version.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>, _>>().ok()?;
@@ -51,7 +61,7 @@ fn relative_path(value: &str) -> Result<PathBuf, String> {
 fn coordinate(value: &str) -> Result<PathBuf,String> {
     let (name, extension) = value.split_once('@').unwrap_or((value,"jar"));
     let parts: Vec<_> = name.split(':').collect();
-    if !(3..=4).contains(&parts.len()) || extension.is_empty() || !extension.bytes().all(|c|c.is_ascii_alphanumeric()) {
+    if !(3..=4).contains(&parts.len()) || extension.len()>32 || extension.split('.').any(|part|part.is_empty() || !part.bytes().all(|c|c.is_ascii_alphanumeric())) {
         return Err("Coordenadas de biblioteca NeoForge no válidas".into());
     }
     for part in &parts {
@@ -60,7 +70,7 @@ fn coordinate(value: &str) -> Result<PathBuf,String> {
         }
     }
     let classifier = if parts.len()==4 {format!("-{}",parts[3])} else {String::new()};
-    relative_path(&format!("{}/{}/{}/{}-{}{}.{}",parts[0].replace('.','/'),parts[1],parts[2],parts[1],parts[2],classifier,extension))
+    relative_path(&format!("{}/{}/{}/{}-{}{}.{}",parts[0].replace('.',"/"),parts[1],parts[2],parts[1],parts[2],classifier,extension))
 }
 
 fn valid_hash(hash: &str, length: usize) -> Result<(),String> {
@@ -124,8 +134,8 @@ fn run_installer(java: &Path, installer: &Path, stage: &Path, task: &DownloadTas
     let log=stage.join("prepare.log");let output=File::create(&log).map_err(|e|e.to_string())?;
     let mut command=Command::new(java);
     #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
-    let mut child=InstallerChild(command.arg("-Djava.awt.headless=true").arg(format!("-Djava.io.tmpdir={}",temp.display()))
-        .arg("-jar").arg(installer).arg("--installServer").arg(stage).arg("--offline")
+    let mut child=InstallerChild(command.arg("-Djava.awt.headless=true").arg(format!("-Djava.io.tmpdir={}",java_path(&temp)))
+        .arg("-jar").arg(java_path(installer)).arg("--installServer").arg(java_path(stage)).arg("--offline")
         .current_dir(stage).stdin(Stdio::null()).stdout(output.try_clone().map_err(|e|e.to_string())?).stderr(output)
         .spawn().map_err(|e|format!("No se pudo iniciar la preparación NeoForge: {e}"))?);
     let began=Instant::now();
@@ -243,7 +253,7 @@ fn rooted_library(root: &Path, value: &str) -> Result<String,String> {
     if !value.starts_with("libraries/") {return Err("La ruta NeoForge debe estar dentro de libraries".into());}
     let library=root.join(path).canonicalize().map_err(|_|format!("Falta una biblioteca NeoForge: {value}"))?;
     if !library.is_file() || !library.starts_with(root.canonicalize().map_err(|e|e.to_string())?) {return Err("Una biblioteca NeoForge está fuera del servidor".into());}
-    Ok(library.to_string_lossy().into_owned())
+    Ok(java_path(&library))
 }
 
 fn rooted_classpath(root: &Path, value: &str, separator: char) -> Result<String,String> {
@@ -272,7 +282,7 @@ fn launch_file(server_root: &Path, installation: &Path, path: &Path, minecraft: 
             if entrypoint {return Err("Propiedad NeoForge fuera de la sección JVM".into());}
             args.push(format!("-DlegacyClassPath={}",rooted_classpath(installation,value,separator)?));
         } else if arg=="-DlibraryDirectory=libraries" && !entrypoint {
-            args.push(format!("-DlibraryDirectory={}",installation.join("libraries").display()));
+            args.push(format!("-DlibraryDirectory={}",java_path(&installation.join("libraries"))));
         } else if !entrypoint && ["-DignoreList=","-Dfml.pluginLayerLibraries=","-Dfml.gameLayerLibraries=","-Djava.net.preferIPv6Addresses="].iter().any(|prefix|arg.starts_with(prefix)) {
             args.push(arg.clone());
         } else if arg=="cpw.mods.bootstraplauncher.BootstrapLauncher" && !entrypoint {
@@ -291,18 +301,25 @@ fn launch_file(server_root: &Path, installation: &Path, path: &Path, minecraft: 
 }
 
 pub fn launch_arguments(server: &Server) -> Result<Vec<String>,String> {
-    let root=Path::new(&server.directory).canonicalize().map_err(|e|e.to_string())?;
-    let configured=Path::new(server.jar_path.as_deref().ok_or("Instala NeoForge antes de iniciar")?);
+    resolve_launch(Path::new(&server.directory),Path::new(server.jar_path.as_deref().ok_or("Instala NeoForge antes de iniciar")?),&server.version)
+}
+
+pub fn validate_import(root: &Path, relative: &str, minecraft: &str) -> Result<(),String> {
+    resolve_launch(root,&root.join(relative_path(relative)?),minecraft).map(|_|())
+}
+
+fn resolve_launch(directory: &Path, configured: &Path, minecraft: &str) -> Result<Vec<String>,String> {
+    let root=directory.canonicalize().map_err(|e|e.to_string())?;
     let file=configured.file_name().ok_or("Archivo de arranque NeoForge no válido")?;
     if file!="win_args.txt" && file!="unix_args.txt" {return Err("Selecciona el archivo de argumentos NeoForge, no un .jar o un script".into());}
-    let path=configured.with_file_name(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
+    let path=configured.with_file_name(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"}).canonicalize().map_err(|_|"Falta el archivo de arranque NeoForge para este sistema")?;
     let relative=path.strip_prefix(&root).map_err(|_|"El archivo NeoForge está fuera del servidor")?;
     let components:Vec<_>=relative.components().collect();
     let installation=if relative.starts_with(".tch-neoforge") {
         let generation=components.get(1).ok_or("Falta la generación NeoForge")?.as_os_str().to_str().ok_or("Generación NeoForge no válida")?;
         Uuid::parse_str(generation).map_err(|_|"Generación NeoForge no válida")?;root.join(".tch-neoforge").join(generation)
     } else {root.clone()};
-    launch_file(&root,&installation,&path,&server.version)
+    launch_file(&root,&installation,&path,minecraft)
 }
 
 pub fn discover(root: &Path) -> Vec<String> {
@@ -337,6 +354,23 @@ pub fn detected_version(path: &Path) -> Option<String> {
 mod tests {
     use super::*;
     #[test]
+    #[ignore="Requires TCH_TEST_JAVA and TCH_TEST_NEOFORGE_INSTALLER (official 21.4.158 installer)"]
+    fn cancels_preparation_and_reaps_java() {
+        use sha2::{Digest,Sha256};
+        let java=std::env::var("TCH_TEST_JAVA").expect("Set TCH_TEST_JAVA");
+        let installer=std::env::var("TCH_TEST_NEOFORGE_INSTALLER").expect("Set TCH_TEST_NEOFORGE_INSTALLER");
+        assert_eq!(format!("{:x}",Sha256::digest(fs::read(&installer).unwrap())),"f392445f5f5c4523d5ba8f6481c14e83a6167d7ea16438d92ea7bfcd5a0e125a");
+        let root=std::env::temp_dir().join(format!("tch-neoforge-cancel-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+        let local=root.join("installer.jar");fs::copy(installer,&local).unwrap();
+        let task=DownloadTask::new("test","install",|_|{}).unwrap();
+        let cancellation=task.cancellation.clone();
+        let thread=std::thread::spawn(move || {std::thread::sleep(Duration::from_millis(10));cancellation.cancel();});
+        let began=Instant::now();let result=run_installer(Path::new(&java),&local,&root,&task);thread.join().unwrap();
+        assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert!(began.elapsed()<Duration::from_secs(3));
+        // On Windows, an unreaped Java process would retain its redirected log handles.
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn stable_catalog_matches_minecraft_without_beta_or_snapshot() {
         let data=serde_json::json!({"versions":["21.4.9","21.4.158","21.4.200-beta","21.5.1","20.4.20","26.1.8","0.25w14craftmine.3-beta"]});
         assert_eq!(select_loader(&data,"1.21.4").unwrap(),"21.4.158");
@@ -348,6 +382,8 @@ mod tests {
     fn rejects_paths_and_classpath_overrides() {
         for value in ["../evil","C:/evil","/evil","libraries/../evil","libraries\\evil","libraries//evil"] {assert!(relative_path(value).is_err());}
         assert_eq!(coordinate("net.neoforged:neoform:1.21.4-20241203.161809:mappings@txt").unwrap(),PathBuf::from("net/neoforged/neoform/1.21.4-20241203.161809/neoform-1.21.4-20241203.161809-mappings.txt"));
+        assert_eq!(coordinate("net.neoforged:neoform:1.21.11-20251209.172050:mappings@tsrg.lzma").unwrap(),PathBuf::from("net/neoforged/neoform/1.21.11-20251209.172050/neoform-1.21.11-20251209.172050-mappings.tsrg.lzma"));
+        for value in ["a:b:1@..txt","a:b:1@txt/escape","a:b:1@txt\\escape","a:b:1@txt..lzma","a:b:1@"] {assert!(coordinate(value).is_err());}
         for value in ["https://evil.test/library.jar","http://maven.neoforged.net/library.jar","https://x@maven.neoforged.net/library.jar"] {assert!(official_library(value).is_err());}
         assert_eq!(tokens("# comment\n-p \"libraries/a.jar;libraries/b.jar\"\n-Dempty=\n").unwrap(),vec!["-p","libraries/a.jar;libraries/b.jar","-Dempty="]);
         assert!(tokens("\"unterminated").is_err());
@@ -360,6 +396,7 @@ mod tests {
         let path=generation.join("win_args.txt");let text="-p libraries/test/bootstrap.jar\n-DlegacyClassPath=libraries/test/bootstrap.jar\n-DlibraryDirectory=libraries\ncpw.mods.bootstraplauncher.BootstrapLauncher\n--launchTarget neoforgeserver\n--fml.mcVersion 1.21.4\n";
         fs::write(&path,text).unwrap();let args=launch_file(&root,&generation,&path,"1.21.4").unwrap();
         assert!(args[1].contains("tch neoforge args"));assert!(args[1].contains(".tch-neoforge"));assert_eq!(args.last().unwrap(),"nogui");
+        if cfg!(windows) {assert!(!args[1].contains("\\\\?\\"));}
         assert!(launch_file(&root,&generation,&path,"1.21.5").is_err());
         for invalid in [text.replace("libraries/test/bootstrap.jar","libraries/../outside.jar"),text.replace("-p libraries/test/bootstrap.jar","@other.txt"),text.replace("neoforgeserver","neoforgeclient"),format!("-Xmx99G\n{text}")] {
             fs::write(&path,invalid).unwrap();assert!(launch_file(&root,&generation,&path,"1.21.4").is_err());
