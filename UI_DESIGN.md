@@ -1,13 +1,13 @@
 # TCHLauncher visual system
 
-## Approved direction, 0.6.4
+## Current development direction (after 0.6.4)
 
-The user's desktop collage supersedes the original grayscale ChatGPT composition and the earlier TFT cards. The latest color preference is anthracite: primary actions, selection and navigation use `#303335`. Olive and copper are no longer action accents. State and log category colors remain semantic, with explicit labels.
+The user's desktop collage supersedes the original grayscale ChatGPT composition and the earlier TFT cards. The latest color preference is anthracite: primary actions, selection and navigation use `#303335`. Olive and copper are no longer action accents. State and log category colors remain semantic, with explicit labels. Blue, teal and violet distinguish metric icons; neutral structure and controls remain anthracite. Installation progress and context menus no longer retain copper or olive styling.
 
-- Three columns: a dark server image rail, a light navigation column and a white workspace. Collapsing removes the navigation column while keeping server images and accessible tooltips. Small widths use the rail alone.
+- One collapsible dark server sidebar and a white workspace. Expanded mode shows server names and versions; collapsed mode keeps images and accessible tooltips. Server sections use a wrapping horizontal navigation within the workspace, avoiding nested sidebars.
 - The opening library displays actual servers, image covers, name, platform, state, saved RAM and storage target. Search and grid/list controls work; create and import remain available when empty. No invented players or metrics are shown.
-- Server overview uses its selected image as a wide cover, real status and measured statistics. Existing images can fall back to their Minecraft icon; newly selected files preserve the original image for larger surfaces alongside the 64×64 icon.
-- Seven sections are in the second navigation column; selection has one persistent moving indicator. The rail retains right-click menus and pin/delete actions.
+- Server overview uses a compact image in the header, real status and measured statistics. The repeated panorama has been removed. Existing images can fall back to their Minecraft icon; newly selected files preserve the original image for larger surfaces alongside the 64×64 icon.
+- Seven sections sit below the server header with one persistent moving selection indicator. The sidebar retains right-click menus and pin/delete actions. The supplied transparent emblem replaces the T monogram, using CSS framing to trim its outer margin and inversion for legibility on the dark surface.
 - The five-step creation flow retains validation and a stable summary. Step changes move only the form content by 16px, in the direction of travel.
 - Settings use grouped properties, a Java runtime panel and a collapsed JVM editor. Destructive controls retain red and require confirmation.
 - The console has an anthracite reading surface and colored category labels. Incoming output scrolls quickly while following is enabled; user scrolling pauses following. Individual log rows are not animated.

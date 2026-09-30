@@ -1,9 +1,7 @@
 button,input,select,textarea { transition:background-color var(--motion-interaction) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease),color var(--motion-interaction) var(--motion-ease); }
-button:active:not(:disabled,.server-row,.section-nav button,.wizard-steps button,.player-tab) { transform:translateY(1px); transition-duration:var(--motion-instant); }
+button:active:not(:disabled,.server-row,.server-sections button,.wizard-steps button,.player-tab) { transform:translateY(1px); transition-duration:var(--motion-instant); }
 .shell { transition:grid-template-columns var(--motion-navigation) var(--motion-ease); }
-.sidebar { opacity:1; transition:opacity var(--motion-standard) var(--motion-ease),visibility 0s; }
-.sidebar-collapsed .sidebar { opacity:0; transition:opacity var(--motion-interaction) var(--motion-ease),visibility 0s var(--motion-standard); }
-.moving-indicator { transition:transform var(--motion-standard) var(--motion-ease),opacity var(--motion-interaction) var(--motion-ease); }
+.moving-indicator { transition:transform var(--motion-standard) var(--motion-ease),opacity var(--motion-interaction) var(--motion-ease),width var(--motion-standard) var(--motion-ease),height var(--motion-standard) var(--motion-ease); }
 .server-artwork,.state-dot { transition:background-color var(--motion-standard) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease),outline-color var(--motion-interaction) var(--motion-ease); }
 .sidebar-tooltip { animation:tooltip-enter var(--motion-interaction) var(--motion-enter); }
 .chart-tooltip { animation:chart-tooltip-enter var(--motion-interaction) var(--motion-enter); }

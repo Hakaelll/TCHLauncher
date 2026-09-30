@@ -14,7 +14,7 @@ import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
 import { JvmPanel } from './JvmPanel'
 import { ServerLibrary } from './ServerLibrary'
-import { ServerCover } from './ServerCover'
+import launcherEmblem from './assets/launcher-emblem.png'
 import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMotion } from './motion'
 import { ServerMenu, type ServerMenuTarget } from './ServerMenu'
 import { ServerDeleteDialog } from './ServerDeleteDialog'
@@ -273,28 +273,16 @@ function App() {
   const openMenu=(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>{const target={server,trigger,x,y};menuTargetRef.current=target;setMenuTarget(target)}
   return <div className={`shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <aside className="server-rail" aria-label="Servidores">
-      <button className={`rail-library ${libraryOpen && !creating && !importing?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span>T</span></button>
+      <button className={`rail-library ${libraryOpen && !creating && !importing?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span className="brand-emblem"><img src={launcherEmblem} alt=""/></span><strong className="rail-brand-name">TCHLauncher</strong></button>
       <nav className="server-list" ref={railRef} aria-label="Lista de servidores" onScroll={() => hideSidebarTooltip()}>
         <MovingIndicator active={`${selectedId}:${creating}:${importing}:${libraryOpen}:${servers.map(s=>s.id).join()}`} className="rail-active-indicator"/>{servers.map(server => <button data-layout-id={server.id} key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing && !libraryOpen ? 'active' : ''}`} onClick={() => { hideSidebarTooltip(); setLibraryOpen(false);setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();hideSidebarTooltip();const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => hideSidebarTooltip()} onFocus={event => showSidebarTooltip(server,event.currentTarget,true)} onBlur={() => hideSidebarTooltip()} aria-label={`${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}`} aria-current={selectedId === server.id && !creating && !importing && !libraryOpen ? 'page' : undefined}>
           <span className="server-artwork-wrap"><ServerArtwork server={server}/>{server.pinned && <span className="server-pin" title="Servidor fijado" aria-label="Fijado"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 3 6 6-4 1-4 5-4-4 5-4zM9 15l-6 6"/></svg></span>}<span className={`state-dot ${server.state}`} aria-hidden="true"/></span><span className="server-row-name">{server.name}<small>{platformName(server.platform)} · {server.version}</small></span>
         </button>)}
       </nav>
-      <button className="rail-add" onClick={()=>{setImporting(false);setCreating(true)}} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/></button>
-      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/></button>
+      <button className="rail-add" onClick={()=>{setImporting(false);setCreating(true)}} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
+      <button className="rail-import" onClick={()=>{setCreating(false);setImporting(true)}} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
+      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.6.4</span>
     </aside>
-    <aside className="sidebar" aria-label="Navegación" aria-hidden={sidebarCollapsed || undefined} inert={sidebarCollapsed}>
-      <div className="sidebar-top"><div className="wordmark">TCHLauncher</div></div>
-      {selected && !libraryOpen && !creating && !importing && <div className="sidebar-server"><ServerArtwork server={selected}/><div><strong>{selected.name}</strong><small>{platformName(selected.platform)} · {selected.version}</small></div></div>}
-      <nav className="section-nav" aria-label="Secciones"><MovingIndicator active={`${view}:${libraryOpen}:${creating}:${importing}`} className="section-active-indicator"/>
-        {selected && !libraryOpen && !creating && !importing ? viewOrder.map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{viewLabels[item]}</span></button>) : <>
-          <button aria-current={!creating && !importing?'page':undefined} onClick={openLibrary}><SectionIcon name="library"/><span>Mis servidores</span><small>{servers.length}</small></button>
-          <button aria-current={creating?'page':undefined} onClick={()=>{setImporting(false);setCreating(true)}}><Icon name="plus" size={17}/><span>Nuevo servidor</span></button>
-          <button aria-current={importing?'page':undefined} onClick={()=>{setCreating(false);setImporting(true)}}><Icon name="folder" size={17}/><span>Importar servidor</span></button>
-        </>}
-      </nav>
-      <div className="sidebar-bottom">{selected && !libraryOpen && <button className="new-server-link" onClick={openLibrary}><Icon name="back" size={16}/><span>Mis servidores</span></button>}<div className="sidebar-footer"><span>v0.6.4</span><span>Local</span></div></div>
-    </aside>
-
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
@@ -312,6 +300,10 @@ function App() {
             </> : selected.state === 'starting' ? <button disabled={busy} onClick={() => act(() => api.stop(selected.id))}>Detener inicio</button> : selected.state === 'stopped' || selected.state === 'crashed' || selected.state === 'error' ? <button className="primary-button" disabled={busy || !eula} onClick={() => act(() => api.start(selected.id))}>Iniciar servidor <Icon name="arrow" size={15}/></button> : null : <button className="primary-button" disabled={busy} onClick={() => runInstallation(selected.id)}>{selected.jarPath ? 'Preparar Java' : 'Instalar'} <Icon name="arrow" size={15}/></button>}
           </div>
         </header>
+        <nav className="server-sections" aria-label="Secciones del servidor">
+          <MovingIndicator active={`${selectedId}:${view}`} axis="both" className="section-active-indicator"/>
+          {viewOrder.map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{viewLabels[item]}</span></button>)}
+        </nav>
         <div className="content" ref={contentRef}>
           {progress && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>runInstallation(selected.id,progress.kind)} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
@@ -361,10 +353,9 @@ function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInst
     : server.jarPath && server.javaPath ? 'Todo preparado para el próximo inicio.'
     : 'Instala Minecraft y Java para empezar.'
   return <div className="overview">
-    <div className={`server-panorama ${server.imageData ? 'has-image' : ''}`} aria-hidden="true"><ServerCover server={server}/></div>
     <section className={`server-stage ${server.state}`} aria-label="Estado del servidor">
       <div className="stage-main"><div className="stage-copy" role="status"><h2><span className={`state-dot large ${server.state}`} aria-hidden="true"/>{stateText(server.state)}</h2><p>{description}</p></div>{['starting','stopping','crashed','error'].includes(server.state) && <button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button>}</div>
-      <div className="stage-stats"><div><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong></div><div><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong></div><div><span>Memoria</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong></div><div><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong></div></div>
+      <div className="stage-stats"><div className="stat-players"><SectionIcon name="players"/><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong></div><div className="stat-uptime"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong></div><div className="stat-memory"><SectionIcon name="performance"/><span>Memoria</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong></div><div className="stat-cpu"><SectionIcon name="settings"/><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong></div></div>
     </section>
     {(!server.jarPath || !server.javaPath) && <div className="callout"><div><strong>Instalación pendiente</strong><p>{server.jarPath ? 'Prepararemos Java sin reemplazar el archivo .jar existente.' : `Descargaremos Minecraft ${server.version} y Java.`}</p></div><button disabled={busy} onClick={onInstall}>{server.jarPath ? 'Preparar Java' : 'Instalar ahora'}</button></div>}
     {server.jarPath && !eula && <div className="callout"><div><strong>Antes del primer inicio</strong><p>Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a> antes de aceptarla.</p></div><button disabled={busy} onClick={onAccept}>He leído y acepto</button></div>}

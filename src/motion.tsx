@@ -4,7 +4,7 @@ export const motion = {instant:90,interaction:120,micro:160,standard:200,navigat
 if(typeof document!=='undefined')for(const [name,value] of Object.entries(motion))document.documentElement.style.setProperty(`--motion-${name}`,typeof value==='number'?`${value}ms`:value)
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export function MovingIndicator({active,axis='vertical',className=''}:{active:string;axis?:'vertical'|'horizontal';className?:string}) {
+export function MovingIndicator({active,axis='vertical',className=''}:{active:string;axis?:'vertical'|'horizontal'|'both';className?:string}) {
   const ref=useRef<HTMLSpanElement>(null)
   const [position,setPosition]=useState<{x:number;y:number;width:number;height:number}|null>(null)
   useLayoutEffect(()=>{
@@ -21,7 +21,7 @@ export function MovingIndicator({active,axis='vertical',className=''}:{active:st
     for(const child of parent.children)if(child!==ref.current)observer.observe(child)
     return()=>observer.disconnect()
   },[active])
-  return <span ref={ref} aria-hidden="true" className={`moving-indicator ${axis} ${className}`} style={position?axis==='horizontal'?{opacity:1,width:1,transform:`translateX(${position.x}px) scaleX(${position.width})`}:{opacity:1,height:position.height,transform:`translateY(${position.y}px)`}:{opacity:0}}/>
+  return <span ref={ref} aria-hidden="true" className={`moving-indicator ${axis} ${className}`} style={position?axis==='both'?{opacity:1,width:position.width,height:position.height,transform:`translate(${position.x}px,${position.y}px)`}:axis==='horizontal'?{opacity:1,width:1,transform:`translateX(${position.x}px) scaleX(${position.width})`}:{opacity:1,height:position.height,transform:`translateY(${position.y}px)`}:{opacity:0}}/>
 }
 
 export function useNavigationMotion(ref:RefObject<HTMLElement|null>,identity:string,direction=1,distance=6) {
