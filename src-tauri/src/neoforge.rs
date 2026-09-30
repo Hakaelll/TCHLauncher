@@ -42,6 +42,16 @@ fn select_loader(data: &Value, minecraft: &str) -> Result<String, String> {
         .ok_or_else(|| format!("NeoForge no tiene una versión estable para Minecraft {minecraft}"))
 }
 
+pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Result<String,String> {
+    let Some(version)=requested else {return select_loader(data,minecraft);};
+    crate::fabric::validate_version(version)?;
+    let parts=stable_parts(version.split('-').next().unwrap_or_default()).ok_or("Versión NeoForge solicitada no compatible")?;
+    if minecraft_version(&parts)!=minecraft || !data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?.iter().any(|entry|entry.as_str()==Some(version)) {
+        return Err(format!("NeoForge {version} no está disponible para Minecraft {minecraft}"));
+    }
+    Ok(version.into())
+}
+
 pub fn versions(task: &DownloadTask, minecraft: Vec<VersionInfo>) -> Result<Vec<VersionInfo>, String> {
     let data = task.json(CATALOG, "Consultando versiones NeoForge")?;
     let supported: HashSet<_> = releases(&data)?.iter().filter_map(|version|stable_parts(version))
@@ -156,8 +166,12 @@ fn run_installer(java: &Path, installer: &Path, stage: &Path, task: &DownloadTas
 }
 
 pub fn install(server: &Server, minecraft: &Value, java: &Path, task: &DownloadTask) -> Result<PathBuf,String> {
+    install_requested(server,minecraft,java,task,None)
+}
+
+pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&DownloadTask,requested:Option<&str>)->Result<PathBuf,String> {
     let data=task.json(CATALOG,"Buscando NeoForge compatible")?;
-    let loader=select_loader(&data,&server.version)?;
+    let loader=requested_loader(&data,&server.version,requested)?;
     let server_root=Path::new(&server.directory).canonicalize().map_err(|e|e.to_string())?;
     let base=server_root.join(".tch-neoforge");
     if fs::symlink_metadata(&base).is_ok_and(|meta|meta.file_type().is_symlink()) {return Err("La carpeta NeoForge no puede ser un enlace simbólico".into());}
@@ -285,7 +299,10 @@ fn launch_file(server_root: &Path, installation: &Path, path: &Path, minecraft: 
             args.push(format!("-DlibraryDirectory={}",java_path(&installation.join("libraries"))));
         } else if !entrypoint && ["-DignoreList=","-Dfml.pluginLayerLibraries=","-Dfml.gameLayerLibraries=","-Djava.net.preferIPv6Addresses="].iter().any(|prefix|arg.starts_with(prefix)) {
             args.push(arg.clone());
-        } else if arg=="cpw.mods.bootstraplauncher.BootstrapLauncher" && !entrypoint {
+        } else if ["cpw.mods.bootstraplauncher.BootstrapLauncher","net.neoforged.fml.startup.Server"].contains(&arg.as_str()) && !entrypoint {
+            // Modern FML identifies the server through its dedicated entrypoint.
+            // Older BootstrapLauncher profiles still require --launchTarget.
+            target=arg=="net.neoforged.fml.startup.Server";
             args.push(arg.clone());entrypoint=true;
         } else if entrypoint && ["--launchTarget","--fml.neoForgeVersion","--fml.forgeVersion","--fml.fmlVersion","--fml.mcVersion","--fml.neoFormVersion","--fml.mcpVersion"].contains(&arg.as_str()) {
             let value=next()?;
@@ -377,6 +394,10 @@ mod tests {
         assert_eq!(select_loader(&data,"1.20.4").unwrap(),"20.4.20");
         assert_eq!(select_loader(&data,"26.1").unwrap(),"26.1.8");
         assert!(select_loader(&data,"1.17.1").is_err());
+        assert_eq!(requested_loader(&data,"1.21.4",Some("21.4.9")).unwrap(),"21.4.9");
+        assert_eq!(requested_loader(&data,"1.21.4",Some("21.4.200-beta")).unwrap(),"21.4.200-beta");
+        assert!(requested_loader(&data,"1.21.4",Some("21.5.1")).is_err());
+        assert!(requested_loader(&data,"1.21.4",Some("21.4.10")).is_err());
     }
     #[test]
     fn rejects_paths_and_classpath_overrides() {
@@ -398,6 +419,11 @@ mod tests {
         assert!(args[1].contains("tch neoforge args"));assert!(args[1].contains(".tch-neoforge"));assert_eq!(args.last().unwrap(),"nogui");
         if cfg!(windows) {assert!(!args[1].contains("\\\\?\\"));}
         assert!(launch_file(&root,&generation,&path,"1.21.5").is_err());
+        let modern=text.replace("cpw.mods.bootstraplauncher.BootstrapLauncher","net.neoforged.fml.startup.Server").replace("--launchTarget neoforgeserver\n","");
+        fs::write(&path,&modern).unwrap();
+        assert!(launch_file(&root,&generation,&path,"1.21.4").is_ok());
+        fs::write(&path,modern.replace("startup.Server","startup.Client")).unwrap();
+        assert!(launch_file(&root,&generation,&path,"1.21.4").is_err());
         for invalid in [text.replace("libraries/test/bootstrap.jar","libraries/../outside.jar"),text.replace("-p libraries/test/bootstrap.jar","@other.txt"),text.replace("neoforgeserver","neoforgeclient"),format!("-Xmx99G\n{text}")] {
             fs::write(&path,invalid).unwrap();assert!(launch_file(&root,&generation,&path,"1.21.4").is_err());
         }

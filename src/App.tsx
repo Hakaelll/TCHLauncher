@@ -14,6 +14,7 @@ import { ResourceMonitor } from './ResourceMonitor'
 import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
 import { JvmPanel } from './JvmPanel'
+import { PackImport } from './PackImport'
 import { ServerLibrary } from './ServerLibrary'
 import launcherEmblem from './assets/launcher-emblem.png'
 import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMotion } from './motion'
@@ -96,6 +97,8 @@ function App() {
   const navigate=(next:View)=>{setNavigationDirection(viewOrder.indexOf(next)>viewOrder.indexOf(view)?1:-1);setView(next)}
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [packOpen,setPackOpen]=useState(false)
+  const [packResume,setPackResume]=useState<string|null>(null)
   const [operationBusy,setBusy] = useState(false)
   const [installingIds,setInstallingIds] = useState<Set<string>>(new Set())
   const busy=operationBusy || installingIds.has(selectedId ?? "")
@@ -113,7 +116,7 @@ function App() {
   const [props, setProps] = useState<Record<string, string>>({})
   const propsDirtyRef = useRef(false)
   const [eula, setEula] = useState(false)
-  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'>}|null>(null)
+  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'>}|null>(null)
   const [consentBusy,setConsentBusy] = useState(false)
   const [consentError,setConsentError] = useState<string|null>(null)
   const [memory, setMemory] = useState({ min: 1024, max: 2048 })
@@ -233,7 +236,7 @@ function App() {
     return false
   }
 
-  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'>='install')=>{
+  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'>='install')=>{
     try {if(!await api.eulaConsentRecorded()){setConsentError(null);setDownloadConsent({id,kind});return;}}
     catch(cause){setError(errorText(cause));return;}
     setError(null);setInstallingIds(current=>new Set(current).add(id))
@@ -288,14 +291,14 @@ function App() {
       </nav>
       <button className="rail-add" onClick={()=>{setImporting(false);setCreating(true)}} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
       <button className="rail-import" onClick={()=>{setCreating(false);setImporting(true)}} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
-      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.7.0</span>
+      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.7.1</span>
     </aside>
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
       {creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
       : importing ? <ImportView onCancel={openLibrary} onImport={importExisting} busy={operationBusy}/>
-      : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={()=>setCreating(true)} onImport={()=>setImporting(true)} onSelect={openServer} onMenu={openMenu}/>
+      : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={()=>setCreating(true)} onImport={()=>setImporting(true)} onPack={()=>{setPackResume(null);setPackOpen(true)}} onSelect={openServer} onMenu={openMenu}/>
       : <>
         <header className="page-head">
           <div className="page-identity"><ServerArtwork server={selected}/><div><h1>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
@@ -312,7 +315,7 @@ function App() {
           {viewOrder.filter(item=>item!=='content'||selected.platform!=='vanilla').map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{item==='content'&&selected.platform==='paper'?'Plugins':viewLabels[item]}</span></button>)}
         </nav>
         <div className="content" ref={contentRef}>
-          {progress && !(view==='content'&&progress.kind==='content_install') && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>{if(progress.kind==='content_install'){setView('content');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {progress && !(view==='content'&&progress.kind==='content_install') && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>{if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'){setView('content');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
@@ -327,6 +330,7 @@ function App() {
     {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
     {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
     {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
+    {packOpen && <PackImport resumeId={packResume} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
     {downloadConsent && <Modal labelledBy="download-consent-title" describedBy="download-consent-description" busy={consentBusy} onClose={()=>setDownloadConsent(null)}>
       <h2 id="download-consent-title">Antes de descargar Minecraft</h2>
       <p id="download-consent-description">Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a>. Al aceptar, guardaremos tu decisión en este equipo para los siguientes servidores.</p>

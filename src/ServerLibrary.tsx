@@ -3,10 +3,10 @@ import type { Server } from './api'
 import { useListMotion } from './motion'
 import { ServerCover } from './ServerCover'
 
-type Props={servers:Server[];onCreate:()=>void;onImport:()=>void;onSelect:(server:Server)=>void;onMenu:(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>void}
+type Props={servers:Server[];onCreate:()=>void;onImport:()=>void;onPack:()=>void;onSelect:(server:Server)=>void;onMenu:(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>void}
 const states:Record<string,string>={stopped:'Detenido',running:'En línea',starting:'Iniciando',stopping:'Deteniendo',installing:'Instalando',crashed:'Error',error:'Error'}
 
-export function ServerLibrary({servers,onCreate,onImport,onSelect,onMenu}:Props) {
+export function ServerLibrary({servers,onCreate,onImport,onPack,onSelect,onMenu}:Props) {
   const [query,setQuery]=useState('')
   const [layout,setLayout]=useState<'grid'|'list'>(()=>{try{return window.localStorage.getItem('tch-library-layout')==='list'?'list':'grid'}catch{return 'grid'}})
   const list=useRef<HTMLDivElement>(null)
@@ -24,6 +24,7 @@ export function ServerLibrary({servers,onCreate,onImport,onSelect,onMenu}:Props)
       {!servers.length && <button className="library-import" onClick={onImport}><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><path d="M3 7h7l3 3h8v10H3zM3 7V4h8l3 3h7v3"/></svg><strong>Importar servidor</strong><span>Continúa con tus archivos<br/>y conserva tus mundos.</span></button>}
     </div>
     {!!query && !filtered.length && <p className="empty-inline">No hay servidores que coincidan con «{query}».</p>}
+    <button className="library-import-link" onClick={onPack}>Importar un modpack .mrpack</button>
     {!!servers.length && <button className="library-import-link" onClick={onImport}>Importar un servidor existente</button>}
   </section>
 }

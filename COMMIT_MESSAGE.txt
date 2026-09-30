@@ -1,6 +1,6 @@
-feat: add verified mod and plugin management for v0.7.0
+fix: support NeoForge 1.21.11 installation and startup
 
-- Add Modrinth browsing, compatible versions and dependency reviews for Fabric, NeoForge and Paper.
-- Verify SHA-512 downloads and stage installations, updates and removals with backups and interrupted-switch recovery.
-- Complete NeoForge preparation, persist first-download EULA consent and simplify navigation with the supplied emblem.
-- Package the Windows preview and document tested integrations and remaining validation.
+- Accept compound mappings extensions while preserving artifact and path validation.
+- Support the modern dedicated server entrypoint alongside older BootstrapLauncher profiles.
+- Verify official NeoForge installation and copied-import startup for Minecraft 1.21.11 with Java 21.
+- Package the Windows 0.7.1 bugfix preview and document the regression checks.

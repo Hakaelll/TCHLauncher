@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
-use std::{collections::{BTreeMap, HashMap, HashSet}, fs, io::Read, path::Path};
+use std::{collections::{BTreeMap, HashMap, HashSet}, fs, io::{Read,Write}, path::{Path,PathBuf}};
 
 const MAX_ARCHIVE:u64=512_000_000;
 const MAX_EXPANDED:u64=2_000_000_000;
@@ -40,6 +40,7 @@ pub struct PackEntry {
     pub server:String,
     pub selected:bool,
     pub replaces_common:bool,
+    pub protected:bool,
 }
 
 #[derive(Clone,Debug,Serialize)]
@@ -90,13 +91,7 @@ fn server_environment(file:&PackFile)->Result<&str,String> {
 }
 
 fn download_url(raw:&str)->Result<(),String> {
-    if raw.chars().any(|c|c.is_whitespace() || c.is_control()) {return Err("La URL contiene caracteres sin codificar".into());}
-    let url=reqwest::Url::parse(raw).map_err(|_|"URL de modpack no válida")?;
-    if url.scheme()!="https" || !url.username().is_empty() || url.password().is_some() || url.port().is_some() ||
-        !matches!(url.host_str(),Some("cdn.modrinth.com"|"github.com"|"raw.githubusercontent.com"|"gitlab.com")) {
-        return Err(format!("La descarga no pertenece a un origen admitido: {raw}"));
-    }
-    Ok(())
+    crate::download::validate_pack_url(raw,false)
 }
 
 fn index_valid(index:&PackIndex)->Result<(),String> {
@@ -171,7 +166,7 @@ pub fn inspect(path:&Path)->Result<InspectedPack,String> {
             else if let Some(relative)=name.strip_prefix("server-overrides/") {("server-overrides",relative)} else {continue;};
         relative_path(relative)?;
         if client_path(relative) {excluded+=1;continue;}
-        let entry=PackEntry {path:relative.into(),size:file.size(),source:layer.into(),server:"required".into(),selected:!protected(relative),replaces_common:false};
+        let entry=PackEntry {path:relative.into(),size:file.size(),source:layer.into(),server:"required".into(),selected:!protected(relative),replaces_common:false,protected:protected(relative)};
         if layer=="server-overrides" {server_entries.push(entry);}else {override_entries.insert(relative.to_lowercase(),entry);}
     }
     let index:PackIndex=serde_json::from_slice(&index_data.ok_or("Falta modrinth.index.json en la raíz del paquete")?).map_err(|e|format!("Índice de modpack no válido: {e}"))?;
@@ -192,7 +187,7 @@ pub fn inspect(path:&Path)->Result<InspectedPack,String> {
         let environment=server_environment(file)?;
         if environment=="unsupported" || client_path(&file.path) {excluded+=1;continue;}
         if protected(&file.path) {warnings.push(format!("Se conservará el archivo del servidor: {}",file.path));}
-        entries.push(PackEntry {path:file.path.clone(),size:file.file_size,source:"download".into(),server:environment.into(),selected:environment=="required"&&!protected(&file.path),replaces_common:false});
+        entries.push(PackEntry {path:file.path.clone(),size:file.file_size,source:"download".into(),server:environment.into(),selected:environment=="required"&&!protected(&file.path),replaces_common:false,protected:protected(&file.path)});
     }
     for entry in override_entries.values() {
         if protected(&entry.path) {warnings.push(format!("Se conservará el archivo del servidor: {}",entry.path));}
@@ -202,11 +197,93 @@ pub fn inspect(path:&Path)->Result<InspectedPack,String> {
     entries.sort_by(|a,b|a.path.cmp(&b.path));
     let all:HashSet<_>=entries.iter().map(|entry|entry.path.to_lowercase()).collect();
     for path in &all {let mut parent=path.as_str();while let Some((prefix,_))=parent.rsplit_once('/') {if all.contains(prefix) {return Err(format!("El paquete usa la misma ruta como archivo y carpeta: {prefix}"));}parent=prefix;}}
-    if loader=="vanilla" && entries.iter().any(|entry|entry.path.starts_with("mods/")&&entry.server=="required") {blockers.push("El paquete incluye mods obligatorios pero no declara un loader.".into());}
+    if loader=="vanilla" && entries.iter().any(|entry|entry.path.to_lowercase().starts_with("mods/")&&entry.server=="required") {blockers.push("El paquete incluye mods obligatorios pero no declara un loader.".into());}
     if entries.iter().any(|entry|entry.path.ends_with(".bat")||entry.path.ends_with(".sh")||entry.path.ends_with(".exe")) {warnings.push("El paquete incluye programas o scripts. El launcher no los ejecutará.".into());}
     let selected_bytes=entries.iter().filter(|entry|entry.selected).map(|entry|entry.size).sum();
     let inspection=PackInspection {path:path.canonicalize().map_err(|e|e.to_string())?.to_string_lossy().into(),archive_sha512,name:index.name.clone(),version_id:index.version_id.clone(),summary:index.summary.clone(),minecraft:index.dependencies["minecraft"].clone(),loader,loader_version,entries,excluded_client_files:excluded,selected_bytes,blockers,warnings};
     Ok(InspectedPack {index,inspection})
+}
+
+// Own a fresh staging directory. An unsuccessful preparation never leaves a
+// partially extracted pack in a server directory or replaces existing files.
+pub struct PreparedPack {pub directory:PathBuf,pub inspection:PackInspection}
+impl Drop for PreparedPack {fn drop(&mut self) {let _=fs::remove_dir_all(&self.directory);}}
+
+fn selection(pack:&PackInspection,selected:&[String])->Result<Vec<PackEntry>,String> {
+    if !pack.blockers.is_empty() {return Err(pack.blockers.join("\n"));}
+    let mut names=HashSet::new();
+    for path in selected {
+        if !names.insert(path.as_str()) {return Err("La selección repite un archivo".into());}
+        let entry=pack.entries.iter().find(|entry|entry.path==*path).ok_or("El archivo seleccionado no pertenece al paquete")?;
+        if protected(path) || client_path(path) || entry.server=="unsupported" {return Err(format!("Este archivo no se puede instalar en el servidor: {path}"));}
+    }
+    for entry in &pack.entries {
+        if entry.selected && entry.server=="required" && !names.contains(entry.path.as_str()) {return Err(format!("Falta un archivo obligatorio: {}",entry.path));}
+    }
+    Ok(pack.entries.iter().filter(|entry|names.contains(entry.path.as_str())).cloned().collect())
+}
+
+pub fn prepare(path:&Path,expected_sha512:&str,selected:&[String],staging_root:&Path,task:&crate::download::DownloadTask)->Result<PreparedPack,String> {
+    task.cancellation.check()?;
+    let initial=inspect(path)?.inspection;
+    let root=staging_root.canonicalize().map_err(|e|e.to_string())?;
+    if !root.is_dir() || fs::symlink_metadata(staging_root).map_err(|e|e.to_string())?.file_type().is_symlink() {return Err("La carpeta temporal del modpack no es válida".into());}
+    let directory=root.join(format!(".tch-pack-{}",uuid::Uuid::new_v4()));fs::create_dir(&directory).map_err(|e|e.to_string())?;
+    let mut prepared=PreparedPack {directory,inspection:initial};
+    let snapshot=prepared.directory.join("source.mrpack");
+    // Inspect the exact private copy that will be extracted, so a changed source
+    // cannot mix the reviewed index with a different ZIP during extraction.
+    let mut source=fs::File::open(path).map_err(|e|e.to_string())?;let mut output=fs::File::create(&snapshot).map_err(|e|e.to_string())?;
+    let mut buffer=[0u8;65536];let mut size=0u64;
+    loop {task.cancellation.check()?;let n=source.read(&mut buffer).map_err(|e|e.to_string())?;if n==0 {break;}size+=n as u64;if size>MAX_ARCHIVE {return Err("El modpack supera 512 MB".into());}output.write_all(&buffer[..n]).map_err(|e|e.to_string())?;}
+    output.sync_all().map_err(|e|e.to_string())?;drop(output);
+    let pack=inspect(&snapshot)?;
+    if !pack.inspection.archive_sha512.eq_ignore_ascii_case(expected_sha512) {return Err("El modpack cambió después de la revisión. Vuelve a seleccionarlo.".into());}
+    let chosen=selection(&pack.inspection,selected)?;
+    let contents=prepared.directory.join("contents");fs::create_dir(&contents).map_err(|e|e.to_string())?;
+    materialize(&pack,&chosen,&snapshot,&contents,task,|file,target,task| {
+        let mut last="No se pudo descargar el archivo del modpack".to_string();
+        for url in &file.downloads {
+            task.cancellation.check()?;
+            match task.download_pack(url,target,&file.hashes["sha512"],file.file_size,&file.path) {
+                Ok(())=>return Ok(()),
+                Err(error) if error==crate::download::CANCELLED=>return Err(error),
+                Err(error)=>last=error,
+            }
+        }
+        Err(last)
+    })?;
+    fs::remove_file(snapshot).map_err(|e|e.to_string())?;
+    prepared.inspection=pack.inspection;prepared.inspection.path=path.to_string_lossy().into();
+    let chosen_names:HashSet<_>=chosen.iter().map(|entry|entry.path.as_str()).collect();
+    for entry in &mut prepared.inspection.entries {entry.selected=chosen_names.contains(entry.path.as_str());}
+    prepared.inspection.selected_bytes=chosen.iter().map(|entry|entry.size).sum();
+    task.cancellation.check()?;Ok(prepared)
+}
+
+fn materialize(pack:&InspectedPack,chosen:&[PackEntry],snapshot:&Path,contents:&Path,task:&crate::download::DownloadTask,
+    mut download:impl FnMut(&PackFile,&Path,&crate::download::DownloadTask)->Result<(),String>)->Result<(),String> {
+    let mut archive=zip::ZipArchive::new(fs::File::open(snapshot).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+    for entry in chosen {
+        task.cancellation.check()?;
+        let target=contents.join(relative_path(&entry.path)?);fs::create_dir_all(target.parent().unwrap()).map_err(|e|e.to_string())?;
+        if entry.source=="download" {
+            let file=pack.index.files.iter().find(|file|file.path==entry.path).ok_or("Falta el archivo en el índice del paquete")?;
+            download(file,&target,task)?;
+            let mut file_on_disk=fs::File::open(&target).map_err(|e|e.to_string())?;
+            let mut sha1=sha1::Sha1::new();let mut sha512=Sha512::new();let mut size=0u64;let mut buffer=[0u8;65536];
+            loop {task.cancellation.check()?;let n=file_on_disk.read(&mut buffer).map_err(|e|e.to_string())?;if n==0 {break;}size+=n as u64;if size>file.file_size {return Err(format!("Tamaño del archivo no válido: {}",entry.path));}sha1.update(&buffer[..n]);sha512.update(&buffer[..n]);}
+            if size!=file.file_size || !format!("{:x}",sha1.finalize()).eq_ignore_ascii_case(&file.hashes["sha1"]) || !format!("{:x}",sha512.finalize()).eq_ignore_ascii_case(&file.hashes["sha512"]) {return Err(format!("El archivo del paquete no coincide con sus hashes o tamaño: {}",entry.path));}
+        } else {
+            if !matches!(entry.source.as_str(),"overrides"|"server-overrides") {return Err("Capa del paquete no válida".into());}
+            task.report(&format!("Preparando {}",entry.path),"extracting");
+            let mut source=archive.by_name(&format!("{}/{}",entry.source,entry.path)).map_err(|e|e.to_string())?;
+            let mut output=fs::File::create(&target).map_err(|e|e.to_string())?;let mut size=0u64;let mut buffer=[0u8;65536];
+            loop {task.cancellation.check()?;let n=source.read(&mut buffer).map_err(|e|e.to_string())?;if n==0 {break;}size+=n as u64;if size>entry.size {return Err("El archivo extraído supera el tamaño declarado".into());}output.write_all(&buffer[..n]).map_err(|e|e.to_string())?;}
+            if size!=entry.size {return Err("El archivo extraído está incompleto".into());}output.sync_all().map_err(|e|e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -251,5 +328,60 @@ mod tests {
         let mut data=index();data["dependencies"]=serde_json::json!({"minecraft":"1.21.4","quilt-loader":"0.28.0"});let pack=create(data,&[]);
         let result=inspect(&pack.0).unwrap();assert_eq!(result.inspection.loader,"quilt");assert!(!result.inspection.blockers.is_empty());
         let mut data=index();data["dependencies"]=serde_json::json!({"minecraft":"1.21.4"});data["files"]=serde_json::json!([file("mods/required.jar","required")]);let pack=create(data,&[]);assert!(!inspect(&pack.0).unwrap().inspection.blockers.is_empty());
+    }
+
+    #[test]
+    fn selection_requires_dependencies_and_rejects_unreviewed_or_protected_files() {
+        let mut data=index();data["files"]=serde_json::json!([file("mods/required.jar","required"),file("mods/optional.jar","optional")]);
+        let pack=create(data,&[("server-overrides/eula.txt","eula=true")]);let review=inspect(&pack.0).unwrap().inspection;
+        assert!(selection(&review,&[]).is_err());
+        assert!(selection(&review,&["mods/required.jar".into(),"eula.txt".into()]).is_err());
+        assert!(selection(&review,&["mods/required.jar".into(),"mods/unknown.jar".into()]).is_err());
+        assert_eq!(selection(&review,&["mods/required.jar".into(),"mods/optional.jar".into()]).unwrap().len(),2);
+    }
+
+    #[test]
+    fn prepares_server_layers_and_cleans_on_changed_archive_or_cancel() {
+        let pack=create(index(),&[("overrides/config/value.txt","common"),("server-overrides/config/value.txt","server"),("server-overrides/eula.txt","eula=true"),("client-overrides/config/client.txt","client")]);
+        let review=inspect(&pack.0).unwrap().inspection;let task=crate::download::DownloadTask::new("pack","install",|_|{}).unwrap();
+        let root=std::env::temp_dir().join(format!("tch-pack-stage-{}",uuid::Uuid::new_v4()));fs::create_dir(&root).unwrap();
+        let prepared=prepare(&pack.0,&review.archive_sha512,&["config/value.txt".into()],&root,&task).unwrap();
+        assert_eq!(fs::read_to_string(prepared.directory.join("contents/config/value.txt")).unwrap(),"server");
+        assert!(!prepared.directory.join("contents/eula.txt").exists());assert!(!prepared.directory.join("contents/config/client.txt").exists());
+        let directory=prepared.directory.clone();drop(prepared);assert!(!directory.exists());
+        assert!(prepare(&pack.0,&"0".repeat(128),&["config/value.txt".into()],&root,&task).is_err());
+        assert_eq!(fs::read_dir(&root).unwrap().count(),0);
+        task.cancellation.cancel();assert_eq!(prepare(&pack.0,&review.archive_sha512,&["config/value.txt".into()],&root,&task).err().unwrap(),crate::download::CANCELLED);
+        assert_eq!(fs::read_dir(&root).unwrap().count(),0);fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
+    fn verifies_both_hashes_and_declared_size_of_downloaded_content() {
+        let body=b"real file bytes";let mut descriptor=file("mods/test.jar","required");
+        descriptor["fileSize"]=(body.len() as u64).into();descriptor["hashes"]["sha1"]=format!("{:x}",sha1::Sha1::digest(body)).into();descriptor["hashes"]["sha512"]=format!("{:x}",Sha512::digest(body)).into();
+        let mut data=index();data["files"]=serde_json::json!([descriptor]);let pack=create(data,&[]);let mut inspected=inspect(&pack.0).unwrap();
+        let root=std::env::temp_dir().join(format!("tch-pack-hash-{}",uuid::Uuid::new_v4()));fs::create_dir(&root).unwrap();let task=crate::download::DownloadTask::new("pack","install",|_|{}).unwrap();
+        let chosen=selection(&inspected.inspection,&["mods/test.jar".into()]).unwrap();
+        materialize(&inspected,&chosen,&pack.0,&root,&task,|_,target,_|fs::write(target,body).map_err(|e|e.to_string())).unwrap();
+        inspected.index.files[0].hashes.insert("sha1".into(),"0".repeat(40));
+        assert!(materialize(&inspected,&chosen,&pack.0,&root,&task,|_,target,_|fs::write(target,body).map_err(|e|e.to_string())).is_err());
+        inspected.index.files[0].file_size=1;
+        assert!(materialize(&inspected,&chosen,&pack.0,&root,&task,|_,target,_|fs::write(target,body).map_err(|e|e.to_string())).is_err());fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore="Downloads an official Modrinth file into a staged mrpack; does not execute Java"]
+    fn prepares_live_pack_download_with_hashes_and_server_overrides() {
+        let task=crate::download::DownloadTask::new("pack","install",|_|{}).unwrap();
+        let versions=task.json("https://api.modrinth.com/v2/project/gvQqBUqZ/version?game_versions=%5B%221.21.4%22%5D&loaders=%5B%22fabric%22%5D","Consultando Lithium").unwrap();
+        let version=versions.as_array().unwrap().iter().find(|v|v["version_type"]=="release").unwrap();
+        let artifact=version["files"].as_array().unwrap().iter().find(|file|file["primary"]==true).unwrap();
+        let name=format!("mods/{}",artifact["filename"].as_str().unwrap());let mut data=index();
+        data["files"]=serde_json::json!([{"path":name,"fileSize":artifact["size"],"hashes":artifact["hashes"],"downloads":[artifact["url"]],"env":{"client":"required","server":"required"}}]);
+        let pack=create(data,&[("overrides/config/example.txt","common"),("server-overrides/config/example.txt","server")]);let review=inspect(&pack.0).unwrap().inspection;
+        let root=std::env::temp_dir().join(format!("tch-pack-live-{}",uuid::Uuid::new_v4()));fs::create_dir(&root).unwrap();
+        let prepared=prepare(&pack.0,&review.archive_sha512,&[name.clone(),"config/example.txt".into()],&root,&task).unwrap();
+        assert!(prepared.directory.join("contents").join(name).is_file());assert_eq!(fs::read_to_string(prepared.directory.join("contents/config/example.txt")).unwrap(),"server");
+        assert!(!prepared.directory.join("contents/eula.txt").exists());drop(prepared);assert_eq!(fs::read_dir(&root).unwrap().count(),0);fs::remove_dir(root).unwrap();
     }
 }

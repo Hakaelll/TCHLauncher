@@ -36,6 +36,7 @@ pub struct DownloadTask {
     server_id: String,
     kind: String,
     client: Client,
+    max_bytes:u64,
     emit: Arc<dyn Fn(Progress) + Send + Sync>,
 }
 
@@ -50,7 +51,7 @@ impl DownloadTask {
             }))
             .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(900)).build().map_err(|e| e.to_string())?;
-        Ok(Self { id:Uuid::new_v4().to_string(),server_id:server_id.into(),kind:kind.into(),client,
+        Ok(Self { id:Uuid::new_v4().to_string(),server_id:server_id.into(),kind:kind.into(),client,max_bytes:MAX_BYTES,
             cancellation:Arc::new(Cancellation::default()),emit:Arc::new(emit) })
     }
 
@@ -63,7 +64,7 @@ impl DownloadTask {
 
     pub fn finish(&self, result: &Result<(), String>) {
         match result {
-            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else {"Java preparado"},"completed"),
+            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else if self.kind=="pack_install" {"Modpack instalado"} else {"Java preparado"},"completed"),
             Err(error) if error == CANCELLED => self.report("Instalación cancelada","cancelled"),
             Err(error) => self.progress("No se pudo instalar","failed",0,None,None,1,Some(error.clone())),
         }
@@ -124,6 +125,23 @@ impl DownloadTask {
         tauri::async_runtime::block_on(self.transfer(url,target,hash,label))
     }
 
+    pub fn download_pack(&self,url:&str,target:&Path,sha512:&str,size:u64,label:&str)->Result<(),String> {
+        validate_pack_url(url,false)?;
+        if size==0 || size>512_000_000 {return Err("Tamaño de archivo del modpack no válido".into());}
+        let client=Client::builder()
+            .user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len()>=10 {attempt.error("Demasiadas redirecciones")}
+                else if validate_pack_url(attempt.url().as_str(),true).is_err() {attempt.error("Origen de redirección no admitido")}
+                else {attempt.follow()}
+            }))
+            .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(900)).build().map_err(|e|e.to_string())?;
+        let scoped=Self {id:self.id.clone(),server_id:self.server_id.clone(),kind:self.kind.clone(),client,max_bytes:size,
+            cancellation:self.cancellation.clone(),emit:self.emit.clone()};
+        scoped.download(url,target,Some(("sha512",sha512)),label)
+    }
+
     async fn request(&self,url: &str) -> Result<Response,Failure> {
         let response = tokio::select! {
             _ = self.cancellation.wait() => return Err(Failure::local(CANCELLED)),
@@ -164,7 +182,7 @@ impl DownloadTask {
     async fn transfer_once(&self,url: &str,target: &Path,hash: Option<(&str,&str)>,label: &str,attempt: u32) -> Result<(),Failure> {
         let mut response = self.request(url).await?;
         let total = response.content_length();
-        if total.is_some_and(|bytes| bytes > MAX_BYTES) { return Err(Failure::local("La descarga supera el límite de 2 GB")); }
+        if total.is_some_and(|bytes| bytes > self.max_bytes) { return Err(Failure::local("La descarga supera el tamaño permitido")); }
         let part = PartialFile(target.with_extension(format!("part-{}",self.id)));
         let mut file = File::create(&part.0).map_err(Failure::io)?;
         let mut sha1 = Sha1::new();
@@ -176,7 +194,7 @@ impl DownloadTask {
         self.progress(label,"downloading",0,total,None,attempt,None);
         while let Some(chunk) = self.chunk(&mut response).await? {
             received += chunk.len() as u64;
-            if received > MAX_BYTES { return Err(Failure::local("La descarga supera el límite de 2 GB")); }
+            if received > self.max_bytes { return Err(Failure::local("La descarga supera el tamaño permitido")); }
             file.write_all(&chunk).map_err(Failure::io)?;
             sha1.update(&chunk); sha256.update(&chunk); sha512.update(&chunk);
             let elapsed = last.elapsed().as_secs_f64();
@@ -225,6 +243,17 @@ fn validate_url(url: &str) -> Result<(),String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "La URL de descarga no es válida")?;
     if parsed.scheme() != "https" || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {
         return Err("La descarga debe usar HTTPS sin credenciales".into());
+    }
+    Ok(())
+}
+
+pub fn validate_pack_url(raw:&str,redirect:bool)->Result<(),String> {
+    validate_url(raw)?;
+    let url=reqwest::Url::parse(raw).map_err(|e|e.to_string())?;
+    let initial=matches!(url.host_str(),Some("cdn.modrinth.com"|"github.com"|"raw.githubusercontent.com"|"gitlab.com"));
+    let release_asset=redirect && matches!(url.host_str(),Some("release-assets.githubusercontent.com"|"objects.githubusercontent.com"));
+    if url.port().is_some() || raw.chars().any(|c|c.is_whitespace()||c.is_control()) || !(initial||release_asset) {
+        return Err("Origen de descarga del modpack no admitido".into());
     }
     Ok(())
 }
@@ -281,6 +310,24 @@ mod tests {
     fn rejects_insecure_or_credential_bearing_download_urls() {
         for url in ["http://example.com/file","https://user:secret@example.com/file","not a url"] {assert!(validate_url(url).is_err());}
         assert!(validate_url("https://example.com/file").is_ok());
+    }
+
+    #[test]
+    fn pack_sources_and_redirects_use_explicit_hosts() {
+        assert!(validate_pack_url("https://cdn.modrinth.com/data/file.jar",false).is_ok());
+        assert!(validate_pack_url("https://github.com/project/releases/file.jar",false).is_ok());
+        assert!(validate_pack_url("https://release-assets.githubusercontent.com/file.jar",true).is_ok());
+        assert!(validate_pack_url("https://release-assets.githubusercontent.com/file.jar",false).is_err());
+        for url in ["http://github.com/file","https://github.com:8443/file","https://github.com.evil.test/file","https://127.0.0.1/file","https://user@cdn.modrinth.com/file","https://example.com/file"] {assert!(validate_pack_url(url,true).is_err());}
+    }
+
+    #[test]
+    fn scoped_download_limit_stops_chunked_body_and_preserves_old_file() {
+        let folder=TestFolder::new();fs::write(folder.target(),b"original").unwrap();
+        let (url,worker)=fixture(vec!["HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n3\r\nnew\r\n0\r\n\r\n"]);
+        let mut task=task(Arc::new(Mutex::new(Vec::new())));task.max_bytes=2;
+        assert!(tauri::async_runtime::block_on(task.transfer(&url,&folder.target(),None,"Pack")).unwrap_err().contains("tamaño"));worker.join().unwrap();
+        assert_eq!(fs::read(folder.target()).unwrap(),b"original");assert!(folder.no_partials());
     }
 
     #[test]

@@ -18,7 +18,7 @@ export type Server = {
   imageData: string | null
 }
 export type Version = { id: string; kind: string }
-export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
+export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install' | 'pack_install'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
 export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null;requiredMajor:number|null;compatibility:'unknown'|'compatible'|'incompatible'}
 export type JvmSettings = {mode:'recommended'|'custom';arguments:string}
 export type JvmPreview = {arguments:string[];installed:boolean}
@@ -58,9 +58,10 @@ export type ContentSearch = { hits: {project_id: string; title: string; descript
 
 export type InstalledContent = {filename: string; title: string; projectId: string | null; versionId: string | null; versionNumber: string | null; sha512: string; size: number; modified: boolean}
 export type ContentReview = {token: string; plan: ContentPlan; changes: {title: string; filename: string; action: 'install' | 'update' | 'present'; previousVersion: string | null; version: string}[]; warnings: string[]}
-export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean}
+export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean; protected: boolean}
 export type PackInspection = {path: string; archiveSha512: string; name: string; versionId: string; summary: string | null; minecraft: string; loader: string; loaderVersion: string | null; entries: PackEntry[]; excludedClientFiles: number; selectedBytes: number; blockers: string[]; warnings: string[]}
 export const api = {
+  installModpack: (id:string,pack:PackInspection,selected:string[]) => invoke<void>('install_modpack',{id,path:pack.path,archiveSha512:pack.archiveSha512,selected}),
   pickModpack: () => invoke<PackInspection|null>('pick_modpack'),
   inspectModpack: (path:string) => invoke<PackInspection>('inspect_modpack',{path}),
   removeContent: (id:string,filename:string,sha512:string) => invoke<void>('remove_content',{id,filename,sha512}),

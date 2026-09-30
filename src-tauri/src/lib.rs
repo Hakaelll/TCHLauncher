@@ -10,6 +10,7 @@ mod jvm;
 mod log;
 mod model;
 mod modpack;
+mod pack_install;
 mod network;
 mod players;
 mod process;
@@ -154,6 +155,22 @@ async fn pick_modpack()->Result<Option<modpack::PackInspection>,String> {
 #[tauri::command]
 async fn inspect_modpack(path:String)->Result<modpack::PackInspection,String> {
     tauri::async_runtime::spawn_blocking(move ||modpack::inspect(std::path::Path::new(&path)).map(|pack|pack.inspection)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn install_modpack(app:AppHandle,engine:State<'_,Engine>,id:String,path:String,archive_sha512:String,selected:Vec<String>)->Result<(),String> {
+    let guard=engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    eula::require_download_consent(&root,&server)?;
+    let emitter=app.clone();let task=Arc::new(download::DownloadTask::new(&id,"pack_install",move |progress|{let _=emitter.emit("install-progress",progress);})?);
+    engine.installations.lock().map_err(|e|e.to_string())?.insert(id.clone(),task.clone());
+    process::emit_state(&app,&id,"installing");let worker=task.clone();
+    let result=tauri::async_runtime::spawn_blocking(move || {
+        let _guard=guard;
+        pack_install::install(&root,&server,std::path::Path::new(&path),&archive_sha512,&selected,&worker)
+    }).await.unwrap_or_else(|e|Err(format!("La importación se interrumpió: {e}")));
+    task.finish(&result);engine.installations.lock().map_err(|e|e.to_string())?.remove(&id);engine.invalidate_size(&id);
+    process::emit_state(&app,&id,if result.is_ok()||result.as_ref().err().is_some_and(|e|e==download::CANCELLED){"stopped"}else{"error"});result
 }
 
 #[tauri::command]
@@ -716,6 +733,7 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             storage::connect(&root).map_err(std::io::Error::other)?;
+            pack_install::recover_all(&root).map_err(std::io::Error::other)?;
             app.manage(Engine { root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
@@ -752,7 +770,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
         .run(tauri::generate_context!())
         .expect("failed to run TCHLauncher");
 }

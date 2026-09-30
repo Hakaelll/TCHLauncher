@@ -201,6 +201,13 @@ fn temurin_package(meta: &Value,major: u64,format: &str) -> Option<(String,Strin
 }
 
 pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), String> {
+    install_requested(root,server,task,None)
+}
+
+pub fn install_requested(root:&Path,server:&Server,task:&DownloadTask,requested:Option<&str>)->Result<(),String> {
+    if requested.is_some() && (server.jar_path.is_some() || !matches!(server.platform.as_str(),"fabric"|"neoforge")) {
+        return Err("La versión exacta del loader requiere una instancia nueva de Fabric o NeoForge".into());
+    }
     task.cancellation.check()?;
     let meta = version_metadata(task, &server.version)?;
     let major = meta["javaVersion"]["majorVersion"].as_u64().ok_or("Mojang no indicó la versión Java necesaria")?;
@@ -213,7 +220,7 @@ pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), 
     }
     if server.platform=="neoforge" {
         let java=ensure_java(root,major,task,false)?;
-        let entrypoint=crate::neoforge::install(server,&meta,&java,task)?;
+        let entrypoint=if requested.is_some() {crate::neoforge::install_requested(server,&meta,&java,task,requested)?} else {crate::neoforge::install(server,&meta,&java,task)?};
         let result=task.cancellation.check().and_then(|_|storage::update_install(root,&server.id,&entrypoint,&java));
         if result.is_err() {
             if let Some(generation)=entrypoint.ancestors().find(|path|path.parent().is_some_and(|parent|parent.file_name().is_some_and(|name|name==".tch-neoforge"))) {let _=fs::remove_dir_all(generation);}
@@ -222,7 +229,7 @@ pub fn install(root: &Path, server: &Server, task: &DownloadTask) -> Result<(), 
     }
     if server.platform=="fabric" {
         let java=ensure_java(root,major,task,false)?;
-        let jar=crate::fabric::install(server,&meta,task)?;
+        let jar=if requested.is_some() {crate::fabric::install_requested(server,&meta,task,requested)?} else {crate::fabric::install(server,&meta,task)?};
         let result=task.cancellation.check().and_then(|_|storage::update_install(root,&server.id,&jar,&java));
         if result.is_err() {if let Some(parent)=jar.parent(){let _=fs::remove_dir_all(parent);}}
         return result;
@@ -259,12 +266,33 @@ pub fn prepare_runtime(root: &Path,server: &Server,task: &DownloadTask,reinstall
     storage::update_java(root,&server.id,&java)
 }
 
+// Prepare a complete fresh instance without publishing paths in SQLite. Pack
+// installation commits those paths only after the directory switch succeeds.
+pub fn prepare_fresh_instance(root:&Path,server:&Server,task:&DownloadTask,loader:Option<&str>)->Result<(PathBuf,PathBuf),String> {
+    if server.jar_path.is_some() {return Err("La preparación de un paquete requiere una instancia nueva".into());}
+    let metadata=version_metadata(task,&server.version)?;
+    let major=metadata["javaVersion"]["majorVersion"].as_u64().ok_or("Minecraft no indicó el runtime necesario")?;
+    crate::runtime::remember_requirement(root,&server.version,major)?;
+    let java=ensure_java(root,major,task,false)?;
+    let jar=match server.platform.as_str() {
+        "fabric"=>crate::fabric::install_requested(server,&metadata,task,loader)?,
+        "neoforge"=>crate::neoforge::install_requested(server,&metadata,&java,task,loader)?,
+        "vanilla" if loader.is_none()=>{
+            let artifact=&metadata["downloads"]["server"];let jar=Path::new(&server.directory).join("server.jar");
+            task.download(artifact["url"].as_str().ok_or("Minecraft no ofrece servidor")?,&jar,Some(("sha1",artifact["sha1"].as_str().ok_or("Minecraft no indicó checksum")?)),"Servidor Minecraft del paquete")?;jar
+        },
+        _=>return Err("Motor del modpack no compatible".into()),
+    };
+    task.cancellation.check()?;Ok((jar,java))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     #[ignore="Downloads official NeoForge/Minecraft; boots original and copied installations to EULA refusal"]
     fn installs_neoforge_and_imports_without_accepting_eula() {
+        let minecraft=std::env::var("TCH_TEST_MINECRAFT").unwrap_or_else(|_|"1.21.4".into());
         use std::process::{Command,Stdio};
         let root=std::env::temp_dir().join(format!("tch neoforge live {}",Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
@@ -276,7 +304,7 @@ mod tests {
                 let target=root.join("runtimes").join(format!("temurin-21-{}-{}",std::env::consts::OS,std::env::consts::ARCH));
                 crate::backup::copy_tree(directory,&target)?;
             }
-            let server=storage::create(&root,crate::model::CreateServer{name:"NeoForge validation".into(),version:"1.21.4".into(),platform:"neoforge".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
+            let server=storage::create(&root,crate::model::CreateServer{name:"NeoForge validation".into(),version:minecraft.clone(),platform:"neoforge".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
             let directory=Path::new(&server.directory);
             let properties=fs::read(directory.join("server.properties")).map_err(|e|e.to_string())?;
             fs::create_dir(directory.join("config")).map_err(|e|e.to_string())?;
@@ -286,7 +314,7 @@ mod tests {
             let installed=storage::get(&root,&server.id)?;
             assert_eq!(fs::read(directory.join("server.properties")).unwrap(),properties);
             assert_eq!(fs::read(directory.join("config/preserved.txt")).unwrap(),b"keep this configuration");
-            assert_eq!(crate::runtime::cached_requirement(&root,"1.21.4"),Some(21));
+            assert_eq!(crate::runtime::cached_requirement(&root,&minecraft),Some(21));
             assert!(!directory.join("eula.txt").exists());
             assert!(Path::new(installed.jar_path.as_ref().unwrap()).is_file());
             let boot=|server:&Server,label:&str| -> Result<(),String> {
@@ -311,9 +339,9 @@ mod tests {
             };
             boot(&installed,"original")?;
             let inspection=storage::inspect_import(directory)?;
-            assert_eq!(inspection.detected_version.as_deref(),Some("1.21.4"));
+            assert_eq!(inspection.detected_version.as_deref(),Some(minecraft.as_str()));
             let args=inspection.jar_files.iter().find(|path|path.contains(".tch-neoforge")).ok_or("NeoForge not detected by import")?;
-            let imported=storage::import(&root,crate::model::ImportServer{path:server.directory.clone(),name:"Copied NeoForge".into(),version:"1.21.4".into(),platform:"neoforge".into(),jar_file:args.clone(),copy:true,storage_target_gb:2,image_path:None})?;
+            let imported=storage::import(&root,crate::model::ImportServer{path:server.directory.clone(),name:"Copied NeoForge".into(),version:minecraft.clone(),platform:"neoforge".into(),jar_file:args.clone(),copy:true,storage_target_gb:2,image_path:None})?;
             storage::update_java(&root,&imported.id,Path::new(installed.java_path.as_ref().unwrap()))?;
             let imported=storage::get(&root,&imported.id)?;
             let launch=crate::jvm::launch_arguments(&imported,&crate::jvm::Settings::default())?;
@@ -330,14 +358,19 @@ mod tests {
     #[ignore="Downloads official Fabric and Minecraft 1.21.4; checks EULA refusal without accepting it"]
     fn installs_fabric_and_reaches_minecraft_eula_gate() {
         use std::process::{Command,Stdio};
+        let requested=std::env::var("TCH_TEST_LOADER").ok();
         let root=std::env::temp_dir().join(format!("tch fabric live {}",Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         let result=(|| -> Result<(),String> {
             let server=storage::create(&root,crate::model::CreateServer {name:"Fabric validation".into(),version:"1.21.4".into(),platform:"fabric".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
             let task=DownloadTask::new(&server.id,"install",|event| {if event.stage!="downloading" {eprintln!("{}: {}",event.stage,event.label);}})?;
-            install(&root,&server,&task)?;
+            install_requested(&root,&server,&task,requested.as_deref())?;
             let installed=storage::get(&root,&server.id)?;
             let jar=Path::new(installed.jar_path.as_ref().ok_or("Missing launcher")?);
+            if let Some(loader)=&requested {
+                let metadata:Value=serde_json::from_slice(&fs::read(jar.parent().unwrap().join("installation.json")).unwrap()).unwrap();
+                assert_eq!(metadata["loader"].as_str(),Some(loader.as_str()));
+            }
             assert!(jar.is_file());assert!(crate::fabric::game_jar(&installed).unwrap().is_file());
             let output_path=root.join("boot.log");let output=File::create(&output_path).map_err(|e|e.to_string())?;
             let mut command=Command::new(installed.java_path.as_ref().unwrap());

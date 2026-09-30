@@ -21,6 +21,15 @@ pub fn select_loader(meta:&Value)->Result<String,String> {
     Ok(version.into())
 }
 
+pub fn requested_loader(meta:&Value,requested:Option<&str>)->Result<String,String> {
+    let Some(version)=requested else {return select_loader(meta);};
+    validate_version(version)?;
+    if !meta.as_array().ok_or("Catálogo Fabric no válido")?.iter().any(|entry|entry["loader"]["version"].as_str()==Some(version)) {
+        return Err(format!("Fabric {version} no está disponible para esta versión de Minecraft"));
+    }
+    Ok(version.into())
+}
+
 fn library_path(name:&str)->Result<String,String> {
     let parts=name.split(':').collect::<Vec<_>>();
     if parts.len()!=3 || name.len()>256 {return Err("Coordenada Maven no válida".into());}
@@ -72,9 +81,13 @@ fn launcher(path:&Path,main:&str,game_main:&str,libraries:&[String])->Result<(),
 }
 
 pub fn install(server:&Server,minecraft:&Value,task:&DownloadTask)->Result<PathBuf,String> {
+    install_requested(server,minecraft,task,None)
+}
+
+pub fn install_requested(server:&Server,minecraft:&Value,task:&DownloadTask,requested:Option<&str>)->Result<PathBuf,String> {
     validate_version(&server.version)?;
     let catalog=task.json(&format!("https://meta.fabricmc.net/v2/versions/loader/{}",server.version),"Buscando Fabric compatible")?;
-    let loader=select_loader(&catalog)?;
+    let loader=requested_loader(&catalog,requested)?;
     let profile=task.json(&format!("https://meta.fabricmc.net/v2/versions/loader/{}/{loader}/server/json",server.version),"Consultando bibliotecas Fabric")?;
     if profile["inheritsFrom"].as_str()!=Some(&server.version) {return Err("El perfil Fabric no coincide con Minecraft".into());}
     let game_main=profile["mainClass"].as_str().ok_or("Fabric no declaró la clase principal")?;
@@ -99,7 +112,10 @@ pub fn install(server:&Server,minecraft:&Value,task:&DownloadTask)->Result<PathB
             let relative=format!("libraries/{relative}");let destination=stage.join(&relative);
             fs::create_dir_all(destination.parent().unwrap()).map_err(|e|e.to_string())?;
             task.download(&url,&destination,Some(("sha256",&hash)),&format!("Fabric · {name}"))?;
-            if name.starts_with("net.fabricmc:fabric-loader:") {main=Some(loader_main_class(&destination)?);}
+            if name.starts_with("net.fabricmc:fabric-loader:") {
+                if name!=format!("net.fabricmc:fabric-loader:{loader}") || main.is_some() {return Err("El perfil Fabric no corresponde al loader solicitado".into());}
+                main=Some(loader_main_class(&destination)?);
+            }
             classpath.push(relative);
         }
         let artifact=&minecraft["downloads"]["server"];
@@ -130,6 +146,9 @@ mod tests {
         assert_eq!(library_path("net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7").unwrap(),"net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar");
         assert_eq!(select_loader(&serde_json::json!([{"loader":{"stable":false,"version":"99"}},{"loader":{"stable":true,"version":"0.19.5"}}])).unwrap(),"0.19.5");
         assert!(select_loader(&serde_json::json!([])).is_err());
+        let catalog=serde_json::json!([{"loader":{"stable":true,"version":"0.19.5"}},{"loader":{"stable":true,"version":"0.16.10"}}]);
+        assert_eq!(requested_loader(&catalog,Some("0.16.10")).unwrap(),"0.16.10");
+        assert!(requested_loader(&catalog,Some("0.16.11")).is_err());
     }
     #[test]
     fn writes_valid_folded_manifest_with_complete_classpath() {
