@@ -10,9 +10,11 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 pub struct ProcessControl {
+    stop_requested: std::sync::atomic::AtomicBool,
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
     started: Instant,
+    running_since: Mutex<Option<Instant>>,
     state: Mutex<String>,
     online: Mutex<HashSet<String>>,
 }
@@ -21,7 +23,11 @@ pub struct ProcessControl {
 pub struct ProcessManager {
     pub processes: Arc<Mutex<HashMap<String, Arc<ProcessControl>>>>,
     terminal_states: Arc<Mutex<HashMap<String,String>>>,
+    exits: Arc<Mutex<HashMap<String,Exit>>>,
 }
+
+#[derive(Clone)]
+pub struct Exit {pub token:String,pub unexpected:bool}
 
 pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
     let _ = app.emit("server-state", StateEvent { server_id: id.into(), state: state.into() });
@@ -37,6 +43,7 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
                 let mut state = control.state.lock().unwrap();
                 if *state == "starting" {
                     *state = "running".into();
+                    *control.running_since.lock().unwrap()=Some(Instant::now());
                     emit_state(&app, &id, "running");
                 }
             }
@@ -51,6 +58,11 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
 }
 
 impl ProcessManager {
+    pub fn exits(&self)->HashMap<String,Exit> {self.exits.lock().unwrap().clone()}
+    pub fn exit_token(&self,id:&str)->Option<String> {self.exits.lock().unwrap().get(id).map(|exit|exit.token.clone())}
+    pub fn healthy_for(&self,id:&str,seconds:u64)->bool {
+        self.processes.lock().unwrap().get(id).is_some_and(|process|*process.state.lock().unwrap()=="running"&&process.running_since.lock().unwrap().is_some_and(|since|since.elapsed()>=Duration::from_secs(seconds)))
+    }
     pub fn active_ids(&self) -> Vec<String> {
         self.processes.lock().unwrap().keys().cloned().collect()
     }
@@ -108,15 +120,17 @@ impl ProcessManager {
         let stdin = child.stdin.take().ok_or("No se pudo abrir la entrada del servidor")?;
         let stdout = child.stdout.take().ok_or("No se pudo abrir la consola del servidor")?;
         let stderr = child.stderr.take().ok_or("No se pudo abrir la salida de errores")?;
-        let control = Arc::new(ProcessControl { child: Mutex::new(child), stdin: Mutex::new(stdin), started: Instant::now(),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()) });
+        let control = Arc::new(ProcessControl { stop_requested:std::sync::atomic::AtomicBool::new(false),child: Mutex::new(child), stdin: Mutex::new(stdin), started: Instant::now(),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()) });
         map.insert(server.id.clone(), control.clone());
         self.terminal_states.lock().unwrap().remove(&server.id);
+        self.exits.lock().unwrap().remove(&server.id);
         drop(map);
         emit_state(&app, &server.id, "starting");
         pump(stdout, app.clone(), server.id.clone(), log_file.clone(),control.clone());
         pump(stderr, app.clone(), server.id.clone(), log_file.clone(),control.clone());
         let all = self.processes.clone();
         let terminal_states = self.terminal_states.clone();
+        let exits=self.exits.clone();
         let id = server.id.clone();
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(500));
@@ -126,6 +140,7 @@ impl ProcessManager {
                     let final_state = if status.success() { "stopped" } else { "crashed" };
                     *control.state.lock().unwrap() = final_state.into();
                     terminal_states.lock().unwrap().insert(id.clone(),final_state.into());
+                    exits.lock().unwrap().insert(id.clone(),Exit{token:uuid::Uuid::new_v4().to_string(),unexpected:!status.success()&&!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
                     emit_state(&app, &id, final_state);
                     all.lock().unwrap().remove(&id);
                     let message = format!("Proceso finalizado: {status}");
@@ -140,6 +155,7 @@ impl ProcessManager {
                     let _ = control.child.lock().unwrap().kill();
                     *control.state.lock().unwrap() = "crashed".into();
                     terminal_states.lock().unwrap().insert(id.clone(),"crashed".into());
+                    exits.lock().unwrap().insert(id.clone(),Exit{token:uuid::Uuid::new_v4().to_string(),unexpected:!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
                     emit_state(&app, &id, "crashed");
                     all.lock().unwrap().remove(&id);
                     let message = format!("No se pudo consultar el proceso: {e}");
@@ -171,11 +187,13 @@ impl ProcessManager {
             if *state == "stopping" { return Ok(()); }
             if *state != "starting" && *state != "running" { return Err("El proceso ya ha terminado".into()); }
             let previous = state.clone();
+            process.stop_requested.store(true,std::sync::atomic::Ordering::SeqCst);
             *state = "stopping".into();
             emit_state(&app,id,"stopping");
             previous
         };
         if let Err(error) = self.send(id,"stop") {
+            process.stop_requested.store(false,std::sync::atomic::Ordering::SeqCst);
             let mut state = process.state.lock().unwrap();
             if *state == "stopping" { *state = previous_state; emit_state(&app,id,&state); }
             return Err(error);

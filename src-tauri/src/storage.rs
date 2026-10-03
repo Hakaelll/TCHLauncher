@@ -465,7 +465,7 @@ pub fn list_backups(root: &Path, server_id: &str) -> Result<Vec<Backup>, String>
     let db = connect(root)?;
     let mut stmt = db.prepare("SELECT id,server_id,created_at,size_bytes,path FROM backups WHERE server_id=?1 ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([server_id], |r| Ok(Backup { id:r.get(0)?,server_id:r.get(1)?,created_at:r.get(2)?,size_bytes:r.get::<_,i64>(3)?.max(0) as u64,path:r.get(4)? }))
+    let rows = stmt.query_map([server_id], |r| Ok(Backup { id:r.get(0)?,server_id:r.get(1)?,created_at:r.get(2)?,size_bytes:r.get::<_,i64>(3)?.max(0) as u64,path:r.get(4)?,retention_warning:None }))
         .map_err(|e| e.to_string())?;
     rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())
 }

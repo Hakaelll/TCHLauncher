@@ -4,6 +4,11 @@ import App from './App'
 import './style.css'
 import './visual.css'
 import './motion.css'
+import './end.css'
+import { applyAppearance, browserPreferenceStorage, readAppearance } from './appearance'
+
+// Apply stored preferences before React's first paint.
+applyAppearance(readAppearance(browserPreferenceStorage()))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><App /></React.StrictMode>,

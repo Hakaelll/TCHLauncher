@@ -1,6 +1,8 @@
-fix: support NeoForge 1.21.11 installation and startup
+feat: add persistent launcher themes and refine Minecraft-inspired UI
 
-- Accept compound mappings extensions while preserving artifact and path validation.
-- Support the modern dedicated server entrypoint alongside older BootstrapLauncher profiles.
-- Verify official NeoForge installation and copied-import startup for Minecraft 1.21.11 with Java 21.
-- Package the Windows 0.7.1 bugfix preview and document the regression checks.
+- Add End, Obsidian and Nether themes with saved selection and optional reading typography.
+- Rebuild first-server choices, align collapsed rail controls and extend pixel lettering to navigation.
+- Replace the square logo backdrop with a transparent cutout and regenerate native icons.
+- Restructure Java runtime status, actions and executable location without changing native workflows.
+- Include reviewed Minecraft/loader updates, content migration, backup retention and local automation.
+- Cover preferences, player identity and startup verification; package the Windows 0.11.0 preview.

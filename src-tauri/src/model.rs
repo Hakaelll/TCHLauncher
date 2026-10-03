@@ -117,6 +117,7 @@ pub struct Backup {
     pub created_at: String,
     pub size_bytes: u64,
     pub path: String,
+    pub retention_warning:Option<String>,
 }
 
 #[derive(Serialize)]

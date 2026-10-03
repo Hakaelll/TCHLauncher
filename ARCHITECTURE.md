@@ -48,7 +48,7 @@ Cada evento lleva servidor, tarea, tipo de operación, fase, bytes, total, veloc
 
 La instalación se prepara bajo `.tch-fabric/.stage-<uuid>` dentro del servidor y se publica como una generación completa. Solo después se actualiza SQLite; un fallo o cancelación limpia la generación sin modificar mundos ni propiedades. El manifiesto del launcher se genera con classpath relativo, líneas plegadas y clase principal leída del loader verificado. `installation.json` conserva versiones y bibliotecas para inspección. No se ejecuta un instalador externo ni se acepta la EULA.
 
-El arranque añade `fabric.gameJarPath` para localizar el JAR Mojang de esa generación y conserva el directorio del servidor como raíz de mundos, mods, propiedades y logs. Las carpetas Fabric convencionales importadas mantienen su launcher y configuración; las generaciones de TCHLauncher también se reconocen y se copian con rutas relativas. El catálogo del asistente descarta respuestas obsoletas al cambiar de plataforma. Actualizar el loader y gestionar mods aún requiere implementación adicional.
+El arranque añade `fabric.gameJarPath` para localizar el JAR Mojang de esa generación y conserva el directorio del servidor como raíz de mundos, mods, propiedades y logs. Las carpetas Fabric convencionales importadas mantienen su launcher y configuración; las generaciones de TCHLauncher también se reconocen y se copian con rutas relativas. El catálogo del asistente descarta respuestas obsoletas al cambiar de plataforma. Las actualizaciones de loader y el gestor de mods están conectados; sus límites actuales y verificaciones se documentan en las secciones siguientes y NEXT_TODOS.md.
 
 ## Custom runtime validation (0.6.3)
 
@@ -57,3 +57,15 @@ Each server can select a canonical Java executable through a native picker. Sele
 ## JVM and artwork (0.6.4)
 
 JVM profiles live in a separate SQLite table linked to servers with cascading deletion. The same native argument builder supplies preview and launch, including Fabric paths. Custom saves verify the installed Java in a blocking worker under a stopped-server reservation. Artwork publication stages the original and a derived Minecraft icon, backs up previous files and rolls back the pair on failure. Full covers are loaded lazily, refreshed through a server-artwork-changed event and omitted from recurring server-list IPC payloads.
+
+## Reviewed upgrades and experimental catalogs
+
+`loader_identity.rs` detects identifiable Fabric/NeoForge engines from owned metadata or conventional local launcher files. `loader_update.rs` prepares a separate engine generation and commits its launch path through recovery journals and SQLite markers. Java paths are normalized only when passed to Java; filesystem ownership checks retain canonical native paths.
+
+`minecraft_update.rs` reviews official release chronology, Java requirements, exact engine availability and installed content hashes. Managed roots are resolved as a single target-compatible dependency graph through `content.rs`; `content_storage.rs` installs that reviewed plan into a copied instance. `instance_publication.rs` switches adjacent directories and records Minecraft, launcher and Java selection together. Its recovery journal distinguishes committed from uncommitted publication; a prior safety backup remains available. Unknown/manual/modified content is preserved with warnings rather than declared compatible.
+
+The update interface can request the existing native start command after publication. `startupVerification.ts` observes native state for up to three minutes; Java process creation does not imply readiness. Leaving the panel cancels observation without stopping Java. A failed start does not automatically restore worlds. Client gameplay/world conversion and native observation-flow validation remain pending.
+
+Experimental selection is an explicit creation-wizard option, disabled by default. `install.rs` classifies Mojang IDs by their real release/snapshot type and intersects Fabric IDs with the official game catalog. The stable update review continues to reject experimental targets. Paper/NeoForge experimental catalog requests return a readable error. Every installation still resolves official metadata, checks published artifact hashes and verifies the exact Java major.
+
+`log.rs` recognizes readiness only from a complete INFO startup message emitted on the native server thread, including a finite non-negative loading duration. Generic completion text, worker messages, chat and truncated lines do not establish readiness.

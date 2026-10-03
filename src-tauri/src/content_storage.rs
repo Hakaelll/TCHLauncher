@@ -133,7 +133,7 @@ pub fn review(server:&Server,plan:ContentPlan)->Result<PreparedPlan,String> {
             return Err(format!("{} ya existe y pertenece a otro archivo. No se sobrescribirá.",entry.file.filename));
         }
         if previous.is_some_and(|file|file.modified) {return Err(format!("{} ha cambiado fuera del launcher. Revisa el archivo antes de actualizarlo.",entry.project.title));}
-        let present=previous.is_some_and(|file|file.filename==entry.file.filename && file.sha512.eq_ignore_ascii_case(&entry.file.hashes["sha512"]));
+        let present=previous.is_some_and(|file|file.filename==entry.file.filename && file.version_id.as_deref()==Some(&entry.version.id) && file.sha512.eq_ignore_ascii_case(&entry.file.hashes["sha512"]));
         changes.push(ContentChange {title:entry.project.title.clone(),filename:entry.file.filename.clone(),action:if present {"present"} else if previous.is_some() {"update"} else {"install"}.into(),previous_version:previous.and_then(|file|file.version_number.clone()),version:entry.version.version_number.clone()});
     }
     let mut warnings=vec![];
@@ -218,6 +218,17 @@ pub fn remove(root:&Path,server:&Server,filename:&str,expected_hash:&str)->Resul
 }
 
 pub fn install(root:&Path,server:&Server,prepared:&PreparedPlan,task:&DownloadTask)->Result<(),String> {
+    install_internal(Some(root),server,prepared,task)
+}
+
+// The caller owns the isolated instance directory and has already saved the
+// original server's safety backup. This never publishes the active instance.
+pub(crate) fn install_staged(server:&Server,plan:ContentPlan,task:&DownloadTask)->Result<(),String> {
+    let prepared=review(server,plan)?;
+    install_internal(None,server,&prepared,task)
+}
+
+fn install_internal(root:Option<&Path>,server:&Server,prepared:&PreparedPlan,task:&DownloadTask)->Result<(),String> {
     if prepared.server_id!=server.id || prepared.minecraft!=server.version || prepared.platform!=server.platform || prepared.created.elapsed()>std::time::Duration::from_secs(900) {return Err("La revisión ha caducado. Revisa los cambios de nuevo.".into());}
     recover(server)?;
     let files=list(server)?;
@@ -227,7 +238,9 @@ pub fn install(root:&Path,server:&Server,prepared:&PreparedPlan,task:&DownloadTa
     let id=uuid::Uuid::new_v4().to_string();let stage=base.join(format!(".tch-content-{id}"));let old=base.join(format!(".tch-content-old-{id}"));
     let result=(|| {
         task.cancellation.check()?;
-        if prepared.review.changes.iter().any(|change|change.action=="update") {task.report("Guardando copia antes de actualizar","preparing");backup::create(root,&server.id)?;}
+        if let Some(root)=root {
+            if prepared.review.changes.iter().any(|change|change.action=="update") {task.report("Guardando copia antes de actualizar","preparing");backup::create(root,&server.id)?;}
+        }
         task.report("Preparando archivos","preparing");
         if target.exists() {backup::copy_tree(&target,&stage)?;} else {fs::create_dir(&stage).map_err(|e|e.to_string())?;}
         let mut records=manifest(&target)?;
@@ -282,6 +295,31 @@ mod tests {
         let task=DownloadTask::new("test","content_install",|_|{}).unwrap();
         assert!(install(&fixture.root,&fixture.server,&prepared,&task).unwrap_err().contains("cambiado"));
         assert_eq!(fs::read(dir.join("manual.jar")).unwrap(),b"modified externally");
+    }
+    #[test]
+    fn identical_artifact_with_new_release_id_requires_inventory_update() {
+        let fixture=Fixture::new();
+        let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();
+        let filename="shared.jar";
+        fs::write(dir.join(filename),b"same published artifact").unwrap();
+        let digest=hash(&dir.join(filename)).unwrap();
+        let old=InstalledContent {filename:filename.into(),title:"Shared mod".into(),project_id:Some("project".into()),version_id:Some("old-release".into()),version_number:Some("1.0".into()),sha512:digest.clone(),size:23,modified:false};
+        fs::write(dir.join(MANIFEST),serde_json::to_vec(&vec![old]).unwrap()).unwrap();
+        let file=crate::content::ContentFile {filename:filename.into(),url:"https://cdn.modrinth.com/shared.jar".into(),hashes:std::collections::BTreeMap::from([("sha512".into(),digest)]),size:23,primary:true};
+        let version:crate::content::ContentVersion=serde_json::from_value(serde_json::json!({
+            "id":"new-release","project_id":"project","name":"Compatible release","version_number":"1.1",
+            "version_type":"release","date_published":"2026-01-01T00:00:00Z",
+            "game_versions":["1.21.4"],"loaders":["fabric"],"dependencies":[],"files":[file]
+        })).unwrap();
+        let project:crate::content::Project=serde_json::from_value(serde_json::json!({"id":"project","title":"Shared mod","description":"","icon_url":null})).unwrap();
+        let mut plan=empty_plan();
+        plan.entries.push(PlannedContent {project,version,file,required:true});
+        let prepared=review(&fixture.server,plan.clone()).unwrap();
+        assert_eq!(prepared.review.changes[0].action,"update");
+        assert_eq!(prepared.review.changes[0].previous_version.as_deref(),Some("1.0"));
+        let record=record(&plan.entries[0]);
+        fs::write(dir.join(MANIFEST),serde_json::to_vec(&vec![record]).unwrap()).unwrap();
+        assert_eq!(review(&fixture.server,plan).unwrap().review.changes[0].action,"present");
     }
     #[test]
     fn recovery_restores_old_directory_after_interrupted_switch() {

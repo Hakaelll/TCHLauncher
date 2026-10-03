@@ -3,6 +3,18 @@ use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+// Windows canonicalization returns a verbatim path. Java's JAR URL classloader
+// cannot resolve that prefix, even when the native executable opens the JAR.
+pub(crate) fn java_path(path: &Path) -> String {
+    let value=path.to_string_lossy();
+    if cfg!(windows) {
+        if let Some(rest)=value.strip_prefix("\\\\?\\UNC\\") {return format!("\\\\{rest}");}
+        if let Some(rest)=value.strip_prefix("\\\\?\\") {return rest.to_owned();}
+    }
+    value.into_owned()
+}
+
+
 const RECOMMENDED: [&str; 2] = ["-XX:+UseG1GC", "-XX:+ParallelRefProcEnabled"];
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -77,7 +89,7 @@ pub fn vm_arguments(server:&Server,settings:&Settings)->Result<Vec<String>,Strin
     args.extend(options(settings)?);
     if let Some(game)=crate::fabric::game_jar(server) {
         if !game.is_file(){return Err("Falta el servidor Minecraft de Fabric. Comprueba la instalación.".into());}
-        args.push(format!("-Dfabric.gameJarPath={}",game.display()));
+        args.push(format!("-Dfabric.gameJarPath={}",java_path(&game)));
     }
     Ok(args)
 }
@@ -85,7 +97,7 @@ pub fn vm_arguments(server:&Server,settings:&Settings)->Result<Vec<String>,Strin
 pub fn launch_arguments(server:&Server,settings:&Settings)->Result<Vec<String>,String> {
     let mut args=vm_arguments(server,settings)?;
     if server.platform=="neoforge" {args.extend(crate::neoforge::launch_arguments(server)?);}
-    else {args.extend(["-jar".into(),server.jar_path.clone().ok_or("Instala primero el servidor")?,"nogui".into()]);}
+    else {args.extend(["-jar".into(),java_path(Path::new(server.jar_path.as_deref().ok_or("Instala primero el servidor")?)),"nogui".into()]);}
     Ok(args)
 }
 
@@ -120,6 +132,11 @@ mod tests {
         let mut installed=server.clone();installed.jar_path=Some("C:\\Server Folder\\server.jar".into());
         let args=launch_arguments(&installed,&settings).unwrap();
         assert_eq!(args,vec!["-Xms512M","-Xmx1024M","-Dexample.name=A server","-jar","C:\\Server Folder\\server.jar","nogui"]);
+        if cfg!(windows) {
+            installed.jar_path=Some(r"\\?\C:\Server Folder\server.jar".into());
+            assert_eq!(launch_arguments(&installed,&settings).unwrap(),args);
+            assert_eq!(java_path(Path::new(r"\\?\UNC\host\share\server.jar")),r"\\host\share\server.jar");
+        }
         save(&root,&server.id,&Settings::default()).unwrap();
         assert_eq!(get(&root,&server.id).unwrap(),Settings::default());
         crate::storage::delete(&root,&server.id).unwrap();

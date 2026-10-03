@@ -64,7 +64,7 @@ impl DownloadTask {
 
     pub fn finish(&self, result: &Result<(), String>) {
         match result {
-            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else if self.kind=="pack_install" {"Modpack instalado"} else {"Java preparado"},"completed"),
+            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else if self.kind=="pack_install" {"Modpack instalado"} else if self.kind=="loader_update" {"Loader actualizado"} else if self.kind=="minecraft_update" {"Minecraft actualizado"} else {"Java preparado"},"completed"),
             Err(error) if error == CANCELLED => self.report("Instalación cancelada","cancelled"),
             Err(error) => self.progress("No se pudo instalar","failed",0,None,None,1,Some(error.clone())),
         }

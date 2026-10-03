@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type Server } from './api'
 import { listen } from '@tauri-apps/api/event'
+import { MinecraftGlyph } from './MinecraftGlyph'
 
 export function ServerCover({server}:{server:Server}) {
   const [cover,setCover]=useState<string|null>(null)
@@ -12,5 +13,5 @@ export function ServerCover({server}:{server:Server}) {
     return()=>{active=false;listener.then(unlisten=>unlisten?.())}
   },[server.id,server.imageData])
   const source=cover ?? server.imageData
-  return source?<img src={source} alt=""/>:<span className="cover-monogram" aria-hidden="true">{server.name.trim().slice(0,2).toLocaleUpperCase()}</span>
+  return source?<img src={source} alt=""/>:<span className="cover-default" aria-hidden="true"><MinecraftGlyph kind={server.platform==='vanilla'?'world':'pack'}/><span className="cover-monogram">{server.name.trim().slice(0,2).toLocaleUpperCase()}</span></span>
 }

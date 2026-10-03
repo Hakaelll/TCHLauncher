@@ -19,6 +19,14 @@ fn minecraft_time(line: &str) -> Option<String> {
     Some(line[1..9].to_string())
 }
 
+fn startup_complete(line:&str,message:&str)->bool {
+    if !line.contains("[Server thread/INFO]") && !line.contains("[ServerMain/INFO]") {return false;}
+    let Some(rest)=message.strip_prefix("Done (") else {return false;};
+    let Some((duration,tail))=rest.split_once("s)!") else {return false;};
+    duration.parse::<f64>().is_ok_and(|seconds|seconds.is_finite() && seconds>=0.0) &&
+        (tail.trim().is_empty() || tail.trim().starts_with("For help, type "))
+}
+
 fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     let lower = line.to_ascii_lowercase();
     let message = line.split_once("]: ").map(|(_, message)| message).unwrap_or(line);
@@ -35,7 +43,7 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     if message.starts_with('<') && message.contains("> ") { return ("chat", None); }
     if message_lower.contains("issued server command") { return ("command", None); }
     if lower.contains("warn") { return ("warn", Some("warning")); }
-    if message.contains("Done (") { return ("system", Some("startup")); }
+    if startup_complete(line,message) { return ("system", Some("startup")); }
     if message_lower.contains("stopping server") { return ("system", Some("shutdown")); }
     if message_lower.contains("saving chunks") || message_lower.contains("saved the game") { return ("system", Some("save")); }
     if message_lower.starts_with("proceso finalizado:") { return ("system", Some("exit")); }
@@ -119,6 +127,18 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
+    #[test]
+    fn readiness_requires_a_complete_server_startup_message() {
+        for message in ["Done (1.2s)!", "Done (0.013s)! For help, type \"help\"", "Done (23.9s)! For help, type \"help\" or \"?\""] {
+            let line=format!("[10:00:00] [Server thread/INFO]: {message}");
+            assert_eq!(parse("server",&line).event.as_deref(),Some("startup"));
+        }
+        for message in ["<Alex> Done (1.2s)!", "Plugin task Done (1.2s)!", "Done (NaNs)!", "Done (-1s)!", "Done (1.2s)", "Done (1.2s)! Still preparing"] {
+            let line=format!("[10:00:00] [Server thread/INFO]: {message}");
+            assert_ne!(parse("server",&line).event.as_deref(),Some("startup"));
+        }
+        assert_ne!(parse("server","[10:00:00] [Worker/INFO]: Done (1.2s)!").event.as_deref(),Some("startup"));
+    }
     #[test]
     fn classifies_server_events_and_preserves_time() {
         let joined = parse("server", "[21:04:31] [Server thread/INFO]: Alex joined the game");

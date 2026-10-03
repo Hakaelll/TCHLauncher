@@ -30,27 +30,40 @@ fn json(client: &Client, url: &str) -> Result<Value, String> {
         .map_err(|e| format!("No se pudo consultar {url}: {e}"))
 }
 
-pub fn versions() -> Result<Vec<VersionInfo>, String> {
-    let data = json(&client()?, MANIFEST)?;
-    let items = data["versions"].as_array().ok_or("Respuesta de versiones no válida")?;
-    Ok(items.iter().filter_map(|v| {
-        let kind = v["type"].as_str()?;
-        if kind != "release" { return None; }
-        Some(VersionInfo { id: v["id"].as_str()?.into(), kind: kind.into() })
-    }).take(50).collect())
+fn catalog_versions(data:&Value,experimental:bool)->Result<Vec<VersionInfo>,String> {
+    let items=data["versions"].as_array().ok_or("Respuesta de versiones no válida")?;
+    Ok(items.iter().filter_map(|entry| {
+        let kind=entry["type"].as_str()?;
+        if kind!="release" && !(experimental && kind=="snapshot") {return None;}
+        let id=entry["id"].as_str()?;
+        crate::fabric::validate_version(id).ok()?;
+        Some(VersionInfo {id:id.into(),kind:kind.into()})
+    }).collect())
 }
 
-pub fn platform_versions(platform:&str) -> Result<Vec<VersionInfo>,String> {
-    if matches!(platform,"vanilla"|"paper") {return versions();}
+pub fn versions()->Result<Vec<VersionInfo>,String> {catalog_versions(&json(&client()?,MANIFEST)?,false)}
+
+fn fabric_catalog(data:&Value,official:Vec<VersionInfo>,experimental:bool)->Result<Vec<VersionInfo>,String> {
+    let items=data.as_array().ok_or("Catálogo de Minecraft para Fabric no válido")?;
+    let supported:HashMap<_,_>=items.iter().filter_map(|entry|Some((entry["version"].as_str()?,entry["stable"].as_bool()?))).collect();
+    Ok(official.into_iter().filter(|version|match supported.get(version.id.as_str()) {
+        Some(true)=>version.kind=="release",
+        Some(false)=>experimental && version.kind=="snapshot",
+        None=>false,
+    }).collect())
+}
+
+pub fn platform_versions_with_options(platform:&str,experimental:bool)->Result<Vec<VersionInfo>,String> {
+    if experimental && !matches!(platform,"vanilla"|"fabric") {return Err("El catálogo experimental solo está disponible para Vanilla y Fabric.".into());}
+    if matches!(platform,"vanilla"|"paper") {return catalog_versions(&json(&client()?,MANIFEST)?,experimental);}
     if platform=="neoforge" {return crate::neoforge::versions(&DownloadTask::new("catalog","install",|_|{})?,versions()?);}
     if platform!="fabric" {return Err("Plataforma de servidor no compatible".into());}
     let task=DownloadTask::new("catalog","install",|_|{})?;
     let data=task.json("https://meta.fabricmc.net/v2/versions/game","Consultando versiones Fabric")?;
-    let items=data.as_array().ok_or("Catálogo de Minecraft para Fabric no válido")?;
-    Ok(items.iter().filter(|item|item["stable"]==true).filter_map(|item|Some(VersionInfo{id:item["version"].as_str()?.into(),kind:"release".into()})).collect())
+    fabric_catalog(&data,catalog_versions(&json(&client()?,MANIFEST)?,experimental)?,experimental)
 }
 
-fn version_metadata(task: &DownloadTask, version: &str) -> Result<Value, String> {
+pub(crate) fn version_metadata(task: &DownloadTask, version: &str) -> Result<Value, String> {
     let manifest = task.json(MANIFEST, "Consultando versiones de Minecraft")?;
     let entry = manifest["versions"].as_array().ok_or("Respuesta de Mojang no válida")?
         .iter().find(|v| v["id"].as_str() == Some(version))
@@ -273,7 +286,9 @@ pub fn prepare_fresh_instance(root:&Path,server:&Server,task:&DownloadTask,loade
     let metadata=version_metadata(task,&server.version)?;
     let major=metadata["javaVersion"]["majorVersion"].as_u64().ok_or("Minecraft no indicó el runtime necesario")?;
     crate::runtime::remember_requirement(root,&server.version,major)?;
-    let java=ensure_java(root,major,task,false)?;
+    let java=if let Some(configured)=&server.java_path {
+        let path=PathBuf::from(configured);verify_java(&path,major)?;path
+    }else{ensure_java(root,major,task,false)?};
     let jar=match server.platform.as_str() {
         "fabric"=>crate::fabric::install_requested(server,&metadata,task,loader)?,
         "neoforge"=>crate::neoforge::install_requested(server,&metadata,&java,task,loader)?,
@@ -281,14 +296,129 @@ pub fn prepare_fresh_instance(root:&Path,server:&Server,task:&DownloadTask,loade
             let artifact=&metadata["downloads"]["server"];let jar=Path::new(&server.directory).join("server.jar");
             task.download(artifact["url"].as_str().ok_or("Minecraft no ofrece servidor")?,&jar,Some(("sha1",artifact["sha1"].as_str().ok_or("Minecraft no indicó checksum")?)),"Servidor Minecraft del paquete")?;jar
         },
+        "paper"=>{
+            let builds=task.json(&format!("https://fill.papermc.io/v3/projects/paper/versions/{}/builds",server.version),"Preparando Paper compatible")?;
+            let stable=builds.as_array().ok_or("Catálogo Paper no válido")?.iter().find(|build|{
+                build["channel"].as_str()==Some("STABLE")&&loader.is_none_or(|requested|build["id"].as_u64().is_some_and(|id|id.to_string()==requested))
+            }).ok_or("El build estable de Paper revisado ya no está disponible")?;
+            let artifact=&stable["downloads"]["server:default"];let jar=Path::new(&server.directory).join("server.jar");
+            task.download(artifact["url"].as_str().ok_or("Paper no indicó URL")?,&jar,Some(("sha256",artifact["checksums"]["sha256"].as_str().ok_or("Paper no indicó checksum")?)),"Servidor Paper preparado")?;jar
+        },
         _=>return Err("Motor del modpack no compatible".into()),
     };
     task.cancellation.check()?;Ok((jar,java))
 }
 
+pub fn prepare_loader_update(root:&Path,server:&Server,task:&DownloadTask,loader:&str)->Result<PathBuf,String> {
+    let metadata=version_metadata(task,&server.version)?;
+    let major=metadata["javaVersion"]["majorVersion"].as_u64().ok_or("Minecraft no indicó el runtime necesario")?;
+    crate::runtime::remember_requirement(root,&server.version,major)?;
+    let java=PathBuf::from(server.java_path.as_ref().ok_or("Prepara Java antes de actualizar el loader")?);
+    verify_java(&java,major)?;
+    match server.platform.as_str(){
+        "fabric"=>crate::fabric::install_requested(server,&metadata,task,Some(loader)),
+        "neoforge"=>crate::neoforge::install_requested(server,&metadata,&java,task,Some(loader)),
+        _=>Err("Este motor no tiene un loader actualizable".into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore="Installs an official snapshot with matching Java and boots only to EULA refusal; no agreement is accepted"]
+    fn installs_snapshot_and_reaches_eula_without_accepting() {
+        use std::process::{Command,Stdio};
+        let platform=std::env::var("TCH_TEST_SNAPSHOT_PLATFORM").unwrap_or_else(|_|"vanilla".into());
+        assert!(matches!(platform.as_str(),"vanilla"|"fabric"));
+        let versions=platform_versions_with_options(&platform,true).unwrap();
+        let version=std::env::var("TCH_TEST_SNAPSHOT").unwrap_or_else(|_|versions.iter().find(|v|v.kind=="snapshot").unwrap().id.clone());
+        assert!(versions.iter().any(|v|v.id==version && v.kind=="snapshot"));
+        let root=std::env::temp_dir().join(format!("tch snapshot live {}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let result=(||->Result<(),String> {
+            let server=storage::create(&root,crate::model::CreateServer {name:"Snapshot verification".into(),version:version.clone(),platform:platform.clone(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
+            let task=DownloadTask::new(&server.id,"install",|event|{if event.stage!="downloading" {eprintln!("{}: {}",event.stage,event.label);}})?;
+            let metadata=version_metadata(&task,&version)?;
+            let major=metadata["javaVersion"]["majorVersion"].as_u64().ok_or("Snapshot omitted Java requirement")?;
+            if let Ok(java)=std::env::var("TCH_TEST_JAVA") {
+                let java=Path::new(&java).canonicalize().map_err(|e|e.to_string())?;verify_java(&java,major)?;
+                let runtime=java.parent().and_then(Path::parent).ok_or("Java runtime directory missing")?;
+                let target=root.join("runtimes").join(format!("temurin-{major}-{}-{}",std::env::consts::OS,std::env::consts::ARCH));
+                crate::backup::copy_tree(runtime,&target)?;
+            }
+            let original=fs::read(Path::new(&server.directory).join("server.properties")).map_err(|e|e.to_string())?;
+            install(&root,&server,&task)?;
+            let installed=storage::get(&root,&server.id)?;
+            verify_java(Path::new(installed.java_path.as_ref().ok_or("Installed Java missing")?),major)?;
+            assert_eq!(fs::read(Path::new(&server.directory).join("server.properties")).unwrap(),original);
+            let output_path=root.join("boot.log");let output=File::create(&output_path).map_err(|e|e.to_string())?;
+            let mut command=Command::new(installed.java_path.as_ref().unwrap());
+            #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+            let mut child=command.args(crate::jvm::launch_arguments(&installed,&crate::jvm::Settings::default())?)
+                .current_dir(&installed.directory).stdin(Stdio::null()).stdout(output.try_clone().map_err(|e|e.to_string())?).stderr(output)
+                .spawn().map_err(|e|e.to_string())?;
+            let began=std::time::Instant::now();
+            loop {
+                if child.try_wait().map_err(|e|e.to_string())?.is_some(){break;}
+                if began.elapsed()>std::time::Duration::from_secs(120) {let _=child.kill();let _=child.wait();return Err("Snapshot startup did not reach EULA within 120 seconds".into());}
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            let log=fs::read_to_string(&output_path).map_err(|e|e.to_string())?;
+            assert!(log.to_ascii_lowercase().contains("agree to the eula"),"{log}");
+            let directory=Path::new(&installed.directory);
+            let eula=fs::read_to_string(directory.join("eula.txt")).map_err(|e|format!("EULA file missing: {e}; {log}"))?;
+            assert!(eula.lines().any(|line|line.trim()=="eula=false"));
+            assert!(!directory.join("world/level.dat").exists());
+            assert!(!crate::eula::recorded(&root).unwrap());
+            assert_eq!(crate::runtime::cached_requirement(&root,&version),Some(major));
+            eprintln!("Verified {platform} snapshot {version} with Java {major} to EULA refusal; no world created");
+            Ok(())
+        })();
+        if result.is_ok(){let _=fs::remove_dir_all(&root);}else{eprintln!("Snapshot diagnostics retained at {}",root.display());}
+        result.unwrap();
+    }
+    #[test]
+    #[ignore="Reads official Mojang/Fabric catalogs and snapshot metadata without installing or accepting EULA"]
+    fn experimental_catalog_matches_official_snapshot_metadata() {
+        let stable=platform_versions_with_options("vanilla",false).unwrap();
+        assert!(!stable.is_empty());assert!(stable.iter().all(|entry|entry.kind=="release"));
+        let experimental=platform_versions_with_options("vanilla",true).unwrap();
+        let snapshot=experimental.iter().find(|entry|entry.kind=="snapshot").unwrap();
+        let task=DownloadTask::new("catalog-test","install",|_|{}).unwrap();
+        let metadata=version_metadata(&task,&snapshot.id).unwrap();
+        assert_eq!(metadata["id"].as_str(),Some(snapshot.id.as_str()));
+        assert_eq!(metadata["type"].as_str(),Some("snapshot"));
+        assert!(metadata["downloads"]["server"]["url"].as_str().unwrap().starts_with("https://"));
+        let fabric=platform_versions_with_options("fabric",true).unwrap();
+        assert!(fabric.iter().any(|entry|entry.kind=="snapshot"));
+        assert!(fabric.iter().all(|entry|experimental.iter().any(|official|official.id==entry.id && official.kind==entry.kind)));
+        eprintln!("Verified official experimental catalog and server metadata for {}",snapshot.id);
+    }
+    #[test]
+    fn snapshots_require_explicit_catalog_opt_in_and_keep_official_chronology() {
+        let data=serde_json::json!({"versions":[
+            {"id":"26.4-snapshot-2","type":"snapshot"},
+            {"id":"26.3","type":"release"},
+            {"id":"26.3-rc-3","type":"snapshot"},
+            {"id":"1.21.4","type":"release"},
+            {"id":"old-alpha","type":"old_alpha"},
+            {"id":"../escape","type":"snapshot"}
+        ]});
+        assert_eq!(catalog_versions(&data,false).unwrap().iter().map(|v|v.id.as_str()).collect::<Vec<_>>(),vec!["26.3","1.21.4"]);
+        let experimental=catalog_versions(&data,true).unwrap();
+        assert_eq!(experimental.iter().map(|v|v.id.as_str()).collect::<Vec<_>>(),vec!["26.4-snapshot-2","26.3","26.3-rc-3","1.21.4"]);
+        let fabric=serde_json::json!([
+            {"version":"26.4-snapshot-2","stable":false},
+            {"version":"26.3","stable":true},
+            {"version":"fabric-only","stable":false}
+        ]);
+        assert_eq!(fabric_catalog(&fabric,experimental,true).unwrap().len(),2);
+        assert_eq!(fabric_catalog(&fabric,catalog_versions(&data,true).unwrap(),false).unwrap().len(),1);
+        assert!(platform_versions_with_options("paper",true).is_err());
+        assert!(platform_versions_with_options("neoforge",true).is_err());
+    }
+
     #[test]
     #[ignore="Downloads official NeoForge/Minecraft; boots original and copied installations to EULA refusal"]
     fn installs_neoforge_and_imports_without_accepting_eula() {

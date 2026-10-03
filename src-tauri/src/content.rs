@@ -212,6 +212,21 @@ pub fn versions(task: &DownloadTask, server: &Server, project_id: &str) -> Resul
     Ok(versions)
 }
 
+pub(crate) fn installed_version(task:&DownloadTask,id:&str)->Result<ContentVersion,String> {
+    Modrinth(task).version(id)
+}
+
+// Minecraft migration resolves one combined graph for the target version.
+// Current releases are intentionally not checked against the target: replacing
+// those incompatible releases is the purpose of this reviewed operation.
+pub(crate) fn migration(task:&DownloadTask,server:&Server,projects:&[String])->Result<ContentPlan,String> {
+    migration_plan(&Modrinth(task),&server.version,loader(server)?,projects)
+}
+fn migration_plan(source:&impl Source,minecraft:&str,loader:&str,projects:&[String])->Result<ContentPlan,String> {
+    let roots=projects.iter().map(|project|(project.as_str(),None)).collect::<Vec<_>>();
+    resolve_many(source,minecraft,loader,&roots)
+}
+
 pub fn check_existing(task:&DownloadTask, files:&[crate::content_storage::InstalledContent], plan:&ContentPlan)->Result<(),String> {
     let selected:HashMap<_,_>=plan.entries.iter().map(|entry|(entry.project.id.as_str(),entry.version.id.as_str())).collect();
     let mut final_versions:HashMap<String,String>=files.iter().filter_map(|file|Some((file.project_id.clone()?,file.version_id.clone()?))).collect();
@@ -334,6 +349,38 @@ mod tests {
         } result
     }
     fn dependency(project:&str, kind:&str) -> Dependency {Dependency {project_id:Some(project.into()),version_id:None,file_name:None,dependency_type:kind.into()}}
+    fn add_migration_release(data:&mut Fixture,project:&str,id:&str) {
+        let mut version=data.versions[&format!("{project}1")].clone();
+        version.id=id.into();version.version_number=id.into();version.game_versions=vec!["1.21.5".into()];version.date_published="2026-02-01T00:00:00Z".into();
+        data.versions.insert(id.into(),version);
+    }
+    #[test]
+    fn migration_replaces_old_minecraft_releases_as_one_dependency_graph() {
+        let mut data=fixture();add_migration_release(&mut data,"A","A2");add_migration_release(&mut data,"B","B2");
+        let mut required=dependency("B","required");required.version_id=Some("B2".into());
+        data.versions.get_mut("A2").unwrap().dependencies=vec![required];
+        let plan=migration_plan(&data,"1.21.5","fabric",&["A".into(),"B".into()]).unwrap();
+        assert_eq!(plan.entries.len(),2);
+        assert!(plan.entries.iter().all(|entry|entry.version.game_versions==vec!["1.21.5"]));
+        assert!(plan.entries.iter().any(|entry|entry.version.id=="B2"&&entry.required));
+        assert!(migration_plan(&data,"1.21.6","fabric",&["A".into()]).is_err());
+    }
+    #[test]
+    fn migration_never_substitutes_a_newer_client_only_wrong_loader_or_beta_release() {
+        let mut data=fixture();add_migration_release(&mut data,"A","A2");
+        for (id,environment,loader,kind) in [("client",Some("client_only"),"fabric","release"),("wrong",None,"neoforge","release"),("beta",None,"fabric","beta")] {
+            let mut version=data.versions["A2"].clone();version.id=id.into();version.environment=environment.map(str::to_owned);version.loaders=vec![loader.into()];version.version_type=kind.into();version.date_published="2026-03-01T00:00:00Z".into();data.versions.insert(id.into(),version);
+        }
+        assert_eq!(migration_plan(&data,"1.21.5","fabric",&["A".into()]).unwrap().entries[0].version.id,"A2");
+    }
+    #[test]
+    fn migration_blocks_conflicting_exact_dependency_versions_instead_of_partial_replacement() {
+        let mut data=fixture();for id in ["A","B","C"]{add_migration_release(&mut data,id,&format!("{id}2"));}
+        add_migration_release(&mut data,"B","B3");
+        let mut required=dependency("B","required");required.version_id=Some("B2".into());data.versions.get_mut("A2").unwrap().dependencies=vec![required];
+        let mut required=dependency("B","required");required.version_id=Some("B3".into());data.versions.get_mut("C2").unwrap().dependencies=vec![required];
+        assert!(migration_plan(&data,"1.21.5","fabric",&["A".into(),"C".into()]).unwrap_err().contains("versiones diferentes"));
+    }
     #[test]
     fn resolves_transitive_required_cycles_and_separates_optional() {
         let mut data=fixture();

@@ -62,6 +62,7 @@ pub struct PlayersSnapshot {
     pub whitelist_enabled: bool,
     pub enforce_whitelist: bool,
     pub max_players: u32,
+    pub online_mode: bool,
 }
 
 #[derive(Serialize)]
@@ -96,6 +97,7 @@ pub fn snapshot(server: &Server, mut online: Vec<String>) -> Result<PlayersSnaps
         whitelist_enabled: props.get("white-list").is_some_and(|value| value == "true"),
         enforce_whitelist: props.get("enforce-whitelist").is_some_and(|value| value == "true"),
         max_players: props.get("max-players").and_then(|value| value.parse().ok()).unwrap_or(20),
+        online_mode: props.get("online-mode").map_or(true,|value|value=="true"),
     })
 }
 
@@ -194,6 +196,9 @@ mod tests {
         assert_eq!(data.banned_players[0].reason.as_deref(), Some("Griefing"));
         assert!(data.whitelist_enabled && data.enforce_whitelist);
         assert_eq!(data.max_players, 12);
+        assert!(data.online_mode);
+        fs::write(directory.join("server.properties"),"online-mode=false\n").unwrap();
+        assert!(!snapshot(&server,vec![]).unwrap().online_mode);
         fs::remove_dir_all(directory).unwrap();
     }
 

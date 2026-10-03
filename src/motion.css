@@ -1,3 +1,4 @@
+.first-server-choices .choice-action svg { transition:transform var(--motion-interaction) var(--motion-ease); }
 button,input,select,textarea { transition:background-color var(--motion-interaction) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease),color var(--motion-interaction) var(--motion-ease); }
 button:active:not(:disabled,.server-row,.server-sections button,.wizard-steps button,.player-tab) { transform:translateY(1px); transition-duration:var(--motion-instant); }
 .shell { transition:grid-template-columns var(--motion-navigation) var(--motion-ease); }

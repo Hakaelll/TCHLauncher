@@ -57,14 +57,14 @@ export function PackImport({systemMemory,resumeId,onClose,onInstalled}:Props) {
       {pack.warnings.map(message=><p className="muted" key={message}>{message}</p>)}
     </>}
     {pack&&step===2&&<div className="pack-capacity"><label>Nombre del servidor<input maxLength={80} value={name} disabled={locked} onChange={event=>setName(event.target.value)}/></label>
-      <fieldset disabled={locked}><SliderField id="pack-ram" label="RAM máxima" value={ram} min={1024} max={Math.max(4096,Math.floor(systemMemory/1024/1024))} maxInput={1048576} step={512} unit="MB" onChange={setRam}/>
-      <SliderField id="pack-players" label="Jugadores máximos" value={players} min={1} max={100} maxInput={100000} step={1} onChange={setPlayers}/></fieldset>
+      <fieldset disabled={locked}><SliderField id="pack-ram" label="RAM máxima" value={ram} min={1024} max={Math.min(65536,Math.max(4096,Math.floor(systemMemory/1024/1024)))} maxInput={65536} step={512} unit="MB" onChange={setRam}/>
+      <SliderField id="pack-players" label="Jugadores máximos" value={players} min={1} max={100} maxInput={1000} step={1} onChange={setPlayers}/></fieldset>
       {consent===false&&<label className="pack-consent"><input type="checkbox" checked={accepted} disabled={busy} onChange={event=>setAccepted(event.target.checked)}/><span>He leído y acepto la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a>. Se guardará en este equipo.</span></label>}
       {consent===null&&<p role="status">Comprobando la aceptación de la EULA…</p>}
     </div>}
     </div>
     {error&&<p className="form-error" role="alert">{error}</p>}
     {progress&&<InstallProgress progress={progress} busy={busy} onRetry={()=>void install()} onDismiss={()=>setProgress(null)}/>}
-    {step>0&&<footer className="modal-actions"><button disabled={busy||(step===1&&!!server.current)} onClick={()=>setStep(step-1)}>Atrás</button>{step===1?<button className="primary-button" disabled={busy||!!pack?.blockers.length} onClick={()=>setStep(2)}>Continuar →</button>:<button className="primary-button" disabled={busy||!name.trim()||consent===null||(!consent&&!accepted)} onClick={install}>{busy?'Preparando servidor…':server.current?'Reintentar importación':'Crear servidor'}</button>}</footer>}
+    {step>0&&<footer className="modal-actions"><button disabled={busy||(step===1&&!!server.current)} onClick={()=>setStep(step-1)}>Atrás</button>{step===1?<button className="primary-button" disabled={busy||!!pack?.blockers.length} onClick={()=>setStep(2)}>Continuar →</button>:<button className="primary-button" disabled={busy||!name.trim()||ram<1024||ram>65536||players<1||players>1000||consent===null||(!consent&&!accepted)} onClick={install}>{busy?'Preparando servidor…':server.current?'Reintentar importación':'Crear servidor'}</button>}</footer>}
   </Modal>
 }

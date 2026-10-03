@@ -28,11 +28,11 @@ Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como 
 
 ## Brand Commitments
 
-Nombre del repositorio: TCHLauncher. La interfaz utiliza el sistema visual acromático, compacto y basado en tipografía del documento `design.md` proporcionado.
+TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El usuario proporcionó el emblema voxel dorado. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
 
 ## Evidence on Hand
 
-La especificación de producto y la referencia visual fueron proporcionadas como textos adjuntos. No se proporcionaron capturas, marca gráfica ni datos de usuarios.
+La especificación original, el design.md, las pautas de movimiento, referencias Minecraft/Minehut y capturas del launcher fueron proporcionados por el usuario, junto con un logo. La revisión visual nativa la realiza el usuario; no se usan computer use ni subagentes.
 
 ## Product Principles
 

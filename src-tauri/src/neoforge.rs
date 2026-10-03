@@ -7,16 +7,7 @@ const CATALOG: &str = "https://maven.neoforged.net/api/maven/versions/releases/n
 const MAVEN: &str = "https://maven.neoforged.net/releases/net/neoforged/neoforge";
 const MAX_TEXT: u64 = 128 * 1024;
 
-// Windows canonicalization returns a verbatim path. Java's JAR URL classloader
-// cannot resolve that prefix, even when the native executable opens the JAR.
-fn java_path(path: &Path) -> String {
-    let value=path.to_string_lossy();
-    if cfg!(windows) {
-        if let Some(rest)=value.strip_prefix("\\\\?\\UNC\\") {return format!("\\\\{rest}");}
-        if let Some(rest)=value.strip_prefix("\\\\?\\") {return rest.to_owned();}
-    }
-    value.into_owned()
-}
+use crate::jvm::java_path;
 
 fn stable_parts(version: &str) -> Option<Vec<u32>> {
     let parts = version.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>, _>>().ok()?;
@@ -40,6 +31,10 @@ fn select_loader(data: &Value, minecraft: &str) -> Result<String, String> {
         (minecraft_version(&parts) == minecraft).then_some((parts, version))
     }).max_by(|a,b| a.0.cmp(&b.0)).map(|(_,version)|version)
         .ok_or_else(|| format!("NeoForge no tiene una versión estable para Minecraft {minecraft}"))
+}
+pub fn stable_loaders(data:&Value,minecraft:&str)->Result<Vec<String>,String> {
+    let mut versions=releases(data)?.into_iter().filter_map(|version|{let parts=stable_parts(&version)?;(minecraft_version(&parts)==minecraft).then_some((parts,version))}).collect::<Vec<_>>();
+    versions.sort_by(|a,b|b.0.cmp(&a.0));Ok(versions.into_iter().map(|(_,version)|version).collect())
 }
 
 pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Result<String,String> {

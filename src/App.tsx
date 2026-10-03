@@ -14,9 +14,16 @@ import { ResourceMonitor } from './ResourceMonitor'
 import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
 import { JvmPanel } from './JvmPanel'
+import { BackupPolicyPanel } from './BackupPolicyPanel'
+import { TasksPanel } from './TasksPanel'
+import { StartupPanel } from './StartupPanel'
+import { LoaderPanel } from './LoaderPanel'
+import { MinecraftUpdatePanel } from './MinecraftUpdatePanel'
 import { PackImport } from './PackImport'
 import { ServerLibrary } from './ServerLibrary'
-import launcherEmblem from './assets/launcher-emblem.png'
+import { AppearanceSettings } from './AppearanceSettings'
+import { applyAppearance, browserPreferenceStorage, readAppearance, saveAppearance, type Appearance } from './appearance'
+import launcherEmblem from './assets/launcher-logo.png'
 import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMotion } from './motion'
 import { ServerMenu, type ServerMenuTarget } from './ServerMenu'
 import { ServerDeleteDialog } from './ServerDeleteDialog'
@@ -29,8 +36,9 @@ const labels: Record<ServerState, string> = {
 }
 const viewOrder:View[]=['overview','performance','players','worlds','content','console','backups','settings']
 const viewLabels:Record<View,string>={overview:'Resumen',performance:'Rendimiento',players:'Jugadores',worlds:'Mundos',content:'Mods',console:'Consola',backups:'Copias',settings:'Configuración'}
-function SectionIcon({name}:{name:View|'library'}) {
+function SectionIcon({name}:{name:View|'library'|'appearance'}) {
   const paths={
+    appearance:<><path d="m9 3-.5 3-2 1.2-2.8-1-2 3.5 2.3 2v2.3l-2.3 2 2 3.5 2.8-1 2 1.2.5 3h4l.5-3 2-1.2 2.8 1 2-3.5-2.3-2V11l2.3-2-2-3.5-2.8 1-2-1.2-.5-3z"/><circle cx="11" cy="12" r="3"/></>,
     library:<><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h3v3H8zM14 8h2M8 14h2M14 14h2"/></>,
     overview:<><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m7 13 3-4 3 5 4-5"/></>,
     performance:<><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m6 14 4-5 4 6 4-5"/></>,
@@ -90,6 +98,10 @@ function App() {
   const selectedRef = useRef<string | null>(null)
   const [view, setView] = useState<View>('overview')
   const [libraryOpen,setLibraryOpen]=useState(true)
+  const [appearanceOpen,setAppearanceOpen]=useState(false)
+  const [appearance,setAppearance]=useState(() => readAppearance(browserPreferenceStorage()))
+  const [appearanceSaved,setAppearanceSaved]=useState(true)
+  const changeAppearance=(next:Appearance)=>{applyAppearance(next);setAppearance(next);setAppearanceSaved(saveAppearance(browserPreferenceStorage(),next))}
   const railRef=useRef<HTMLElement>(null)
   const backupListRef=useRef<HTMLDivElement>(null)
   const contentRef=useRef<HTMLDivElement>(null)
@@ -113,16 +125,19 @@ function App() {
   const [players, setPlayers] = useState<PlayersSnapshot | null>(null)
   const [logs, setLogs] = useState<LogLine[]>([])
   const [backups, setBackups] = useState<Backup[]>([])
+  const [restoreTarget,setRestoreTarget]=useState<{serverId:string;backup:Backup}|null>(null)
   const [props, setProps] = useState<Record<string, string>>({})
   const propsDirtyRef = useRef(false)
   const [eula, setEula] = useState(false)
-  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'>}|null>(null)
+  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'>}|null>(null)
   const [consentBusy,setConsentBusy] = useState(false)
   const [consentError,setConsentError] = useState<string|null>(null)
   const [memory, setMemory] = useState({ min: 1024, max: 2048 })
   const [storageTarget, setStorageTarget] = useState(20)
   const [systemMemory, setSystemMemory] = useState(0)
   const [closing, setClosing] = useState(false)
+  const [startupOpen,setStartupOpen]=useState(false)
+  const [startupBusy,setStartupBusy]=useState(false)
   const [closingBusy, setClosingBusy] = useState(false)
   const selected = servers.find(server => server.id === selectedId) ?? null
 
@@ -161,6 +176,11 @@ function App() {
         if (event.payload.serverId === selectedRef.current) setLogs(lines => [...lines.slice(-999), event.payload])
       }),
       listen('close-with-servers', () => setClosing(true)),
+      listen<[string,string]>('startup-result',event=>{if(event.payload[1].startsWith('Error:'))setError(`Inicio automático de «${event.payload[0]}»: ${event.payload[1]}`)}),
+      listen<string>('scheduler-updated',event=>{
+        const id=event.payload
+        if(id===selectedRef.current)void api.backups(id).then(value=>{if(id===selectedRef.current)setBackups(value)}).catch(cause=>setError(errorText(cause)))
+      }),
     ]
     return () => { listeners.forEach(p => p.then(unlisten => unlisten()).catch(() => {})) }
   }, [refresh])
@@ -220,9 +240,11 @@ function App() {
     return () => { active = false; window.clearTimeout(timer) }
   }, [selectedId])
 
+  useEffect(() => { mainRef.current?.scrollTo({top:0,left:0}) },[selectedId,view,creating,importing,libraryOpen,appearanceOpen])
+
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); setImporting(false); setCreating(true) }
+      if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); setAppearanceOpen(false); setImporting(false); setCreating(true) }
     }
     window.addEventListener('keydown',shortcut)
     return () => window.removeEventListener('keydown',shortcut)
@@ -236,7 +258,7 @@ function App() {
     return false
   }
 
-  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'>='install')=>{
+  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'>='install')=>{
     try {if(!await api.eulaConsentRecorded()){setConsentError(null);setDownloadConsent({id,kind});return;}}
     catch(cause){setError(errorText(cause));return;}
     setError(null);setInstallingIds(current=>new Set(current).add(id))
@@ -246,12 +268,12 @@ function App() {
   }
   const create = async(input:CreateInput,worldSource?:string)=>{
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
+    const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
     if(ready && id)await runInstallation(id)
   }
   const importExisting = async(input:ImportInput)=>{
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.importServer(input);setImporting(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();id=server.id})
+    const ready=await act(async()=>{const server=await api.importServer(input);setImporting(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();id=server.id})
     if(ready && id)await runInstallation(id)
   }
 
@@ -276,29 +298,34 @@ function App() {
 
   useListMotion(backupListRef,`${view}:${backups.map(backup=>backup.id).join()}`)
   useListMotion(railRef,servers.map(server=>server.id).join(','))
-  useNavigationMotion(contentRef,`${selectedId}:${view}`,navigationDirection)
+  useNavigationMotion(contentRef,`${selectedId}:${view}:${appearanceOpen}:${creating}:${importing}:${libraryOpen}`,navigationDirection)
   const selectedName = selected?.name ?? 'Servidores'
-  const openLibrary=()=>{setLibraryOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip()}
-  const openServer=(server:Server)=>{setLibraryOpen(false);setCreating(false);setImporting(false);setSelectedId(server.id);setView('overview')}
+  const openLibrary=()=>{setAppearanceOpen(false);setLibraryOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip()}
+  const openServer=(server:Server)=>{setAppearanceOpen(false);setLibraryOpen(false);setCreating(false);setImporting(false);setSelectedId(server.id);setView('overview')}
+  const openCreate=()=>{setAppearanceOpen(false);setImporting(false);setCreating(true);hideSidebarTooltip()}
+  const openImport=()=>{setAppearanceOpen(false);setCreating(false);setImporting(true);hideSidebarTooltip()}
   const openMenu=(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>{const target={server,trigger,x,y};menuTargetRef.current=target;setMenuTarget(target)}
   return <div className={`shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
     <aside className="server-rail" aria-label="Servidores">
-      <button className={`rail-library ${libraryOpen && !creating && !importing?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span className="brand-emblem"><img src={launcherEmblem} alt=""/></span><strong className="rail-brand-name">TCHLauncher</strong></button>
+      <button className={`rail-library ${libraryOpen && !creating && !importing && !appearanceOpen?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span className="brand-emblem"><img src={launcherEmblem} alt=""/></span><strong className="rail-brand-name">TCHLauncher</strong></button>
       <nav className="server-list" ref={railRef} aria-label="Lista de servidores" onScroll={() => hideSidebarTooltip()}>
-        <MovingIndicator active={`${selectedId}:${creating}:${importing}:${libraryOpen}:${servers.map(s=>s.id).join()}`} className="rail-active-indicator"/>{servers.map(server => <button data-layout-id={server.id} key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing && !libraryOpen ? 'active' : ''}`} onClick={() => { hideSidebarTooltip(); setLibraryOpen(false);setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();hideSidebarTooltip();const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => hideSidebarTooltip()} onFocus={event => showSidebarTooltip(server,event.currentTarget,true)} onBlur={() => hideSidebarTooltip()} aria-label={`${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}`} aria-current={selectedId === server.id && !creating && !importing && !libraryOpen ? 'page' : undefined}>
+        <MovingIndicator active={`${selectedId}:${creating}:${importing}:${libraryOpen}:${appearanceOpen}:${servers.map(s=>s.id).join()}`} className="rail-active-indicator"/>{servers.map(server => <button data-layout-id={server.id} key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing && !libraryOpen && !appearanceOpen ? 'active' : ''}`} onClick={() => { hideSidebarTooltip(); setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();hideSidebarTooltip();const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => hideSidebarTooltip()} onFocus={event => showSidebarTooltip(server,event.currentTarget,true)} onBlur={() => hideSidebarTooltip()} aria-label={`${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}`} aria-current={selectedId === server.id && !creating && !importing && !libraryOpen && !appearanceOpen ? 'page' : undefined}>
           <span className="server-artwork-wrap"><ServerArtwork server={server}/>{server.pinned && <span className="server-pin" title="Servidor fijado" aria-label="Fijado"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 3 6 6-4 1-4 5-4-4 5-4zM9 15l-6 6"/></svg></span>}<span className={`state-dot ${server.state}`} aria-hidden="true"/></span><span className="server-row-name">{server.name}<small>{platformName(server.platform)} · {server.version}</small></span>
         </button>)}
       </nav>
-      <button className="rail-add" onClick={()=>{setImporting(false);setCreating(true)}} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
-      <button className="rail-import" onClick={()=>{setCreating(false);setImporting(true)}} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
-      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.7.1</span>
+      <button className="rail-add" onClick={openCreate} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
+      <button className="rail-import" onClick={openImport} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
+      <button className="rail-startup" onClick={()=>setStartupOpen(true)} aria-label="Inicio automático" title="Inicio automático"><SectionIcon name="settings"/><span>Inicio automático</span></button>
+      <button className={`rail-settings ${appearanceOpen?'active':''}`} onClick={()=>{setAppearanceOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip();closeMenu()}} aria-current={appearanceOpen?'page':undefined} aria-label="Ajustes" title="Ajustes"><SectionIcon name="appearance"/><span>Ajustes</span></button>
+      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.11.0</span>
     </aside>
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
-      {creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
+      {appearanceOpen ? <AppearanceSettings value={appearance} saved={appearanceSaved} onChange={changeAppearance}/>
+      : creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
       : importing ? <ImportView onCancel={openLibrary} onImport={importExisting} busy={operationBusy}/>
-      : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={()=>setCreating(true)} onImport={()=>setImporting(true)} onPack={()=>{setPackResume(null);setPackOpen(true)}} onSelect={openServer} onMenu={openMenu}/>
+      : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={openCreate} onImport={openImport} onPack={()=>{setPackResume(null);setPackOpen(true)}} onSelect={openServer} onMenu={openMenu}/>
       : <>
         <header className="page-head">
           <div className="page-identity"><ServerArtwork server={selected}/><div><h1>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
@@ -315,22 +342,36 @@ function App() {
           {viewOrder.filter(item=>item!=='content'||selected.platform!=='vanilla').map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{item==='content'&&selected.platform==='paper'?'Plugins':viewLabels[item]}</span></button>)}
         </nav>
         <div className="content" ref={contentRef}>
-          {progress && !(view==='content'&&progress.kind==='content_install') && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>{if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'){setView('content');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {progress && !(view==='content'&&progress.kind==='content_install')&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>{if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager key={selected.id} server={selected} progress={progress} onInstalled={async()=>{await refresh();setBackups(await api.backups(selected.id))}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'console'  && <ConsoleView serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
-          {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { await api.createBackup(selected.id); setBackups(await api.backups(selected.id)) })}>Crear copia</button></div>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table" ref={backupListRef}><div className="table-head"><span>Fecha</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><span>{new Date(backup.createdAt).toLocaleString()}</span><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => { if (window.confirm('Se guardará una copia del estado actual y después se restaurará esta versión. ¿Continuar?')) act(() => api.restoreBackup(selected.id,backup.id)) }}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
-          {view === 'settings' && <Settings onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={values => { propsDirtyRef.current = true; setProps(values) }} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)); propsDirtyRef.current = false })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
+          {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { const copy=await api.createBackup(selected.id); setBackups(await api.backups(selected.id));if(copy.retentionWarning)throw new Error(copy.retentionWarning) })}>Crear copia</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={async()=>setBackups(await api.backups(selected.id))}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table" ref={backupListRef}><div className="table-head"><span>Fecha</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><span>{new Date(backup.createdAt).toLocaleString()}</span><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
+          {view === 'settings' && <Settings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={values => { propsDirtyRef.current = true; setProps(values) }} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} progress={progress} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)); propsDirtyRef.current = false })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}
     </main>
     {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
-    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
+    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
     {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
-    {packOpen && <PackImport resumeId={packResume} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
+    {startupOpen&&<Modal labelledBy="startup-title" busy={startupBusy} onClose={()=>setStartupOpen(false)}><h2 id="startup-title">Inicio automático</h2><StartupPanel servers={servers} onBusy={setStartupBusy}/><div className="modal-actions"><button data-modal-close disabled={startupBusy}>Cerrar</button></div></Modal>}
+    {restoreTarget && <Modal labelledBy="restore-title" describedBy="restore-description" busy={operationBusy} onClose={()=>setRestoreTarget(null)}>
+      <h2 id="restore-title">Restaurar copia de seguridad</h2>
+      <p id="restore-description">Los archivos y la configuración volverán al estado de esta copia. Antes guardaremos una copia del estado actual.</p>
+      <dl className="restore-preview-details"><dt>Fecha</dt><dd>{new Date(restoreTarget.backup.createdAt).toLocaleString()}</dd><dt>Tamaño</dt><dd>{fmtBytes(restoreTarget.backup.sizeBytes)}</dd></dl>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="modal-actions"><button data-modal-close disabled={operationBusy}>Cancelar</button><button className="primary-button" disabled={operationBusy} onClick={async()=>{
+        const target=restoreTarget;const success=await act(async()=>{
+          await api.restoreBackup(target.serverId,target.backup.id)
+          const [values,copies,accepted]=await Promise.all([api.properties(target.serverId),api.backups(target.serverId),api.eulaAccepted(target.serverId)])
+          if(selectedRef.current===target.serverId){propsDirtyRef.current=false;setProps(values);setBackups(copies);setEula(accepted)}
+        });if(success)setRestoreTarget(null)
+      }}>{operationBusy?'Restaurando…':'Restaurar copia'}</button></div>
+    </Modal>}
+    {packOpen && <PackImport resumeId={packResume} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
     {downloadConsent && <Modal labelledBy="download-consent-title" describedBy="download-consent-description" busy={consentBusy} onClose={()=>setDownloadConsent(null)}>
       <h2 id="download-consent-title">Antes de descargar Minecraft</h2>
       <p id="download-consent-description">Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a>. Al aceptar, guardaremos tu decisión en este equipo para los siguientes servidores.</p>
@@ -378,7 +419,7 @@ function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInst
   return <div className="overview">
     <section className={`server-stage ${server.state}`} aria-label="Estado del servidor">
       <div className="stage-main"><div className="stage-copy" role="status"><h2><span className={`state-dot large ${server.state}`} aria-hidden="true"/>{stateText(server.state)}</h2><p>{description}</p></div>{['starting','stopping','crashed','error'].includes(server.state) && <button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button>}</div>
-      <div className="stage-stats"><div className="stat-players"><SectionIcon name="players"/><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong></div><div className="stat-uptime"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong></div><div className="stat-memory"><SectionIcon name="performance"/><span>Memoria</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong></div><div className="stat-cpu"><SectionIcon name="settings"/><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong></div></div>
+      <div className="stage-stats"><div className="stat-players"><SectionIcon name="players"/><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong><small>{players ? `${players.maxPlayers} plazas disponibles en total` : 'Consultando jugadores'}</small></div><div className="stat-uptime"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong><small>Desde el inicio del proceso</small></div><div className="stat-memory"><SectionIcon name="performance"/><span>Memoria</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong><small>{(server.memoryMaxMb/1024).toFixed(1)} GB de RAM máxima configurada</small></div><div className="stat-cpu"><SectionIcon name="settings"/><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong><small>Consumo del proceso Java</small></div></div>
     </section>
     {(!server.jarPath || !server.javaPath) && <div className="callout"><div><strong>Instalación pendiente</strong><p>{server.jarPath ? 'Prepararemos Java sin reemplazar los archivos de arranque existentes.' : `Descargaremos Minecraft ${server.version} y Java.`}</p></div><button disabled={busy} onClick={onInstall}>{server.jarPath ? 'Preparar Java' : 'Instalar ahora'}</button></div>}
     {server.jarPath && !eula && <div className="callout"><div><strong>Antes del primer inicio</strong><p>Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a> antes de aceptarla. Se recordará en este equipo para tus próximos servidores.</p></div><button disabled={busy} onClick={onAccept}>He leído y acepto</button></div>}
@@ -400,6 +441,7 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
   const [furthestStep,setFurthestStep] = useState(0)
   const [versions,setVersions] = useState<Version[]>([])
   const [versionLoading,setVersionLoading]=useState(true)
+  const [experimental,setExperimental]=useState(false)
   const [catalogRevision,setCatalogRevision]=useState(0)
   const [versionError,setVersionError] = useState<string|null>(null)
   const [imagePreview,setImagePreview] = useState<string|null>(null)
@@ -417,14 +459,14 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
   useEffect(() => {
     let active=true;setVersionLoading(true);setVersionError(null)
     if(!isTauri()){setVersionError('Abre la aplicación de escritorio para consultar versiones.');setVersionLoading(false);return}
-    api.versions(input.platform).then(items=>{
+    api.versions(input.platform,experimental&&['vanilla','fabric'].includes(input.platform)).then(items=>{
       if(!active)return
       setVersions(items)
       if(!items.length)setVersionError('No hay versiones compatibles disponibles.')
       setInput(old=>({...old,version:items.some(item=>item.id===old.version)?old.version:items[0]?.id || ''}))
     }).catch(cause=>{if(active)setVersionError(errorText(cause))}).finally(()=>{if(active)setVersionLoading(false)})
     return ()=>{active=false}
-  },[input.platform,catalogRevision])
+  },[input.platform,experimental,catalogRevision])
   const chooseImage = async () => {
     setImageError(null)
     try {
@@ -457,7 +499,8 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       </>}
       {step === 1 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Versión y tipo</h2><p>Elige la versión de Minecraft que utilizarán tus jugadores.</p></div>
-      <div className="form-pair"><div className="form-row"><label htmlFor="new-version">Versión de Minecraft</label>{versionError ? <div className="form-error" role="alert">No se pudo cargar el catálogo: {versionError} <button type="button" onClick={loadVersions}>Reintentar</button></div> : <select id="new-version" disabled={versionLoading} required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versionLoading ? 'Cargando versiones…' : 'Selecciona una versión'}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}</option>)}</select>}</div><div className="form-row"><label htmlFor="new-platform">Tipo de servidor</label><select id="new-platform" value={input.platform} onChange={e => {setVersionLoading(true);setVersionError(null);setInput({...input,platform:e.target.value as CreateInput['platform']})}}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help type-help">{input.platform === 'neoforge' ? 'NeoForge permite mods de servidor. Se elegirá una versión estable compatible y su Java necesario.' : input.platform === 'fabric' ? 'Fabric permite mods de servidor. Se elegirá automáticamente un loader estable compatible.' : input.platform === 'paper' ? 'Paper admite plugins y opciones extra de rendimiento.' : 'Vanilla ofrece la experiencia original de Minecraft.'}</p>
+      <div className="form-pair"><div className="form-row"><label htmlFor="new-version">Versión de Minecraft</label>{versionError ? <div className="form-error" role="alert">No se pudo cargar el catálogo: {versionError} <button type="button" onClick={loadVersions}>Reintentar</button></div> : <select id="new-version" disabled={versionLoading} required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versionLoading ? 'Cargando versiones…' : 'Selecciona una versión'}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}{v.kind==='snapshot'?' · Experimental':''}</option>)}</select>}</div><div className="form-row"><label htmlFor="new-platform">Tipo de servidor</label><select id="new-platform" value={input.platform} onChange={e => {setVersionLoading(true);setVersionError(null);if(!['vanilla','fabric'].includes(e.target.value))setExperimental(false);setInput({...input,platform:e.target.value as CreateInput['platform']})}}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help type-help">{input.platform === 'neoforge' ? 'NeoForge permite mods de servidor. Se elegirá una versión estable compatible y su Java necesario.' : input.platform === 'fabric' ? 'Fabric permite mods de servidor. Se elegirá automáticamente un loader estable compatible.' : input.platform === 'paper' ? 'Paper admite plugins y opciones extra de rendimiento.' : 'Vanilla ofrece la experiencia original de Minecraft.'}</p>
+      {['vanilla','fabric'].includes(input.platform)&&<div className="experimental-versions"><label><input type="checkbox" checked={experimental} disabled={busy} onChange={event=>{setVersionLoading(true);setExperimental(event.target.checked)}}/><span>Mostrar versiones experimentales</span></label>{experimental&&<p className="field-help">Incluye snapshots y versiones de prueba del catálogo oficial. Pueden fallar y cambiar el formato de los mundos; crea una instancia separada para probarlas.</p>}</div>}
       </>}
       {step === 2 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Elige un mundo</h2><p>Genera uno nuevo o importa un mundo de Minecraft Java.</p></div>
@@ -472,7 +515,7 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       </>}
       {step === 4 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Revisar y crear</h2><p>Comprueba los datos antes de instalar.</p></div>
-      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => moveStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => moveStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => moveStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div></div>
+      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => moveStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'}{versions.find(version=>version.id===input.version)?.kind==='snapshot'?' · Experimental':''} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => moveStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => moveStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div></div>
       <p className="wizard-final-note">La instalación descargará Java y los archivos del servidor. En la primera descarga te pediremos aceptar la EULA de Minecraft. La decisión se recordará en este equipo.</p>
       </>}
       </div>
@@ -537,7 +580,7 @@ function SettingsPropertyGroups({values,onChange}: {values:Record<string,string>
   return <div className="settings-groups">{settingsGroups.map(group => <section className="settings-group" key={group.title} aria-label={group.title}><div className="settings-group-heading"><h4>{group.title}</h4><p>{group.description}</p></div><div className="settings-fields">{group.fields.map(field => <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{field.label}</strong><small>{field.description}</small></span>{field.kind === 'toggle' ? <input className="setting-toggle" type="checkbox" checked={values[field.key] === 'true'} onChange={event => update(field.key,String(event.target.checked))}/> : field.kind === 'choice' ? <select value={values[field.key] || field.options?.[0]?.value || ''} onChange={event => update(field.key,event.target.value)}>{field.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input type={field.kind} min={field.min} max={field.max} value={values[field.key] ?? ''} onChange={event => update(field.key,event.target.value)}/>}</label>)}</div></section>)}</div>
 }
 
-function Settings({onRuntimeChanged,onPrepareRuntime,server,props,setProps,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,onSave,onPickImage,onClearImage,onDelete}: {onRuntimeChanged:()=>Promise<void>;onPrepareRuntime:(reinstall:boolean)=>void;server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>void}) {
+function Settings({onConsole,onRuntimeChanged,onPrepareRuntime,server,props,setProps,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,progress,onSave,onPickImage,onClearImage,onDelete}: {onConsole:()=>void;onRuntimeChanged:()=>Promise<void>;onPrepareRuntime:(reinstall:boolean)=>void;server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;progress:Progress|null;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>void}) {
   const [newKey,setNewKey] = useState('')
   const [newValue,setNewValue] = useState('')
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
@@ -549,6 +592,9 @@ function Settings({onRuntimeChanged,onPrepareRuntime,server,props,setProps,memor
     {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">Detén el servidor para editar su configuración.</p>}
     <RuntimePanel key={server.id} onChanged={onRuntimeChanged} server={server} busy={busy} onPrepare={onPrepareRuntime}/>
     <JvmPanel key={`jvm-${server.id}`} server={server} busy={busy}/>
+    <MinecraftUpdatePanel key={`minecraft-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged} currentProgress={progress} onConsole={onConsole}/>
+    <LoaderPanel key={`loader-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged}/>
+    <TasksPanel key={`tasks-${server.id}`} id={server.id}/>
     <h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}
     <h3>Propiedades del servidor</h3><SettingsPropertyGroups values={props} onChange={setProps}/>
     <details className="advanced-properties"><summary>Otras propiedades</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !knownSettings.has(key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label="Nombre de propiedad" placeholder="Nombre de propiedad" value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label="Valor" placeholder="Valor" value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>Añadir</button></div></details>
