@@ -10,7 +10,7 @@ pub fn stamp(line: &str) -> String {
 
 fn minecraft_time(line: &str) -> Option<String> {
     let bytes = line.as_bytes();
-    if bytes.len() < 10 || bytes[0] != b'[' || bytes[9] != b']' || bytes[3] != b':' || bytes[6] != b':' {
+    if bytes.len() < 10 || bytes[0] != b'[' || !matches!(bytes[9], b']' | b' ') || bytes[3] != b':' || bytes[6] != b':' {
         return None;
     }
     if [1, 2, 4, 5, 7, 8].iter().any(|&index| !bytes[index].is_ascii_digit()) {
@@ -19,8 +19,24 @@ fn minecraft_time(line: &str) -> Option<String> {
     Some(line[1..9].to_string())
 }
 
+fn without_terminal_colors(line:&str)->String {
+    let mut clean=String::with_capacity(line.len());
+    let mut chars=line.chars().peekable();
+    while let Some(character)=chars.next() {
+        if character=='\u{1b}' && chars.peek()==Some(&'[') {
+            chars.next();
+            for code in chars.by_ref() { if ('@'..='~').contains(&code) {break;} }
+        } else {clean.push(character);}
+    }
+    clean
+}
+
 fn startup_complete(line:&str,message:&str)->bool {
-    if !line.contains("[Server thread/INFO]") && !line.contains("[ServerMain/INFO]") {return false;}
+    // Paper's console formatter omits the thread and uses [HH:mm:ss INFO].
+    let paper_prefix = line.as_bytes().get(..16).is_some_and(|prefix|
+        prefix[0] == b'[' && prefix[3] == b':' && prefix[6] == b':' && &prefix[9..] == b" INFO]:"
+        && [1,2,4,5,7,8].iter().all(|&index|prefix[index].is_ascii_digit()));
+    if !paper_prefix && !line.contains("[Server thread/INFO]") && !line.contains("[ServerMain/INFO]") {return false;}
     let Some(rest)=message.strip_prefix("Done (") else {return false;};
     let Some((duration,tail))=rest.split_once("s)!") else {return false;};
     duration.parse::<f64>().is_ok_and(|seconds|seconds.is_finite() && seconds>=0.0) &&
@@ -55,13 +71,14 @@ pub fn parse(server_id: &str, record: &str) -> LogEvent {
         Some((prefix, raw)) if chrono::DateTime::parse_from_rfc3339(prefix).is_ok() => (Some(prefix.to_string()), raw),
         _ => (minecraft_time(record), record),
     };
-    let (level, event) = classify(line);
+    let clean=without_terminal_colors(line);
+    let (level, event) = classify(&clean);
     LogEvent {
         server_id: server_id.to_string(),
         level: level.to_string(),
         line: line.to_string(),
-        message: line.split_once("]: ").map(|(_, message)| message).unwrap_or(line).to_string(),
-        timestamp,
+        message: clean.split_once("]: ").map(|(_, message)| message).unwrap_or(&clean).to_string(),
+        timestamp:timestamp.or_else(||minecraft_time(&clean)),
         event: event.map(str::to_string),
     }
 }
@@ -138,6 +155,17 @@ mod tests {
             assert_ne!(parse("server",&line).event.as_deref(),Some("startup"));
         }
         assert_ne!(parse("server","[10:00:00] [Worker/INFO]: Done (1.2s)!").event.as_deref(),Some("startup"));
+        assert_eq!(parse("server","[10:00:00 INFO]: Done (1.2s)! For help, type \"help\"").event.as_deref(),Some("startup"));
+        assert_ne!(parse("server","[10:00:00 INFO]: <Alex> Done (1.2s)!").event.as_deref(),Some("startup"));
+        assert_ne!(parse("server","[10:00:00 WARN]: Done (1.2s)!").event.as_deref(),Some("startup"));
+        let colored=parse("server","\u{1b}[32m[10:00:00 INFO]: Done (1.2s)! For help, type \"help\"\u{1b}[0m");
+        assert_eq!(colored.event.as_deref(),Some("startup"));
+        assert_eq!(colored.timestamp.as_deref(),Some("10:00:00"));
+        assert!(!colored.message.contains('\u{1b}'));
+        // Exact formatter and launcher timestamp from the reported Paper 1.17.1 startup.
+        let imported_paper=parse("server","2026-10-03T00:26:04.484Z\t[02:26:04 INFO]: Done (2.992s)! For help, type \"help\"");
+        assert_eq!(imported_paper.event.as_deref(),Some("startup"));
+        assert_eq!(imported_paper.timestamp.as_deref(),Some("2026-10-03T00:26:04.484Z"));
     }
     #[test]
     fn classifies_server_events_and_preserves_time() {

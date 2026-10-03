@@ -7,7 +7,7 @@ use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::io::Read;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -160,16 +160,22 @@ fn parse_reply(text: &str, success: bool, service: &str, action: &str) -> Result
     if envelope.tag_name().name() != "Envelope" || envelope.tag_name().namespace() != Some(SOAP_NS) {
         return Err(RouterError::Message("El router no devolvió una respuesta SOAP válida".into()));
     }
-    let body = envelope.children().find(|node| node.tag_name().name() == "Body" && node.tag_name().namespace() == Some(SOAP_NS))
-        .ok_or_else(|| RouterError::Message("La respuesta SOAP del router está incompleta".into()))?;
-    if let Some(fault) = body.children().find(|node| node.tag_name().name() == "Fault") {
-        let code = fault.descendants().find(|node| node.has_tag_name("errorCode")).and_then(|node| node.text()).and_then(|code| code.trim().parse().ok());
+    let bodies: Vec<_> = envelope.children().filter(|node| node.tag_name().name() == "Body" && node.tag_name().namespace() == Some(SOAP_NS)).collect();
+    if bodies.len() != 1 { return Err(RouterError::Message("La respuesta SOAP del router contiene un cuerpo ambiguo".into())); }
+    let contents: Vec<_> = bodies[0].children().filter(|node| node.is_element()).collect();
+    if contents.len() != 1 { return Err(RouterError::Message("La respuesta SOAP del router contiene acciones ambiguas".into())); }
+    let payload = contents[0];
+    if payload.tag_name().name() == "Fault" && payload.tag_name().namespace() == Some(SOAP_NS) {
+        let codes: Vec<_> = payload.descendants().filter(|node| node.has_tag_name("errorCode") && node.tag_name().namespace() == Some("urn:schemas-upnp-org:control-1-0")).collect();
+        if codes.len() != 1 { return Err(RouterError::Message("El router devolvió un error SOAP ambiguo".into())); }
+        let code = codes[0].text().and_then(|code| code.trim().parse().ok());
         return Err(code.map(RouterError::Fault).unwrap_or_else(|| RouterError::Message("El router rechazó la acción sin un motivo compatible".into())));
     }
     if !success { return Err(RouterError::Message("El router rechazó la petición de configuración".into())); }
     let response_name = format!("{action}Response");
-    let payload = body.children().find(|node| node.tag_name().name() == response_name && node.tag_name().namespace() == Some(service))
-        .ok_or_else(|| RouterError::Message("La respuesta del router no corresponde a la acción solicitada".into()))?;
+    if payload.tag_name().name() != response_name || payload.tag_name().namespace() != Some(service) {
+        return Err(RouterError::Message("La respuesta del router no corresponde a la acción solicitada".into()));
+    }
     let mut values = BTreeMap::new();
     for node in payload.children().filter(|node| node.is_element()) {
         if node.children().any(|child| child.is_element()) || values.insert(node.tag_name().name().into(), node.text().unwrap_or("").trim().into()).is_some() {
@@ -277,11 +283,12 @@ struct Record {
 impl Record {
     fn validate(&self) -> Result<(), String> {
         self.gateway.validate()?;
-        uuid::Uuid::parse_str(&self.server_id).map_err(|_| "La apertura guardada no identifica un servidor válido")?;
-        if self.port == 0 || self.description.len() != 29 || !self.description.starts_with("TCH:")
+        let id = uuid::Uuid::parse_str(&self.server_id).map_err(|_| "La apertura guardada no identifica un servidor válido")?;
+        if id.to_string() != self.server_id || self.port == 0 || self.description.len() != 29 || !self.description.is_ascii() || !self.description.starts_with("TCH:")
             || !self.description[4..20].bytes().all(|b| b.is_ascii_hexdigit())
-            || self.description[20..21] != *":" || self.description[21..] != self.server_id[..8]
-            || self.expires_at.is_some_and(|at| at < 0) || self.last_error.as_ref().is_some_and(|error| error.len() > 4096) {
+            || self.description.as_bytes()[20] != b':' || self.description[21..] != self.server_id[..8]
+            || self.expires_at.is_some_and(|at| at < 0) || self.verified_at.is_some_and(|at| at < 0)
+            || self.renew_at < 0 || self.check_after < 0 || self.last_error.as_ref().is_some_and(|error| error.len() > 4096) {
             return Err("La apertura guardada contiene datos no válidos".into());
         }
         Ok(())
@@ -299,18 +306,38 @@ fn db(root: &Path) -> Result<rusqlite::Connection, String> {
         payload TEXT NOT NULL, UNIQUE(router_key,port));").map_err(|error| error.to_string())?;
     Ok(db)
 }
-fn records(root: &Path) -> Result<Vec<Record>, String> {
-    let db = db(root)?;
-    let mut statement = db.prepare("SELECT payload FROM router_mappings ORDER BY server_id").map_err(|error| error.to_string())?;
-    let payloads = statement.query_map([], |row| row.get::<_, String>(0)).map_err(|error| error.to_string())?
-        .collect::<rusqlite::Result<Vec<_>>>().map_err(|error| error.to_string())?;
-    payloads.into_iter().map(|payload| {
-        if payload.len() > 8192 { return Err("Una apertura guardada es demasiado grande".into()); }
-        let record: Record = serde_json::from_str(&payload).map_err(|_| "No se pudo leer una apertura guardada")?;
-        record.validate()?; Ok(record)
-    }).collect()
+type StoredRecord = (String, Result<Record, String>);
+fn decode_record(id: String, key: String, port: u16, payload: String) -> Result<Record, String> {
+    if payload.len() > 8192 { return Err("Una apertura guardada es demasiado grande".into()); }
+    let record: Record = serde_json::from_str(&payload).map_err(|_| "No se pudo leer una apertura guardada")?;
+    record.validate()?;
+    if record.server_id != id || record.gateway.key() != key || record.port != port {
+        return Err("Los datos de una apertura guardada no coinciden con su registro. No se modificará el router".into());
+    }
+    Ok(record)
 }
-fn record(root: &Path, id: &str) -> Result<Option<Record>, String> { Ok(records(root)?.into_iter().find(|record| record.server_id == id)) }
+fn records(root: &Path) -> Result<Vec<StoredRecord>, String> {
+    let db = db(root)?;
+    let mut statement = db.prepare("SELECT server_id,router_key,port,payload FROM router_mappings ORDER BY server_id").map_err(|error| error.to_string())?;
+    let mut rows = statement.query([]).map_err(|error| error.to_string())?;
+    let mut loaded = Vec::new();
+    while let Some(row) = rows.next().map_err(|error| error.to_string())? {
+        let id = row.get::<_, String>(0).unwrap_or_else(|_| "invalid-record".into());
+        let value = (|| {
+            let key = row.get::<_, String>(1).map_err(|error| error.to_string())?;
+            let port = row.get::<_, u16>(2).map_err(|error| error.to_string())?;
+            let payload = row.get::<_, String>(3).map_err(|error| error.to_string())?;
+            decode_record(id.clone(),key,port,payload)
+        })();
+        loaded.push((id,value));
+    }
+    Ok(loaded)
+}
+fn record(root: &Path, id: &str) -> Result<Option<Record>, String> {
+    let row = db(root)?.query_row("SELECT router_key,port,payload FROM router_mappings WHERE server_id=?1",[id],
+        |row| Ok((row.get::<_, String>(0)?,row.get::<_, u16>(1)?,row.get::<_, String>(2)?))).optional().map_err(|error| error.to_string())?;
+    row.map(|(key,port,payload)|decode_record(id.into(),key,port,payload)).transpose()
+}
 fn insert(root: &Path, record: &Record) -> Result<(), String> {
     record.validate()?;
     db(root)?.execute("INSERT INTO router_mappings(server_id,router_key,port,payload) VALUES(?1,?2,?3,?4)",
@@ -380,6 +407,22 @@ fn create(root: &Path, mut record: Record, control: &impl Control, running: impl
     Ok(())
 }
 
+fn refresh_mapping(root:&Path,record:&mut Record,control:&impl Control,running:impl Fn()->bool,time:i64)->Result<bool,String> {
+    let entry=control.mapping(record.port)?.ok_or("La apertura ya no existe en el router. Revisa la conexión antes de volver a abrirla")?;
+    if !record.owns(&entry) {return Err("La apertura del router cambió de propietario. TCHLauncher no la modificará".into());}
+    if !entry.enabled || !(1..=LEASE).contains(&entry.lease_seconds) {return Err("El router dejó de confirmar una apertura temporal activa".into());}
+    if time>=record.renew_at {
+        if !running() {cleanup(root,record,control)?;return Ok(false);}
+        control.add(record)?;
+        if !running() {cleanup(root,record,control)?;return Ok(false);}
+        confirm(root,record,control,now())?;
+        Ok(true)
+    } else {
+        record.verified_at=Some(time);record.last_error=None;
+        Ok(false)
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouterInfo { name: String, ip: String, external_ip: Option<String>, public_address: Option<bool>, checked_at: i64 }
@@ -432,14 +475,15 @@ impl Manager {
     pub fn open(&self, root: &Path, id: &str, port: u16, local_ip: Ipv4Addr, running: impl Fn() -> bool) -> Result<Status, String> {
         let _gate = self.gate.lock().map_err(|error| error.to_string())?;
         if record(root,id)?.is_some() { return Err("Retira primero la apertura registrada para este servidor".into()); }
-        let cache = self.detected.lock().map_err(|error| error.to_string())?;
-        let cache = cache.as_ref().filter(|cache| cache.discovered.elapsed() < Duration::from_secs(120) && cache.gateway.local_ip == local_ip)
-            .ok_or("Detecta de nuevo el router antes de abrir el puerto")?;
-        let gateway = cache.gateway.clone(); let external_ip = cache.info.external_ip.as_ref().and_then(|ip| ip.parse().ok());
+        let (gateway,external_ip) = {
+            let cache = self.detected.lock().map_err(|error| error.to_string())?;
+            let cached = cache.as_ref().filter(|cached| cached.discovered.elapsed() < Duration::from_secs(120) && cached.gateway.local_ip == local_ip)
+                .ok_or("Detecta de nuevo el router antes de abrir el puerto")?;
+            (cached.gateway.clone(),cached.info.external_ip.as_ref().and_then(|ip| ip.parse().ok()))
+        };
         let description = format!("TCH:{}:{}", &uuid::Uuid::new_v4().simple().to_string()[..16], &id.get(..8).ok_or("Servidor no válido")?);
         let record = Record {server_id:id.into(),gateway:gateway.clone(),port,description,phase:Phase::Pending,
             external_ip,expires_at:None,verified_at:None,renew_at:0,check_after:0,last_error:None};
-        drop(cache);
         create(root,record,&gateway,running)?;
         self.status(root,id)
     }
@@ -455,11 +499,12 @@ impl Manager {
         }
         self.status(root,id)
     }
-    pub fn maintain(&self, root: &Path, running: impl Fn(&str)->bool) -> Result<Vec<String>,String> {
+    pub fn maintain(&self, root: &Path, running: impl Fn(&str,Ipv4Addr,u16)->bool) -> Result<Vec<String>,String> {
         let Ok(_gate)=self.gate.try_lock() else {return Ok(Vec::new());};
         let time=now();let mut changed=Vec::new();
-        for mut record in records(root)? {
-            let active=running(&record.server_id);
+        for (id,loaded) in records(root)? {
+            let mut record = match loaded { Ok(record)=>record,Err(error)=>{eprintln!("Router record {id}: {error}");continue;} };
+            let active=running(&record.server_id,record.gateway.local_ip,record.port);
             if !active && record.phase!=Phase::Closing {record.phase=Phase::Closing;record.check_after=0;save(root,&record)?;}
             if record.check_after>time || record.phase==Phase::Attention && active {continue;}
             let gateway=record.gateway.clone();
@@ -467,15 +512,11 @@ impl Manager {
                 cleanup(root,&mut record,&gateway)
             } else {
                 (|| {
-                    let entry=gateway.mapping(record.port)?.ok_or("La apertura ya no existe en el router. Revisa la conexión antes de volver a abrirla")?;
-                    if !record.owns(&entry) {return Err("La apertura del router cambió de propietario. TCHLauncher no la modificará".into());}
-                    if !entry.enabled || entry.lease_seconds==0 {return Err("El router dejó de confirmar una apertura temporal activa".into());}
-                    if time>=record.renew_at {
-                        if !running(&record.server_id) {return cleanup(root,&mut record,&gateway);}
-                        gateway.add(&record)?;
-                        confirm(root,&mut record,&gateway,now())?;
-                        record.external_ip=gateway.external_ip().ok();
-                    } else {record.verified_at=Some(time);record.last_error=None;}
+                    let port=record.port;
+                    let renewed=refresh_mapping(root,&mut record,&gateway,
+                        ||running(&id,gateway.local_ip,port),time)?;
+                    if !record_exists(root,&id)? {return Ok(());}
+                    if renewed {record.external_ip=gateway.external_ip().ok();}
                     record.check_after=now()+30_000;save(root,&record)
                 })()
             };
@@ -490,10 +531,11 @@ impl Manager {
         Ok(changed)
     }
     pub fn close_all(&self, root:&Path) {
-        let Ok(_gate)=self.gate.try_lock() else{return;};
+        let Ok(_gate)=self.gate.lock() else{return;};
         let deadline=Instant::now()+Duration::from_secs(4);
         let Ok(records)=records(root) else{return;};
-        for mut record in records {
+        for (_,loaded) in records {
+            let Ok(mut record)=loaded else{continue;};
             record.phase=Phase::Closing;record.check_after=0;
             if save(root,&record).is_err(){continue;}
             if Instant::now()<deadline {let gateway=record.gateway.clone();let _=cleanup(root,&mut record,&gateway);}
@@ -503,4 +545,214 @@ impl Manager {
 fn record_exists(root:&Path,id:&str)->Result<bool,String>{
     db(root)?.query_row("SELECT 1 FROM router_mappings WHERE server_id=?1",[id],|_|Ok(())).optional()
         .map(|row|row.is_some()).map_err(|error|error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::{Cell, RefCell};
+    use std::path::PathBuf;
+
+    struct Sandbox(PathBuf);
+    impl Sandbox {
+        fn new() -> Self { Self(std::env::temp_dir().join(format!("tch-router-test-{}",uuid::Uuid::new_v4()))) }
+    }
+    impl Drop for Sandbox {
+        fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+    }
+    fn pending() -> Record {
+        let server_id = uuid::Uuid::new_v4().to_string();
+        Record {
+            description:format!("TCH:0123456789abcdef:{}",&server_id[..8]),server_id,
+            gateway:Gateway {router_ip:Ipv4Addr::new(192,168,1,1),local_ip:Ipv4Addr::new(192,168,1,2),
+                control_url:"http://192.168.1.1:5431/control".into(),service_type:SERVICES[0].into(),name:"Test gateway".into()},
+            port:25565,phase:Phase::Pending,external_ip:None,expires_at:None,verified_at:None,
+            renew_at:0,check_after:0,last_error:None,
+        }
+    }
+    struct Router<'a> {
+        root:&'a Path,entry:RefCell<Option<Entry>>,adds:Cell<usize>,deletes:Cell<usize>,
+        fail_add:Cell<bool>,fail_remove:Cell<bool>,lease:Cell<u32>,
+    }
+    impl<'a> Router<'a> {
+        fn new(root:&'a Path)->Self { Self {root,entry:RefCell::new(None),adds:Cell::new(0),deletes:Cell::new(0),
+            fail_add:Cell::new(false),fail_remove:Cell::new(false),lease:Cell::new(LEASE)} }
+    }
+    impl Control for Router<'_> {
+        fn mapping(&self,_:u16)->Result<Option<Entry>,String>{Ok(self.entry.borrow().clone())}
+        fn add(&self, item:&Record)->Result<(),String>{
+            // The durable intent must exist before even a successful router mutation.
+            assert!(record(self.root,&item.server_id)?.is_some());
+            self.adds.set(self.adds.get()+1);
+            *self.entry.borrow_mut()=Some(Entry {internal_ip:item.gateway.local_ip,internal_port:item.port,
+                description:item.description.clone(),enabled:true,lease_seconds:self.lease.get()});
+            if self.fail_add.get(){Err("response lost after mutation".into())}else{Ok(())}
+        }
+        fn remove(&self,_:u16)->Result<(),String>{
+            self.deletes.set(self.deletes.get()+1);
+            if self.fail_remove.get(){return Err("router unavailable".into());}
+            *self.entry.borrow_mut()=None;Ok(())
+        }
+    }
+    #[test]
+    fn temporary_mapping_is_durable_verified_and_removed(){
+        let root=Sandbox::new();let router=Router::new(&root.0);let item=pending();
+        create(&root.0,item.clone(),&router,||true).unwrap();
+        let mut stored=record(&root.0,&item.server_id).unwrap().unwrap();
+        assert_eq!(stored.phase,Phase::Active);
+        assert_eq!(stored.expires_at.unwrap()-stored.verified_at.unwrap(),i64::from(LEASE)*1000);
+        cleanup(&root.0,&mut stored,&router).unwrap();
+        assert!(record(&root.0,&item.server_id).unwrap().is_none());
+        assert_eq!((router.adds.get(),router.deletes.get()),(1,1));
+    }
+    #[test]
+    fn foreign_mapping_is_never_overwritten_or_deleted(){
+        let root=Sandbox::new();let router=Router::new(&root.0);let item=pending();
+        *router.entry.borrow_mut()=Some(Entry {internal_ip:item.gateway.local_ip,internal_port:item.port,
+            description:"Other application".into(),enabled:true,lease_seconds:LEASE});
+        assert!(create(&root.0,item.clone(),&router,||true).is_err());
+        assert!(!record_exists(&root.0,&item.server_id).unwrap());
+        insert(&root.0,&item).unwrap();let mut stored=item;
+        assert!(cleanup(&root.0,&mut stored,&router).is_err());
+        assert!(!record_exists(&root.0,&stored.server_id).unwrap());
+        assert_eq!((router.adds.get(),router.deletes.get()),(0,0));
+        assert!(router.entry.borrow().is_some());
+    }
+    #[test]
+    fn lost_add_response_keeps_cleanup_intent_until_router_recovers(){
+        let root=Sandbox::new();let router=Router::new(&root.0);let item=pending();
+        router.fail_add.set(true);router.fail_remove.set(true);
+        assert!(create(&root.0,item.clone(),&router,||true).is_err());
+        let mut stored=record(&root.0,&item.server_id).unwrap().unwrap();
+        assert_eq!(stored.phase,Phase::Closing);assert!(stored.last_error.is_some());
+        router.fail_remove.set(false);cleanup(&root.0,&mut stored,&router).unwrap();
+        assert!(!record_exists(&root.0,&item.server_id).unwrap());
+    }
+    #[test]
+    fn stopping_during_add_rolls_back_and_permanent_lease_is_rejected(){
+        for permanent in [false,true] {
+            let root=Sandbox::new();let router=Router::new(&root.0);let item=pending();
+            if permanent {router.lease.set(0);}
+            assert!(create(&root.0,item.clone(),&router,||permanent || router.adds.get()==0).is_err());
+            assert_eq!(router.deletes.get(),1);
+            assert!(router.entry.borrow().is_none());
+            assert!(!record_exists(&root.0,&item.server_id).unwrap());
+        }
+    }
+    #[test]
+    fn renewal_rechecks_running_state_and_refuses_a_foreign_owner(){
+        for stop_during_renewal in [false,true] {
+            let root=Sandbox::new();let router=Router::new(&root.0);let item=pending();
+            create(&root.0,item.clone(),&router,||true).unwrap();
+            let mut stored=record(&root.0,&item.server_id).unwrap().unwrap();
+            stored.renew_at=0;save(&root.0,&stored).unwrap();
+            let renewed=refresh_mapping(&root.0,&mut stored,&router,||!stop_during_renewal||router.adds.get()<2,now()).unwrap();
+            assert_eq!(renewed,!stop_during_renewal);
+            if stop_during_renewal {
+                assert!(!record_exists(&root.0,&item.server_id).unwrap());
+                assert_eq!(router.deletes.get(),1);
+            } else {
+                assert_eq!(stored.phase,Phase::Active);
+                router.entry.borrow_mut().as_mut().unwrap().description="Another application".into();
+                assert!(refresh_mapping(&root.0,&mut stored,&router,||true,now()+i64::from(LEASE)*1000).is_err());
+                assert_eq!(router.adds.get(),2);assert_eq!(router.deletes.get(),0);
+            }
+        }
+    }
+    #[test]
+    fn corrupt_rows_do_not_block_unrelated_cleanup_records(){
+        let root=Sandbox::new();let item=pending();insert(&root.0,&item).unwrap();
+        let connection=db(&root.0).unwrap();
+        connection.execute("INSERT INTO router_mappings VALUES('bad-json','router-a',25566,'{')",[]).unwrap();
+        connection.execute("INSERT INTO router_mappings VALUES('bad-port','router-b',999999,'{}')",[]).unwrap();
+        let loaded=records(&root.0).unwrap();
+        assert_eq!(loaded.len(),3);assert_eq!(loaded.iter().filter(|(_,item)|item.is_ok()).count(),1);
+        assert!(record(&root.0,&item.server_id).unwrap().is_some());
+        let mut malformed=item.clone();malformed.description="é".repeat(14)+"x";
+        assert!(malformed.validate().is_err());
+        connection.execute("UPDATE router_mappings SET port=25567 WHERE server_id=?1",[&item.server_id]).unwrap();
+        assert!(record(&root.0,&item.server_id).is_err());
+    }
+    fn envelope(payload:&str)->String {format!("<s:Envelope xmlns:s=\"{SOAP_NS}\"><s:Body>{payload}</s:Body></s:Envelope>")}
+    #[test]
+    fn soap_faults_and_ambiguous_responses_are_not_treated_as_success(){
+        let fault="<s:Fault><detail><UPnPError xmlns=\"urn:schemas-upnp-org:control-1-0\"><errorCode>714</errorCode></UPnPError></detail></s:Fault>";
+        assert!(matches!(parse_reply(&envelope(fault),false,SERVICES[0],"AddPortMapping"),Err(RouterError::Fault(714))));
+        let valid=format!("<u:AddPortMappingResponse xmlns:u=\"{}\"/>",SERVICES[0]);
+        assert!(parse_reply(&envelope(&valid),true,SERVICES[0],"AddPortMapping").is_ok());
+        assert!(parse_reply(&envelope(&valid),false,SERVICES[0],"AddPortMapping").is_err());
+        assert!(parse_reply(&envelope(&(valid.clone()+&valid)),true,SERVICES[0],"AddPortMapping").is_err());
+        assert!(parse_reply(&envelope(&valid),true,SERVICES[1],"AddPortMapping").is_err());
+        let ambiguous=fault.replace("<errorCode>714</errorCode>","<errorCode>714</errorCode><errorCode>718</errorCode>");
+        assert!(matches!(parse_reply(&envelope(&ambiguous),false,SERVICES[0],"AddPortMapping"),Err(RouterError::Message(_))));
+        assert!(parse_xml("<!DOCTYPE a [<!ENTITY b 'test'>]><a>&b;</a>").is_err());
+    }
+    #[test]
+    fn discovery_restricts_control_to_advertising_private_router(){
+        let peer=Ipv4Addr::new(192,168,1,1);
+        for url in ["http://example.com/control","http://127.0.0.1/control","http://192.168.1.2/control",
+            "http://user@192.168.1.1/control","https://192.168.1.1/control","http://192.168.1.1/control#fragment"] {
+            assert!(private_url(url,peer).is_err(),"{url}");
+        }
+        let good=b"HTTP/1.1 200 OK\r\nLOCATION: http://192.168.1.1/root.xml\r\n\r\n";
+        assert!(location(good,peer).is_some());
+        assert!(location(b"HTTP/1.1 200 OK\r\nLocation: http://192.168.1.1/a\r\nLocation: http://192.168.1.1/b\r\n\r\n",peer).is_none());
+        let document=format!("<root xmlns=\"urn:schemas-upnp-org:device-1-0\"><device><deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:2</deviceType><friendlyName>Router</friendlyName><serviceList><service><serviceType>{}</serviceType><controlURL>/control</controlURL></service></serviceList></device></root>",SERVICES[0]);
+        let endpoint=Url::parse("http://192.168.1.1/root.xml").unwrap();
+        assert_eq!(Gateway::from_description(&endpoint,Ipv4Addr::new(192,168,1,2),&document).unwrap().control_url,"http://192.168.1.1/control");
+        assert!(Gateway::from_description(&endpoint,Ipv4Addr::new(192,168,1,2),&document.replace("/control","http://192.168.1.1:1234/control")).is_err());
+    }
+    #[test]
+    fn external_address_does_not_claim_private_cgnat_or_documentation_reachability(){
+        for address in ["192.168.1.1","10.1.2.3","127.0.0.1","100.64.0.1","100.127.255.254","198.18.0.1","192.0.2.1","0.1.2.3","224.0.0.1","255.255.255.255"] {
+            assert!(!public_ipv4(address.parse().unwrap()),"{address}");
+        }
+        assert!(public_ipv4("8.8.8.8".parse().unwrap()));
+    }
+    #[test]
+    fn http_transport_sends_escaped_soap_and_enforces_response_bounds(){
+        use std::io::Write;
+        use std::net::TcpListener;
+        for oversized in [false,true] {
+            let listener=TcpListener::bind("127.0.0.1:0").unwrap();
+            let address=listener.local_addr().unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let worker=std::thread::spawn(move || {
+                let deadline=Instant::now()+Duration::from_secs(5);
+                let mut stream=loop {
+                    match listener.accept() {
+                        Ok((stream,_))=>break stream,
+                        Err(error) if error.kind()==std::io::ErrorKind::WouldBlock && Instant::now()<deadline=>std::thread::sleep(Duration::from_millis(5)),
+                        Err(error)=>panic!("fixture did not receive request: {error}"),
+                    }
+                };
+                stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                stream.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+                let mut request=Vec::new();let mut chunk=[0;2048];
+                loop {
+                    let count=stream.read(&mut chunk).unwrap();assert!(count>0);
+                    request.extend_from_slice(&chunk[..count]);assert!(request.len()<8192);
+                    if let Some(end)=request.windows(4).position(|bytes|bytes==b"\r\n\r\n") {
+                        let headers=std::str::from_utf8(&request[..end]).unwrap();
+                        let length=headers.lines().find_map(|line|line.split_once(':').filter(|(key,_)|key.eq_ignore_ascii_case("content-length")).map(|(_,value)|value.trim().parse::<usize>().unwrap())).unwrap();
+                        if request.len()>=end+4+length {break;}
+                    }
+                }
+                let request=String::from_utf8(request).unwrap();
+                assert!(request.to_ascii_lowercase().contains("soapaction: \"urn:schemas-upnp-org:service:wanipconnection:2#addportmapping\""));
+                assert!(request.contains("<NewPortMappingDescription>A&amp;B&lt;test&gt;&quot;&apos;</NewPortMappingDescription>"));
+                let response=if oversized {"x".repeat(MAX_XML+1)} else {envelope(&format!("<u:AddPortMappingResponse xmlns:u=\"{}\"/>",SERVICES[0]))};
+                let wire=format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len());
+                // An oversized response may be abandoned by the bounded client after headers.
+                let _=stream.write_all(wire.as_bytes());
+            });
+            let mut gateway=pending().gateway;gateway.control_url=format!("http://{address}/control");
+            // Only the transport fixture uses loopback; production action still validates private LAN hosts.
+            assert!(gateway.action("AddPortMapping",&[]).is_err());
+            let result=gateway.action_transport("AddPortMapping",&[("NewPortMappingDescription","A&B<test>\"'".into())]);
+            worker.join().unwrap();
+            if oversized {assert!(matches!(result,Err(RouterError::Message(message)) if message.contains("demasiado grande")));}
+            else {assert!(result.is_ok());}
+        }
+    }
 }

@@ -269,6 +269,8 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .first-server-choices .library-create { grid-row:span 2; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; min-height:420px; background:var(--surface-feature); border-color:var(--accent-line); }
 .choice-illustration { display:grid; place-items:center; flex:none; }
 .choice-illustration img { display:block; width:100%; height:100%; object-fit:contain; }
+.library-cards.grid .library-create .choice-illustration { width:144px; height:132px; }
+.library-cards.list .library-create .choice-illustration { width:64px; height:64px; }
 .first-server-choices .library-create .choice-illustration { width:200px; height:188px; align-self:center; margin:0 0 22px; }
 .first-server-choices > button > strong { margin:0 0 10px; color:var(--ink); font-family:var(--font-display); font-size:17px; font-weight:400; line-height:1.6; letter-spacing:0; }
 .first-server-choices > button > span:not(.choice-illustration,.choice-action) { color:var(--secondary); font-family:var(--font-reading); font-size:14px; line-height:1.7; }
@@ -287,6 +289,9 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 }
 .first-server-choices > button:focus-visible { background:var(--surface-selected); }
 .choice-illustration { transition:transform var(--motion-interaction) var(--motion-ease); }
+@media(hover:hover) and (prefers-reduced-motion:no-preference) {
+  .library-cards:is(.grid,.list) .library-create:hover:not(:disabled) .choice-illustration { transform:translateY(-3px); }
+}
 .minecraft-glyph { width:64px; height:64px; flex:none; --block-top:#85769f; --block-left:#42384e; --block-right:#2c2938; --block-detail:#c6b5e2; --block-signal:#e4cbf2; overflow:visible; }
 .library-create > .minecraft-glyph { width:52px; height:52px; }
 .minecraft-glyph.world { --block-top:#85769f; --block-left:#42384e; --block-right:#2c2938; --block-detail:#c6b5e2; --block-signal:#e4cbf2; }
@@ -318,6 +323,13 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .overview .connection-address { padding:20px 22px; background:var(--accent-wash); border:1px solid var(--accent-line); border-radius:4px; }
 .overview .network-address-row input.network-address-value { color:var(--accent-hover); font-family:ui-monospace,Consolas,monospace; font-size:22px; background:transparent; box-shadow:none; }
 .network-facts dt,.network-guide,.resource-facts dt { color:var(--secondary); }
+.router-control { padding-block:8px 22px; margin-bottom:20px; border-bottom:1px solid var(--line); }
+.router-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.router-heading h3 { margin:0; color:var(--ink); font-family:var(--font-display); font-size:13px; font-weight:400; line-height:1.7; }
+.router-heading p { margin:6px 0 0; }
+.router-mapping-status { display:flex; align-items:center; gap:9px; color:var(--ink)!important; }
+.router-control .network-facts dd { min-width:0; overflow-wrap:anywhere; }
+.router-control .network-facts input { width:100%; min-width:0; text-align:right; font-family:var(--font-reading); }
 .resource-chart { background:var(--surface); border-radius:4px; padding:24px; }
 .resource-chart h3 { font-family:var(--font-display); font-size:13px; font-weight:400; }
 .chart-grid { stroke:var(--line); }

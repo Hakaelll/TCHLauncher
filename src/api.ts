@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 
 export type ServerState = 'stopped' | 'installing' | 'starting' | 'running' | 'stopping' | 'crashed' | 'error'
+export type RouterStatus = {
+  router:{name:string;ip:string;externalIp:string|null;publicAddress:boolean|null;checkedAt:number}|null
+  mapping:{phase:'pending'|'active'|'closing'|'attention';port:number;localAddress:string;externalAddress:string|null;expiresAt:number|null;verifiedAt:number|null;lastError:string|null}|null
+  leaseSeconds:number
+  remoteReachability:'not_checked'
+  discoveryError:string|null
+}
 export type Server = {
   id: string
   name: string
@@ -156,6 +163,10 @@ export const api = {
   systemMemory: () => invoke<number>('system_memory'),
   networkStatus: (id: string) => invoke<NetworkSnapshot>('get_network_status', { id }),
   publicIp: () => invoke<string>('get_public_ip'),
+  routerStatus: (id:string) => invoke<RouterStatus>('get_router_status',{id}),
+  detectRouter: (id:string) => invoke<RouterStatus>('detect_router',{id}),
+  openRouterPort: (id:string,expectedIp:string,expectedPort:number) => invoke<RouterStatus>('open_router_port',{id,confirmed:true,expectedIp,expectedPort}),
+  closeRouterPort: (id:string) => invoke<RouterStatus>('close_router_port',{id}),
   hideWindow: () => invoke<void>('hide_window'),
   stopAllAndExit: () => invoke<void>('stop_all_and_exit'),
 }

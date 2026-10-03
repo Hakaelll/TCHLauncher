@@ -21,6 +21,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   busy: boolean;
   onSend: (command: string) => Promise<boolean>;
 }) {
+  const acceptsCommands=state==='running' || state==='starting'
   const [query,setQuery] = useState('')
   const [level,setLevel] = useState('all')
   const [command,setCommand] = useState('')
@@ -56,6 +57,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   },[visible,following])
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if(!acceptsCommands || busy || !command.trim()) return
     if (await onSend(command)) setCommand('')
   }
   const copy = async () => {
@@ -79,6 +81,6 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
       {visible.length ? visible.map((item,index) => <div className={`log-line ${item.level}`} key={`${item.timestamp ?? 'legacy'}-${index}`}><time dateTime={item.timestamp?.includes('T') ? item.timestamp : undefined}>{clockTime(item.timestamp)}</time><span className="log-level">{item.level}</span><span className="log-message">{item.message}</span></div>) : <div className="log-empty">{clearedAt ? 'Vista limpia. Las nuevas líneas aparecerán aquí.' : query || level !== 'all' ? 'No hay líneas que coincidan con el filtro.' : 'Aún no hay salida. Inicia el servidor para ver su actividad.'}</div>}
     </div>
     {notice && <p className="console-notice" role="status">{notice}</p>}
-    <form autoComplete="off" className="command-form" onSubmit={submit}><label htmlFor="command">Comando</label><input id="command" autoComplete="off" autoCorrect="off" spellCheck={false} value={command} onChange={event => setCommand(event.target.value)} placeholder={state === 'running' ? 'Escribe un comando…' : 'Inicia el servidor para enviar comandos'} disabled={state !== 'running'} maxLength={512}/><button disabled={busy || state !== 'running' || !command.trim()}>Enviar</button></form>
+    <form autoComplete="off" className="command-form" onSubmit={submit}><label htmlFor="command">Comando</label><input id="command" autoComplete="off" autoCorrect="off" spellCheck={false} value={command} onChange={event => setCommand(event.target.value)} placeholder={state === 'starting' ? 'Comando durante el inicio…' : acceptsCommands ? 'Escribe un comando…' : 'Inicia el servidor para enviar comandos'} disabled={!acceptsCommands} maxLength={512}/><button disabled={busy || !acceptsCommands || !command.trim()}>Enviar</button></form>
   </section>
 }

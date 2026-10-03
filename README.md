@@ -2,11 +2,13 @@
 
 Gestor local de servidores Minecraft para Windows y Linux, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
 
-## Vista previa actual: 0.11.0
+## Vista previa actual: 0.12.0
 
-[Instalador Windows 0.11.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.11.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.11.0.md).
+[Instalador Windows 0.12.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.12.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.12.0.md).
 
 Temas End, Obsidiana y Nether en Ajustes, debajo de Inicio automático. La elección se recuerda entre sesiones. End usa negro/gris y morado; la tipografía Minecraft aparece en más controles y puede cambiarse por la de lectura. Logo sin fondo cuadrado, inicio con ilustraciones voxel y panel Java reorganizado. [design.md](design.md) describe el sistema visual. La comprobación visual nativa queda a cargo del usuario, como solicitó.
+
+La 0.12.0 corrige la detección de arranque de Paper y actualiza la imagen de creación en bibliotecas con servidores. Conexión incorpora detección UPnP explícita, apertura TCP temporal confirmada, renovación y retirada de aperturas propias. La comprobación con router físico sigue pendiente; no verifica accesibilidad externa ni cambia el firewall.
 
 ## Ejecutar
 

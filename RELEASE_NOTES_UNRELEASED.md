@@ -1,6 +1,12 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.11.0](RELEASE_NOTES_v0.11.0.md). The sections below retain development history; completed additions are included in that preview.
+The latest Windows preview is documented in [0.12.0](RELEASE_NOTES_v0.12.0.md). The development history below is retained for context.
+
+## Included in 0.12.0
+
+- Recognize Paper's short console startup message and ANSI-colored output when promoting a server from Starting to Running. Keep command input available during startup while its Java process is alive. Native verification with the affected imported server is pending.
+- Connect explicit UPnP detection, confirmed temporary TCP opening, verification and removal to the Connection panel. Renew only owned mappings while the server remains running at the same LAN address/port, and queue cleanup after stop, configuration changes or exit. Ten local lifecycle and HTTP transport tests cover durable ownership, interrupted requests, cleanup retries, malformed records, renewal and bounded SOAP responses. Physical router and native exit verification remain pending; NAT-PMP and remote reachability checks are not implemented.
+- Replace the legacy cube on the populated library's New Server card with the transparent End island artwork used during first setup. Size the illustration separately for grid and list views and respect reduced motion during hover feedback. This change is not included in the 0.11.0 installer.
 
 ## Loader updates (development source)
 

@@ -1,4 +1,4 @@
-# TCHLauncher - End / Obsidian visual system (0.11.0)
+# TCHLauncher - End / Obsidian visual system (0.12.0)
 
 ## Authority and use
 

@@ -20,6 +20,7 @@ mod model;
 mod modpack;
 mod pack_install;
 mod network;
+mod upnp;
 mod players;
 mod process;
 mod properties;
@@ -44,6 +45,8 @@ struct ImageSelection { path: String, data: String }
 pub struct Engine {
     _instance_lock: std::fs::File,
     scheduler_stopping: std::sync::atomic::AtomicBool,
+    router: Arc<upnp::Manager>,
+    router_shutdown: Arc<std::sync::atomic::AtomicU8>,
     root: PathBuf,
     processes: ProcessManager,
     metrics_system: Arc<Mutex<sysinfo::System>>,
@@ -88,7 +91,7 @@ impl Engine {
     fn reserve_running(&self, id: &str) -> Result<OperationGuard, String> {
         let mut operations = self.operations.lock().map_err(|e| e.to_string())?;
         if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
-        if self.processes.state(id) != "running" { return Err("El servidor debe estar en ejecución para reiniciarlo".into()); }
+        if self.processes.state(id) != "running" { return Err("El servidor debe estar en ejecución para realizar esta acción".into()); }
         operations.insert(id.into());
         Ok(OperationGuard { id: id.into(), operations: self.operations.clone() })
     }
@@ -725,6 +728,76 @@ async fn get_public_ip() -> Result<String, String> {
         .await.map_err(|e| e.to_string())?
 }
 
+fn router_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Result<(std::net::Ipv4Addr,u16),String> {
+    if processes.state(id)!="running" {return Err("Inicia el servidor antes de abrir su puerto en el router".into());}
+    let server=storage::get(root,id)?;
+    let snapshot=network::inspect(&server,"running")?;
+    if snapshot.lan_address.is_none() || !matches!(snapshot.port_state,network::PortState::Listening) {
+        return Err("El servidor debe responder en una dirección LAN antes de abrir su puerto".into());
+    }
+    let ip=snapshot.local_ip.and_then(|ip|ip.parse::<std::net::Ipv4Addr>().ok()).filter(|ip|ip.is_private())
+        .ok_or("No se detectó una dirección LAN IPv4 privada compatible")?;
+    Ok((ip,snapshot.port))
+}
+
+#[tauri::command]
+async fn get_router_status(engine:State<'_,Engine>,id:String)->Result<upnp::Status,String> {
+    storage::get(&engine.root,&id)?;
+    let root=engine.root.clone();let router=engine.router.clone();
+    tauri::async_runtime::spawn_blocking(move||router.status(&root,&id)).await.map_err(|error|error.to_string())?
+}
+
+#[tauri::command]
+async fn detect_router(engine:State<'_,Engine>,id:String)->Result<upnp::Status,String> {
+    let server=storage::get(&engine.root,&id)?;let state=engine.processes.state(&id);
+    let root=engine.root.clone();let router=engine.router.clone();let shutdown=engine.router_shutdown.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        if shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {return Err("La aplicación se está cerrando".into());}
+        let snapshot=network::inspect(&server,&state)?;
+        let ip=snapshot.local_ip.and_then(|ip|ip.parse::<std::net::Ipv4Addr>().ok()).filter(|ip|ip.is_private())
+            .ok_or("No se detectó una dirección LAN IPv4 privada compatible")?;
+        if snapshot.lan_address.is_none(){return Err("El servidor no tiene una dirección LAN compatible".into());}
+        router.detect(&root,&id,ip)
+    }).await.map_err(|error|error.to_string())?
+}
+
+#[tauri::command]
+async fn open_router_port(engine:State<'_,Engine>,id:String,confirmed:bool,expected_ip:String,expected_port:u16)->Result<upnp::Status,String> {
+    if !confirmed {return Err("Confirma la apertura temporal del puerto antes de continuar".into());}
+    let reservation=engine.reserve_running(&id)?;
+    let root=engine.root.clone();let router=engine.router.clone();let processes=engine.processes.clone();
+    let shutdown=engine.router_shutdown.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        let _reservation=reservation;
+        if shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {return Err("La aplicación se está cerrando".into());}
+        let (ip,port)=router_target(&root,&processes,&id)?;
+        if ip.to_string()!=expected_ip || port!=expected_port {return Err("La dirección o el puerto cambiaron. Revisa la conexión y confirma de nuevo".into());}
+        router.open(&root,&id,port,ip,||shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
+            && router_target(&root,&processes,&id).is_ok_and(|target|target==(ip,port)))
+    }).await.map_err(|error|error.to_string())?
+}
+
+#[tauri::command]
+async fn close_router_port(engine:State<'_,Engine>,id:String)->Result<upnp::Status,String> {
+    storage::get(&engine.root,&id)?;
+    let root=engine.root.clone();let router=engine.router.clone();
+    tauri::async_runtime::spawn_blocking(move||router.close(&root,&id)).await.map_err(|error|error.to_string())?
+}
+
+fn start_router_maintenance(app:AppHandle) {
+    std::thread::spawn(move||loop {
+        std::thread::sleep(Duration::from_secs(2));
+        let engine=app.state::<Engine>();
+        if engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {break;}
+        match engine.router.maintain(&engine.root,|id,ip,port|
+            engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
+            && router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))) {
+            Ok(changed)=>{for id in changed {let _=app.emit("router-state",id);}},
+            Err(error)=>eprintln!("Router maintenance: {error}"),
+        }
+    });
+}
+
 #[tauri::command]
 fn hide_window(app: AppHandle) -> Result<(), String> {
     app.get_webview_window("main").ok_or("No se encontró la ventana")?
@@ -964,8 +1037,9 @@ pub fn run() {
             loader_update::recover_all(&root).map_err(std::io::Error::other)?;
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { _instance_lock:instance_lock,scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
+            start_router_maintenance(app.handle().clone());
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
             let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
             let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
@@ -1005,7 +1079,25 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,hide_window,stop_all_and_exit])
-        .run(tauri::generate_context!())
-        .expect("failed to run TCHLauncher");
+        .invoke_handler(tauri::generate_handler![update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .build(tauri::generate_context!())
+        .expect("failed to build TCHLauncher")
+        .run(|app,event| {
+            if let tauri::RunEvent::ExitRequested {api,code,..}=event {
+                let engine=app.state::<Engine>();
+                let phase=engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst);
+                if phase==2 {return;}
+                api.prevent_exit();
+                if engine.router_shutdown.compare_exchange(0,1,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok() {
+                    engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
+                    let router=engine.router.clone();let root=engine.root.clone();let shutdown=engine.router_shutdown.clone();
+                    let app=app.clone();
+                    std::thread::spawn(move||{
+                        router.close_all(&root);
+                        shutdown.store(2,std::sync::atomic::Ordering::SeqCst);
+                        app.exit(code.unwrap_or(0));
+                    });
+                }
+            }
+        });
 }

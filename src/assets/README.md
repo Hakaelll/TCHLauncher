@@ -2,6 +2,8 @@
 
 These assets were produced with the built-in imagegen tool, then integrated into this workspace. Tauri icon tooling generates bounded UI sizes without cropping the objects. The user's original logo remains at `src/assets/launcher-emblem.png`.
 
+`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size emblem. It does not redraw the former letter-T mark. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
+
 ## Final assets
 
 | Saved path | Use |

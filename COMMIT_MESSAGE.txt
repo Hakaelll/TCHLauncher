@@ -1,8 +1,9 @@
-feat: add persistent launcher themes and refine Minecraft-inspired UI
+feat: add temporary UPnP mappings and fix Paper startup detection
 
-- Add End, Obsidian and Nether themes with saved selection and optional reading typography.
-- Rebuild first-server choices, align collapsed rail controls and extend pixel lettering to navigation.
-- Replace the square logo backdrop with a transparent cutout and regenerate native icons.
-- Restructure Java runtime status, actions and executable location without changing native workflows.
-- Include reviewed Minecraft/loader updates, content migration, backup retention and local automation.
-- Cover preferences, player identity and startup verification; package the Windows 0.11.0 preview.
+- Detect IPv4 IGD routers and require destination-checked confirmation before opening TCP ports.
+- Persist mapping ownership, verify and renew temporary leases, and queue cleanup after stop or exit.
+- Expose router status, expiry, removal and manual fallback guidance in the Connection panel.
+- Recognize Paper readiness with ANSI colors and keep console commands available during startup.
+- Replace the populated library's legacy cube with End artwork in grid and list layouts.
+- Embed the gold emblem in executable/installer resources and prevent the legacy icon generator from restoring the letter-T mark.
+- Cover router lifecycle and transport regressions and package the Windows 0.12.0 preview.
