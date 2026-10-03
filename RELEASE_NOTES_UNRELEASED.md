@@ -1,13 +1,19 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.15.0](RELEASE_NOTES_v0.15.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.15.1](RELEASE_NOTES_v0.15.1.md). The development history below is retained for context.
 
-## Changes after 0.15.0
+## Changes after 0.15.1
 
+- Isolate malformed NAT-PMP records and individual transport/cleanup failures so other servers still receive lease renewal and shutdown cleanup. Preserve rejected records without contacting their destinations, retain failed cleanup for retry and report errors after processing all valid records. Two new local regressions cover malformed JSON, mismatched destinations, invalid stored ports, renewal, shutdown and retry. Not included in the 0.15.1 installer; physical-router verification remains pending.
+
+## Included in 0.15.1
+
+- Fix saving standard dotted Minecraft properties, including query.port, rcon.port and rcon.password. A full-properties save regression preserves comments, query/RCON values and authentication settings while changing PvP, and rejects injected keys/values without changing the original file.
+- Verify the native exit-report path with actual Java 21 using a deliberately unsupported class followed by a successful process. Preserve stderr/log evidence, real exit codes, terminal states and separate session reports without launching Minecraft, accepting EULA or creating a world.
 - Add deterministic crash diagnostics from bounded output of the current Java process. Preserve the exit code, session identity, stop request and output-drain status in an atomic local report before publishing the terminal state. Detect known Java version, heap/native memory, bind, mod-loader and plugin-loading errors without sending logs to an external service.
 - Connect a failure review in Overview with recommendations, navigation to configuration/content/connection/console, expandable evidence and separately identified recent mod/plugin file changes. File timestamps are not presented as causal evidence. Old process reports are rejected for a new session.
 - Prevent chat, joins and genuine player commands from acquiring error tags merely because they contain error keywords. Keep real plugin errors containing command-related text classified as errors.
-- Two local diagnostic rule/persistence tests and six log/application-log tests pass; TypeScript and production build pass. Native Java crash lifecycle, keyboard/visual review and Minecraft gameplay remain unverified. These changes are not in the delivered 0.15.0 installer.
+- Two local diagnostic rule/persistence tests and six log/application-log tests pass; TypeScript and production build pass. Native Java crash lifecycle, keyboard/visual review and Minecraft gameplay remain unverified. These changes are included in the 0.15.1 hotfix. Native Minecraft/desktop verification remains pending.
 
 ## Included in 0.15.0
 

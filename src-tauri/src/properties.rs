@@ -13,7 +13,7 @@ pub fn read(path: &Path) -> Result<BTreeMap<String,String>, String> {
 
 pub fn write(path: &Path, updates: BTreeMap<String,String>) -> Result<(), String> {
     for (key,value) in &updates {
-        if key.is_empty() || key.len() > 80 || !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') || value.contains(['\r','\n']) || value.len() > 1024 {
+        if key.is_empty() || key.len() > 80 || !key.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c,'-'|'.'|'_')) || value.contains(['\r','\n']) || value.len() > 1024 {
             return Err(format!("Propiedad no válida: {key}"));
         }
         match key.as_str() {
@@ -65,6 +65,16 @@ fn check_range(key: &str, value: &str, min: u32, max: u32) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn saving_all_minecraft_properties_accepts_dotted_names_and_rejects_injection(){
+        let path=std::env::temp_dir().join(format!("tch-dotted-props-{}",uuid::Uuid::new_v4()));
+        fs::write(&path,"# Minecraft properties\nserver-port=25565\nenable-query=false\nquery.port=25565\nenable-rcon=false\nrcon.port=25575\nrcon.password=\npvp=true\nonline-mode=true\ncustom_setting=value\n").unwrap();
+        let mut updates=read(&path).unwrap();updates.insert("pvp".into(),"false".into());write(&path,updates).unwrap();
+        let saved=read(&path).unwrap();assert_eq!(saved["pvp"],"false");assert_eq!(saved["query.port"],"25565");assert_eq!(saved["rcon.port"],"25575");assert_eq!(saved["rcon.password"],"");assert_eq!(saved["online-mode"],"true");assert_eq!(saved["enable-query"],"false");assert!(fs::read_to_string(&path).unwrap().starts_with("# Minecraft properties\n"));
+        let before=fs::read(&path).unwrap();
+        for(key,value)in [("query.port\nserver-port","1"),("query.port=server-port","1"),("query.port","25565\nonline-mode=false"),("../other","value"),("query port","25565")]{assert!(write(&path,[(key.into(),value.into())].into()).is_err());assert_eq!(fs::read(&path).unwrap(),before);}
+        fs::remove_file(path).unwrap();
+    }
     #[test]
     fn preserves_unedited_properties() {
         let path = std::env::temp_dir().join(format!("tch-props-{}",uuid::Uuid::new_v4()));

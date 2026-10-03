@@ -55,20 +55,35 @@ pub fn recent_files(directory:&Path,time:i64)->Vec<ChangedFile>{
     files.sort_by(|a,b|b.modified_at.cmp(&a.modified_at).then(a.name.cmp(&b.name)));files.truncate(32);files
 }
 pub fn save(directory:&Path,report:&Report)->Result<(),String>{
+    persist(directory,report,"last-exit.json")?;
+    if report.exit_code!=Some(0){persist(directory,report,"last-failure.json")?;}
+    Ok(())
+}
+fn persist(directory:&Path,report:&Report,name:&str)->Result<(),String>{
     let folder=directory.join("launcher-logs");let meta=fs::symlink_metadata(&folder).map_err(|e|e.to_string())?;
     if !meta.is_dir()||meta.file_type().is_symlink(){return Err("La carpeta de diagnóstico no es segura".into());}
     let temporary=folder.join(format!("diagnostic-{}.part",uuid::Uuid::new_v4()));
-    let result=(||{let mut file=fs::OpenOptions::new().write(true).create_new(true).open(&temporary).map_err(|e|e.to_string())?;serde_json::to_writer(&mut file,report).map_err(|e|e.to_string())?;file.sync_all().map_err(|e|e.to_string())?;drop(file);crate::download::replace_file(&temporary,&folder.join("last-exit.json"))})();
+    let result=(||{let mut file=fs::OpenOptions::new().write(true).create_new(true).open(&temporary).map_err(|e|e.to_string())?;serde_json::to_writer(&mut file,report).map_err(|e|e.to_string())?;file.sync_all().map_err(|e|e.to_string())?;drop(file);crate::download::replace_file(&temporary,&folder.join(name))})();
     if result.is_err(){let _=fs::remove_file(&temporary);}result
 }
 pub fn load(directory:&Path,id:&str,session:&str)->Result<Option<Report>,String>{
+    read_report(directory,id,Some(session),"last-exit.json")
+}
+pub fn last_failure(directory:&Path,id:&str)->Result<Option<Report>,String>{
+    // The previous format only stored the latest exit. Preserve access on upgrade.
+    let report=match read_report(directory,id,None,"last-failure.json")?{
+        Some(report)=>Some(report),None=>read_report(directory,id,None,"last-exit.json")?,
+    };
+    Ok(report.filter(|report|report.exit_code!=Some(0)))
+}
+fn read_report(directory:&Path,id:&str,session:Option<&str>,name:&str)->Result<Option<Report>,String>{
     let folder=directory.join("launcher-logs");
     match fs::symlink_metadata(&folder){Ok(meta) if meta.is_dir()&&!meta.file_type().is_symlink()=>{},Err(error) if error.kind()==std::io::ErrorKind::NotFound=>return Ok(None),_=>return Err("La carpeta de diagnóstico no es segura".into())}
-    let path=folder.join("last-exit.json");let meta=match fs::symlink_metadata(&path){Ok(meta)=>meta,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>return Ok(None),Err(error)=>return Err(error.to_string())};
+    let path=folder.join(name);let meta=match fs::symlink_metadata(&path){Ok(meta)=>meta,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>return Ok(None),Err(error)=>return Err(error.to_string())};
     if !meta.is_file()||meta.file_type().is_symlink()||meta.len()>256_000{return Err("El diagnóstico guardado no es válido".into());}
     let mut bytes=Vec::new();fs::File::open(path).map_err(|e|e.to_string())?.take(256_001).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
     let report:Report=serde_json::from_slice(&bytes).map_err(|_|"El diagnóstico guardado no es válido")?;
-    if report.server_id!=id||report.session_id!=session{return Ok(None);}
+    if report.server_id!=id||session.is_some_and(|session|report.session_id!=session){return Ok(None);}
     if report.diagnoses.len()>6||report.recent_files.len()>32||report.diagnoses.iter().any(|value|value.evidence.len()>6||!matches!(value.action.as_str(),"settings"|"network"|"content"|"console")){return Err("El diagnóstico guardado no es válido".into());}Ok(Some(report))
 }
 
@@ -80,6 +95,20 @@ pub fn load(directory:&Path,id:&str,session:&str)->Result<Option<Report>,String>
         for(raw,kind)in [("java.lang.UnsupportedClassVersionError: Main","java_version"),("[12:00:00 WARN]: **** FAILED TO BIND TO PORT!","bind"),("Incompatible mods found!","mods"),("Error occurred while enabling Example v1","plugins")]{assert_eq!(analyze(&[raw.into()])[0].kind,kind);}
         assert_eq!(analyze(&["[12:00:00] [Server thread/INFO]: <Player> java.lang.OutOfMemoryError: Java heap space".into()])[0].kind,"unknown");
         let mut output=Output::default();for _ in 0..100{output.push(&"x".repeat(9000));}assert_eq!(output.lines().len(),64);assert_eq!(output.lines()[0].len(),2048);
+    }
+    #[test]fn last_failure_survives_successful_sessions_and_rejects_other_servers(){
+        let directory=std::env::temp_dir().join(format!("tch-diagnostic-history-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
+        let id=uuid::Uuid::new_v4().to_string();let session=uuid::Uuid::new_v4().to_string();
+        let mut report=Report{server_id:id.clone(),session_id:session.clone(),ended_at:1000,exit_code:Some(1),stop_requested:false,output_complete:true,diagnoses:analyze(&["UnsupportedClassVersionError".into()]),recent_files:Vec::new()};
+        // Read the former single-file format after a launcher restart.
+        persist(&directory,&report,"last-exit.json").unwrap();assert_eq!(last_failure(&directory,&id).unwrap().unwrap().session_id,session);
+        save(&directory,&report).unwrap();report.session_id=uuid::Uuid::new_v4().to_string();report.ended_at=2000;report.exit_code=Some(0);save(&directory,&report).unwrap();
+        assert_eq!(load(&directory,&id,&report.session_id).unwrap().unwrap().exit_code,Some(0));
+        let previous=last_failure(&directory,&id).unwrap().unwrap();assert_eq!(previous.session_id,session);assert_eq!(previous.ended_at,1000);assert_eq!(previous.diagnoses[0].kind,"java_version");assert!(last_failure(&directory,"other").unwrap().is_none());
+        report.session_id=uuid::Uuid::new_v4().to_string();report.ended_at=3000;report.exit_code=None;report.stop_requested=true;save(&directory,&report).unwrap();
+        let latest=last_failure(&directory,&id).unwrap().unwrap();assert_eq!(latest.session_id,report.session_id);assert!(latest.stop_requested);assert_eq!(latest.exit_code,None);
+        fs::write(directory.join("launcher-logs/last-failure.json"),b"broken").unwrap();assert!(last_failure(&directory,&id).is_err());
+        fs::remove_dir_all(directory).unwrap();
     }
     #[test]fn persistence_matches_the_process_session_and_keeps_recent_changes_separate(){
         let directory=std::env::temp_dir().join(format!("tch-diagnostics-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();fs::create_dir_all(directory.join("mods")).unwrap();fs::write(directory.join("mods/example.jar"),b"jar").unwrap();fs::write(directory.join("mods/config.json"),b"config").unwrap();

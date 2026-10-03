@@ -182,6 +182,7 @@ export const api = {
   detectRouter: (id:string) => invoke<RouterStatus>('detect_router',{id}),
   openRouterPort: (id:string,expectedIp:string,expectedPort:number) => invoke<RouterStatus>('open_router_port',{id,confirmed:true,expectedIp,expectedPort}),
   closeRouterPort: (id:string) => invoke<RouterStatus>('close_router_port',{id}),
+  lastCrashReport: (id:string) => invoke<CrashReport|null>('get_last_crash_report',{id}),
   crashReport: (id:string) => invoke<CrashReport|null>('get_crash_report',{id}),
   tunnelStatus: (id:string) => invoke<TunnelStatus|null>('get_tunnel_status',{id}),
   openTunnel: (id:string,expectedAddress:string) => invoke<TunnelStatus>('open_tunnel',{id,confirmed:true,expectedAddress}),

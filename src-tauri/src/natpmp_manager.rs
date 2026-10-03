@@ -29,9 +29,10 @@ fn read(row:&rusqlite::Row<'_>)->Result<Record,String>{
     let record:Record=serde_json::from_str(&payload).map_err(|_|"Registro NAT-PMP no válido")?;record.validate()?;
     if record.server_id!=row.get::<_,String>(0).map_err(|e|e.to_string())?||record.gateway.to_string()!=row.get::<_,String>(1).map_err(|e|e.to_string())?||record.local_ip.to_string()!=row.get::<_,String>(2).map_err(|e|e.to_string())?||record.internal_port!=row.get::<_,u16>(3).map_err(|e|e.to_string())?{return Err("El registro NAT-PMP no coincide con su destino".into());}Ok(record)
 }
-fn records(root:&Path)->Result<Vec<Record>,String>{
-    let db=db(root)?;let mut query=db.prepare("SELECT server_id,gateway,local_ip,port,payload FROM natpmp_mappings").map_err(|e|e.to_string())?;
-    let mut rows=query.query([]).map_err(|e|e.to_string())?;let mut result=Vec::new();while let Some(row)=rows.next().map_err(|e|e.to_string())?{result.push(read(row)?);}Ok(result)
+type StoredRecord=(String,Result<Record,String>);
+fn records(root:&Path)->Result<Vec<StoredRecord>,String>{
+    let db=db(root)?;let mut query=db.prepare("SELECT server_id,gateway,local_ip,port,payload FROM natpmp_mappings ORDER BY server_id").map_err(|e|e.to_string())?;
+    let mut rows=query.query([]).map_err(|e|e.to_string())?;let mut result=Vec::new();while let Some(row)=rows.next().map_err(|e|e.to_string())?{let id=row.get::<_,String>(0).ok().and_then(|value|uuid::Uuid::parse_str(&value).ok()).map(|id|id.to_string()).unwrap_or_else(||"invalid-record".into());result.push((id,read(row)));}Ok(result)
 }
 fn load(root:&Path,id:&str)->Result<Option<Record>,String>{
     db(root)?.query_row("SELECT server_id,gateway,local_ip,port,payload FROM natpmp_mappings WHERE server_id=?1",[id],|row|Ok(read(row))).optional().map_err(|e|e.to_string())?.transpose()
@@ -97,18 +98,49 @@ impl Manager{
         if let Some(mut record)=load(root,id)?{let transport=natpmp::Client::new(record.local_ip,record.gateway)?;close_record(root,&mut record,&transport,now())?;}Ok(())
     }
     pub fn maintain(&self,root:&Path,valid:impl Fn(&str,Ipv4Addr,u16)->bool)->Result<(),String>{
-        let Ok(_lock)=self.serial.try_lock()else{return Ok(());};let time=now();
-        for mut record in records(root)?{
-            if record.retry_at>time{continue;}
-            let transport=natpmp::Client::new(record.local_ip,record.gateway)?;
-            if record.phase!="active"||!valid(&record.server_id,record.local_ip,record.internal_port){let _=close_record(root,&mut record,&transport,time);}
-            else if time>=record.renew_at{
-                let result=renew(root,&mut record,&transport,time);
-                if result.is_err()||!valid(&record.server_id,record.local_ip,record.internal_port){let _=close_record(root,&mut record,&transport,time);}
-            }
-        }Ok(())
+        self.maintain_inner(root,valid,|record|natpmp::Client::new(record.local_ip,record.gateway),now())
     }
-    pub fn close_all(&self,root:&Path){if let Ok(records)=records(root){for record in records{let _=self.close(root,&record.server_id);}}}
+    fn maintain_inner<T:Transport>(&self,root:&Path,valid:impl Fn(&str,Ipv4Addr,u16)->bool,transport:impl Fn(&Record)->Result<T,String>,time:i64)->Result<(),String>{
+        let Ok(_lock)=self.serial.try_lock()else{return Ok(());};
+        let mut errors=Vec::new();
+        for (id,loaded) in records(root)?{
+            let result=(||{
+                let mut record=loaded?;
+                if record.retry_at>time{return Ok(());}
+                let transport=transport(&record)?;
+                if record.phase!="active"||!valid(&record.server_id,record.local_ip,record.internal_port){
+                    close_record(root,&mut record,&transport,time)?;
+                }else if time>=record.renew_at{
+                    let result=renew(root,&mut record,&transport,time);
+                    if result.is_err()||!valid(&record.server_id,record.local_ip,record.internal_port){
+                        close_record(root,&mut record,&transport,time)?;
+                    }
+                    result?;
+                }
+                Ok::<(),String>(())
+            })();
+            if let Err(error)=result{errors.push(format!("{id}: {error}"));}
+        }
+        if errors.is_empty(){Ok(())}else{Err(errors.join("; "))}
+    }
+    fn close_all_inner<T:Transport>(&self,root:&Path,transport:impl Fn(&Record)->Result<T,String>,time:i64)->Result<(),String>{
+        let _lock=self.serial.lock().map_err(|_|"La configuración NAT-PMP está ocupada")?;
+        let mut errors=Vec::new();
+        for (id,loaded) in records(root)?{
+            let result=(||{
+                let mut record=loaded?;
+                let transport=transport(&record)?;
+                close_record(root,&mut record,&transport,time)
+            })();
+            if let Err(error)=result{errors.push(format!("{id}: {error}"));}
+        }
+        if errors.is_empty(){Ok(())}else{Err(errors.join("; "))}
+    }
+    pub fn close_all(&self,root:&Path){
+        if let Err(error)=self.close_all_inner(root,|record|natpmp::Client::new(record.local_ip,record.gateway),now()){
+            eprintln!("NAT-PMP cleanup: {error}");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -120,6 +152,56 @@ mod tests{
         fn address(&self)->Result<natpmp::Address,String>{Ok(natpmp::Address{epoch:1,external_ip:Ipv4Addr::new(203,0,113,9)})}
         fn open(&self,i:u16,_:u16,_:u32)->Result<natpmp::Mapping,String>{self.opens.set(self.opens.get()+1);if self.open_failed.get(){return Err("reply lost".into());}Ok(natpmp::Mapping{epoch:1,internal_port:i,external_port:30000,lifetime_seconds:1800})}
         fn close(&self,i:u16)->Result<(),String>{assert_eq!(i,25565);self.closes.set(self.closes.get()+1);if self.close_failed.get(){Err("unreachable".into())}else{Ok(())}}
+    }
+    fn fixture_record(host:u8)->Record{
+        Record{server_id:uuid::Uuid::new_v4().to_string(),local_ip:Ipv4Addr::new(192,168,1,host),gateway:Ipv4Addr::new(192,168,1,1),internal_port:25565,external_port:Some(30000),external_ip:None,phase:"active".into(),expires_at:1_800_000,confirmed_at:Some(0),renew_at:100,retry_at:0,last_error:None}
+    }
+    fn fake()->Fake{Fake{open_failed:Cell::new(false),close_failed:Cell::new(false),opens:Cell::new(0),closes:Cell::new(0)}}
+    #[test]
+    fn corrupt_rows_do_not_block_renewal_or_shutdown_cleanup(){
+        for shutdown in [false,true]{
+            let root=std::env::temp_dir().join(format!("tch-natpmp-isolation-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+            let healthy=fixture_record(20);save(&root,&healthy,true).unwrap();
+            let malformed=fixture_record(21);save(&root,&malformed,true).unwrap();
+            let mismatched=fixture_record(22);save(&root,&mismatched,true).unwrap();
+            let invalid_port=fixture_record(23);save(&root,&invalid_port,true).unwrap();
+            let db=db(&root).unwrap();
+            db.execute("UPDATE natpmp_mappings SET payload='{' WHERE server_id=?1",[&malformed.server_id]).unwrap();
+            let mut changed=mismatched.clone();changed.internal_port=25566;
+            db.execute("UPDATE natpmp_mappings SET payload=?2 WHERE server_id=?1",params![mismatched.server_id,serde_json::to_string(&changed).unwrap()]).unwrap();
+            db.execute("UPDATE natpmp_mappings SET port=-1 WHERE server_id=?1",[&invalid_port.server_id]).unwrap();
+            let before:Vec<(String,String)>=db.prepare("SELECT server_id,payload FROM natpmp_mappings WHERE server_id!=?1 ORDER BY server_id").unwrap().query_map([&healthy.server_id],|row|Ok((row.get(0)?,row.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap();
+            let opened=Cell::new(0);let closed=Cell::new(0);let manager=Manager::default();
+            struct Counted<'a>{opened:&'a Cell<u32>,closed:&'a Cell<u32>}
+            impl Transport for Counted<'_>{
+                fn address(&self)->Result<natpmp::Address,String>{fake().address()}
+                fn open(&self,i:u16,e:u16,l:u32)->Result<natpmp::Mapping,String>{self.opened.set(self.opened.get()+1);fake().open(i,e,l)}
+                fn close(&self,i:u16)->Result<(),String>{self.closed.set(self.closed.get()+1);fake().close(i)}
+            }
+            let factory=|_:&Record|Ok(Counted{opened:&opened,closed:&closed});
+            let result=if shutdown{manager.close_all_inner(&root,factory,1000)}else{manager.maintain_inner(&root,|_,_,_|true,factory,1000)};
+            let error=result.unwrap_err();
+            for record in [&malformed,&mismatched,&invalid_port]{assert!(error.contains(&record.server_id));assert!(load(&root,&record.server_id).is_err());}
+            assert_eq!(opened.get(),u32::from(!shutdown));assert_eq!(closed.get(),u32::from(shutdown));
+            if shutdown{assert!(load(&root,&healthy.server_id).unwrap().is_none());}else{assert_eq!(load(&root,&healthy.server_id).unwrap().unwrap().confirmed_at,Some(1000));}
+            let after:Vec<(String,String)>=db.prepare("SELECT server_id,payload FROM natpmp_mappings WHERE server_id!=?1 ORDER BY server_id").unwrap().query_map([&healthy.server_id],|row|Ok((row.get(0)?,row.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap();assert_eq!(before,after);
+            drop(db);fs::remove_dir_all(root).unwrap();
+        }
+    }
+    #[test]
+    fn failed_transport_does_not_prevent_other_cleanup_or_discard_retry(){
+        let root=std::env::temp_dir().join(format!("tch-natpmp-retry-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+        let failed=fixture_record(24);save(&root,&failed,true).unwrap();let healthy=fixture_record(20);save(&root,&healthy,true).unwrap();
+        let manager=Manager::default();
+        let error=manager.maintain_inner(&root,|_,_,_|false,|record|{
+            let transport=fake();transport.close_failed.set(record.server_id==failed.server_id);Ok(transport)
+        },1000).unwrap_err();assert!(error.contains(&failed.server_id));
+        assert!(load(&root,&healthy.server_id).unwrap().is_none());let retry=load(&root,&failed.server_id).unwrap().unwrap();assert_eq!(retry.phase,"attention");assert_eq!(retry.retry_at,16000);
+        save(&root,&healthy,true).unwrap();
+        assert!(manager.close_all_inner(&root,|record|if record.server_id==failed.server_id{Err("unreachable".into())}else{Ok(fake())},2000).is_err());
+        assert!(load(&root,&failed.server_id).unwrap().is_some());assert!(load(&root,&healthy.server_id).unwrap().is_none());
+        manager.maintain_inner(&root,|_,_,_|false,|_|Ok(fake()),16000).unwrap();assert!(load(&root,&failed.server_id).unwrap().is_none());
+        fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn durable_lease_cleanup_survives_lost_replies_and_retains_the_assigned_port(){
