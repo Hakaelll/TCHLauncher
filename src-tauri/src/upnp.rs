@@ -726,6 +726,8 @@ mod tests {
                         Err(error)=>panic!("fixture did not receive request: {error}"),
                     }
                 };
+                // Accepted sockets can inherit the listener's nonblocking mode on Windows.
+                stream.set_nonblocking(false).unwrap();
                 stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                 stream.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
                 let mut request=Vec::new();let mut chunk=[0;2048];

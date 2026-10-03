@@ -48,6 +48,7 @@ The NSIS x64 installer and SHA-256 checksum are generated in
 `src-tauri/target/release/bundle/nsis/`. Install this preview to test the above changes;
 the previous 0.11.0 installer does not contain them.
 
-- Installer: `TCHLauncher_0.12.0_x64-setup.exe` (5.64 MiB, 5,914,554 bytes).
+- Installer: `TCHLauncher_0.12.0_x64-setup.exe` (5.76 MiB, 6,038,736 bytes), rebuilt with explicit Windows installer/uninstaller icons.
 - Native application product/file version: `0.12.0`.
-- SHA-256: `1ee73fa06d81d3ca60483fe31c791e3e7061dbf4fa494f8176e4073ccb1302e4`.
+- SHA-256: `d8b467401165b00ed67fbcda0307e2116119711c60281cdcfcc19d7173fdc34a`.
+- Small and large embedded application/installer icons match `icons/icon.ico` pixel for pixel using `scripts/verify_windows_icons.ps1`.

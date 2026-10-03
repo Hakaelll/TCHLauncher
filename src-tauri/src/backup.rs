@@ -68,11 +68,55 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn create(root: &Path, server_id: &str) -> Result<Backup, String> {
-    create_preserving(root,server_id,&[])
+fn copy_tree_tracked(from:&Path,to:&Path,task:&crate::download::DownloadTask,label:&str)->Result<(),String>{
+    use std::io::{Read,Write};
+    let mut total=0u64;
+    for entry in WalkDir::new(from){
+        task.cancellation.check()?;
+        let entry=entry.map_err(|e|e.to_string())?;
+        if entry.file_type().is_symlink(){return Err("Los enlaces simbólicos no se copian por seguridad".into());}
+        if entry.file_type().is_file(){total=total.checked_add(entry.metadata().map_err(|e|e.to_string())?.len()).ok_or("La copia supera el tamaño admitido")?;}
+    }
+    let mut received=0u64;let began=std::time::Instant::now();let mut last=began;
+    let expected=if total>0{Some(total)}else{None};
+    task.progress(label,"copying",0,expected,None,1,None);
+    let mut buffer=vec![0u8;256*1024];
+    for entry in WalkDir::new(from){
+        task.cancellation.check()?;
+        let entry=entry.map_err(|e|e.to_string())?;
+        if entry.file_type().is_symlink(){return Err("Los enlaces simbólicos no se copian por seguridad".into());}
+        let relative=entry.path().strip_prefix(from).map_err(|e|e.to_string())?;let dest=to.join(relative);
+        if entry.file_type().is_dir(){fs::create_dir_all(dest).map_err(|e|e.to_string())?;}
+        else if entry.file_type().is_file(){
+            let mut source=fs::File::open(entry.path()).map_err(|e|e.to_string())?;
+            let mut target=fs::File::create(&dest).map_err(|e|e.to_string())?;
+            loop{
+                task.cancellation.check()?;
+                let count=source.read(&mut buffer).map_err(|e|e.to_string())?;if count==0{break;}
+                target.write_all(&buffer[..count]).map_err(|e|e.to_string())?;
+                received=received.checked_add(count as u64).ok_or("La copia supera el tamaño admitido")?;
+                if received>total{return Err("Los archivos cambiaron durante la copia. Vuelve a intentarlo.".into());}
+                if last.elapsed()>=std::time::Duration::from_millis(100){task.progress(label,"copying",received,expected,Some(received as f64/began.elapsed().as_secs_f64()),1,None);last=std::time::Instant::now();}
+            }
+            target.sync_all().map_err(|e|e.to_string())?;
+            fs::set_permissions(&dest,source.metadata().map_err(|e|e.to_string())?.permissions()).map_err(|e|e.to_string())?;
+        }
+    }
+    if received!=total{return Err("Los archivos cambiaron durante la copia. Vuelve a intentarlo.".into());}
+    task.progress(label,"copying",received,expected,None,1,None);
+    Ok(())
 }
 
-fn create_preserving(root:&Path,server_id:&str,protected:&[String])->Result<Backup,String> {
+pub fn create(root: &Path, server_id: &str) -> Result<Backup, String> {
+    create_preserving(root,server_id,&[],None)
+}
+
+pub fn create_tracked(root:&Path,server_id:&str,task:&crate::download::DownloadTask)->Result<Backup,String>{
+    create_preserving(root,server_id,&[],Some(task))
+}
+
+fn create_preserving(root:&Path,server_id:&str,protected:&[String],task:Option<&crate::download::DownloadTask>)->Result<Backup,String> {
+    if let Some(task)=task{task.cancellation.check()?;task.report("Revisando archivos de la copia","preparing");}
     crate::backup_retention::recover(root,server_id)?;
     let server = storage::get(root,server_id)?;
     let metadata=snapshot(root,&server)?;
@@ -86,7 +130,7 @@ fn create_preserving(root:&Path,server_id:&str,protected:&[String])->Result<Back
     let stage = base.join(format!(".{id}.part"));
     let target = base.join(&id);
     let result:Result<Backup,String> = (|| {
-        copy_tree(&source, &stage)?;
+        if let Some(task)=task{copy_tree_tracked(&source,&stage,task,if task.is_restore(){"Copia de seguridad antes de restaurar"}else{"Copiando archivos del servidor"})?;task.begin_publication("Guardando copia y aplicando retención")?;}else{copy_tree(&source,&stage)?;}
         fs::write(stage.join(SNAPSHOT),serde_json::to_vec_pretty(&metadata).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
         fs::rename(&stage,&target).map_err(|e| e.to_string())?;
         let backup = Backup {id,server_id:server_id.into(),created_at:chrono::Utc::now().to_rfc3339(),size_bytes:size(&target),path:target.to_string_lossy().into(),retention_warning:None};
@@ -105,6 +149,15 @@ fn create_preserving(root:&Path,server_id:&str,protected:&[String])->Result<Back
 }
 
 pub fn restore(root: &Path, server_id: &str, backup_id: &str) -> Result<(), String> {
+    restore_inner(root,server_id,backup_id,None)
+}
+
+pub fn restore_tracked(root:&Path,server_id:&str,backup_id:&str,task:&crate::download::DownloadTask)->Result<(),String>{
+    restore_inner(root,server_id,backup_id,Some(task))
+}
+
+fn restore_inner(root:&Path,server_id:&str,backup_id:&str,task:Option<&crate::download::DownloadTask>)->Result<(),String>{
+    if let Some(task)=task{task.cancellation.check()?;task.report("Revisando copia para restaurar","preparing");}
     recover_restore(root,server_id)?;
     let server = storage::get(root,server_id)?;
     let source = storage::backup_path(root,server_id,backup_id)?;
@@ -117,11 +170,14 @@ pub fn restore(root: &Path, server_id: &str, backup_id: &str) -> Result<(), Stri
         let file=source.join(relative).canonicalize().map_err(|_|"El backup no incluye su archivo de arranque. Revisa la copia seleccionada.")?;
         if !file.starts_with(source.canonicalize().map_err(|e|e.to_string())?) {return Err("El arranque del backup sale de su carpeta".into());}
     }
-    create_preserving(root,server_id,&[backup_id.to_owned()])?;
+    create_preserving(root,server_id,&[backup_id.to_owned()],task)?;
+    if let Some(task)=task{task.report("Preparando archivos de la restauración","preparing");task.cancellation.check()?;}
     let (target,stage,previous,journal)=restore_paths(root,&server)?;
     let token=Uuid::new_v4().to_string();
     let result=(||->Result<(),String>{
-        copy_tree(&source,&stage)?;fs::remove_file(stage.join(SNAPSHOT)).or_else(|e|if e.kind()==std::io::ErrorKind::NotFound {Ok(())}else{Err(e)}).map_err(|e|e.to_string())?;
+        if let Some(task)=task{copy_tree_tracked(&source,&stage,task,"Restaurando archivos de la copia")?;}else{copy_tree(&source,&stage)?;}
+        fs::remove_file(stage.join(SNAPSHOT)).or_else(|e|if e.kind()==std::io::ErrorKind::NotFound {Ok(())}else{Err(e)}).map_err(|e|e.to_string())?;
+        if let Some(task)=task{task.begin_publication("Aplicando restauración y configuración")?;}
         let pending=stage.join(".tch-restore.pending");let mut file=fs::File::create(&pending).map_err(|e|e.to_string())?;
         use std::io::Write;file.write_all(token.as_bytes()).map_err(|e|e.to_string())?;file.sync_all().map_err(|e|e.to_string())?;drop(file);fs::rename(pending,&journal).map_err(|e|e.to_string())?;
         fs::rename(&target,&previous).map_err(|e|e.to_string())?;fs::rename(&stage,&target).map_err(|e|e.to_string())?;
@@ -200,6 +256,54 @@ mod tests {
         let root=std::env::temp_dir().join(format!("tch-backup-metadata-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
         let server=storage::create(&root,crate::model::CreateServer{name:"Backup".into(),version:"1.21.4".into(),platform:"fabric".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();
         (Library(root),server)
+    }
+    #[test]
+    fn tracked_backup_reports_real_bytes_before_publication(){
+        let (root,server)=fixture();let source=Path::new(&server.directory);
+        fs::write(source.join("large.bin"),vec![42u8;600_000]).unwrap();
+        let expected=size(source);let events=std::sync::Arc::new(std::sync::Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
+        let task=crate::download::DownloadTask::new(&server.id,"backup",move|event|capture.lock().unwrap().push(event)).unwrap();
+        let saved=create_tracked(&root.0,&server.id,&task).unwrap();
+        assert_eq!(fs::read(Path::new(&saved.path).join("large.bin")).unwrap(),vec![42u8;600_000]);
+        assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),1);
+        let events=events.lock().unwrap();let measured=events.iter().filter(|event|event.stage=="copying").last().unwrap();
+        assert_eq!(measured.received,expected);assert_eq!(measured.total,Some(expected));assert_eq!(events.last().unwrap().stage,"publishing");
+    }
+    #[test]
+    fn cancelled_tracked_backup_never_publishes_or_changes_source(){
+        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("keep.bin"),vec![7u8;600_000]).unwrap();
+        let slot=std::sync::Arc::new(std::sync::Mutex::new(None::<std::sync::Arc<crate::download::Cancellation>>));let capture=slot.clone();
+        let task=crate::download::DownloadTask::new(&server.id,"backup",move|event|{if event.stage=="copying"&&event.received>0{capture.lock().unwrap().as_ref().unwrap().cancel();}}).unwrap();
+        *slot.lock().unwrap()=Some(task.cancellation.clone());
+        assert_eq!(create_tracked(&root.0,&server.id,&task).err().unwrap(),crate::download::CANCELLED);
+        assert!(storage::list_backups(&root.0,&server.id).unwrap().is_empty());
+        assert_eq!(fs::read(source.join("keep.bin")).unwrap(),vec![7u8;600_000]);
+        assert_eq!(fs::read_dir(backup_base(&root.0,&server.id).unwrap()).unwrap().count(),0);
+    }
+    #[test]
+    fn tracked_restore_measures_safety_copy_and_restore_separately(){
+        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("value.bin"),vec![3u8;500_000]).unwrap();
+        let saved=create(&root.0,&server.id).unwrap();fs::write(source.join("value.bin"),vec![5u8;600_000]).unwrap();
+        let current_size=size(source);let saved_size=size(Path::new(&saved.path));
+        let events=std::sync::Arc::new(std::sync::Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
+        let task=crate::download::DownloadTask::new(&server.id,"restore",move|event|capture.lock().unwrap().push(event)).unwrap();
+        restore_tracked(&root.0,&server.id,&saved.id,&task).unwrap();
+        assert_eq!(fs::read(source.join("value.bin")).unwrap(),vec![3u8;500_000]);assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),2);
+        let events=events.lock().unwrap();
+        let safety=events.iter().filter(|event|event.label=="Copia de seguridad antes de restaurar").last().unwrap();assert_eq!(safety.received,current_size);assert_eq!(safety.total,Some(current_size));
+        let restored=events.iter().filter(|event|event.label=="Restaurando archivos de la copia").last().unwrap();assert_eq!(restored.received,saved_size);assert_eq!(restored.total,Some(saved_size));
+        assert_eq!(events.iter().filter(|event|event.stage=="publishing").count(),2);
+    }
+    #[test]
+    fn tracked_restore_cancelled_before_publication_preserves_current_server_and_safety_copy(){
+        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("value.bin"),vec![3u8;500_000]).unwrap();
+        let saved=create(&root.0,&server.id).unwrap();fs::write(source.join("value.bin"),vec![5u8;600_000]).unwrap();
+        let slot=std::sync::Arc::new(std::sync::Mutex::new(None::<std::sync::Arc<crate::download::Cancellation>>));let capture=slot.clone();
+        let task=crate::download::DownloadTask::new(&server.id,"restore",move|event|{if event.label=="Restaurando archivos de la copia"&&event.received>0{capture.lock().unwrap().as_ref().unwrap().cancel();}}).unwrap();
+        *slot.lock().unwrap()=Some(task.cancellation.clone());
+        assert_eq!(restore_tracked(&root.0,&server.id,&saved.id,&task).unwrap_err(),crate::download::CANCELLED);
+        assert_eq!(fs::read(source.join("value.bin")).unwrap(),vec![5u8;600_000]);assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),2);
+        assert!(Path::new(&saved.path).is_dir());let (_,stage,previous,journal)=restore_paths(&root.0,&server).unwrap();assert!(!stage.exists());assert!(!previous.exists());assert!(!journal.exists());
     }
     #[test]
     fn restore_rebases_snapshot_launcher_version_capacity_and_jvm() {

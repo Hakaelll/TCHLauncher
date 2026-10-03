@@ -1,8 +1,8 @@
 export const themeIds = ['end', 'obsidian', 'nether'] as const
 export type ThemeId = typeof themeIds[number]
-export type Appearance = { theme: ThemeId; font: 'minecraft' | 'reading' }
+export type Appearance = { theme: ThemeId; font: 'minecraft' | 'reading'; motion: 'system' | 'reduced' }
 export const appearanceKey = 'tch-appearance-v1'
-export const defaultAppearance: Appearance = { theme: 'end', font: 'minecraft' }
+export const defaultAppearance: Appearance = { theme: 'end', font: 'minecraft', motion: 'system' }
 
 export function parseAppearance(raw: string | null): Appearance {
   try {
@@ -12,6 +12,7 @@ export function parseAppearance(raw: string | null): Appearance {
     return {
       theme: themeIds.includes(prefs.theme as ThemeId) ? prefs.theme as ThemeId : defaultAppearance.theme,
       font: prefs.font === 'reading' ? 'reading' : 'minecraft',
+      motion: prefs.motion === 'reduced' ? 'reduced' : 'system',
     }
   } catch { return { ...defaultAppearance } }
 }
@@ -34,4 +35,5 @@ export function browserPreferenceStorage(): Storage | null {
 export function applyAppearance(value: Appearance, root: HTMLElement = document.documentElement): void {
   root.dataset.theme = value.theme
   root.dataset.font = value.font
+  root.dataset.motion = value.motion ?? 'system'
 }

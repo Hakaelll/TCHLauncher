@@ -25,7 +25,7 @@ export type Server = {
   imageData: string | null
 }
 export type Version = { id: string; kind: string }
-export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install' | 'pack_install' | 'loader_update' | 'minecraft_update'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
+export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install' | 'pack_install' | 'loader_update' | 'minecraft_update' | 'backup' | 'restore'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'copying' | 'publishing' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
 export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null;requiredMajor:number|null;compatibility:'unknown'|'compatible'|'incompatible'}
 export type JvmSettings = {mode:'recommended'|'custom';arguments:string}
 export type JvmPreview = {arguments:string[];installed:boolean}
@@ -79,6 +79,7 @@ export type PackInspection = {path: string; archiveSha512: string; name: string;
 export type LoaderReview = {current:string;available:string[];fingerprint:string}
 export type MinecraftReview = {currentMinecraft:string;targetMinecraft:string;platform:string;currentLoader:string|null;targetLoader:string|null;javaMajor:number;javaAction:'retain_configured'|'prepare_managed';content:{title:string;filename:string;status:'compatible'|'incompatible'|'unknown'|'update';reason:string}[];changes:ContentReview['changes'];migration:ContentPlan|null;blockers:string[];warnings:string[];fingerprint:string}
 export const api = {
+  installationProgress: () => invoke<Progress[]>('get_installation_progress'),
   minecraftReview: (id:string,target:string) => invoke<MinecraftReview>('review_minecraft_update',{id,target}),
   updateMinecraft: (id:string,target:string,fingerprint:string,confirmedWarnings:boolean) => invoke<string|null>('update_minecraft',{id,target,fingerprint,confirmedWarnings}),
   loaderReview: (id:string) => invoke<LoaderReview>('review_loader_update',{id}),
@@ -163,6 +164,7 @@ export const api = {
   systemMemory: () => invoke<number>('system_memory'),
   networkStatus: (id: string) => invoke<NetworkSnapshot>('get_network_status', { id }),
   publicIp: () => invoke<string>('get_public_ip'),
+  openApplicationLogs: () => invoke<void>('open_application_logs'),
   routerStatus: (id:string) => invoke<RouterStatus>('get_router_status',{id}),
   detectRouter: (id:string) => invoke<RouterStatus>('detect_router',{id}),
   openRouterPort: (id:string,expectedIp:string,expectedPort:number) => invoke<RouterStatus>('open_router_port',{id,confirmed:true,expectedIp,expectedPort}),

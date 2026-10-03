@@ -47,6 +47,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
     automaticScroll.current=true
     const began=performance.now()
     const tick=(now:number)=>{
+      if(reducedMotion()){element.scrollTop=target;automaticScroll.current=false;return}
       const progress=Math.min(1,(now-began)/motion.interaction)
       element.scrollTop=start+(target-start)*(1-(1-progress)**3)
       if(progress<1)scrollFrame.current=requestAnimationFrame(tick)

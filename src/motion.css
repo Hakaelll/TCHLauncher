@@ -24,3 +24,4 @@ details[open]::details-content { block-size:auto; }
 @keyframes notice-enter { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
 @keyframes status-working { 50% { opacity:.4; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after,details::details-content { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+html[data-motion="reduced"] *,html[data-motion="reduced"] *::before,html[data-motion="reduced"] *::after,html[data-motion="reduced"] details::details-content { animation:none!important; transition:none!important; scroll-behavior:auto!important; }

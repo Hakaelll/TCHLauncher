@@ -1,4 +1,5 @@
-import type { CSSProperties } from 'react'
+import {useState,type CSSProperties} from 'react'
+import {api} from './api'
 import type { Appearance, ThemeId } from './appearance'
 import launcherEmblem from './assets/launcher-logo.png'
 
@@ -9,6 +10,13 @@ const themes: { id: ThemeId; name: string; description: string; paper: string; s
 ]
 
 export function AppearanceSettings({ value, saved, onChange }: { value: Appearance; saved: boolean; onChange: (value: Appearance) => void }) {
+  const [openingLogs,setOpeningLogs]=useState(false)
+  const [logError,setLogError]=useState<string|null>(null)
+  const openLogs=async()=>{
+    if(openingLogs)return
+    setOpeningLogs(true);setLogError(null)
+    try{await api.openApplicationLogs()}catch(error){setLogError(error instanceof Error?error.message:String(error))}finally{setOpeningLogs(false)}
+  }
   return <section className="appearance-settings" aria-labelledby="appearance-title">
     <header className="appearance-heading"><h1 id="appearance-title">Ajustes</h1><p>Haz tuyo el launcher.</p></header>
     <fieldset className="theme-picker"><legend>Tema</legend><p className="preference-help">Elige una apariencia. El cambio se aplica al momento.</p>
@@ -23,6 +31,9 @@ export function AppearanceSettings({ value, saved, onChange }: { value: Appearan
       <label><input type="radio" name="launcher-font" checked={value.font === 'minecraft'} onChange={() => onChange({ ...value, font: 'minecraft' })}/><span><strong>Minecraft</strong><span className="font-example minecraft">Mi servidor</span></span></label>
       <label><input type="radio" name="launcher-font" checked={value.font === 'reading'} onChange={() => onChange({ ...value, font: 'reading' })}/><span><strong>Lectura</strong><span className="font-example reading">Mi servidor</span></span></label>
     </div></fieldset>
+    <section className="preference-diagnostics" aria-labelledby="motion-title"><h2 id="motion-title">Movimiento</h2><label className="motion-preference"><input type="checkbox" checked={value.motion==='reduced'} onChange={event=>onChange({...value,motion:event.target.checked?'reduced':'system'})}/><span>Reducir animaciones</span></label><p>Evita desplazamientos animados y transiciones. La preferencia de movimiento reducido del sistema siempre se respeta.</p></section>
     <p className={`preference-save ${saved ? '' : 'failed'}`} role="status">{saved ? 'Los cambios se guardan automáticamente en este equipo.' : 'El cambio está aplicado, pero no se pudo guardar. Comprueba el almacenamiento de la aplicación antes de cerrarla.'}</p>
+    <section className="preference-diagnostics" aria-labelledby="diagnostics-title"><h2 id="diagnostics-title">Diagnóstico</h2><p>Logs del launcher con inicio, cierre y estados de los servidores. Se conservan el registro actual y uno anterior, hasta 2 MB cada uno. La consola de Minecraft se consulta en su servidor.</p><button disabled={openingLogs} onClick={()=>void openLogs()}>{openingLogs?'Abriendo…':'Abrir logs de la aplicación'}</button>{logError&&<p className="form-error" role="alert">{logError}</p>}</section>
+    <section className="preference-diagnostics" aria-labelledby="shortcuts-title"><h2 id="shortcuts-title">Atajos</h2><dl className="data-list"><div><dt>Buscar acciones y servidores</dt><dd><kbd>Ctrl + K</kbd></dd></div><div><dt>Nuevo servidor</dt><dd><kbd>Ctrl + N</kbd></dd></div><div><dt>Buscar en la vista actual</dt><dd><kbd>Ctrl + F</kbd></dd></div></dl></section>
   </section>
 }

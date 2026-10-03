@@ -142,7 +142,7 @@ pub fn update(root:&Path,id:&str,target:&str,expected:&str,confirmed_warnings:bo
     if !reviewed.warnings.is_empty()&&!confirmed_warnings{return Err("Confirma los avisos de compatibilidad y conversión del mundo antes de actualizar".into());}
     task.cancellation.check()?;
     task.report("Guardando copia antes de cambiar Minecraft","preparing");
-    let backup=crate::backup::create(root,id)?;
+    let backup=crate::backup::create_tracked(root,id,task)?;
     task.cancellation.check()?;
     let (directory,stage,_,_)=crate::instance_publication::paths(root,&before)?;
     let result=(||->Result<(),String>{

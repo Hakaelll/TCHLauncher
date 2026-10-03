@@ -107,7 +107,7 @@ pub fn update(root:&Path,id:&str,target:&str,fingerprint:&str,task:&DownloadTask
     let server=storage::get(root,id)?;recover(root,&server)?;
     let review=review(&server,task)?;
     if review.fingerprint!=fingerprint||!review.available.iter().any(|value|value==target){return Err("La instalación o el catálogo cambiaron. Revisa la actualización de nuevo.".into());}
-    task.cancellation.check()?;task.report("Guardando copia antes de actualizar","preparing");let backup=crate::backup::create(root,id)?;
+    task.cancellation.check()?;task.report("Guardando copia antes de actualizar","preparing");let backup=crate::backup::create_tracked(root,id,task)?;
     let (stage,_)=paths(root,&server)?;fs::create_dir(&stage).map_err(|e|e.to_string())?;
     let result=(||->Result<(),String>{let mut staged=server.clone();staged.directory=stage.to_string_lossy().into();staged.jar_path=None;let jar=crate::install::prepare_loader_update(root,&staged,task,target)?;task.cancellation.check()?;publish(root,&server,&jar)})();
     if result.is_err(){recover(root,&storage::get(root,id)?)?;}result?;Ok(backup.retention_warning)

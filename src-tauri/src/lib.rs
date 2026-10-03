@@ -1,5 +1,7 @@
 mod backup;
+mod app_log;
 mod backup_retention;
+mod file_tasks;
 mod scheduler;
 mod crash_restart;
 mod autostart;
@@ -105,7 +107,7 @@ impl Engine {
 fn list_servers(engine: State<'_, Engine>) -> Result<Vec<Server>, String> {
     let mut servers = storage::list(&engine.root)?;
     let installations = engine.installations.lock().map_err(|e| e.to_string())?;
-    for server in &mut servers { server.state = if installations.contains_key(&server.id) { "installing".into() } else {engine.processes.state(&server.id)}; }
+    for server in &mut servers { server.state = if installations.get(&server.id).is_some_and(|task|!task.is_file_operation()) { "installing".into() } else {engine.processes.state(&server.id)}; }
     Ok(servers)
 }
 
@@ -401,8 +403,13 @@ async fn run_install(app: AppHandle, engine: State<'_, Engine>, id: String,runti
 fn cancel_install(engine: State<'_, Engine>, id: String, task_id: String) -> Result<bool,String> {
     let jobs = engine.installations.lock().map_err(|e| e.to_string())?;
     let Some(task) = jobs.get(&id).filter(|task| task.id == task_id) else { return Ok(false); };
-    task.cancellation.cancel();
-    Ok(true)
+    Ok(task.request_cancel())
+}
+
+#[tauri::command]
+fn get_installation_progress(engine:State<'_,Engine>)->Result<Vec<model::Progress>,String>{
+    let jobs=engine.installations.lock().map_err(|_|"No se pudieron consultar las tareas".to_string())?;
+    jobs.values().map(|task|task.snapshot()).collect()
 }
 
 #[tauri::command]
@@ -552,13 +559,12 @@ fn save_storage_target(engine: State<'_, Engine>, id: String, gb: u32) -> Result
 }
 
 #[tauri::command]
-async fn create_backup(engine: State<'_, Engine>, id: String) -> Result<Backup, String> {
-    let guard = engine.reserve_stopped(&id)?;
+async fn create_backup(app:AppHandle,engine: State<'_, Engine>, id: String) -> Result<Backup, String> {
+    let _guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let _guard = guard;
-        backup::create(&root,&id)
-    }).await.map_err(|e| e.to_string())?
+    let jobs=engine.installations.clone();let emitter=app.clone();
+    tauri::async_runtime::spawn_blocking(move ||file_tasks::create_backup(&root,&id,&jobs,move|progress|{let _=emitter.emit("install-progress",progress);}))
+        .await.unwrap_or_else(|error|Err(format!("La copia se interrumpió: {error}")))
 }
 
 #[tauri::command]
@@ -588,14 +594,18 @@ fn list_backups(engine: State<'_, Engine>, id: String) -> Result<Vec<Backup>, St
 }
 
 #[tauri::command]
-async fn restore_backup(engine: State<'_, Engine>, id: String, backup_id: String) -> Result<(), String> {
-    let guard = engine.reserve_stopped(&id)?;
+async fn restore_backup(app:AppHandle,engine: State<'_, Engine>, id: String, backup_id: String) -> Result<(), String> {
+    let _guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
     let restored_id = id.clone();
+    let emitter=app.clone();let task=Arc::new(download::DownloadTask::new(&id,"restore",move|progress|{let _=emitter.emit("install-progress",progress);})?);
+    engine.installations.lock().map_err(|e|e.to_string())?.insert(id.clone(),task.clone());
+    let worker=task.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let _guard = guard;
-        backup::restore(&root,&restored_id,&backup_id)
-    }).await.map_err(|e| e.to_string())?;
+        backup::restore_tracked(&root,&restored_id,&backup_id,&worker)
+    }).await.unwrap_or_else(|error|Err(format!("La restauración se interrumpió: {error}")));
+    task.finish(&result);
+    engine.installations.lock().map_err(|e|e.to_string())?.remove(&id);
     if result.is_ok() { engine.invalidate_size(&id); }
     result
 }
@@ -728,6 +738,12 @@ async fn get_public_ip() -> Result<String, String> {
         .await.map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+async fn open_application_logs(engine:State<'_,Engine>)->Result<(),String> {
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move||app_log::open(&root)).await.map_err(|error|error.to_string())?
+}
+
 fn router_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Result<(std::net::Ipv4Addr,u16),String> {
     if processes.state(id)!="running" {return Err("Inicia el servidor antes de abrir su puerto en el router".into());}
     let server=storage::get(root,id)?;
@@ -793,7 +809,7 @@ fn start_router_maintenance(app:AppHandle) {
             engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
             && router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))) {
             Ok(changed)=>{for id in changed {let _=app.emit("router-state",id);}},
-            Err(error)=>eprintln!("Router maintenance: {error}"),
+            Err(error)=>{app_log::record(&engine.root,app_log::Event::RouterMaintenanceFailed,None);eprintln!("Router maintenance: {error}");},
         }
     });
 }
@@ -904,13 +920,14 @@ fn execute_scheduled(app:&AppHandle,task:&scheduler::Task)->Result<String,String
         "restart"|"backup_restart"=>{
             if task.action=="restart"&&!active{return Err("No se reinició: el servidor estaba detenido".into());}
             if active {engine.processes.stop(id,app.clone())?;wait_scheduled_stop(&engine,id)?;}
-            let copy=if task.action=="backup_restart" {Some(backup::create(&engine.root,id))}else{None};
+            let copy=if task.action=="backup_restart" {let emitter=app.clone();Some(file_tasks::create_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}))}else{None};
             // Resume a server explicitly stopped for a backup even if copying
             // failed. Report both failures if its restart also fails.
             let resumed=if active {engine.start_prepared(id,app.clone())}else{Ok(())};
             match (copy,resumed) {
                 (Some(Err(copy)),Err(start))=>Err(format!("Copia: {copy}. Reinicio: {start}")),
-                (Some(Err(copy)),Ok(()))=>Err(format!("Copia: {copy}. Inicio solicitado de nuevo.")),
+                (Some(Err(copy)),Ok(())) if copy==download::CANCELLED=>Ok(if active{"Copia cancelada; inicio solicitado".into()}else{"Copia cancelada; servidor detenido".into()}),
+                (Some(Err(copy)),Ok(()))=>Err(format!("Copia: {copy}. {}",if active{"Inicio solicitado de nuevo."}else{"El servidor permanece detenido."})),
                 (_,Err(start))=>Err(format!("No se pudo volver a iniciar: {start}")),
                 (Some(Ok(copy)),Ok(()))=>Ok(copy.retention_warning.unwrap_or_else(||if active{"Copia guardada; inicio solicitado".into()}else{"Copia guardada".into()})),
                 (None,Ok(()))=>Ok("Reinicio solicitado".into()),
@@ -918,7 +935,10 @@ fn execute_scheduled(app:&AppHandle,task:&scheduler::Task)->Result<String,String
         },
         "backup"=>{
             if active{return Err("Copia omitida: el servidor estaba en ejecución. Usa «Copia con parada y reinicio» si permites una interrupción.".into());}
-            let copy=backup::create(&engine.root,id)?;
+            let emitter=app.clone();let copy=match file_tasks::create_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}){
+                Err(error) if error==download::CANCELLED=>return Ok("Copia cancelada; servidor detenido".into()),
+                value=>value?,
+            };
             Ok(copy.retention_warning.unwrap_or_else(||"Copia guardada".into()))
         },
         _=>Err("Acción programada no válida".into()),
@@ -1030,6 +1050,7 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             std::fs::create_dir_all(&root)?;
             let instance_lock=scheduler::exclusive_owner(&root).map_err(std::io::Error::other)?;
+            app_log::record(&root,app_log::Event::ApplicationStarted,None);
             storage::connect(&root).map_err(std::io::Error::other)?;
             instance_publication::recover_all(&root).map_err(std::io::Error::other)?;
             backup::recover_all(&root).map_err(std::io::Error::other)?;
@@ -1079,7 +1100,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {
@@ -1090,6 +1111,7 @@ pub fn run() {
                 api.prevent_exit();
                 if engine.router_shutdown.compare_exchange(0,1,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok() {
                     engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
+                    app_log::record(&engine.root,app_log::Event::ApplicationStopping,None);
                     let router=engine.router.clone();let root=engine.root.clone();let shutdown=engine.router_shutdown.clone();
                     let app=app.clone();
                     std::thread::spawn(move||{

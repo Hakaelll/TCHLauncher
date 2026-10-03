@@ -1,4 +1,4 @@
-# TCHLauncher - End / Obsidian visual system (0.12.0)
+# TCHLauncher - End / Obsidian visual system (0.13.0)
 
 ## Authority and use
 
@@ -7,7 +7,9 @@ dark gray surfaces, End-like violet accents, Minecraft lettering and Minehut-lik
 rectangular controls. This is an operating desktop application for real local
 servers. Explicit user requests outrank previous design decisions.
 
-One collapsible server rail remains. Server sections belong to a horizontal,
+One server rail stays compact by default and expands on hover or keyboard focus.
+It opens over the workspace without shifting content or icon targets; no manual
+collapse button remains. Context menus keep it open until dismissed. Server sections belong to a horizontal,
 wrapping workspace bar. There is no repeated server-image banner. The user reviews
 native appearance manually; no computer use or delegated agents are used.
 
@@ -44,7 +46,10 @@ Rectangular controls have a raised upper edge and recessed lower edge. Resting
 controls are quiet; hover/focus illuminate them from the selected theme. The section
 bar uses the same raised selected treatment and one moving indicator. Primary
 controls avoid constant glow and pill geometry. Destructive controls remain coral.
-Collapsed rail actions share a 42px square hit area; expanded actions include labels.
+Compact rail actions use bare icons with a 44px-high hit area, without resting
+rectangular frames. Hover and selected states use the theme's violet wash. Labels
+fade and slide into the expanded rail while its width eases over 240ms; reduced
+motion removes the transition. Expanded actions include labels.
 
 ## Composition
 

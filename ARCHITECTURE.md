@@ -1,5 +1,9 @@
 # Arquitectura
 
+## Diagnóstico interno
+
+`app_log.rs` escribe eventos definidos del launcher en `application-logs/launcher.jsonl`, con fecha, nivel, versión y UUID opcional validado. No admite mensajes arbitrarios: la consola de Minecraft, comandos, jugadores y credenciales permanecen fuera de estos registros. Los estados reales de proceso, inicio/cierre del launcher y fallos de mantenimiento del router alimentan el registro. Se conservan el archivo actual y uno anterior, con rotación antes de superar 2 MB. Ajustes abre la carpeta mediante un comando nativo Windows/Linux. Dos pruebas locales verifican formato, niveles, validación y rotación; apertura nativa pendiente de revisión. Esta función todavía no está en el instalador 0.12.0.
+
 `src/` contiene la interfaz React y un cliente tipado de comandos Tauri. `src-tauri/src/` contiene módulos de almacenamiento, instalación, procesos, propiedades, jugadores y copias. Los comandos del backend validan y leen de disco; el frontend no decide por sí mismo si un servidor ha arrancado.
 
 El registro de servidores y copias está en SQLite (`database/tchlauncher.sqlite`). Cada servidor tiene UUID y directorio propio bajo `servers/<uuid>`. Java gestionado está en `runtimes/` y las copias en `backups/<uuid>/`. El objetivo de espacio se guarda por servidor y se migra con un valor predeterminado de 20 GB para registros anteriores. Mide la carpeta del servidor, sin incluir las copias. `server.properties`, `eula.txt`, mundos y logs siguen siendo archivos ordinarios.
@@ -71,3 +75,8 @@ The update interface can request the existing native start command after publica
 Experimental selection is an explicit creation-wizard option, disabled by default. `install.rs` classifies Mojang IDs by their real release/snapshot type and intersects Fabric IDs with the official game catalog. The stable update review continues to reject experimental targets. Paper/NeoForge experimental catalog requests return a readable error. Every installation still resolves official metadata, checks published artifact hashes and verifies the exact Java major.
 
 `log.rs` recognizes readiness only from a complete INFO startup message emitted on the native server thread, including a finite non-negative loading duration. Generic completion text, worker messages, chat and truncated lines do not establish readiness.
+# Background task snapshots
+
+DownloadTask retains its latest native Progress behind a shared mutex, including scoped modpack transfers. The engine exposes snapshots only for its registered current jobs. Frontend events remain immediate; a non-overlapping three-second reconciliation recovers missing progress and removes vanished active jobs without fabricating success. A revision check prevents a response from overwriting events received during its request. Session outcomes remain dismissible by exact server/task identity.
+
+Manual backups and restores reuse this task registry without changing the native process state. The tracked copy scans actual byte totals, copies in bounded chunks, syncs files and preserves permissions before publication. Cancellation and the publication boundary share the snapshot mutex: a prior cancellation prevents publication, while the publication phase rejects cancellation. Final metadata/SQLite publication and retention have no invented percentage. A restore measures its safety copy and restoration separately; cancellation before restoration publication retains the current server and completed safety copy. The native operation reservation remains held through task finish and registry cleanup. Scheduled/safety copies outside restores and imports still need integration.

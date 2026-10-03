@@ -28,6 +28,10 @@ import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMot
 import { ServerMenu, type ServerMenuTarget } from './ServerMenu'
 import { ServerDeleteDialog } from './ServerDeleteDialog'
 import { recordSample, type MetricSample } from './telemetry'
+import {CommandPalette} from './CommandPalette'
+import {launcherCommands,type LauncherCommand} from './commands'
+import {BackgroundTasks} from './BackgroundTasks'
+import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
 type View = 'overview' | 'performance' | 'players' | 'worlds' | 'content' | 'console' | 'backups' | 'settings'
 const labels: Record<ServerState, string> = {
@@ -79,11 +83,12 @@ function ServerArtwork({server}: {server: Server}) {
 
 function App() {
   const [servers, setServers] = useState<Server[]>([])
-  const [sidebarCollapsed,setSidebarCollapsed] = useState(() => {
-    try { return window.localStorage.getItem('tch-sidebar-collapsed') === 'true' } catch { return false }
-  })
+  const [railHovered,setRailHovered] = useState(false)
+  const [railKeyboardFocus,setRailKeyboardFocus] = useState(false)
+  const [railTasksOpen,setRailTasksOpen] = useState(false)
   const [sidebarTooltip,setSidebarTooltip] = useState<{name:string;subtitle:string;top:number;left:number}|null>(null)
   const [menuTarget,setMenuTarget] = useState<ServerMenuTarget|null>(null)
+  const sidebarCollapsed = !railHovered && !railKeyboardFocus && !menuTarget && !railTasksOpen
   const menuTargetRef = useRef<ServerMenuTarget|null>(null)
   const [deleteTarget,setDeleteTarget] = useState<Server|null>(null)
   const closeMenu = useCallback((restoreFocus=false)=>{
@@ -99,6 +104,7 @@ function App() {
   const [view, setView] = useState<View>('overview')
   const [libraryOpen,setLibraryOpen]=useState(true)
   const [appearanceOpen,setAppearanceOpen]=useState(false)
+  const [paletteOpen,setPaletteOpen]=useState(false)
   const [appearance,setAppearance]=useState(() => readAppearance(browserPreferenceStorage()))
   const [appearanceSaved,setAppearanceSaved]=useState(true)
   const changeAppearance=(next:Appearance)=>{applyAppearance(next);setAppearance(next);setAppearanceSaved(saveAppearance(browserPreferenceStorage(),next))}
@@ -113,11 +119,14 @@ function App() {
   const [packResume,setPackResume]=useState<string|null>(null)
   const [operationBusy,setBusy] = useState(false)
   const [installingIds,setInstallingIds] = useState<Set<string>>(new Set())
-  const busy=operationBusy || installingIds.has(selectedId ?? "")
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [progressByServer,setProgressByServer]=useState<Record<string,Progress>>({})
   const progressRef=useRef<Record<string,Progress>>({})
+  const progressRevision=useRef(0)
+  const [taskSyncError,setTaskSyncError]=useState<string|null>(null)
+  const activeInstallationIds=new Set([...installingIds,...Object.values(progressByServer).filter(isTaskActive).map(item=>item.serverId)])
+  const busy=operationBusy || activeInstallationIds.has(selectedId ?? '')
   const progress=selectedId ? progressByServer[selectedId] ?? null : null
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [metricsError,setMetricsError] = useState<string|null>(null)
@@ -129,7 +138,7 @@ function App() {
   const [props, setProps] = useState<Record<string, string>>({})
   const propsDirtyRef = useRef(false)
   const [eula, setEula] = useState(false)
-  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'>}|null>(null)
+  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'>}|null>(null)
   const [consentBusy,setConsentBusy] = useState(false)
   const [consentError,setConsentError] = useState<string|null>(null)
   const [memory, setMemory] = useState({ min: 1024, max: 2048 })
@@ -143,11 +152,11 @@ function App() {
 
 
   useEffect(() => {
-    try { window.localStorage.setItem('tch-sidebar-collapsed',String(sidebarCollapsed)) } catch { /* La preferencia no impide usar la barra. */ }
     hideSidebarTooltip()
   },[sidebarCollapsed])
   const showSidebarTooltip = (server: Server, button: HTMLButtonElement, immediate=false) => {
     clearTimeout(tooltipTimer.current)
+    if(!sidebarCollapsed)return
     const rect = button.getBoundingClientRect()
     tooltipTimer.current=window.setTimeout(()=>setSidebarTooltip({
       name:server.name,
@@ -171,7 +180,7 @@ function App() {
       listen<{ serverId: string; state: ServerState }>('server-state', event => {
         setServers(items => items.map(item => item.id === event.payload.serverId ? { ...item, state: event.payload.state } : item))
       }),
-      listen<Progress>('install-progress', event => {progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
+      listen<Progress>('install-progress', event => {progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
       listen<LogLine>('server-log', event => {
         if (event.payload.serverId === selectedRef.current) setLogs(lines => [...lines.slice(-999), event.payload])
       }),
@@ -184,6 +193,23 @@ function App() {
     ]
     return () => { listeners.forEach(p => p.then(unlisten => unlisten()).catch(() => {})) }
   }, [refresh])
+
+  useEffect(()=>{
+    if(!isTauri())return
+    let active=true;let timer=0
+    const sync=async()=>{
+      const revision=progressRevision.current
+      try{
+        const snapshot=await api.installationProgress()
+        if(!active)return
+        if(revision===progressRevision.current){progressRef.current=reconcileTasks(progressRef.current,snapshot);setProgressByServer(progressRef.current)}
+        setTaskSyncError(null)
+      }catch(cause){if(active)setTaskSyncError(errorText(cause))}
+      finally{if(active)timer=window.setTimeout(()=>void sync(),3000)}
+    }
+    void sync()
+    return()=>{active=false;window.clearTimeout(timer)}
+  },[])
 
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])
   useEffect(() => {
@@ -244,21 +270,33 @@ function App() {
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); setAppearanceOpen(false); setImporting(false); setCreating(true) }
+      if(event.defaultPrevented||event.isComposing||event.repeat||event.altKey||event.shiftKey||(!event.ctrlKey&&!event.metaKey))return
+      const key=event.key.toLowerCase()
+      const dialog=document.querySelector('dialog[open]')
+      if(key==='k') {
+        if(dialog&&!dialog.classList.contains('command-palette'))return
+        event.preventDefault();closeMenu();clearTimeout(tooltipTimer.current);setSidebarTooltip(null);setPaletteOpen(value=>!value);return
+      }
+      if(dialog)return
+      if(key==='n'&&!operationBusy) {event.preventDefault();setAppearanceOpen(false);setImporting(false);setCreating(true)}
+      if(key==='f') {
+        const search=mainRef.current?.querySelector<HTMLInputElement>('input[type="search"]')
+        if(search&&!search.disabled){event.preventDefault();search.focus();search.select()}
+      }
     }
     window.addEventListener('keydown',shortcut)
     return () => window.removeEventListener('keydown',shortcut)
-  }, [])
+  }, [operationBusy,closeMenu])
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null); setBusy(true)
     try { await fn(); await refresh(); return true }
-    catch (e) { setError(errorText(e)) }
+    catch (e) { if(errorText(e)!=='Instalación cancelada')setError(errorText(e)) }
     finally { setBusy(false) }
     return false
   }
 
-  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'>='install')=>{
+  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'>='install')=>{
     try {if(!await api.eulaConsentRecorded()){setConsentError(null);setDownloadConsent({id,kind});return;}}
     catch(cause){setError(errorText(cause));return;}
     setError(null);setInstallingIds(current=>new Set(current).add(id))
@@ -305,8 +343,29 @@ function App() {
   const openCreate=()=>{setAppearanceOpen(false);setImporting(false);setCreating(true);hideSidebarTooltip()}
   const openImport=()=>{setAppearanceOpen(false);setCreating(false);setImporting(true);hideSidebarTooltip()}
   const openMenu=(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>{const target={server,trigger,x,y};menuTargetRef.current=target;setMenuTarget(target)}
-  return <div className={`shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-    <aside className="server-rail" aria-label="Servidores">
+  const commands=launcherCommands(servers,operationBusy,activeInstallationIds)
+  const executeCommand=(command:LauncherCommand)=>{
+    const current=launcherCommands(servers,operationBusy,activeInstallationIds).find(item=>item.id===command.id)
+    if(!current||current.disabledReason)return
+    setPaletteOpen(false)
+    if(current.action==='library'){openLibrary();return}
+    if(current.action==='create'){openCreate();return}
+    if(current.action==='import'){openImport();return}
+    if(current.action==='appearance'){setAppearanceOpen(true);setCreating(false);setImporting(false);return}
+    const server=servers.find(item=>item.id===current.serverId)
+    if(!server)return
+    openServer(server)
+    if(current.action==='console'||current.action==='content'){setView(current.action);return}
+    if(current.action==='start')void act(()=>api.start(server.id))
+    if(current.action==='stop')void act(()=>api.stop(server.id))
+    if(current.action==='backup') {
+      setView('backups')
+      void act(async()=>{const copy=await api.createBackup(server.id);const copies=await api.backups(server.id);if(selectedRef.current===server.id)setBackups(copies);if(copy.retentionWarning)throw new Error(copy.retentionWarning)})
+    }
+  }
+  return <div className={`shell auto-rail ${sidebarCollapsed ? 'sidebar-collapsed' : 'rail-expanded'}`}>
+    {paletteOpen&&<CommandPalette commands={commands} onClose={()=>setPaletteOpen(false)} onExecute={executeCommand}/>}
+    <aside className="server-rail" aria-label="Servidores" onPointerEnter={event=>{if(event.pointerType!=='touch')setRailHovered(true)}} onPointerLeave={()=>setRailHovered(false)} onPointerDown={()=>setRailKeyboardFocus(false)} onFocusCapture={event=>{if(event.target.matches(':focus-visible'))setRailKeyboardFocus(true)}} onKeyDownCapture={event=>{if(event.key==='Tab')setRailKeyboardFocus(true)}} onBlurCapture={event=>{if(!(event.relatedTarget instanceof Node)||!event.currentTarget.contains(event.relatedTarget))setRailKeyboardFocus(false)}}>
       <button className={`rail-library ${libraryOpen && !creating && !importing && !appearanceOpen?'active':''}`} onClick={openLibrary} aria-label="Mis servidores" title="Mis servidores"><span className="brand-emblem"><img src={launcherEmblem} alt=""/></span><strong className="rail-brand-name">TCHLauncher</strong></button>
       <nav className="server-list" ref={railRef} aria-label="Lista de servidores" onScroll={() => hideSidebarTooltip()}>
         <MovingIndicator active={`${selectedId}:${creating}:${importing}:${libraryOpen}:${appearanceOpen}:${servers.map(s=>s.id).join()}`} className="rail-active-indicator"/>{servers.map(server => <button data-layout-id={server.id} key={server.id} className={`server-row ${selectedId === server.id && !creating && !importing && !libraryOpen && !appearanceOpen ? 'active' : ''}`} onClick={() => { hideSidebarTooltip(); setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id); setCreating(false); setImporting(false); setView('overview') }} onContextMenu={event=>{event.preventDefault();hideSidebarTooltip();const rect=event.currentTarget.getBoundingClientRect();const target={server,x:event.clientX || rect.right,y:event.clientY || rect.top,trigger:event.currentTarget};menuTargetRef.current=target;setMenuTarget(target)}} onMouseEnter={event => showSidebarTooltip(server,event.currentTarget)} onMouseLeave={() => hideSidebarTooltip()} onFocus={event => showSidebarTooltip(server,event.currentTarget,true)} onBlur={() => hideSidebarTooltip()} aria-label={`${server.name}, ${platformName(server.platform)} ${server.version}, ${stateText(server.state)}`} aria-current={selectedId === server.id && !creating && !importing && !libraryOpen && !appearanceOpen ? 'page' : undefined}>
@@ -315,9 +374,10 @@ function App() {
       </nav>
       <button className="rail-add" onClick={openCreate} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
       <button className="rail-import" onClick={openImport} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
+      <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>{const server=servers.find(item=>item.id===task.serverId);if(!server)return;openServer(server);if((task.kind==='backup'||task.kind==='restore'))setView('backups');if(task.kind==='content_install')setView('content');if(task.kind==='loader_update'||task.kind==='minecraft_update')setView('settings')}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       <button className="rail-startup" onClick={()=>setStartupOpen(true)} aria-label="Inicio automático" title="Inicio automático"><SectionIcon name="settings"/><span>Inicio automático</span></button>
       <button className={`rail-settings ${appearanceOpen?'active':''}`} onClick={()=>{setAppearanceOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip();closeMenu()}} aria-current={appearanceOpen?'page':undefined} aria-label="Ajustes" title="Ajustes"><SectionIcon name="appearance"/><span>Ajustes</span></button>
-      <button className="rail-collapse" onClick={()=>setSidebarCollapsed(value=>!value)} aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'} title={sidebarCollapsed?'Ampliar navegación':'Reducir navegación'}><Icon name={sidebarCollapsed?'expand':'collapse'} size={17}/><span>Reducir barra</span></button><span className="rail-version">v0.12.0</span>
+      <span className="rail-version">v0.13.0</span>
     </aside>
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
@@ -342,7 +402,7 @@ function App() {
           {viewOrder.filter(item=>item!=='content'||selected.platform!=='vanilla').map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{item==='content'&&selected.platform==='paper'?'Plugins':viewLabels[item]}</span></button>)}
         </nav>
         <div className="content" ref={contentRef}>
-          {progress && !(view==='content'&&progress.kind==='content_install')&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} onRetry={()=>{if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {progress && !(view==='content'&&progress.kind==='content_install')&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} retryLabel={(progress.kind==='backup'||progress.kind==='restore')?'Ver copias':'Reintentar'} onRetry={()=>{if((progress.kind==='backup'||progress.kind==='restore')){setView('backups');return;}if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
@@ -355,13 +415,14 @@ function App() {
       </>}
     </main>
     {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
-    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || installingIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
+    {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || activeInstallationIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
     {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
     {startupOpen&&<Modal labelledBy="startup-title" busy={startupBusy} onClose={()=>setStartupOpen(false)}><h2 id="startup-title">Inicio automático</h2><StartupPanel servers={servers} onBusy={setStartupBusy}/><div className="modal-actions"><button data-modal-close disabled={startupBusy}>Cerrar</button></div></Modal>}
     {restoreTarget && <Modal labelledBy="restore-title" describedBy="restore-description" busy={operationBusy} onClose={()=>setRestoreTarget(null)}>
       <h2 id="restore-title">Restaurar copia de seguridad</h2>
       <p id="restore-description">Los archivos y la configuración volverán al estado de esta copia. Antes guardaremos una copia del estado actual.</p>
       <dl className="restore-preview-details"><dt>Fecha</dt><dd>{new Date(restoreTarget.backup.createdAt).toLocaleString()}</dd><dt>Tamaño</dt><dd>{fmtBytes(restoreTarget.backup.sizeBytes)}</dd></dl>
+      {progressByServer[restoreTarget.serverId]?.kind==='restore'&&<InstallProgress key={progressByServer[restoreTarget.serverId].taskId} progress={progressByServer[restoreTarget.serverId]} busy={operationBusy} allowRetry={false} onRetry={()=>{}} onDismiss={()=>{const task=progressByServer[restoreTarget.serverId];progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="modal-actions"><button data-modal-close disabled={operationBusy}>Cancelar</button><button className="primary-button" disabled={operationBusy} onClick={async()=>{
         const target=restoreTarget;const success=await act(async()=>{

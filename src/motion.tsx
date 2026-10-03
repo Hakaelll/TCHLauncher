@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import {shouldReduceMotion} from './motionPreference'
 
 export const motion = {instant:90,interaction:120,micro:160,standard:200,navigation:240,large:300,activity:1200,tooltipDelay:180,ease:'cubic-bezier(.2,.8,.2,1)',enter:'cubic-bezier(.16,1,.3,1)',exit:'cubic-bezier(.4,0,1,1)'} as const
 if(typeof document!=='undefined')for(const [name,value] of Object.entries(motion))document.documentElement.style.setProperty(`--motion-${name}`,typeof value==='number'?`${value}ms`:value)
-export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+export const reducedMotion = () => shouldReduceMotion(document.documentElement.dataset.motion,window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
 export function MovingIndicator({active,axis='vertical',className=''}:{active:string;axis?:'vertical'|'horizontal'|'both';className?:string}) {
   const ref=useRef<HTMLSpanElement>(null)
@@ -78,6 +79,7 @@ export function AnimatedValue({value,format=(n:number)=>String(Math.round(n))}:{
     if(value==null || start==null || !Number.isFinite(value) || reducedMotion()){current.current=value;setDisplay(value);return}
     let frame=0;const began=performance.now()
     const tick=(now:number)=>{
+      if(reducedMotion()){current.current=value;setDisplay(value);return}
       const progress=Math.min(1,(now-began)/motion.micro),next=start+(value-start)*(1-(1-progress)**3)
       current.current=next;setDisplay(next)
       if(progress<1)frame=requestAnimationFrame(tick)
@@ -101,6 +103,7 @@ export function AnimatedLine({points,times,identity}:{points:[number,number][];t
     const from=times.map(time=>prior.get(time) ?? before.points[before.points.length-1])
     const began=performance.now();let frame=0
     const tick=(now:number)=>{
+      if(reducedMotion()){line.setAttribute('points',target);return}
       const progress=Math.min(1,(now-began)/motion.navigation),weight=1-(1-progress)**3
       line.setAttribute('points',points.map((point,index)=>point.map((value,axis)=>(from[index][axis]+(value-from[index][axis])*weight).toFixed(1)).join(',')).join(' '))
       if(progress<1)frame=requestAnimationFrame(tick)

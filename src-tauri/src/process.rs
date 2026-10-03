@@ -30,6 +30,13 @@ pub struct ProcessManager {
 pub struct Exit {pub token:String,pub unexpected:bool}
 
 pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
+    use tauri::Manager;
+    let diagnostic=match state {
+        "starting"=>Some(crate::app_log::Event::ServerStarting),"running"=>Some(crate::app_log::Event::ServerRunning),
+        "stopping"=>Some(crate::app_log::Event::ServerStopping),"stopped"=>Some(crate::app_log::Event::ServerStopped),
+        "crashed"=>Some(crate::app_log::Event::ServerCrashed),_=>None,
+    };
+    if let (Some(event),Ok(root))=(diagnostic,app.path().app_data_dir()) {crate::app_log::record(&root,event,Some(id));}
     let _ = app.emit("server-state", StateEvent { server_id: id.into(), state: state.into() });
 }
 

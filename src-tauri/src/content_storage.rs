@@ -239,7 +239,7 @@ fn install_internal(root:Option<&Path>,server:&Server,prepared:&PreparedPlan,tas
     let result=(|| {
         task.cancellation.check()?;
         if let Some(root)=root {
-            if prepared.review.changes.iter().any(|change|change.action=="update") {task.report("Guardando copia antes de actualizar","preparing");backup::create(root,&server.id)?;}
+            if prepared.review.changes.iter().any(|change|change.action=="update") {task.report("Guardando copia antes de actualizar","preparing");backup::create_tracked(root,&server.id,task)?;}
         }
         task.report("Preparando archivos","preparing");
         if target.exists() {backup::copy_tree(&target,&stage)?;} else {fs::create_dir(&stage).map_err(|e|e.to_string())?;}

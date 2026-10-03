@@ -6,7 +6,7 @@ use sha2::{Sha256, Sha512};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 use uuid::Uuid;
@@ -38,6 +38,7 @@ pub struct DownloadTask {
     client: Client,
     max_bytes:u64,
     emit: Arc<dyn Fn(Progress) + Send + Sync>,
+    latest: Arc<Mutex<Progress>>,
 }
 
 impl DownloadTask {
@@ -51,18 +52,53 @@ impl DownloadTask {
             }))
             .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(900)).build().map_err(|e| e.to_string())?;
-        Ok(Self { id:Uuid::new_v4().to_string(),server_id:server_id.into(),kind:kind.into(),client,max_bytes:MAX_BYTES,
-            cancellation:Arc::new(Cancellation::default()),emit:Arc::new(emit) })
+        let id=Uuid::new_v4().to_string();
+        let latest=Mutex::new(Progress{server_id:server_id.into(),task_id:id.clone(),kind:kind.into(),label:"Preparando tarea".into(),stage:"preparing".into(),received:0,total:None,bytes_per_second:None,attempt:1,error:None});
+        Ok(Self { id,server_id:server_id.into(),kind:kind.into(),client,max_bytes:MAX_BYTES,
+            cancellation:Arc::new(Cancellation::default()),emit:Arc::new(emit),latest:Arc::new(latest) })
     }
 
     pub fn report(&self, label: &str, stage: &str) { self.progress(label,stage,0,None,None,1,None); }
 
-    fn progress(&self,label: &str,stage: &str,received: u64,total: Option<u64>,speed: Option<f64>,attempt: u32,error: Option<String>) {
-        (self.emit)(Progress {server_id:self.server_id.clone(),task_id:self.id.clone(),kind:self.kind.clone(),label:label.into(),stage:stage.into(),
-            received,total,bytes_per_second:speed,attempt,error});
+    pub(crate) fn progress(&self,label: &str,stage: &str,received: u64,total: Option<u64>,speed: Option<f64>,attempt: u32,error: Option<String>) {
+        let progress=Progress {server_id:self.server_id.clone(),task_id:self.id.clone(),kind:self.kind.clone(),label:label.into(),stage:stage.into(),
+            received,total,bytes_per_second:speed,attempt,error};
+        if let Ok(mut latest)=self.latest.lock(){*latest=progress.clone();}
+        (self.emit)(progress);
+    }
+
+    pub fn snapshot(&self)->Result<Progress,String>{self.latest.lock().map(|value|value.clone()).map_err(|_|"No se pudo leer el estado de la tarea".into())}
+    pub fn is_file_operation(&self)->bool{matches!(self.kind.as_str(),"backup"|"restore")}
+    pub fn is_restore(&self)->bool{self.kind=="restore"}
+    pub fn request_cancel(&self)->bool{
+        let Ok(latest)=self.latest.lock()else{return false;};
+        if matches!(latest.stage.as_str(),"completed"|"cancelled"|"failed"|"publishing"){return false;}
+        self.cancellation.cancel();true
+    }
+    pub fn begin_publication(&self,label:&str)->Result<(),String>{
+        let mut latest=self.latest.lock().map_err(|_|"No se pudo publicar la tarea")?;
+        self.cancellation.check()?;
+        latest.label=label.into();latest.stage="publishing".into();latest.received=0;latest.total=None;latest.bytes_per_second=None;
+        let progress=latest.clone();drop(latest);(self.emit)(progress);Ok(())
     }
 
     pub fn finish(&self, result: &Result<(), String>) {
+        if self.kind=="restore"{
+            match result{
+                Ok(())=>self.report("Copia restaurada","completed"),
+                Err(error) if error==CANCELLED=>self.report("Restauración cancelada","cancelled"),
+                Err(error)=>self.progress("No se pudo restaurar la copia","failed",0,None,None,1,Some(error.clone())),
+            }
+            return;
+        }
+        if self.kind=="backup" {
+            match result {
+                Ok(())=>self.report("Copia guardada","completed"),
+                Err(error) if error==CANCELLED=>self.report("Copia cancelada","cancelled"),
+                Err(error)=>self.progress("No se pudo guardar la copia","failed",0,None,None,1,Some(error.clone())),
+            }
+            return;
+        }
         match result {
             Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else if self.kind=="pack_install" {"Modpack instalado"} else if self.kind=="loader_update" {"Loader actualizado"} else if self.kind=="minecraft_update" {"Minecraft actualizado"} else {"Java preparado"},"completed"),
             Err(error) if error == CANCELLED => self.report("Instalación cancelada","cancelled"),
@@ -138,7 +174,7 @@ impl DownloadTask {
             .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(900)).build().map_err(|e|e.to_string())?;
         let scoped=Self {id:self.id.clone(),server_id:self.server_id.clone(),kind:self.kind.clone(),client,max_bytes:size,
-            cancellation:self.cancellation.clone(),emit:self.emit.clone()};
+            cancellation:self.cancellation.clone(),emit:self.emit.clone(),latest:self.latest.clone()};
         scoped.download(url,target,Some(("sha512",sha512)),label)
     }
 
@@ -290,6 +326,26 @@ mod tests {
         // Only the private transport is exercised over loopback; the public entry point still requires HTTPS.
         task.client=Client::builder().no_proxy().timeout(Duration::from_secs(4)).build().unwrap();
         task
+    }
+
+    #[test]
+    fn snapshot_retains_measured_progress_and_terminal_outcomes() {
+        let events=Arc::new(Mutex::new(Vec::new()));let task=task(events.clone());
+        let initial=task.snapshot().unwrap();assert_eq!(initial.task_id,task.id);assert_eq!(initial.stage,"preparing");assert!(initial.total.is_none());
+        task.progress("Java","downloading",32,Some(100),Some(8.0),2,None);
+        let active=task.snapshot().unwrap();assert_eq!(active.received,32);assert_eq!(active.total,Some(100));assert_eq!(active.bytes_per_second,Some(8.0));assert_eq!(active.attempt,2);
+        task.finish(&Err(CANCELLED.into()));let terminal=task.snapshot().unwrap();assert_eq!(terminal.stage,"cancelled");assert_eq!(terminal.task_id,task.id);assert_eq!(events.lock().unwrap().last().unwrap().stage,terminal.stage);
+    }
+
+    #[test]
+    fn file_publication_and_cancellation_have_an_exclusive_boundary(){
+      for kind in ["backup","restore","minecraft_update","loader_update","content_install"]{
+        let cancelled=DownloadTask::new("test",kind,|_|{}).unwrap();
+        assert!(cancelled.request_cancel());assert_eq!(cancelled.begin_publication("Guardando").unwrap_err(),CANCELLED);
+        let published=DownloadTask::new("test",kind,|_|{}).unwrap();
+        published.begin_publication("Guardando").unwrap();assert!(!published.request_cancel());assert!(!published.cancellation.is_cancelled());
+        published.finish(&Ok(()));assert_eq!(published.snapshot().unwrap().stage,"completed");assert!(!published.request_cancel());
+      }
     }
 
     fn fixture(responses: Vec<&'static str>) -> (String,std::thread::JoinHandle<()>) {
