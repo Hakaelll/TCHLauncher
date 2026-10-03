@@ -17,6 +17,10 @@ pub struct ProcessControl {
     running_since: Mutex<Option<Instant>>,
     state: Mutex<String>,
     online: Mutex<HashSet<String>>,
+    paper: bool,
+    ticks: Mutex<crate::ticks::Collector>,
+    output:Mutex<crate::crash_diagnostics::Output>,
+    session:String,
 }
 
 #[derive(Clone, Default)]
@@ -40,10 +44,12 @@ pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
     let _ = app.emit("server-state", StateEvent { server_id: id.into(), state: state.into() });
 }
 
-fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String, log_file: Arc<Mutex<File>>, control: Arc<ProcessControl>) {
+fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String, log_file: Arc<Mutex<File>>, control: Arc<ProcessControl>,stdout:bool) ->std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         for line in BufReader::new(reader).lines() {
             let Ok(line) = line else { break; };
+            if let Ok(mut output)=control.output.lock(){output.push(&line);}
+            if stdout&&control.paper{if let Ok(mut ticks)=control.ticks.lock(){ticks.receive(&line,Instant::now(),chrono::Utc::now().timestamp_millis());}}
             let event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &line).ok())
                 .unwrap_or_else(|| log::parse(&id, &log::stamp(&line)));
             if event.event.as_deref() == Some("startup") {
@@ -61,10 +67,35 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
             }
             let _ = app.emit("server-log", event);
         }
-    });
+    })
+}
+
+fn save_exit(directory:&std::path::Path,id:&str,control:&ProcessControl,code:Option<i32>,complete:bool){
+    let time=chrono::Utc::now().timestamp_millis();
+    let lines=control.output.lock().map(|output|output.lines()).unwrap_or_default();
+    let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),output_complete:complete,diagnoses:crate::crash_diagnostics::analyze(&lines),recent_files:crate::crash_diagnostics::recent_files(directory,time)};
+    if let Err(error)=crate::crash_diagnostics::save(directory,&report){eprintln!("Could not save process diagnostics: {error}");}
+}
+fn drained(stdout:&std::thread::JoinHandle<()>,stderr:&std::thread::JoinHandle<()>)->bool{
+    let deadline=Instant::now()+Duration::from_secs(2);
+    while !(stdout.is_finished()&&stderr.is_finished())&&Instant::now()<deadline{std::thread::sleep(Duration::from_millis(10));}
+    stdout.is_finished()&&stderr.is_finished()
 }
 
 impl ProcessManager {
+    pub fn tick_snapshot(&self,id:&str)->crate::ticks::Snapshot{
+        let process=self.processes.lock().unwrap().get(id).cloned();
+        process.filter(|process|process.paper&&*process.state.lock().unwrap()=="running").and_then(|process|process.ticks.lock().ok().map(|ticks|ticks.snapshot(Instant::now()))).unwrap_or(crate::ticks::Snapshot{reading:None,pending:false})
+    }
+    pub fn request_ticks(&self,id:&str)->Result<(),String>{
+        let process=self.processes.lock().unwrap().get(id).cloned().ok_or("Inicia el servidor antes de consultar los TPS")?;
+        if !process.paper{return Err("La consulta de TPS está disponible para Paper".into());}
+        if *process.state.lock().unwrap()!="running"{return Err("Espera a que el servidor termine de iniciar".into());}
+        process.ticks.lock().map_err(|_|"No se pudo preparar la consulta de TPS")?.begin(Instant::now())?;
+        let result=(||{let mut stdin=process.stdin.lock().map_err(|_|"No se pudo abrir la consola")?;writeln!(stdin,"spigot:tps").and_then(|_|stdin.flush()).map_err(|e|format!("No se pudo consultar los TPS: {e}"))})();
+        if result.is_err(){if let Ok(mut ticks)=process.ticks.lock(){ticks.failed();}}
+        result
+    }
     pub fn exits(&self)->HashMap<String,Exit> {self.exits.lock().unwrap().clone()}
     pub fn exit_token(&self,id:&str)->Option<String> {self.exits.lock().unwrap().get(id).map(|exit|exit.token.clone())}
     pub fn healthy_for(&self,id:&str,seconds:u64)->bool {
@@ -127,27 +158,29 @@ impl ProcessManager {
         let stdin = child.stdin.take().ok_or("No se pudo abrir la entrada del servidor")?;
         let stdout = child.stdout.take().ok_or("No se pudo abrir la consola del servidor")?;
         let stderr = child.stderr.take().ok_or("No se pudo abrir la salida de errores")?;
-        let control = Arc::new(ProcessControl { stop_requested:std::sync::atomic::AtomicBool::new(false),child: Mutex::new(child), stdin: Mutex::new(stdin), started: Instant::now(),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()) });
+        let control = Arc::new(ProcessControl { stop_requested:std::sync::atomic::AtomicBool::new(false),child: Mutex::new(child), stdin: Mutex::new(stdin), started: Instant::now(),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper:server.platform=="paper",ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string() });
         map.insert(server.id.clone(), control.clone());
         self.terminal_states.lock().unwrap().remove(&server.id);
         self.exits.lock().unwrap().remove(&server.id);
         drop(map);
         emit_state(&app, &server.id, "starting");
-        pump(stdout, app.clone(), server.id.clone(), log_file.clone(),control.clone());
-        pump(stderr, app.clone(), server.id.clone(), log_file.clone(),control.clone());
+        let stdout_pump=pump(stdout, app.clone(), server.id.clone(), log_file.clone(),control.clone(),true);
+        let stderr_pump=pump(stderr, app.clone(), server.id.clone(), log_file.clone(),control.clone(),false);
         let all = self.processes.clone();
         let terminal_states = self.terminal_states.clone();
         let exits=self.exits.clone();
         let id = server.id.clone();
+        let directory=std::path::PathBuf::from(&server.directory);
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(500));
             let exit = control.child.lock().unwrap().try_wait();
             match exit {
                 Ok(Some(status)) => {
+                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,status.code(),complete);
                     let final_state = if status.success() { "stopped" } else { "crashed" };
                     *control.state.lock().unwrap() = final_state.into();
                     terminal_states.lock().unwrap().insert(id.clone(),final_state.into());
-                    exits.lock().unwrap().insert(id.clone(),Exit{token:uuid::Uuid::new_v4().to_string(),unexpected:!status.success()&&!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
+                    exits.lock().unwrap().insert(id.clone(),Exit{token:control.session.clone(),unexpected:!status.success()&&!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
                     emit_state(&app, &id, final_state);
                     all.lock().unwrap().remove(&id);
                     let message = format!("Proceso finalizado: {status}");
@@ -160,9 +193,10 @@ impl ProcessManager {
                 Ok(None) => (),
                 Err(e) => {
                     let _ = control.child.lock().unwrap().kill();
+                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,None,complete);
                     *control.state.lock().unwrap() = "crashed".into();
                     terminal_states.lock().unwrap().insert(id.clone(),"crashed".into());
-                    exits.lock().unwrap().insert(id.clone(),Exit{token:uuid::Uuid::new_v4().to_string(),unexpected:!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
+                    exits.lock().unwrap().insert(id.clone(),Exit{token:control.session.clone(),unexpected:!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
                     emit_state(&app, &id, "crashed");
                     all.lock().unwrap().remove(&id);
                     let message = format!("No se pudo consultar el proceso: {e}");

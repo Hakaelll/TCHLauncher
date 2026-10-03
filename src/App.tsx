@@ -1,3 +1,4 @@
+import {CrashPanel} from './CrashPanel'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
@@ -138,7 +139,7 @@ function App() {
   const [props, setProps] = useState<Record<string, string>>({})
   const propsDirtyRef = useRef(false)
   const [eula, setEula] = useState(false)
-  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'server_import'|'content_remove'>}|null>(null)
+  const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'>}|null>(null)
   const [consentBusy,setConsentBusy] = useState(false)
   const [consentError,setConsentError] = useState<string|null>(null)
   const [memory, setMemory] = useState({ min: 1024, max: 2048 })
@@ -296,7 +297,7 @@ function App() {
     return false
   }
 
-  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'server_import'|'content_remove'>='install')=>{
+  const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'>='install')=>{
     try {if(!await api.eulaConsentRecorded()){setConsentError(null);setDownloadConsent({id,kind});return;}}
     catch(cause){setError(errorText(cause));return;}
     setError(null);setInstallingIds(current=>new Set(current).add(id))
@@ -375,10 +376,10 @@ function App() {
       </nav>
       <button className="rail-add" onClick={openCreate} aria-label="Nuevo servidor" title="Nuevo servidor"><Icon name="plus" size={19}/><span>Nuevo servidor</span></button>
       <button className="rail-import" onClick={openImport} aria-label="Importar servidor" title="Importar servidor"><Icon name="folder" size={18}/><span>Importar servidor</span></button>
-      <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>{const server=servers.find(item=>item.id===task.serverId);if(!server)return;openServer(server);if((task.kind==='backup'||task.kind==='restore'))setView('backups');if(task.kind==='world_import')setView('worlds');if(task.kind==='content_install'||task.kind==='content_remove')setView('content');if(task.kind==='loader_update'||task.kind==='minecraft_update')setView('settings')}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
+      <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>{const server=servers.find(item=>item.id===task.serverId);if(!server)return;openServer(server);if((task.kind==='backup'||task.kind==='restore'))setView('backups');if((task.kind==='world_import'||task.kind==='world_duplicate'||task.kind==='world_export'||task.kind==='world_activate'||task.kind==='world_delete'))setView('worlds');if(task.kind==='content_install'||task.kind==='content_remove')setView('content');if(task.kind==='loader_update'||task.kind==='minecraft_update')setView('settings')}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       <button className="rail-startup" onClick={()=>setStartupOpen(true)} aria-label="Inicio automático" title="Inicio automático"><SectionIcon name="settings"/><span>Inicio automático</span></button>
       <button className={`rail-settings ${appearanceOpen?'active':''}`} onClick={()=>{setAppearanceOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip();closeMenu()}} aria-current={appearanceOpen?'page':undefined} aria-label="Ajustes" title="Ajustes"><SectionIcon name="appearance"/><span>Ajustes</span></button>
-      <span className="rail-version">v0.14.0</span>
+      <span className="rail-version">v0.15.0</span>
     </aside>
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
@@ -403,8 +404,8 @@ function App() {
           {viewOrder.filter(item=>item!=='content'||selected.platform!=='vanilla').map(item=><button key={item} aria-current={view===item?'page':undefined} onClick={()=>navigate(item)}><SectionIcon name={item}/><span>{item==='content'&&selected.platform==='paper'?'Plugins':viewLabels[item]}</span></button>)}
         </nav>
         <div className="content" ref={contentRef}>
-          {progress && !(view==='content'&&(progress.kind==='content_install'||progress.kind==='content_remove'))&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} retryLabel={(progress.kind==='backup'||progress.kind==='restore')?'Ver copias':progress.kind==='world_import'?'Ver mundos':'Reintentar'} onRetry={()=>{if(progress.kind==='server_import'){setView('overview');return;}if(progress.kind==='world_import'){setView('worlds');return;}if((progress.kind==='backup'||progress.kind==='restore')){setView('backups');return;}if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'||progress.kind==='content_remove'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')}/>}
+          {progress && !(view==='content'&&(progress.kind==='content_install'||progress.kind==='content_remove'))&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} retryLabel={(progress.kind==='backup'||progress.kind==='restore')?'Ver copias':(progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')?'Ver mundos':'Reintentar'} onRetry={()=>{if(progress.kind==='server_import'){setView('overview');return;}if((progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')){setView('worlds');return;}if((progress.kind==='backup'||progress.kind==='restore')){setView('backups');return;}if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'||progress.kind==='content_remove'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {view === 'overview' && <Overview key={selected.id} server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')} onSettings={()=>setView('settings')} onContent={()=>setView('content')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
@@ -462,9 +463,9 @@ const eventTime = (timestamp: string | null) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
 }
 
-function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInstall,onConsole}: {
+function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInstall,onConsole,onSettings,onContent}: {
   server: Server; metrics: Metrics | null; players: PlayersSnapshot | null; logs: LogLine[]; backups: Backup[];
-  eula: boolean; busy: boolean; onAccept: () => void; onInstall: () => void; onConsole: () => void;
+  eula: boolean; busy: boolean; onAccept: () => void; onInstall: () => void; onConsole: () => void; onSettings:()=>void; onContent:()=>void;
 }) {
   const storagePercent = metrics ? Math.round(metrics.sizeBytes / (server.storageTargetGb * 1024 * 1024 * 1024) * 100) : 0
   const recentEvents = logs.filter(item => item.event && eventLabels[item.event]).slice(-4).reverse()
@@ -485,9 +486,10 @@ function Overview({server,metrics,players,logs,backups,eula,busy,onAccept,onInst
     </section>
     {(!server.jarPath || !server.javaPath) && <div className="callout"><div><strong>Instalación pendiente</strong><p>{server.jarPath ? 'Prepararemos Java sin reemplazar los archivos de arranque existentes.' : `Descargaremos Minecraft ${server.version} y Java.`}</p></div><button disabled={busy} onClick={onInstall}>{server.jarPath ? 'Preparar Java' : 'Instalar ahora'}</button></div>}
     {server.jarPath && !eula && <div className="callout"><div><strong>Antes del primer inicio</strong><p>Lee la <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">EULA de Minecraft</a> antes de aceptarla. Se recordará en este equipo para tus próximos servidores.</p></div><button disabled={busy} onClick={onAccept}>He leído y acepto</button></div>}
+    <CrashPanel server={server} onConsole={onConsole} onSettings={onSettings} onContent={onContent}/>
     <NetworkPanel server={server}/>
     <div className="overview-storage"><section className="resource-section"><h2>Almacenamiento</h2>
-      <div className="resource-meter"><div><span>Espacio del servidor</span><strong>{metrics ? `${fmtBytes(metrics.sizeBytes)} / ${server.storageTargetGb} GB` : 'Calculando…'}</strong></div><progress aria-label="Espacio ocupado respecto al objetivo" value={Math.min(storagePercent,100)} max={100}/><p>{storagePercent >= 100 ? 'Supera el objetivo de aviso. Revisa mundos y logs.' : 'Objetivo de aviso; no limita el disco.'}</p></div>
+      <div className="resource-meter"><div><span>Espacio del servidor</span><strong>{metrics ? `${fmtBytes(metrics.sizeBytes)} / ${server.storageTargetGb} GB` : 'Calculando…'}</strong></div><progress aria-label="Espacio ocupado respecto al objetivo" value={Math.min(storagePercent,100)} max={100}/><p>{metrics && metrics.sizeBytes >= server.storageTargetGb*1024**3*(metrics.storageWarningPercent??90)/100 ? `Ha alcanzado el ${metrics?.storageWarningPercent??90} % del objetivo. Revisa mundos y logs.` : 'Objetivo de aviso; no limita el disco.'}</p></div>
     </section><section><h2>Estado del registro</h2><dl className="resource-facts"><div><dt>Avisos</dt><dd>{warnings}</dd></div><div><dt>Errores</dt><dd>{errors}</dd></div><div><dt>Último guardado registrado</dt><dd>{eventTime(lastSave?.timestamp ?? null)}</dd></div></dl><p className="field-help">En las últimas {logs.length} líneas cargadas.</p></section></div>
     <div className="overview-lower"><section className="recent-activity"><div className="section-heading"><h2>Actividad reciente</h2><button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button></div>{recentEvents.length ? <div className="event-list">{recentEvents.map((item,index) => <div className="event-row" key={`${item.timestamp ?? 'legacy'}-${index}`}><span className={`event-mark ${item.level}`} aria-hidden="true"/><div><strong>{eventLabels[item.event!]}</strong><span>{item.message}</span></div><time>{eventTime(item.timestamp)}</time></div>)}</div> : <p className="empty-inline">Todavía no hay actividad.</p>}</section><section className="recent-backups"><div className="section-heading"><h2>Copias recientes</h2></div>{backups.length ? <div className="backup-mini-list">{backups.slice(0,3).map(backup => <div key={backup.id}><strong>{new Date(backup.createdAt).toLocaleString('es-ES')}</strong><span>{fmtBytes(backup.sizeBytes)}</span></div>)}</div> : <p className="empty-inline">Aún no hay copias guardadas.</p>}</section></div>
   </div>

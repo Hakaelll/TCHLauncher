@@ -51,7 +51,10 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
       await refresh()
       if (backupsChanged) await onBackupsChanged()
       setNotice(success)
-    } catch(error) { if(errorText(error)!=='Instalación cancelada')setError(errorText(error)) }
+    } catch(error) {
+      if(backupsChanged){try{await onBackupsChanged()}catch{setError('No se pudo actualizar la lista de copias. Revisa la sección Copias.')}}
+      if(errorText(error)!=='Instalación cancelada')setError(errorText(error))
+    }
     finally { setBusy(false) }
   }
   const choose = async () => {

@@ -107,6 +107,8 @@ pub struct Metrics {
     pub disk_read_bytes: Option<u64>,
     pub disk_written_bytes: Option<u64>,
     pub size_bytes: u64,
+    pub storage_warning_percent: u8,
+    pub tps: crate::ticks::Snapshot,
 }
 
 #[derive(Serialize)]

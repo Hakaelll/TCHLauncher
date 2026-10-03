@@ -23,13 +23,20 @@ mod model;
 mod modpack;
 mod pack_install;
 mod network;
+mod crash_diagnostics;
+mod bore;
+mod natpmp;
+mod natpmp_manager;
+pub mod tunnel;
 mod upnp;
 mod players;
 mod process;
+mod ticks;
 mod properties;
 mod runtime;
 mod skin;
 mod storage;
+mod storage_usage;
 mod world;
 
 use model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
@@ -49,6 +56,8 @@ pub struct Engine {
     _instance_lock: std::fs::File,
     scheduler_stopping: std::sync::atomic::AtomicBool,
     router: Arc<upnp::Manager>,
+    natpmp:Arc<natpmp_manager::Manager>,
+    tunnels:Arc<tunnel::Manager>,
     router_shutdown: Arc<std::sync::atomic::AtomicU8>,
     root: PathBuf,
     processes: ProcessManager,
@@ -645,49 +654,53 @@ async fn import_world(app: AppHandle, engine: State<'_, Engine>, id: String, pat
 }
 
 #[tauri::command]
-async fn duplicate_world(engine: State<'_, Engine>, id: String, name: String, new_name: String) -> Result<world::WorldInfo, String> {
+async fn duplicate_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String, new_name: String) -> Result<world::WorldInfo, String> {
     let guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root, &id)?;
+    let jobs=engine.installations.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        world::duplicate(&server, &name, &new_name)
+        file_tasks::duplicate_world(&server,&name,&new_name,&jobs,move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?;
     if result.is_ok() { engine.invalidate_size(&id); }
     result
 }
 
 #[tauri::command]
-async fn export_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Option<String>, String> {
+async fn export_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String) -> Result<Option<String>, String> {
     let destination = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
         .await.map_err(|e| e.to_string())?;
     let Some(destination) = destination else { return Ok(None); };
     let guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root, &id)?;
+    let jobs=engine.installations.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        world::export(&server, &name, &destination).map(|path| Some(path.to_string_lossy().into_owned()))
+        file_tasks::export_world(&server,&name,&destination,&jobs,move|progress|{let _=app.emit("install-progress",progress);}).map(|path|Some(path.to_string_lossy().into_owned()))
     }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn set_active_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Option<Backup>, String> {
+async fn set_active_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String) -> Result<Option<Backup>, String> {
     let guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
     let server = storage::get(&root, &id)?;
+    let jobs=engine.installations.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        world::set_active(&root, &server, &name)
+        file_tasks::set_active_world(&root,&server,&name,&jobs,move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn delete_world(engine: State<'_, Engine>, id: String, name: String) -> Result<Backup, String> {
+async fn delete_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String) -> Result<Backup, String> {
     let guard = engine.reserve_stopped(&id)?;
     let root = engine.root.clone();
     let server = storage::get(&root, &id)?;
+    let jobs=engine.installations.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        world::delete(&root, &server, &name)
+        file_tasks::delete_world(&root,&server,&name,&jobs,move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?;
     if result.is_ok() { engine.invalidate_size(&id); }
     result
@@ -700,9 +713,14 @@ fn open_world_folder(engine: State<'_, Engine>, id: String, name: String) -> Res
 }
 
 #[tauri::command]
+fn request_tps(engine:State<'_,Engine>,id:String)->Result<(),String>{engine.processes.request_ticks(&id)}
+
+#[tauri::command]
 async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, String> {
+    let root=engine.root.clone();
     let server = storage::get(&engine.root,&id)?;
     let pid_uptime = engine.processes.pid_and_uptime(&id);
+    let tps=engine.processes.tick_snapshot(&id);
     let metrics_system = engine.metrics_system.clone();
     let sampled_pids = engine.sampled_pids.clone();
     let size_cache = engine.size_cache.clone();
@@ -725,7 +743,8 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
         size_cache.lock().map_err(|e| e.to_string())?.insert(id.clone(), (Instant::now(),size));
         size
     };
-    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes})
+    let storage_warning_percent=storage_usage::warning_percent(&root,&id)?;
+    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes,storage_warning_percent,tps})
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -757,6 +776,15 @@ async fn get_application_info(engine:State<'_,Engine>)->Result<application::Info
     let root=engine.root.clone();
     tauri::async_runtime::spawn_blocking(move||application::info(&root)).await.map_err(|e|e.to_string())?
 }
+
+#[tauri::command]
+async fn get_storage_usage(engine:State<'_,Engine>,id:String)->Result<storage_usage::Usage,String>{
+    let root=engine.root.clone();let server=storage::get(&root,&id)?;
+    tauri::async_runtime::spawn_blocking(move||storage_usage::inspect(&root,&server)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+fn save_storage_warning(engine:State<'_,Engine>,id:String,percent:u8)->Result<(),String>{storage_usage::save_warning(&engine.root,&id,percent)}
 
 #[tauri::command]
 async fn open_application_folder(engine:State<'_,Engine>,key:String,id:Option<String>)->Result<(),String>{
@@ -801,13 +829,14 @@ async fn detect_router(engine:State<'_,Engine>,id:String)->Result<upnp::Status,S
 async fn open_router_port(engine:State<'_,Engine>,id:String,confirmed:bool,expected_ip:String,expected_port:u16)->Result<upnp::Status,String> {
     if !confirmed {return Err("Confirma la apertura temporal del puerto antes de continuar".into());}
     let reservation=engine.reserve_running(&id)?;
-    let root=engine.root.clone();let router=engine.router.clone();let processes=engine.processes.clone();
+    let root=engine.root.clone();let router=engine.router.clone();let natpmp=engine.natpmp.clone();let processes=engine.processes.clone();
     let shutdown=engine.router_shutdown.clone();
     tauri::async_runtime::spawn_blocking(move||{
         let _reservation=reservation;
         if shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {return Err("La aplicación se está cerrando".into());}
         let (ip,port)=router_target(&root,&processes,&id)?;
         if ip.to_string()!=expected_ip || port!=expected_port {return Err("La dirección o el puerto cambiaron. Revisa la conexión y confirma de nuevo".into());}
+        if natpmp.status(&root,&id)?.is_some(){return Err("Retira la apertura NAT-PMP antes de usar UPnP".into());}
         router.open(&root,&id,port,ip,||shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
             && router_target(&root,&processes,&id).is_ok_and(|target|target==(ip,port)))
     }).await.map_err(|error|error.to_string())?
@@ -825,6 +854,11 @@ fn start_router_maintenance(app:AppHandle) {
         std::thread::sleep(Duration::from_secs(2));
         let engine=app.state::<Engine>();
         if engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {break;}
+        let _=engine.tunnels.maintain(|id,target|engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&tunnel_target(&engine.root,&engine.processes,id).is_ok_and(|current|current==target));
+        if let Err(error)=engine.natpmp.maintain(&engine.root,|id,ip,port|
+            engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))){
+            app_log::record(&engine.root,app_log::Event::RouterMaintenanceFailed,None);eprintln!("NAT-PMP maintenance: {error}");
+        }
         match engine.router.maintain(&engine.root,|id,ip,port|
             engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
             && router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))) {
@@ -832,6 +866,86 @@ fn start_router_maintenance(app:AppHandle) {
             Err(error)=>{app_log::record(&engine.root,app_log::Event::RouterMaintenanceFailed,None);eprintln!("Router maintenance: {error}");},
         }
     });
+}
+
+fn tunnel_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Result<std::net::SocketAddr,String>{
+    if processes.state(id)!="running"{return Err("Inicia el servidor antes de activar el túnel".into());}
+    let server=storage::get(root,id)?;let snapshot=network::inspect(&server,"running")?;
+    if !matches!(snapshot.port_state,network::PortState::Listening){return Err("El servidor todavía no responde".into());}
+    let target=snapshot.local_address.parse::<std::net::SocketAddr>().map_err(|_|"El servidor necesita una dirección local IP válida")?;
+    tunnel::Request{server_id:id.into(),local_address:target}.validate().map_err(tunnel_error)?;Ok(target)
+}
+fn tunnel_error(error:tunnel::Error)->String{match error{
+    tunnel::Error::Unavailable|tunnel::Error::Temporary=>"No se pudo conectar con Bore. Comprueba tu conexión o inténtalo más tarde",
+    tunnel::Error::Busy=>"Ya hay un túnel o una operación pendiente para este servidor",
+    tunnel::Error::Stopped=>"El servidor se detuvo o cambió de dirección",
+    tunnel::Error::ConfirmationRequired=>"Confirma el uso del túnel antes de continuar",
+    tunnel::Error::CleanupRequired=>"No se pudo terminar el túnel. Reintenta su cierre",
+    _=>"El túnel no está disponible para este destino",
+}.into()}
+#[tauri::command]
+async fn get_crash_report(engine:State<'_,Engine>,id:String)->Result<Option<crash_diagnostics::Report>,String>{
+    let server=storage::get(&engine.root,&id)?;
+    if engine.processes.state(&id)!="crashed"{return Ok(None);}
+    let Some(session)=engine.processes.exit_token(&id)else{return Ok(None);};
+    tauri::async_runtime::spawn_blocking(move||crash_diagnostics::load(std::path::Path::new(&server.directory),&id,&session)).await.map_err(|e|e.to_string())?
+}
+#[tauri::command]
+fn get_tunnel_status(engine:State<'_,Engine>,id:String)->Result<Option<tunnel::Status>,String>{storage::get(&engine.root,&id)?;engine.tunnels.status(&id).map_err(tunnel_error)}
+#[tauri::command]
+async fn open_tunnel(engine:State<'_,Engine>,id:String,confirmed:bool,expected_address:String)->Result<tunnel::Status,String>{
+    if !confirmed{return Err(tunnel_error(tunnel::Error::ConfirmationRequired));}
+    let reservation=engine.reserve_running(&id)?;let root=engine.root.clone();let processes=engine.processes.clone();let tunnels=engine.tunnels.clone();let shutdown=engine.router_shutdown.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        let _reservation=reservation;let target=tunnel_target(&root,&processes,&id)?;
+        if target.to_string()!=expected_address{return Err("La dirección cambió. Revisa y confirma de nuevo".into());}
+        tunnels.connect("bore",&tunnel::Request{server_id:id.clone(),local_address:target},true,||shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&tunnel_target(&root,&processes,&id).is_ok_and(|current|current==target)).map_err(tunnel_error)
+    }).await.map_err(|error|error.to_string())?
+}
+#[tauri::command]
+async fn close_tunnel(engine:State<'_,Engine>,id:String)->Result<(),String>{
+    storage::get(&engine.root,&id)?;let tunnels=engine.tunnels.clone();
+    tauri::async_runtime::spawn_blocking(move||tunnels.disconnect(&id).map_err(tunnel_error)).await.map_err(|error|error.to_string())?
+}
+
+#[tauri::command]
+async fn get_natpmp_status(engine:State<'_,Engine>,id:String)->Result<Option<natpmp_manager::Record>,String>{
+    storage::get(&engine.root,&id)?;let root=engine.root.clone();let manager=engine.natpmp.clone();
+    tauri::async_runtime::spawn_blocking(move||manager.status(&root,&id)).await.map_err(|error|error.to_string())?
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all="camelCase")]
+struct NatPmpDetection{gateway:String,external_ip:String,public_address:bool}
+#[tauri::command]
+async fn detect_natpmp(engine:State<'_,Engine>,id:String,gateway:Option<String>)->Result<NatPmpDetection,String>{
+    let server=storage::get(&engine.root,&id)?;let state=engine.processes.state(&id);let shutdown=engine.router_shutdown.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        if shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0{return Err("La aplicación se está cerrando".into());}
+        let network=network::inspect(&server,&state)?;
+        let local=network.local_ip.and_then(|ip|ip.parse::<std::net::Ipv4Addr>().ok()).filter(|ip|ip.is_private()).ok_or("No se detectó una dirección LAN IPv4 compatible")?;
+        let gateway=match gateway{Some(value)=>value.parse::<std::net::Ipv4Addr>().map_err(|_|"La dirección IPv4 del router no es válida")?,None=>natpmp::default_gateway(local)?};
+        let external_ip=natpmp_manager::Manager::detect(local,gateway)?;
+        let public_address=external_ip.parse().is_ok_and(upnp::public_ipv4);
+        Ok(NatPmpDetection{gateway:gateway.to_string(),external_ip,public_address})
+    }).await.map_err(|error|error.to_string())?
+}
+#[tauri::command]
+async fn open_natpmp(engine:State<'_,Engine>,id:String,gateway:String,confirmed:bool,expected_ip:String,expected_port:u16)->Result<natpmp_manager::Record,String>{
+    if !confirmed{return Err("Confirma la apertura NAT-PMP antes de continuar".into());}
+    let reservation=engine.reserve_running(&id)?;let root=engine.root.clone();let manager=engine.natpmp.clone();let router=engine.router.clone();let processes=engine.processes.clone();let shutdown=engine.router_shutdown.clone();
+    tauri::async_runtime::spawn_blocking(move||{
+        let _reservation=reservation;
+        let gateway=gateway.parse::<std::net::Ipv4Addr>().map_err(|_|"La dirección IPv4 del router no es válida")?;
+        let (ip,port)=router_target(&root,&processes,&id)?;
+        if ip.to_string()!=expected_ip||port!=expected_port{return Err("La dirección o el puerto cambiaron. Confirma de nuevo la apertura".into());}
+        if router.status(&root,&id)?.has_mapping(){return Err("Retira la apertura UPnP antes de usar NAT-PMP".into());}
+        manager.open(&root,&id,ip,gateway,port,||shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&router_target(&root,&processes,&id).is_ok_and(|target|target==(ip,port)))
+    }).await.map_err(|error|error.to_string())?
+}
+#[tauri::command]
+async fn close_natpmp(engine:State<'_,Engine>,id:String)->Result<(),String>{
+    storage::get(&engine.root,&id)?;let root=engine.root.clone();let manager=engine.natpmp.clone();
+    tauri::async_runtime::spawn_blocking(move||manager.close(&root,&id)).await.map_err(|error|error.to_string())?
 }
 
 #[tauri::command]
@@ -1078,7 +1192,7 @@ pub fn run() {
             loader_update::recover_all(&root).map_err(std::io::Error::other)?;
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),tunnels:Arc::new(tunnel::Manager::new(vec![Arc::new(bore::Provider::default())]).expect("valid built-in tunnel provider")),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
             start_router_maintenance(app.handle().clone());
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
@@ -1120,7 +1234,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![get_crash_report,get_tunnel_status,open_tunnel,close_tunnel,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {
@@ -1132,10 +1246,12 @@ pub fn run() {
                 if engine.router_shutdown.compare_exchange(0,1,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok() {
                     engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
                     app_log::record(&engine.root,app_log::Event::ApplicationStopping,None);
-                    let router=engine.router.clone();let root=engine.root.clone();let shutdown=engine.router_shutdown.clone();
+                    let router=engine.router.clone();let natpmp=engine.natpmp.clone();let tunnels=engine.tunnels.clone();let root=engine.root.clone();let shutdown=engine.router_shutdown.clone();
                     let app=app.clone();
                     std::thread::spawn(move||{
+                        let _=tunnels.disconnect_all();
                         router.close_all(&root);
+                        natpmp.close_all(&root);
                         shutdown.store(2,std::sync::atomic::Ordering::SeqCst);
                         app.exit(code.unwrap_or(0));
                     });

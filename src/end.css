@@ -624,6 +624,13 @@ summary { font-size:11px; line-height:1.8; }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
 
 /* The rail opens over the workspace: icons and page content never shift. */
+.tick-monitor { margin-top:28px; padding-top:24px; border-top:1px solid var(--line); }
+.natpmp-gateway { margin:16px 0; }
+.natpmp-gateway label { display:grid; gap:8px; margin-top:16px; max-width:360px; }
+.tick-monitor .section-heading { margin-bottom:20px; }
+.tick-monitor .monitor-details { margin-top:0; }
+.tick-monitor .tick-low { color:var(--danger); }
+.tick-monitor .tick-warning { color:var(--warning); }
 .shell.auto-rail { position:relative; grid-template-columns:72px minmax(0,1fr); transition:none; }
 .shell.auto-rail>.main { grid-column:2; }
 .shell.auto-rail>.server-rail { position:absolute; inset:0 auto 0 0; z-index:30; width:72px; align-items:stretch; padding:20px 8px 14px; overflow:hidden; transition:width 190ms var(--motion-ease),box-shadow 190ms var(--motion-ease); }
@@ -669,6 +676,27 @@ summary { font-size:11px; line-height:1.8; }
 .settings-locations small { display:block; margin-top:8px; color:var(--muted); line-height:1.6; }
 .settings-locations button { white-space:nowrap; }
 .settings-storage-server { margin-top:32px; }
+.storage-usage { margin-top:36px; padding-top:28px; border-top:1px solid var(--line); }
+.storage-usage .section-heading { margin-bottom:24px; }
+.storage-total { display:flex; flex-wrap:wrap; align-items:baseline; gap:12px; margin-bottom:18px; }
+.storage-total strong { font-family:var(--font-display); font-size:24px; font-weight:400; line-height:1.8; }
+.storage-total span { color:var(--secondary); font-size:13px; }
+.storage-composition { display:flex; gap:3px; height:12px; overflow:hidden; background:var(--surface-deep); }
+.storage-composition>span { flex-shrink:1; height:100%; }
+.storage-composition .worlds,.storage-key.worlds { background:var(--accent); }
+.storage-composition .content,.storage-key.content { background:#95bddb; }
+.storage-composition .logs,.storage-key.logs { background:var(--warning); }
+.storage-composition .other,.storage-key.other { background:var(--muted); }
+.storage-breakdown { margin:18px 0 24px; }
+.storage-breakdown>div { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:12px 0; }
+.storage-breakdown dt { display:flex; align-items:center; gap:10px; color:var(--secondary); font-size:13px; }
+.storage-breakdown dd { margin:0; font-variant-numeric:tabular-nums; font-size:14px; white-space:nowrap; }
+.storage-key { flex:none; width:9px; height:9px; }
+.storage-breakdown .storage-backups { margin-top:10px; padding-top:18px; border-top:1px solid var(--line); }
+.storage-volumes { margin-top:24px; }
+.storage-threshold-warning { padding:14px 16px; background:var(--warning-wash); color:var(--warning); font-size:13px; line-height:1.8; }
+.storage-warning-controls { min-width:0; margin:28px 0 0; padding:24px 0 0; border:0; border-top:1px solid var(--line); }
+.storage-warning-controls .slider-field { max-width:440px; }
 .settings-storage-server h3 { margin:0 0 12px; }
 .settings-inline-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
 .settings-about-brand { display:flex; align-items:center; gap:22px; margin-bottom:24px; }
@@ -698,3 +726,17 @@ summary { font-size:11px; line-height:1.8; }
 .background-task .install-progress-heading>div:first-child { min-width:0; overflow-wrap:anywhere; }
 .background-task .install-progress-actions { flex-wrap:wrap; justify-content:flex-end; }
 @media(max-width:760px) { .background-tasks { inset:auto 16px 16px 80px; width:auto; max-height:calc(100vh - 32px); padding:18px; } }
+
+.crash-diagnostics { margin:24px 0; padding:24px; border:1px solid var(--danger-line); border-left:3px solid var(--danger); background:var(--danger-wash); min-width:0; }
+.crash-findings { display:grid; gap:24px; }
+.crash-finding h3 { margin:0 0 8px; font-family:var(--font-display); font-size:15px; line-height:1.6; }
+.crash-finding p { max-width:76ch; line-height:1.7; margin:8px 0; }
+.crash-recommendation { color:var(--secondary); }
+.crash-finding>button { margin:8px 0 12px; }
+.crash-diagnostics summary { cursor:pointer; color:var(--secondary); padding:8px 0; }
+.crash-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:240px; overflow:auto; padding:14px; background:var(--surface); color:var(--ink); font:12px/1.7 ui-monospace,monospace; }
+.crash-recent { margin-top:20px; border-top:1px solid var(--danger-line); padding-top:12px; }
+.crash-recent ul { list-style:none; padding:0; margin:0; }
+.crash-recent li { display:flex; gap:16px; justify-content:space-between; flex-wrap:wrap; padding:8px 0; }
+.crash-recent code { overflow-wrap:anywhere; }
+.crash-recent time { color:var(--secondary); font-size:12px; }

@@ -7,6 +7,7 @@ import {JvmPanel} from './JvmPanel'
 import {NetworkPanel} from './NetworkPanel'
 import {BackupPolicyPanel} from './BackupPolicyPanel'
 import {StartupPanel} from './StartupPanel'
+import {StoragePanel} from './StoragePanel'
 import {TasksPanel} from './TasksPanel'
 import {InstallProgress} from './InstallProgress'
 import {MovingIndicator} from './motion'
@@ -31,7 +32,7 @@ export function ApplicationSettings(props:Props){
   const server=props.servers.find(item=>item.id===props.selectedId)??props.servers[0]??null
   const task=server?props.progress[server.id]??null:null
   const busy=props.busy||working||!!task&&isTaskActive(task)
-  const scoped=['java','network','backups','advanced'].includes(category)
+  const scoped=['java','storage','network','backups','advanced'].includes(category)
   const open=async(key:ApplicationInfo['locations'][number]['key']|'server')=>{
     if(opening)return
     setOpening(key);setFolderError(null)
@@ -53,7 +54,7 @@ export function ApplicationSettings(props:Props){
       </>:<p className="empty-inline">Crea o importa un servidor para configurar su runtime de Java.</p>)}
       {category==='storage'&&<section aria-labelledby="settings-storage-title"><h2 id="settings-storage-title">Archivos de la aplicación</h2><p className="muted">La biblioteca, Java y las copias se guardan en este equipo. Los servidores importados sin copiar conservan su carpeta original.</p>
         {infoError?<p className="form-error" role="alert">{infoError}</p>:!info?<p role="status">Consultando ubicaciones…</p>:<dl className="settings-locations">{info.locations.map(location=><div key={location.key}><dt>{locations[location.key]}</dt><dd><code>{location.path}</code>{!location.exists&&<small>Se creará cuando sea necesaria.</small>}</dd><button disabled={!!opening} onClick={()=>void open(location.key)}>{opening===location.key?'Abriendo…':'Abrir carpeta'}</button></div>)}</dl>}
-        {server&&<div className="settings-storage-server"><h3>{server.name}</h3><code>{server.directory}</code><p className="muted">Objetivo de espacio: {server.storageTargetGb} GB. Activa avisos; no limita el disco.</p><div className="settings-inline-actions"><button disabled={!!opening} onClick={()=>void open('server')}>Abrir carpeta del servidor</button><button onClick={()=>props.onOpenServer(server,'settings')}>Cambiar objetivo de espacio</button></div></div>}{folderError&&<p className="form-error" role="alert">{folderError}</p>}
+        {server&&<StoragePanel key={server.id} server={server} busy={busy}/>}{server&&<div className="settings-storage-server"><h3>{server.name}</h3><code>{server.directory}</code><p className="muted">Objetivo de espacio: {server.storageTargetGb} GB. Activa avisos; no limita el disco.</p><div className="settings-inline-actions"><button disabled={!!opening} onClick={()=>void open('server')}>Abrir carpeta del servidor</button><button onClick={()=>props.onOpenServer(server,'settings')}>Cambiar objetivo de espacio</button></div></div>}{folderError&&<p className="form-error" role="alert">{folderError}</p>}
       </section>}
       {category==='network'&&(server?<NetworkPanel key={server.id} server={server}/>:<p className="empty-inline">Crea o importa un servidor para comprobar su conexión.</p>)}
       {category==='backups'&&(server?<section><div className="section-heading"><div><h2>Copias del servidor</h2><p>Revisa la retención y accede a las copias guardadas.</p></div><button onClick={()=>props.onOpenServer(server,'backups')}>Ver copias</button></div><BackupPolicyPanel key={server.id} id={server.id} disabled={busy||!['stopped','crashed','error'].includes(server.state)} onChanged={props.onChanged}/></section>:<p className="empty-inline">Crea o importa un servidor para gestionar sus copias.</p>)}

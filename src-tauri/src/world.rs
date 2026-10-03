@@ -88,6 +88,8 @@ fn active_name(server: &Server) -> Result<String, String> {
     Ok(props.get("level-name").cloned().unwrap_or_else(|| "world".into()))
 }
 
+pub(crate) fn is_world(server:&Server,name:&str)->bool {checked_world(server,name).is_ok()}
+
 fn world_info(name: String, path: &Path, active: bool) -> WorldInfo {
     let icon = path.join("icon.png");
     let icon_data = fs::symlink_metadata(&icon).ok()
@@ -121,6 +123,7 @@ pub fn inspect(path: &Path) -> Result<WorldInspection, String> {
     Ok(WorldInspection { path: source.to_string_lossy().into_owned(), suggested_name, size_bytes: backup::size(&source) })
 }
 
+#[cfg(test)]
 fn copy_as(source: &Path, root: &Path, name: &str) -> Result<PathBuf, String> {
     copy_as_inner(source, root, name, None)
 }
@@ -131,11 +134,12 @@ fn copy_as_inner(source: &Path, root: &Path, name: &str, task: Option<&crate::do
     if target.exists() { return Err("Ya existe un archivo o mundo con ese nombre".into()); }
     let stage = root.join(format!(".tch-world-{}.part", Uuid::new_v4()));
     let result = (|| {
-        if let Some(task)=task { backup::copy_tree_tracked(source,&stage,task,"Importando archivos del mundo")?; }
+        let action=match task.map(|task|task.kind()){Some("world_duplicate")=>"Duplicando archivos del mundo",Some("world_export")=>"Exportando archivos del mundo",_=>"Importando archivos del mundo"};
+        if let Some(task)=task { backup::copy_tree_tracked(source,&stage,task,action)?; }
         else { backup::copy_tree(source, &stage)?; }
-        if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando el mundo importado","verifying"); }
+        if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando la copia del mundo","verifying"); }
         valid_level_dat(&stage)?;
-        if let Some(task)=task { task.begin_publication("Guardando el mundo importado")?; }
+        if let Some(task)=task { task.begin_publication("Guardando la copia del mundo")?; }
         fs::rename(&stage, &target).map_err(|e| e.to_string())?;
         Ok(target)
     })();
@@ -165,12 +169,21 @@ fn import_inner(server: &Server, source: &Path, name: &str, task: Option<&crate:
     Ok(world_info(name.into(), &target, active))
 }
 
+#[cfg(test)]
 pub fn duplicate(server: &Server, name: &str, new_name: &str) -> Result<WorldInfo, String> {
     let source = checked_world(server, name)?;
     let target = copy_as(&source, &server_root(server)?, new_name)?;
     Ok(world_info(new_name.into(), &target, false))
 }
 
+pub fn duplicate_tracked(server:&Server,name:&str,new_name:&str,task:&crate::download::DownloadTask)->Result<WorldInfo,String>{
+    task.cancellation.check()?;task.report("Comprobando el mundo original","preparing");
+    let source=checked_world(server,name)?;
+    let target=copy_as_inner(&source,&server_root(server)?,new_name,Some(task))?;
+    Ok(world_info(new_name.into(),&target,false))
+}
+
+#[cfg(test)]
 pub fn export(server: &Server, name: &str, parent: &Path) -> Result<PathBuf, String> {
     let source = checked_world(server, name)?;
     let parent = parent.canonicalize().map_err(|e| format!("No se pudo abrir el destino: {e}"))?;
@@ -180,19 +193,60 @@ pub fn export(server: &Server, name: &str, parent: &Path) -> Result<PathBuf, Str
     copy_as(&source, &parent, name)
 }
 
+pub fn export_tracked(server:&Server,name:&str,parent:&Path,task:&crate::download::DownloadTask)->Result<PathBuf,String>{
+    task.cancellation.check()?;task.report("Comprobando el destino del mundo","preparing");
+    let source=checked_world(server,name)?;
+    let parent=parent.canonicalize().map_err(|e|format!("No se pudo abrir el destino: {e}"))?;
+    if !parent.is_dir()||parent.starts_with(&source){return Err("Elige una carpeta de destino fuera del mundo".into());}
+    copy_as_inner(&source,&parent,name,Some(task))
+}
+
+#[cfg(test)]
 pub fn set_active(root: &Path, server: &Server, name: &str) -> Result<Option<Backup>, String> {
+    set_active_inner(root,server,name,None)
+}
+
+pub fn set_active_tracked(root:&Path,server:&Server,name:&str,task:&crate::download::DownloadTask)->Result<Option<Backup>,String>{
+    set_active_inner(root,server,name,Some(task))
+}
+
+fn set_active_inner(root:&Path,server:&Server,name:&str,task:Option<&crate::download::DownloadTask>)->Result<Option<Backup>,String>{
+    if let Some(task)=task{task.cancellation.check()?;task.report("Comprobando el mundo principal","preparing");}
     checked_world(server, name)?;
     if active_name(server)? == name { return Ok(None); }
-    let snapshot = backup::create(root, &server.id)?;
+    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create(root,&server.id)?};
+    if let Some(task)=task{
+        task.report("Copia guardada; preparando el cambio de mundo","preparing");
+        task.cancellation.check()?;
+    }
+    checked_world(server,name)?;
     let updates: BTreeMap<String, String> = [("level-name".into(), name.into())].into();
+    if let Some(task)=task{task.begin_publication("Guardando el mundo principal")?;}
     properties::write(&server_root(server)?.join("server.properties"), updates)?;
     Ok(Some(snapshot))
 }
 
+#[cfg(test)]
 pub fn delete(root: &Path, server: &Server, name: &str) -> Result<Backup, String> {
-    let target = checked_world(server, name)?;
+    delete_inner(root,server,name,None)
+}
+
+pub fn delete_tracked(root:&Path,server:&Server,name:&str,task:&crate::download::DownloadTask)->Result<Backup,String>{
+    delete_inner(root,server,name,Some(task))
+}
+
+fn delete_inner(root:&Path,server:&Server,name:&str,task:Option<&crate::download::DownloadTask>)->Result<Backup,String>{
+    if let Some(task)=task{task.cancellation.check()?;task.report("Comprobando el mundo que se eliminará","preparing");}
+    checked_world(server, name)?;
     if active_name(server)? == name { return Err("No se puede borrar el mundo principal. Activa otro primero".into()); }
-    let snapshot = backup::create(root, &server.id)?;
+    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create(root,&server.id)?};
+    if let Some(task)=task{
+        task.report("Copia guardada; preparando la eliminación del mundo","preparing");
+        task.cancellation.check()?;
+    }
+    let target=checked_world(server,name)?;
+    if active_name(server)?==name{return Err("No se puede borrar el mundo principal. Activa otro primero".into());}
+    if let Some(task)=task{task.begin_publication("Eliminando el mundo; la copia está guardada")?;}
     fs::remove_dir_all(target).map_err(|e| format!("No se pudo borrar el mundo: {e}"))?;
     Ok(snapshot)
 }
@@ -260,6 +314,106 @@ mod tests {
             assert_eq!(fs::read(source.join("region/r.0.0.mca")).unwrap(),vec![7u8;300_000]);valid_level_dat(&source).unwrap();
         }
         assert_eq!(list(&server).unwrap().iter().map(|world|world.name.as_str()).collect::<Vec<_>>(),vec!["Complete"]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tracked_world_changes_cancel_before_mutation_and_retain_completed_safety_copies(){
+        use std::sync::{Arc,Mutex};
+        for delete in [false,true]{
+            for mode in ["during_backup","after_backup","complete"]{
+                let root=std::env::temp_dir().join(format!("tch-world-change-progress-{}",Uuid::new_v4()));
+                fs::create_dir_all(&root).unwrap();let server=fixture(&root);let directory=PathBuf::from(&server.directory);
+                make_world(&directory.join("Main"));make_world(&directory.join("Other"));
+                fs::write(directory.join("Other/region/r.0.0.mca"),vec![6u8;300_000]).unwrap();
+                properties::write(&directory.join("server.properties"),[("level-name".into(),"Main".into())].into()).unwrap();
+                let expected=backup::size(&directory);
+                let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(std::collections::HashMap::new()));
+                let observed=jobs.clone();let events=Arc::new(Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
+                let emit=move|event:crate::model::Progress|{
+                    let task=observed.lock().unwrap()[&event.server_id].clone();
+                    assert_eq!(task.id,event.task_id);assert!(task.is_file_operation());
+                    assert_eq!(event.kind,if delete{"world_delete"}else{"world_activate"});
+                    if mode=="during_backup"&&event.stage=="copying"&&event.received>0{assert!(task.request_cancel());}
+                    if mode=="after_backup"&&event.stage=="preparing"&&event.label.starts_with("Copia guardada;"){assert!(task.request_cancel());}
+                    if event.stage=="publishing"{assert!(!task.request_cancel());}
+                    capture.lock().unwrap().push(event);
+                };
+                let result=if delete{crate::file_tasks::delete_world(&root,&server,"Other",&jobs,emit).map(|_|())}else{crate::file_tasks::set_active_world(&root,&server,"Other",&jobs,emit).map(|_|())};
+                assert!(jobs.lock().unwrap().is_empty());
+                let events=events.lock().unwrap();let copies=storage::list_backups(&root,&server.id).unwrap();
+                if mode=="complete"{
+                    result.unwrap();assert_eq!(events.last().unwrap().stage,"completed");
+                    assert_eq!(directory.join("Other").exists(),!delete);
+                    assert_eq!(active_name(&server).unwrap(),if delete{"Main"}else{"Other"});
+                }else{
+                    assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert_eq!(events.last().unwrap().stage,"cancelled");
+                    assert_eq!(active_name(&server).unwrap(),"Main");
+                    assert_eq!(fs::read(directory.join("Other/region/r.0.0.mca")).unwrap(),vec![6u8;300_000]);
+                }
+                assert_eq!(copies.len(),usize::from(mode!="during_backup"));
+                if mode!="during_backup"{
+                    let measured=events.iter().filter(|event|event.stage=="copying").last().unwrap();
+                    assert_eq!(measured.received,expected);assert_eq!(measured.total,Some(expected));
+                    let copy=Path::new(&copies[0].path);assert_eq!(fs::read(copy.join("Other/region/r.0.0.mca")).unwrap(),vec![6u8;300_000]);
+                    assert_eq!(properties::read(&copy.join("server.properties")).unwrap()["level-name"],"Main");
+                }
+                // The active world stays protected and selecting it again needs no backup.
+                let active=active_name(&server).unwrap();let before=copies.len();
+                assert!(crate::file_tasks::delete_world(&root,&server,&active,&jobs,|_|{}).is_err());
+                assert!(crate::file_tasks::set_active_world(&root,&server,&active,&jobs,|_|{}).unwrap().is_none());
+                assert_eq!(storage::list_backups(&root,&server.id).unwrap().len(),before);assert!(jobs.lock().unwrap().is_empty());
+                fs::remove_dir_all(root).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn tracked_duplicates_and_exports_preserve_sources_and_cancelled_destinations() {
+        use std::sync::{Arc,Mutex};
+        let root=std::env::temp_dir().join(format!("tch-world-copy-progress-{}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();let server=fixture(&root);
+        let source=PathBuf::from(&server.directory).join("Original");make_world(&source);
+        fs::write(source.join("region/r.0.0.mca"),vec![9u8;300_000]).unwrap();
+        let expected=backup::size(&source);
+        for export in [false,true] {
+            for mode in ["cancel","invalid","complete","exists"] {
+                let parent=if export{root.join(format!("export-{mode}"))}else{PathBuf::from(&server.directory)};
+                fs::create_dir_all(&parent).unwrap();
+                let name=if export{"Original"}else{mode};
+                let target=parent.join(name);
+                if mode=="exists"{fs::create_dir_all(&target).unwrap();fs::write(target.join("keep"),b"unchanged").unwrap();}
+                let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(std::collections::HashMap::new()));
+                let observed=jobs.clone();let events=Arc::new(Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();let directory=parent.clone();
+                let emit=move|event:crate::model::Progress|{
+                    let task=observed.lock().unwrap()[&event.server_id].clone();
+                    assert_eq!(task.id,event.task_id);assert!(task.is_file_operation());
+                    assert_eq!(event.kind,if export{"world_export"}else{"world_duplicate"});
+                    if mode=="cancel"&&event.stage=="copying"&&event.received>0{assert!(task.request_cancel());}
+                    if mode=="invalid"&&event.stage=="verifying"{
+                        let stage=fs::read_dir(&directory).unwrap().map(|entry|entry.unwrap().path()).find(|path|path.file_name().unwrap().to_string_lossy().starts_with(".tch-world-")).unwrap();
+                        fs::write(stage.join("level.dat"),b"invalid").unwrap();
+                    }
+                    if event.stage=="publishing"{assert!(!task.request_cancel());}
+                    capture.lock().unwrap().push(event);
+                };
+                let result=if export{crate::file_tasks::export_world(&server,"Original",&parent,&jobs,emit).map(|_|())}else{crate::file_tasks::duplicate_world(&server,"Original",name,&jobs,emit).map(|_|())};
+                assert!(jobs.lock().unwrap().is_empty());
+                let events=events.lock().unwrap();let terminal=events.last().unwrap();
+                if mode=="complete"{
+                    result.unwrap();assert_eq!(terminal.stage,"completed");
+                    let measured=events.iter().filter(|event|event.stage=="copying").last().unwrap();assert_eq!(measured.received,expected);assert_eq!(measured.total,Some(expected));
+                    valid_level_dat(&target).unwrap();assert_eq!(fs::read(target.join("region/r.0.0.mca")).unwrap(),vec![9u8;300_000]);
+                }else if mode=="cancel"{assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert_eq!(terminal.stage,"cancelled");assert!(!target.exists());}
+                else{assert!(result.is_err());assert_eq!(terminal.stage,"failed");if mode=="exists"{assert_eq!(fs::read(target.join("keep")).unwrap(),b"unchanged");}else{assert!(!target.exists());}}
+                assert!(fs::read_dir(&parent).unwrap().all(|entry|!entry.unwrap().file_name().to_string_lossy().starts_with(".tch-world-")));
+                assert_eq!(fs::read(source.join("region/r.0.0.mca")).unwrap(),vec![9u8;300_000]);valid_level_dat(&source).unwrap();
+            }
+        }
+        // Invalid export targets must never create a nested copy inside the source.
+        let task=crate::download::DownloadTask::new(&server.id,"world_export",|_|{}).unwrap();
+        assert!(export_tracked(&server,"Original",&source.join("region"),&task).is_err());
+        assert!(!source.join("region/Original").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

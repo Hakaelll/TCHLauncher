@@ -435,6 +435,7 @@ pub struct MappingInfo {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status { router: Option<RouterInfo>, mapping: Option<MappingInfo>, lease_seconds: u32, remote_reachability: &'static str, discovery_error: Option<String> }
+impl Status{pub(crate) fn has_mapping(&self)->bool{self.mapping.is_some()}}
 struct Detected { gateway: Gateway, info: RouterInfo, discovered: Instant }
 #[derive(Default)]
 pub struct Manager { gate: Mutex<()>, detected: Mutex<Option<Detected>>, discovery_error: Mutex<Option<String>> }

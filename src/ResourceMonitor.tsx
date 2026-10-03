@@ -1,5 +1,5 @@
-import type { Metrics, Server } from './api'
-import { useState } from 'react'
+import {api,type Metrics,type Server} from './api'
+import { useEffect,useState } from 'react'
 import { AnimatedLine, AnimatedValue } from './motion'
 import { diskRate, HISTORY_MS, seriesSegments, type MetricSample } from './telemetry'
 
@@ -46,6 +46,26 @@ export function ResourceMonitor(props:MonitorProps) {
   const writeRate=props.metrics?.pid ? diskRate(samples,'diskWrittenBytes'):null
   return <section className="resource-monitor"><div className="section-heading"><div><h2>Rendimiento</h2><p>Proceso Java · últimos dos minutos</p></div></div>
     <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes"/><ResourceChart {...props} metric="cpuPercent"/></div>
+    <TickMonitor key={`${props.server.id}:${props.metrics?.pid}`} server={props.server} metrics={props.metrics}/>
     <dl className="monitor-details"><div><dt>Lectura de disco</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>Escritura de disco</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>Heap máximo de Java</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>Proceso</dt><dd>{props.metrics?.pid??'—'}</dd></div></dl>
+  </section>
+}
+
+function TickMonitor({server,metrics}:{server:Server;metrics:Metrics|null}){
+  const [waiting,setWaiting]=useState(false)
+  const [requested,setRequested]=useState(false)
+  const [error,setError]=useState<string|null>(null)
+  const reading=metrics?.tps?.reading
+  useEffect(()=>{if(!waiting)return;const timer=setTimeout(()=>setWaiting(false),11_000);return()=>clearTimeout(timer)},[waiting])
+  useEffect(()=>{if(reading)setWaiting(false)},[reading?.sampledAt])
+  const query=async()=>{
+    setError(null);setWaiting(true)
+    try{await api.requestTps(server.id);setRequested(true)}catch(cause){setWaiting(false);setError(cause instanceof Error?cause.message:String(cause))}
+  }
+  const pending=waiting||metrics?.tps?.pending
+  return <section className="tick-monitor" aria-label="TPS del servidor"><div className="section-heading"><div><h3>Ritmo del servidor</h3><p>{server.platform==='paper'?'Medias de TPS comunicadas por Paper. Objetivo habitual: 20.':'Este motor no ofrece una fuente de TPS integrada.'}</p></div>{server.platform==='paper'&&<button disabled={server.state!=='running'||!!pending} onClick={()=>void query()}>{pending?'Consultando…':'Consultar TPS'}</button>}</div>
+    <dl className="monitor-details">{[['Último minuto',reading?.oneMinute],['Últimos 5 minutos',reading?.fiveMinutes],['Últimos 15 minutos',reading?.fifteenMinutes]].map(([label,value])=><div key={label}><dt>{label}</dt><dd className={typeof value==='number'&&value<16?'tick-low':typeof value==='number'&&value<18?'tick-warning':undefined}>{typeof value==='number'?value.toFixed(1):'—'}</dd></div>)}</dl>
+    <p className="field-help" role="status">{server.platform!=='paper'?'TPS no disponibles para este motor.':pending?'Esperando respuesta del proceso Java…':reading?`Consulta recibida a las ${new Date(reading.sampledAt).toLocaleTimeString()}. La lectura caduca tras un minuto.`:server.state!=='running'?'Inicia el servidor para consultar su ritmo.':requested?'No hay una lectura reciente. El comando puede no estar disponible en este servidor.':'Sin lectura: pulsa Consultar TPS para solicitarla.'}</p>
+    {error&&<p className="form-error" role="alert">{error}</p>}
   </section>
 }

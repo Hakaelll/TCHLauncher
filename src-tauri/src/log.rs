@@ -19,7 +19,7 @@ fn minecraft_time(line: &str) -> Option<String> {
     Some(line[1..9].to_string())
 }
 
-fn without_terminal_colors(line:&str)->String {
+pub(crate) fn without_terminal_colors(line:&str)->String {
     let mut clean=String::with_capacity(line.len());
     let mut chars=line.chars().peekable();
     while let Some(character)=chars.next() {
@@ -47,6 +47,10 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     let lower = line.to_ascii_lowercase();
     let message = line.split_once("]: ").map(|(_, message)| message).unwrap_or(line);
     let message_lower = message.to_ascii_lowercase();
+    if message.ends_with(" joined the game") { return ("player", Some("join")); }
+    if message.ends_with(" left the game") { return ("player", Some("leave")); }
+    if message.starts_with('<') && message.contains("> ") { return ("chat", None); }
+    if message.split_once(" issued server command: ").is_some_and(|(name,_)|!name.is_empty()&&name.len()<=16&&name.bytes().all(|byte|byte.is_ascii_alphanumeric()||byte==b'_')) { return ("command", None); }
     if lower.contains("can't keep up") { return ("warn", Some("lag")); }
     if lower.contains("exception") || lower.contains("[severe]") || lower.contains("[fatal]") {
         return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "exception" }));
@@ -54,10 +58,6 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     if lower.contains("error") {
         return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "error" }));
     }
-    if message.ends_with(" joined the game") { return ("player", Some("join")); }
-    if message.ends_with(" left the game") { return ("player", Some("leave")); }
-    if message.starts_with('<') && message.contains("> ") { return ("chat", None); }
-    if message_lower.contains("issued server command") { return ("command", None); }
     if lower.contains("warn") { return ("warn", Some("warning")); }
     if startup_complete(line,message) { return ("system", Some("startup")); }
     if message_lower.contains("stopping server") { return ("system", Some("shutdown")); }
@@ -142,6 +142,15 @@ pub fn export_snapshot(source: &Path, destination: &Path) -> Result<u64, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn player_text_cannot_impersonate_error_or_warning_tags(){
+        for message in ["<Player> java.lang.OutOfMemoryError: Java heap space","<Player> WARNING: error exception"]{
+            let parsed=parse("server",&format!("[12:00:00 INFO]: {message}"));assert_eq!(parsed.level,"chat");assert!(parsed.event.is_none());
+        }
+        assert_eq!(parse("server","[12:00:00 ERROR]: Plugin exception when player issued server command: /help").level,"error");
+        assert_eq!(parse("server","[12:00:00 INFO]: Steve issued server command: /help").level,"command");
+        let parsed=parse("server","[12:00:00 INFO]: Exception joined the game");assert_eq!(parsed.level,"player");assert_eq!(parsed.event.as_deref(),Some("join"));
+    }
     use uuid::Uuid;
 
     #[test]

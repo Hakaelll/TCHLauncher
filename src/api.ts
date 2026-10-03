@@ -26,12 +26,13 @@ export type Server = {
 }
 export type ApplicationInfo = {version:string;os:string;architecture:string;locations:{key:'library'|'servers'|'runtimes'|'backups';path:string;exists:boolean}[];eulaRecorded:boolean}
 export type Version = { id: string; kind: string }
-export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install' | 'pack_install' | 'loader_update' | 'minecraft_update' | 'backup' | 'restore' | 'world_import' | 'server_import' | 'content_remove'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'copying' | 'publishing' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
+export type Progress = { serverId: string; taskId: string; kind: 'install' | 'runtime' | 'runtime_reinstall' | 'content_install' | 'pack_install' | 'loader_update' | 'minecraft_update' | 'backup' | 'restore' | 'world_import' | 'world_duplicate' | 'world_export' | 'world_activate' | 'world_delete' | 'server_import' | 'content_remove'; label: string; stage: 'preparing' | 'connecting' | 'downloading' | 'verifying' | 'extracting' | 'copying' | 'publishing' | 'retrying' | 'completed' | 'cancelled' | 'failed'; received: number; total: number | null; bytesPerSecond: number | null; attempt: number; error: string | null }
 export type RuntimeInfo = {path:string|null;version:string|null;distribution:string|null;managed:boolean;status:'missing'|'invalid'|'ready';error:string|null;requiredMajor:number|null;compatibility:'unknown'|'compatible'|'incompatible'}
 export type JvmSettings = {mode:'recommended'|'custom';arguments:string}
 export type JvmPreview = {arguments:string[];installed:boolean}
 export type LogLine = { serverId: string; level: string; line: string; message: string; timestamp: string | null; event: string | null }
-export type Metrics = { serverId: string; sampledAt: number; pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; diskReadBytes: number | null; diskWrittenBytes: number | null; sizeBytes: number }
+export type StorageUsage = {sampledAt:number;serverBytes:number;worldsBytes:number;contentBytes:number;logsBytes:number;otherBytes:number;backupBytes:number;skippedLinks:number;warningPercent:number;serverVolume:{mount:string;availableBytes:number;totalBytes:number}|null;backupVolume:{mount:string;availableBytes:number;totalBytes:number}|null}
+export type Metrics = { serverId: string; sampledAt: number; pid: number | null; uptimeSeconds: number | null; memoryBytes: number | null; cpuPercent: number | null; diskReadBytes: number | null; diskWrittenBytes: number | null; sizeBytes: number; storageWarningPercent:number; tps:{reading:{oneMinute:number;fiveMinutes:number;fifteenMinutes:number;sampledAt:number}|null;pending:boolean} }
 export type Backup = { id: string; serverId: string; createdAt: string; sizeBytes: number; path: string; retentionWarning?: string|null }
 export type BackupPolicy = {enabled:boolean;maxCount:number|null;maxBytes:number|null}
 export type BackupRetentionPlan = {fingerprint:string;remove:Backup[];beforeBytes:number;afterBytes:number;warnings:string[]}
@@ -79,7 +80,16 @@ export type PackEntry = {path: string; size: number; source: 'download' | 'overr
 export type PackInspection = {path: string; archiveSha512: string; name: string; versionId: string; summary: string | null; minecraft: string; loader: string; loaderVersion: string | null; entries: PackEntry[]; excludedClientFiles: number; selectedBytes: number; blockers: string[]; warnings: string[]}
 export type LoaderReview = {current:string;available:string[];fingerprint:string}
 export type MinecraftReview = {currentMinecraft:string;targetMinecraft:string;platform:string;currentLoader:string|null;targetLoader:string|null;javaMajor:number;javaAction:'retain_configured'|'prepare_managed';content:{title:string;filename:string;status:'compatible'|'incompatible'|'unknown'|'update';reason:string}[];changes:ContentReview['changes'];migration:ContentPlan|null;blockers:string[];warnings:string[];fingerprint:string}
+export type NatPmpRecord={serverId:string;localIp:string;gateway:string;internalPort:number;externalPort:number|null;externalIp:string|null;phase:'pending'|'active'|'closing'|'attention';expiresAt:number;confirmedAt:number|null;renewAt:number;retryAt:number;lastError:string|null}
+export type NatPmpDetection={gateway:string;externalIp:string;publicAddress:boolean}
 export const api = {
+  natpmpStatus:(id:string)=>invoke<NatPmpRecord|null>('get_natpmp_status',{id}),
+  detectNatpmp:(id:string,gateway:string|null)=>invoke<NatPmpDetection>('detect_natpmp',{id,gateway}),
+  openNatpmp:(id:string,gateway:string,expectedIp:string,expectedPort:number)=>invoke<NatPmpRecord>('open_natpmp',{id,gateway,expectedIp,expectedPort,confirmed:true}),
+  closeNatpmp:(id:string)=>invoke<void>('close_natpmp',{id}),
+  requestTps:(id:string)=>invoke<void>('request_tps',{id}),
+  storageUsage:(id:string)=>invoke<StorageUsage>('get_storage_usage',{id}),
+  saveStorageWarning:(id:string,percent:number)=>invoke<void>('save_storage_warning',{id,percent}),
   applicationInfo:()=>invoke<ApplicationInfo>('get_application_info'),
   openApplicationFolder:(key:ApplicationInfo['locations'][number]['key']|'server',id:string|null=null)=>invoke<void>('open_application_folder',{key,id}),
   installationProgress: () => invoke<Progress[]>('get_installation_progress'),
@@ -172,6 +182,14 @@ export const api = {
   detectRouter: (id:string) => invoke<RouterStatus>('detect_router',{id}),
   openRouterPort: (id:string,expectedIp:string,expectedPort:number) => invoke<RouterStatus>('open_router_port',{id,confirmed:true,expectedIp,expectedPort}),
   closeRouterPort: (id:string) => invoke<RouterStatus>('close_router_port',{id}),
+  crashReport: (id:string) => invoke<CrashReport|null>('get_crash_report',{id}),
+  tunnelStatus: (id:string) => invoke<TunnelStatus|null>('get_tunnel_status',{id}),
+  openTunnel: (id:string,expectedAddress:string) => invoke<TunnelStatus>('open_tunnel',{id,confirmed:true,expectedAddress}),
+  closeTunnel: (id:string) => invoke<void>('close_tunnel',{id}),
   hideWindow: () => invoke<void>('hide_window'),
   stopAllAndExit: () => invoke<void>('stop_all_and_exit'),
 }
+
+export type TunnelStatus={serverId:string;providerId:string;phase:"creating"|"active"|"closing"|"attention";endpoint:{host:string;port:number}|null}
+
+export type CrashReport={serverId:string;sessionId:string;endedAt:number;exitCode:number|null;stopRequested:boolean;outputComplete:boolean;diagnoses:{kind:string;title:string;explanation:string;recommendation:string;action:string;evidence:string[]}[];recentFiles:{name:string;folder:string;modifiedAt:number}[]}

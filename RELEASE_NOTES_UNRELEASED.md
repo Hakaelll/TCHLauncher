@@ -1,6 +1,22 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.14.0](RELEASE_NOTES_v0.14.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.15.0](RELEASE_NOTES_v0.15.0.md). The development history below is retained for context.
+
+## Changes after 0.15.0
+
+- Add deterministic crash diagnostics from bounded output of the current Java process. Preserve the exit code, session identity, stop request and output-drain status in an atomic local report before publishing the terminal state. Detect known Java version, heap/native memory, bind, mod-loader and plugin-loading errors without sending logs to an external service.
+- Connect a failure review in Overview with recommendations, navigation to configuration/content/connection/console, expandable evidence and separately identified recent mod/plugin file changes. File timestamps are not presented as causal evidence. Old process reports are rejected for a new session.
+- Prevent chat, joins and genuine player commands from acquiring error tags merely because they contain error keywords. Keep real plugin errors containing command-related text classified as errors.
+- Two local diagnostic rule/persistence tests and six log/application-log tests pass; TypeScript and production build pass. Native Java crash lifecycle, keyboard/visual review and Minecraft gameplay remain unverified. These changes are not in the delivered 0.15.0 installer.
+
+## Included in 0.15.0
+
+- Connect NAT-PMP as an optional router alternative in Connection: detect the gateway, confirm temporary TCP opening, retain the assigned external port, renew while the server stays available and attempt removal after stop or launcher exit. Persist intents and failed cleanup for retry. Three local transport/lease tests pass; physical router, native controls and internet reachability remain unverified. An account-free Bore alternative is included below; Playit was declined.
+- Add an explicit Paper TPS query in Performance with 1/5/15-minute readings, semantic low-rate feedback and a timestamp. Send the namespaced native command through the current Java process, accept only recognized INFO responses from stdout within ten seconds of a request, rate-limit requests and expire readings after one minute. Never reuse previous-process logs or estimate TPS from CPU. Two local parser/lifecycle tests, TypeScript and production build pass. Real Paper command/response and native interaction remain unverified; included in 0.15.0.
+- Track primary-world changes and world deletion, including their measured safety copies. Allow cancellation before file mutation, retain completed backups on cancellation, revalidate the selected world after backup and protect publication from cancellation. Keep active worlds undeletable and avoid a backup for an unchanged selection. Refresh the backup list after cancelled/failed changes. Five local world tests pass; native interaction review remains pending. Included in 0.15.0.
+- Track world duplication and export with measured copy progress, cancellation before publication and validation of staged world data. Preserve the original world and existing destinations, remove cancelled/invalid staging copies and route task review back to Worlds. Keep the stopped-server reservation through terminal reporting and registry cleanup. Native visual interaction remains pending; these changes are included in 0.15.0.
+- Add measured storage breakdowns for worlds, mods/plugins, logs, other files and backups, with actual free disk space and an explicit refresh time. Persist a configurable warning threshold and apply it to the server overview without enforcing a quota. Reject incomplete scans instead of reporting partial totals as success. Two local native storage tests, TypeScript and the production build pass; native visual review remains pending. Included in 0.15.0.
+- Integrate Bore as an optional account-free TCP tunnel in Connection. Confirm the local destination, copy the assigned public address, monitor worker state and close control/player streams after stop or application exit. Five contract/lifecycle tests and two local protocol/forwarding tests pass. An explicit real bore.pub echo integration passed; native interaction and Minecraft gameplay remain manual checks. No Playit account or external executable is used.
 
 ## Included in 0.14.0
 

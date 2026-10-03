@@ -43,6 +43,22 @@ pub fn import_server(root:&Path,input:crate::model::ImportServer,id:&str,jobs:&R
     registered_kind(id,"server_import",jobs,emit,|task|crate::storage::import_tracked(root,input,id,task))
 }
 
+pub fn duplicate_world(server:&crate::model::Server,name:&str,new_name:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<crate::world::WorldInfo,String>{
+    registered_kind(&server.id,"world_duplicate",jobs,emit,|task|crate::world::duplicate_tracked(server,name,new_name,task))
+}
+
+pub fn export_world(server:&crate::model::Server,name:&str,parent:&Path,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<std::path::PathBuf,String>{
+    registered_kind(&server.id,"world_export",jobs,emit,|task|crate::world::export_tracked(server,name,parent,task))
+}
+
+pub fn set_active_world(root:&Path,server:&crate::model::Server,name:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Option<Backup>,String>{
+    registered_kind(&server.id,"world_activate",jobs,emit,|task|crate::world::set_active_tracked(root,server,name,task))
+}
+
+pub fn delete_world(root:&Path,server:&crate::model::Server,name:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Backup,String>{
+    registered_kind(&server.id,"world_delete",jobs,emit,|task|crate::world::delete_tracked(root,server,name,task))
+}
+
 pub fn remove_content(root:&Path,server:&crate::model::Server,filename:&str,sha512:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<(),String>{
     registered_kind(&server.id,"content_remove",jobs,emit,|task|crate::content_storage::remove_tracked(root,server,filename,sha512,task))
 }

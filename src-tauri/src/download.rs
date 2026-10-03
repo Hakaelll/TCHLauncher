@@ -68,7 +68,8 @@ impl DownloadTask {
     }
 
     pub fn snapshot(&self)->Result<Progress,String>{self.latest.lock().map(|value|value.clone()).map_err(|_|"No se pudo leer el estado de la tarea".into())}
-    pub fn is_file_operation(&self)->bool{matches!(self.kind.as_str(),"backup"|"restore"|"world_import"|"server_import"|"content_remove")}
+    pub(crate) fn kind(&self)->&str{&self.kind}
+    pub fn is_file_operation(&self)->bool{matches!(self.kind.as_str(),"backup"|"restore"|"world_import"|"world_duplicate"|"world_export"|"world_activate"|"world_delete"|"server_import"|"content_remove")}
     pub fn is_restore(&self)->bool{self.kind=="restore"}
     pub fn request_cancel(&self)->bool{
         let Ok(latest)=self.latest.lock()else{return false;};
@@ -83,6 +84,24 @@ impl DownloadTask {
     }
 
     pub fn finish(&self, result: &Result<(), String>) {
+        if matches!(self.kind.as_str(),"world_activate"|"world_delete"){
+            let (success,cancelled,failed)=if self.kind=="world_delete"{("Mundo eliminado","Eliminación cancelada","No se pudo eliminar el mundo")}else{("Mundo principal actualizado","Cambio de mundo cancelado","No se pudo cambiar el mundo principal")};
+            match result{
+                Ok(())=>self.report(success,"completed"),
+                Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),
+                Err(error)=>self.progress(failed,"failed",0,None,None,1,Some(error.clone())),
+            }
+            return;
+        }
+        if matches!(self.kind.as_str(),"world_duplicate"|"world_export"){
+            let (success,cancelled,failed)=if self.kind=="world_export"{("Mundo exportado","Exportación cancelada","No se pudo exportar el mundo")}else{("Mundo duplicado","Duplicado cancelado","No se pudo duplicar el mundo")};
+            match result{
+                Ok(())=>self.report(success,"completed"),
+                Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),
+                Err(error)=>self.progress(failed,"failed",0,None,None,1,Some(error.clone())),
+            }
+            return;
+        }
         if self.kind=="content_remove"{
             match result{
                 Ok(())=>self.report("Contenido retirado","completed"),
@@ -363,7 +382,7 @@ mod tests {
 
     #[test]
     fn file_publication_and_cancellation_have_an_exclusive_boundary(){
-      for kind in ["backup","restore","minecraft_update","loader_update","content_install","world_import","server_import","content_remove"]{
+      for kind in ["backup","restore","minecraft_update","loader_update","content_install","world_import","world_duplicate","world_export","world_activate","world_delete","server_import","content_remove"]{
         let cancelled=DownloadTask::new("test",kind,|_|{}).unwrap();
         assert!(cancelled.request_cancel());assert_eq!(cancelled.begin_publication("Guardando").unwrap_err(),CANCELLED);
         let published=DownloadTask::new("test",kind,|_|{}).unwrap();
