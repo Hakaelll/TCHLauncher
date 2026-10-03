@@ -31,6 +31,14 @@ fn registered_kind<T>(id:&str,kind:&str,jobs:&Registry,emit:impl Fn(Progress)+Se
     result
 }
 
+pub fn create_stop_backup(root:&Path,id:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Backup,String>{
+    registered(id,jobs,emit,|task|backup::create_tracked_for(root,id,task,backup::Reason::ServerStop))
+}
+
+pub fn create_scheduled_backup(root:&Path,id:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Backup,String>{
+    registered(id,jobs,emit,|task|backup::create_tracked_for(root,id,task,backup::Reason::Scheduled))
+}
+
 pub fn create_backup(root:&Path,id:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Backup,String>{
     registered(id,jobs,emit,|task|backup::create_tracked(root,id,task))
 }
@@ -82,18 +90,19 @@ mod tests{
         let due=scheduler::claim(&root.0,1000).unwrap().unwrap();
         let jobs:Registry=Arc::new(Mutex::new(HashMap::new()));let observed=jobs.clone();
         let events=Arc::new(Mutex::new(Vec::<Progress>::new()));let capture=events.clone();
-        let copy=create_backup(&root.0,&due.server_id,&jobs,move|event|{
+        let copy=create_scheduled_backup(&root.0,&due.server_id,&jobs,move|event|{
             assert_eq!(observed.lock().unwrap().get(&event.server_id).unwrap().id,event.task_id);
             capture.lock().unwrap().push(event);
         }).unwrap();
         scheduler::finish(&root.0,&due.id,"Copia guardada").unwrap();
+        assert_eq!(backup::list_details(&root.0,&server.id).unwrap()[0].reason,Some(backup::Reason::Scheduled));
         assert!(jobs.lock().unwrap().is_empty());assert_eq!(fs::read(Path::new(&copy.path).join("keep.bin")).unwrap(),vec![8u8;300_000]);
         assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),1);
         let events=events.lock().unwrap();assert!(events.iter().any(|event|event.stage=="copying"&&event.received>0));assert_eq!(events.last().unwrap().stage,"completed");
         let scheduled=scheduler::add(&root.0,&server.id,scheduler::Input{action:"backup".into(),next_at:2000,interval_minutes:None},0).unwrap();
         let cancelled=scheduler::claim(&root.0,2000).unwrap().unwrap();assert_eq!(cancelled.id,scheduled.id);
         let observed=jobs.clone();let events=Arc::new(Mutex::new(Vec::<Progress>::new()));let capture=events.clone();
-        let result=create_backup(&root.0,&cancelled.server_id,&jobs,move|event|{
+        let result=create_scheduled_backup(&root.0,&cancelled.server_id,&jobs,move|event|{
             if event.stage=="copying"&&event.received>0{assert!(observed.lock().unwrap()[&event.server_id].request_cancel());}
             capture.lock().unwrap().push(event);
         });

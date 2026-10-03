@@ -47,7 +47,8 @@ export function ResourceMonitor(props:MonitorProps) {
   return <section className="resource-monitor"><div className="section-heading"><div><h2>Rendimiento</h2><p>Proceso Java · últimos dos minutos</p></div></div>
     <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes"/><ResourceChart {...props} metric="cpuPercent"/></div>
     <TickMonitor key={`${props.server.id}:${props.metrics?.pid}`} server={props.server} metrics={props.metrics}/>
-    <dl className="monitor-details"><div><dt>Lectura de disco</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>Escritura de disco</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>Heap máximo de Java</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>Proceso</dt><dd>{props.metrics?.pid??'—'}</dd></div></dl>
+    <dl className="monitor-details"><div><dt>Lectura de disco</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>Escritura de disco</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>Heap máximo de Java</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>Proceso</dt><dd>{props.metrics?.pid??'—'}</dd></div><div><dt>Tiempo de arranque</dt><dd>{props.metrics?.startupDurationMs==null?'—':`${(props.metrics.startupDurationMs/1000).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} s`}</dd></div></dl>
+    <p className="field-help">Arranque: desde el lanzamiento de Java hasta que el servidor comunica que está listo. Se mide para el proceso actual; una salida antes de estar listo no produce un valor.</p>
   </section>
 }
 

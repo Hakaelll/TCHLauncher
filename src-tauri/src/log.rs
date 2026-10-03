@@ -31,26 +31,49 @@ pub(crate) fn without_terminal_colors(line:&str)->String {
     clean
 }
 
-fn startup_complete(line:&str,message:&str)->bool {
+fn server_info(line:&str)->bool {
     // Paper's console formatter omits the thread and uses [HH:mm:ss INFO].
     let paper_prefix = line.as_bytes().get(..16).is_some_and(|prefix|
         prefix[0] == b'[' && prefix[3] == b':' && prefix[6] == b':' && &prefix[9..] == b" INFO]:"
         && [1,2,4,5,7,8].iter().all(|&index|prefix[index].is_ascii_digit()));
-    if !paper_prefix && !line.contains("[Server thread/INFO]") && !line.contains("[ServerMain/INFO]") {return false;}
+    let prefix=line.split_once("]: ").map(|(prefix,_)|prefix).unwrap_or("");
+    paper_prefix||prefix.ends_with("[Server thread/INFO")||prefix.contains("[Server thread/INFO]")||prefix.ends_with("[ServerMain/INFO")||prefix.contains("[ServerMain/INFO]")
+}
+
+fn startup_complete(line:&str,message:&str)->bool {
+    if !server_info(line){return false;}
     let Some(rest)=message.strip_prefix("Done (") else {return false;};
     let Some((duration,tail))=rest.split_once("s)!") else {return false;};
     duration.parse::<f64>().is_ok_and(|seconds|seconds.is_finite() && seconds>=0.0) &&
         (tail.trim().is_empty() || tail.trim().starts_with("For help, type "))
 }
 
+fn message_text(line:&str)->&str{
+    // Remove only a leading console header. A delimiter written inside chat
+    // must remain player text, including chat without a console timestamp.
+    if line.starts_with('['){
+        if let Some((prefix,message))=line.split_once("]: "){
+            if !prefix.contains('<'){return message;}
+        }
+    }
+    line
+}
+
 fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     let lower = line.to_ascii_lowercase();
-    let message = line.split_once("]: ").map(|(_, message)| message).unwrap_or(line);
+    let message = message_text(line);
     let message_lower = message.to_ascii_lowercase();
-    if message.ends_with(" joined the game") { return ("player", Some("join")); }
-    if message.ends_with(" left the game") { return ("player", Some("leave")); }
-    if message.starts_with('<') && message.contains("> ") { return ("chat", None); }
+    if let Some((_,joined))=crate::players::message_player_change(message){return ("player",Some(if joined{"join"}else{"leave"}));}
+    let chat=message.strip_prefix("[Not Secure] ").unwrap_or(message);
+    if chat.starts_with('<') && chat.contains("> ") { return ("chat", None); }
     if message.split_once(" issued server command: ").is_some_and(|(name,_)|!name.is_empty()&&name.len()<=16&&name.bytes().all(|byte|byte.is_ascii_alphanumeric()||byte==b'_')) { return ("command", None); }
+    if startup_complete(line,message) { return ("system", Some("startup")); }
+    if server_info(line){
+        if message.starts_with("Preparing level \"")&&message.ends_with('"'){return ("system",Some("world_load"));}
+        let region=message.strip_prefix("Preparing start region for dimension ").is_some_and(|dimension|!dimension.is_empty()&&dimension.bytes().all(|byte|byte.is_ascii_alphanumeric()||b"_:/.-".contains(&byte)));
+        let area=message.strip_prefix("Preparing spawn area: ").and_then(|rest|rest.strip_suffix('%')).and_then(|value|value.parse::<u8>().ok()).is_some_and(|value|value<=100);
+        if region||area{return ("system",Some("spawn_prepare"));}
+    }
     if lower.contains("can't keep up") { return ("warn", Some("lag")); }
     if lower.contains("exception") || lower.contains("[severe]") || lower.contains("[fatal]") {
         return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "exception" }));
@@ -59,7 +82,6 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
         return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "error" }));
     }
     if lower.contains("warn") { return ("warn", Some("warning")); }
-    if startup_complete(line,message) { return ("system", Some("startup")); }
     if message_lower.contains("stopping server") { return ("system", Some("shutdown")); }
     if message_lower.contains("saving chunks") || message_lower.contains("saved the game") { return ("system", Some("save")); }
     if message_lower.starts_with("proceso finalizado:") { return ("system", Some("exit")); }
@@ -77,7 +99,7 @@ pub fn parse(server_id: &str, record: &str) -> LogEvent {
         server_id: server_id.to_string(),
         level: level.to_string(),
         line: line.to_string(),
-        message: clean.split_once("]: ").map(|(_, message)| message).unwrap_or(&clean).to_string(),
+        message: message_text(&clean).to_string(),
         timestamp:timestamp.or_else(||minecraft_time(&clean)),
         event: event.map(str::to_string),
     }

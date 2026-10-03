@@ -1,10 +1,30 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.15.1](RELEASE_NOTES_v0.15.1.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.16.0](RELEASE_NOTES_v0.16.0.md). The development history below is retained for context.
 
-## Changes after 0.15.1
+## Changes after 0.16.0
 
-- Isolate malformed NAT-PMP records and individual transport/cleanup failures so other servers still receive lease renewal and shutdown cleanup. Preserve rejected records without contacting their destinations, retain failed cleanup for retry and report errors after processing all valid records. Two new local regressions cover malformed JSON, mismatched destinations, invalid stored ports, renewal, shutdown and retry. Not included in the 0.15.1 installer; physical-router verification remains pending.
+- Add an observed Java → World → Ready startup path in Overview, with explicit world-loading and spawn-preparation status from native server logs. Never infer readiness from spawn percentages; accept only the existing ready event. Keep progression monotonic per process and clear old metrics on restart, rejecting outstanding replies from an earlier start. Emit phase changes in real time with the process session, keeping the metrics snapshot as a fallback. Reject older-session phase updates and repeated/regressing events. Use a compact semantic list, status text and reduced-motion-aware color transitions. Two local native regressions, two frontend event regressions, an explicit read-only integration with the supplied actual Paper log, TypeScript and Vite pass. Live Minecraft/Tauri and native visual review remain pending. Not included in the 0.16.0 installer.
+
+## Included in 0.16.0
+
+- Use one normalized, validated player event for console classification and connected-player tracking. Support colored Paper output without losing joins/leaves; reject chat, commands and plugin text that merely end with those phrases. Preserve chat delimiters, including unprefixed and unsigned chat, instead of interpreting them as console headers. Keep raw log bytes and use the same events on saved-log reads. A real-file regression verifies live/read-back identity agreement, duplicate events and forged join/leave text. Minecraft connections and native UI review remain pending. Included in the 0.16.0 preview.
+
+- Add a stopped-server editor for existing operators: levels 0–4 and joining when the player limit is reached. Preserve UUIDs, names, other operators and unknown JSON fields; reject stale permissions, missing/duplicate identities and malformed files. Sync a copy of the exact original ops.json before replacement and retain it in the server directory. Keep grant/revoke actions on native Minecraft commands. Four player tests, TypeScript and Vite pass; actual server permission effects and native keyboard/visual review remain pending. Included in the 0.16.0 preview.
+
+- Measure startup time for the current Java process from launch to the first recognized server-ready message. Show the duration in Performance, keep it unavailable before readiness or after process removal, and reset it on each launch. Use the same native process snapshot as PID and uptime; no estimates or historic values are substituted. TypeScript and Vite pass; native Minecraft readiness and desktop review remain pending. Included in the 0.16.0 preview.
+
+- Add opt-in automatic backups after a clean server stop, including stops from the console, restarts and stopping before launcher exit. Require a successful native exit from a session that reached Running, reserve stopped files and use tracked copying, cancellation and saved retention. Claim each session durably before copying; cancelled/failed/interrupted attempts do not replay. Show the stored result in Backups and mark snapshots with the stop reason. Shutdown waits for file operations and stop copies instead of exiting while files are being copied. Two actual filesystem/SQLite regressions pass; native Minecraft/desktop shutdown remains pending. Included in the 0.16.0 preview.
+
+- Store explicit backup reasons for manual/scheduled copies and safety copies before restore, Minecraft/loader/content updates, content removal and world changes/deletion. Show the saved reason, Minecraft version and engine in the backup list and restore confirmation. Read metadata in a native worker with bounded reads and managed-path checks; retain other rows when a copy has invalid metadata. Old backups show unrecorded information instead of the current server settings. Twelve backup tests and TypeScript/Vite pass; native visual review remains pending. Included in the 0.16.0 preview.
+
+- Validate saved scheduled occurrences before claiming or re-enabling them. Disable malformed rows without replay or blocking valid tasks, use checked recurrence arithmetic and preserve the original stored values for review/removal. Show invalid tasks safely in the task list, with an explicit status and removal instead of activation. Nine scheduler tests and TypeScript/Vite pass; native desktop interaction remains pending. Included in the 0.16.0 preview.
+
+- Catch unexpected scheduled-action and automatic-restart worker failures, persist a readable failure through the existing result path and release worker capacity on every exit via an owned permit. A local SQLite/thread regression verifies recorded failure, released capacity and no replay of a one-time task, including unwind during result handling. Seven scheduler tests pass; native Java scheduled stop/restart remains pending. Included in the 0.16.0 preview.
+
+- Keep the latest failed process report separately from the latest exit. Successful later sessions preserve the failure for an explicit, dated historical review in Overview, including after reopening the launcher. The current-crash endpoint still requires the exact current session. Support the previous single-file format on upgrade. Three local diagnostic tests, the real Java 21 failure/success integration and TypeScript/Vite pass; native desktop interaction remains unverified. Included in the 0.16.0 preview.
+
+- Isolate malformed NAT-PMP records and individual transport/cleanup failures so other servers still receive lease renewal and shutdown cleanup. Preserve rejected records without contacting their destinations, retain failed cleanup for retry and report errors after processing all valid records. Two new local regressions cover malformed JSON, mismatched destinations, invalid stored ports, renewal, shutdown and retry. Included in the 0.16.0 preview; physical-router verification remains pending.
 
 ## Included in 0.15.1
 

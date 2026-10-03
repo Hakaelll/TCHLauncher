@@ -214,7 +214,7 @@ fn set_active_inner(root:&Path,server:&Server,name:&str,task:Option<&crate::down
     if let Some(task)=task{task.cancellation.check()?;task.report("Comprobando el mundo principal","preparing");}
     checked_world(server, name)?;
     if active_name(server)? == name { return Ok(None); }
-    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create(root,&server.id)?};
+    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create_for(root,&server.id,backup::Reason::BeforeWorldChange)?};
     if let Some(task)=task{
         task.report("Copia guardada; preparando el cambio de mundo","preparing");
         task.cancellation.check()?;
@@ -239,7 +239,7 @@ fn delete_inner(root:&Path,server:&Server,name:&str,task:Option<&crate::download
     if let Some(task)=task{task.cancellation.check()?;task.report("Comprobando el mundo que se eliminará","preparing");}
     checked_world(server, name)?;
     if active_name(server)? == name { return Err("No se puede borrar el mundo principal. Activa otro primero".into()); }
-    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create(root,&server.id)?};
+    let snapshot = if let Some(task)=task{backup::create_tracked(root,&server.id,task)?}else{backup::create_for(root,&server.id,backup::Reason::BeforeWorldDeletion)?};
     if let Some(task)=task{
         task.report("Copia guardada; preparando la eliminación del mundo","preparing");
         task.cancellation.check()?;

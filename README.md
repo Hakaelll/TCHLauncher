@@ -2,13 +2,13 @@
 
 Gestor local de servidores Minecraft para Windows y Linux, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
 
-## Vista previa actual: 0.12.0
+## Vista previa actual: 0.16.0
 
-[Instalador Windows 0.12.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.12.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.12.0.md).
+[Instalador Windows 0.16.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.16.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.16.0.md).
 
 Temas End, Obsidiana y Nether en Ajustes, debajo de Inicio automático. La elección se recuerda entre sesiones. End usa negro/gris y morado; la tipografía Minecraft aparece en más controles y puede cambiarse por la de lectura. Logo sin fondo cuadrado, inicio con ilustraciones voxel y panel Java reorganizado. [design.md](design.md) describe el sistema visual. La comprobación visual nativa queda a cargo del usuario, como solicitó.
 
-La 0.12.0 corrige la detección de arranque de Paper y actualiza la imagen de creación en bibliotecas con servidores. Conexión incorpora detección UPnP explícita, apertura TCP temporal confirmada, renovación y retirada de aperturas propias. La comprobación con router físico sigue pendiente; no verifica accesibilidad externa ni cambia el firewall.
+La 0.16.0 añade copias al detener, motivos guardados, historial de fallos y edición de operadores, y conserva la corrección de detección de arranque de Paper y actualiza la imagen de creación en bibliotecas con servidores. Conexión incorpora detección UPnP explícita, apertura TCP temporal confirmada, renovación y retirada de aperturas propias. La comprobación con router físico sigue pendiente; no verifica accesibilidad externa ni cambia el firewall.
 
 ## Ejecutar
 
@@ -189,3 +189,26 @@ cargo test --manifest-path src-tauri/Cargo.toml install::tests::installs_snapsho
 ```
 
 By default it selects the latest experimental entry from the official platform catalog. `TCH_TEST_SNAPSHOT` can select a specific catalog-listed snapshot. The configured test Java must match the official major requirement; each run uses a temporary library and never registers consent. Failed runs retain their diagnostic files.
+# Windows preview 0.16.0
+
+The current preview includes optional backups after a clean server stop, recorded
+backup reasons, historical failure review, safer scheduling and connected-player
+event handling. See [release notes](RELEASE_NOTES_v0.16.0.md) for verification limits
+and the installer checksum.
+
+- **Copias → Copia al detener:** enable a per-server automatic copy after a successful
+  session that reached Running. It is off by default. Progress/cancellation appears
+  in Tareas; retention follows the saved backup policy. A failed or cancelled copy
+  does not retry the same session automatically. **Detener y salir** waits for its copy.
+- **Jugadores → Operadores → Permisos:** edit an existing operator's level and ability
+  to enter a full server while stopped. The UUID remains unchanged. Settings apply
+  on the next start; plugins may provide their own permissions. An exact original
+  `ops-before-UUID.json` remains in the server folder before replacement.
+- **Rendimiento → Tiempo de arranque:** measured from Java launch to the first server
+  ready event for the current process; absent until readiness or after process removal.
+- **Resumen → Consultar el último fallo guardado:** review the dated last failure
+  without confusing it with the current successful session.
+
+Native desktop interaction, real Minecraft gameplay, physical-router behavior and
+Linux distribution still require verification. This preview does not complete the
+full application specification.

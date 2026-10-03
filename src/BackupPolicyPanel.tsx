@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react'
 import {api,type BackupPolicy,type BackupRetentionPlan} from './api'
 import {Modal} from './Modal'
+import {StopBackupPanel} from './StopBackupPanel'
 
 const gb=1024**3
 const bytes=(value:number)=>`${(value/gb).toFixed(2)} GB`
@@ -16,6 +17,7 @@ export function BackupPolicyPanel({id,disabled,onChanged}:{id:string;disabled:bo
   const preview=async()=>{setWorking(true);setError(null);try{setPlan(await api.previewBackupRetention(id))}catch(cause){setError(String(cause))}finally{setWorking(false)}}
   const apply=async()=>{if(!plan)return;setWorking(true);setError(null);try{await api.applyBackupRetention(id,plan.fingerprint);await onChanged();setPlan(null)}catch(cause){setError(String(cause))}finally{setWorking(false)}}
   return <>
+    <StopBackupPanel key={id} id={id} disabled={disabled} onChanged={onChanged}/>
     <details className="backup-policy"><summary><span>Retención de copias</span><small>{saved?saved.enabled?'Activada':'Desactivada':'Cargando…'}</small></summary>
       <fieldset aria-busy={working||undefined} disabled={disabled||working||!saved}>
         <label className="backup-policy-toggle"><input type="checkbox" checked={draft.enabled} onChange={event=>setDraft({...draft,enabled:event.target.checked})}/>Eliminar automáticamente las copias más antiguas</label>

@@ -14,6 +14,7 @@ pub struct ProcessControl {
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
     started: Instant,
+    startup_phase:Mutex<crate::startup::Phase>,
     running_since: Mutex<Option<Instant>>,
     state: Mutex<String>,
     online: Mutex<HashSet<String>>,
@@ -24,8 +25,8 @@ pub struct ProcessControl {
 }
 
 impl ProcessControl {
-    fn new(child:Child,stdin:ChildStdin,paper:bool)->Self{
-        Self{stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started:Instant::now(),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
+    fn new(child:Child,stdin:ChildStdin,paper:bool,started:Instant)->Self{
+        Self{stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
     }
 }
 
@@ -37,7 +38,7 @@ pub struct ProcessManager {
 }
 
 #[derive(Clone)]
-pub struct Exit {pub token:String,pub unexpected:bool}
+pub struct Exit {pub token:String,pub unexpected:bool,pub successful:bool,pub was_running:bool}
 
 pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
     use tauri::Manager;
@@ -60,6 +61,10 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
             if stdout&&control.paper{if let Ok(mut ticks)=control.ticks.lock(){ticks.receive(&line,Instant::now(),chrono::Utc::now().timestamp_millis());}}
             let event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &line).ok())
                 .unwrap_or_else(|| log::parse(&id, &log::stamp(&line)));
+            if *control.state.lock().unwrap()=="starting" {
+                let changed={let mut phase=control.startup_phase.lock().unwrap();let before=*phase;phase.observe(&event);(*phase!=before).then_some(*phase)};
+                if let Some(phase)=changed{let _=app.emit("server-startup",crate::startup::Event{server_id:id.clone(),session_id:control.session.clone(),phase});}
+            }
             if event.event.as_deref() == Some("startup") {
                 let mut state = control.state.lock().unwrap();
                 if *state == "starting" {
@@ -68,11 +73,7 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
                     emit_state(&app, &id, "running");
                 }
             }
-            if let Some((name, joined)) = crate::players::log_player_change(&line) {
-                let mut online = control.online.lock().unwrap();
-                if joined { online.insert(name.to_string()); }
-                else { online.remove(name); }
-            }
+            crate::players::apply_log_event(&mut control.online.lock().unwrap(),&event);
             let _ = app.emit("server-log", event);
     })
 }
@@ -94,7 +95,7 @@ impl ProcessManager {
         let state=if successful{"stopped"}else{"crashed"};
         *control.state.lock().unwrap()=state.into();
         self.terminal_states.lock().unwrap().insert(id.into(),state.into());
-        self.exits.lock().unwrap().insert(id.into(),Exit{token:control.session.clone(),unexpected:!successful&&!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
+        self.exits.lock().unwrap().insert(id.into(),Exit{token:control.session.clone(),successful,was_running:control.running_since.lock().unwrap().is_some(),unexpected:!successful&&!control.stop_requested.load(std::sync::atomic::Ordering::SeqCst)});
         state.into()
     }
     fn release_terminal(&self,id:&str,control:&Arc<ProcessControl>){
@@ -140,12 +141,18 @@ impl ProcessManager {
             .map(|p| p.online.lock().unwrap().iter().cloned().collect()).unwrap_or_default()
     }
 
-    pub fn pid_and_uptime(&self, id: &str) -> Option<(u32,u64)> {
+    pub fn process_snapshot(&self, id: &str) -> Option<(u32,u64,Option<u64>,crate::startup::Phase)> {
         self.processes.lock().unwrap().get(id)
-            .map(|p| (p.child.lock().unwrap().id(),p.started.elapsed().as_secs()))
+            .map(|p| (p.child.lock().unwrap().id(),p.started.elapsed().as_secs(),p.running_since.lock().unwrap().map(|ready|ready.duration_since(p.started).as_millis() as u64),*p.startup_phase.lock().unwrap()))
     }
 
     pub fn start(&self, server: &Server, app: AppHandle, jvm:&crate::jvm::Settings) -> Result<(), String> {
+        use tauri::Manager;
+        let engine=app.state::<crate::Engine>();
+        if engine.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("La aplicación se está cerrando".into());
+        }
+        if let Err(error)=engine.backup_after_stop(&server.id,app.clone()){eprintln!("Stop backup before start: {error}");}
         let jar = server.jar_path.as_ref().ok_or("Instala primero el servidor")?;
         let java = server.java_path.as_ref().ok_or("Java no está instalado")?;
         if !std::path::Path::new(jar).is_file() || !std::path::Path::new(java).is_file() {
@@ -168,6 +175,10 @@ impl ProcessManager {
             .map_err(|e| format!("No se pudo abrir el log del launcher: {e}"))?));
         let mut command=Command::new(java);
         #[cfg(windows)] {use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        if engine.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err("La aplicación se está cerrando".into());
+        }
+        let started=Instant::now();
         let mut child = command
             .args(crate::jvm::launch_arguments(server,jvm)?)
             .current_dir(&server.directory)
@@ -176,12 +187,13 @@ impl ProcessManager {
         let stdin = child.stdin.take().ok_or("No se pudo abrir la entrada del servidor")?;
         let stdout = child.stdout.take().ok_or("No se pudo abrir la consola del servidor")?;
         let stderr = child.stderr.take().ok_or("No se pudo abrir la salida de errores")?;
-        let control = Arc::new(ProcessControl::new(child,stdin,server.platform=="paper"));
+        let control = Arc::new(ProcessControl::new(child,stdin,server.platform=="paper",started));
         map.insert(server.id.clone(), control.clone());
         self.terminal_states.lock().unwrap().remove(&server.id);
         self.exits.lock().unwrap().remove(&server.id);
         drop(map);
         emit_state(&app, &server.id, "starting");
+        let _=app.emit("server-startup",crate::startup::Event{server_id:server.id.clone(),session_id:control.session.clone(),phase:crate::startup::Phase::Launching});
         let stdout_pump=pump(stdout, app.clone(), server.id.clone(), log_file.clone(),control.clone(),true);
         let stderr_pump=pump(stderr, app.clone(), server.id.clone(), log_file.clone(),control.clone(),false);
         let manager=self.clone();
@@ -275,8 +287,11 @@ mod tests {
             let mut command=Command::new(&java);
             #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
             if failure{command.args(["-cp",".","Unsupported"]);}else{command.arg("-version");}
+            let started=Instant::now();
             let mut child=command.current_dir(&directory).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
-            let stdin=child.stdin.take().unwrap();let stdout=child.stdout.take().unwrap();let stderr=child.stderr.take().unwrap();let control=Arc::new(ProcessControl::new(child,stdin,false));manager.processes.lock().unwrap().insert(id.clone(),control.clone());
+            let stdin=child.stdin.take().unwrap();let stdout=child.stdout.take().unwrap();let stderr=child.stderr.take().unwrap();let control=Arc::new(ProcessControl::new(child,stdin,false,started));manager.processes.lock().unwrap().insert(id.clone(),control.clone());
+            assert_eq!(manager.process_snapshot(&id).unwrap().2,None);
+            assert_eq!(manager.process_snapshot(&id).unwrap().3,crate::startup::Phase::Launching);
             let file=Arc::new(Mutex::new(OpenOptions::new().create(true).append(true).open(directory.join("launcher-logs/latest.log")).unwrap()));
             let out_control=control.clone();let out_file=file.clone();let out_id=id.clone();
             let out=read_output(stdout,move|line|{out_control.output.lock().unwrap().push(&line);log::append(&mut out_file.lock().unwrap(),&out_id,&line).unwrap();});
@@ -285,8 +300,13 @@ mod tests {
             let deadline=Instant::now()+Duration::from_secs(10);let status=loop{if let Some(status)=control.child.lock().unwrap().try_wait().unwrap(){break status;}if Instant::now()>=deadline{let _=control.child.lock().unwrap().kill();panic!("Java did not finish in time");}std::thread::sleep(Duration::from_millis(10));};
             assert_eq!(status.success(),!failure);let complete=drained(&out,&err);assert!(complete);out.join().unwrap();err.join().unwrap();save_exit(&directory,&id,&control,status.code(),complete);
             let state=manager.record_terminal(&id,&control,status.success());manager.release_terminal(&id,&control);assert_eq!(state,if failure{"crashed"}else{"stopped"});assert_eq!(manager.state(&id),state);assert!(!manager.is_active(&id));
-            let session=manager.exit_token(&id).unwrap();assert_eq!(session,control.session);let report=crate::crash_diagnostics::load(&directory,&id,&session).unwrap().unwrap();assert_eq!(report.exit_code,status.code());assert!(report.output_complete);assert!(!report.stop_requested);assert_eq!(manager.exits()[&id].unexpected,failure);
+            let session=manager.exit_token(&id).unwrap();assert_eq!(session,control.session);let report=crate::crash_diagnostics::load(&directory,&id,&session).unwrap().unwrap();assert_eq!(report.exit_code,status.code());assert!(report.output_complete);assert!(!report.stop_requested);assert_eq!(manager.exits()[&id].unexpected,failure);assert_eq!(manager.exits()[&id].successful,!failure);assert!(!manager.exits()[&id].was_running);assert!(!crate::stop_backup::pending(&directory,&id,&manager.exits()[&id]).unwrap());
             if failure{assert!(report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));assert!(fs::read_to_string(directory.join("launcher-logs/latest.log")).unwrap().contains("UnsupportedClassVersionError"));}else{assert!(!report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));assert!(crate::crash_diagnostics::load(&directory,&id,old_session.as_deref().unwrap()).unwrap().is_none());}
+            let history=crate::crash_diagnostics::last_failure(&directory,&id).unwrap().unwrap();
+            assert_eq!(history.session_id,if failure{session.as_str()}else{old_session.as_deref().unwrap()});
+            assert!(history.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));
+            let fresh_manager=ProcessManager::default();assert_eq!(fresh_manager.state(&id),"stopped");assert!(fresh_manager.exit_token(&id).is_none());
+            assert!(crate::crash_diagnostics::last_failure(&directory,&id).unwrap().is_some());
             old_session=Some(session);
         }
         assert!(!directory.join("eula.txt").exists());assert!(!directory.join("world").exists());fs::remove_dir_all(directory).unwrap();

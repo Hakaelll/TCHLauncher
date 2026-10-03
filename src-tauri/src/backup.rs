@@ -7,10 +7,49 @@ use walkdir::WalkDir;
 use serde::{Serialize,Deserialize};
 
 const SNAPSHOT:&str=".tch-backup.json";
+#[derive(Clone,Copy,Debug,PartialEq,Serialize,Deserialize)]
+#[serde(rename_all="snake_case")]
+pub enum Reason{Manual,Scheduled,ServerStop,BeforeRestore,BeforeMinecraftUpdate,BeforeLoaderUpdate,BeforeContentUpdate,BeforeContentRemoval,BeforeWorldChange,BeforeWorldDeletion}
+impl Reason{
+    fn for_task(kind:&str)->Self{match kind{
+        "restore"=>Self::BeforeRestore,"minecraft_update"=>Self::BeforeMinecraftUpdate,"loader_update"=>Self::BeforeLoaderUpdate,
+        "content_install"=>Self::BeforeContentUpdate,"content_remove"=>Self::BeforeContentRemoval,
+        "world_activate"=>Self::BeforeWorldChange,"world_delete"=>Self::BeforeWorldDeletion,_=>Self::Manual,
+    }}
+}
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct Details{
+    #[serde(flatten)]pub backup:Backup,
+    pub reason:Option<Reason>,pub minecraft_version:Option<String>,pub platform:Option<String>,pub metadata_error:Option<String>,
+}
+pub fn list_details(root:&Path,id:&str)->Result<Vec<Details>,String>{
+    storage::get(root,id)?;let copies=storage::list_backups(root,id)?;if copies.is_empty(){return Ok(Vec::new());}
+    let base=backup_base(root,id).and_then(|base|base.canonicalize().map_err(|error|error.to_string()));
+    Ok(copies.into_iter().map(|copy|{
+        let metadata=(||->Result<Option<Snapshot>,String>{
+            let base=base.as_ref().map_err(Clone::clone)?;Uuid::parse_str(&copy.id).map_err(|_|"La copia no tiene un identificador válido")?;
+            let path=Path::new(&copy.path);let meta=fs::symlink_metadata(path).map_err(|_|"La carpeta de la copia no está disponible")?;
+            if !meta.is_dir()||meta.file_type().is_symlink()||path.canonicalize().map_err(|e|e.to_string())?!=base.join(&copy.id){return Err("La carpeta de la copia no coincide con la biblioteca".into());}
+            let path=path.join(SNAPSHOT);let meta=match fs::symlink_metadata(&path){Ok(meta)=>meta,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>return Ok(None),Err(error)=>return Err(error.to_string())};
+            if !meta.is_file()||meta.file_type().is_symlink()||meta.len()>32768{return Err("Los metadatos de la copia no son válidos".into());}
+            use std::io::Read;let mut bytes=Vec::new();fs::File::open(path).map_err(|e|e.to_string())?.take(32769).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
+            if bytes.len()>32768{return Err("Los metadatos de la copia son demasiado grandes".into());}
+            let metadata:Snapshot=serde_json::from_slice(&bytes).map_err(|_|"No se pudieron leer los metadatos de la copia")?;validate_snapshot(&metadata)?;Ok(Some(metadata))
+        })();
+        match metadata{
+            Ok(Some(metadata))=>Details{backup:copy,reason:metadata.reason,minecraft_version:Some(metadata.version),platform:Some(metadata.platform),metadata_error:None},
+            Ok(None)=>Details{backup:copy,reason:None,minecraft_version:None,platform:None,metadata_error:None},
+            Err(error)=>Details{backup:copy,reason:None,minecraft_version:None,platform:None,metadata_error:Some(error)},
+        }
+    }).collect())
+}
+
 
 #[derive(Serialize,Deserialize)]
 struct Snapshot {
     format:u32,version:String,platform:String,jar:Option<String>,
+    #[serde(default)]reason:Option<Reason>,
     memory_min_mb:u32,memory_max_mb:u32,storage_target_gb:u32,jvm:crate::jvm::Settings,
 }
 
@@ -24,7 +63,7 @@ fn relative_jar(server:&crate::model::Server)->Result<Option<String>,String> {
 }
 
 fn snapshot(root:&Path,server:&crate::model::Server)->Result<Snapshot,String> {
-    Ok(Snapshot {format:1,version:server.version.clone(),platform:server.platform.clone(),jar:relative_jar(server)?,memory_min_mb:server.memory_min_mb,memory_max_mb:server.memory_max_mb,storage_target_gb:server.storage_target_gb,jvm:crate::jvm::get(root,&server.id)?})
+    Ok(Snapshot {format:1,reason:None,version:server.version.clone(),platform:server.platform.clone(),jar:relative_jar(server)?,memory_min_mb:server.memory_min_mb,memory_max_mb:server.memory_max_mb,storage_target_gb:server.storage_target_gb,jvm:crate::jvm::get(root,&server.id)?})
 }
 
 fn validate_snapshot(value:&Snapshot)->Result<(),String> {
@@ -108,18 +147,20 @@ pub(crate) fn copy_tree_tracked(from:&Path,to:&Path,task:&crate::download::Downl
 }
 
 pub fn create(root: &Path, server_id: &str) -> Result<Backup, String> {
-    create_preserving(root,server_id,&[],None)
+    create_preserving(root,server_id,&[],None,Reason::Manual)
 }
 
 pub fn create_tracked(root:&Path,server_id:&str,task:&crate::download::DownloadTask)->Result<Backup,String>{
-    create_preserving(root,server_id,&[],Some(task))
+    create_preserving(root,server_id,&[],Some(task),Reason::for_task(task.kind()))
 }
 
-fn create_preserving(root:&Path,server_id:&str,protected:&[String],task:Option<&crate::download::DownloadTask>)->Result<Backup,String> {
+pub fn create_for(root:&Path,id:&str,reason:Reason)->Result<Backup,String>{create_preserving(root,id,&[],None,reason)}
+pub fn create_tracked_for(root:&Path,id:&str,task:&crate::download::DownloadTask,reason:Reason)->Result<Backup,String>{create_preserving(root,id,&[],Some(task),reason)}
+fn create_preserving(root:&Path,server_id:&str,protected:&[String],task:Option<&crate::download::DownloadTask>,reason:Reason)->Result<Backup,String> {
     if let Some(task)=task{task.cancellation.check()?;task.report("Revisando archivos de la copia","preparing");}
     crate::backup_retention::recover(root,server_id)?;
     let server = storage::get(root,server_id)?;
-    let metadata=snapshot(root,&server)?;
+    let mut metadata=snapshot(root,&server)?;metadata.reason=Some(reason);
     validate_snapshot(&metadata)?;
     let source = Path::new(&server.directory).canonicalize().map_err(|e| e.to_string())?;
     let id = Uuid::new_v4().to_string();
@@ -170,7 +211,7 @@ fn restore_inner(root:&Path,server_id:&str,backup_id:&str,task:Option<&crate::do
         let file=source.join(relative).canonicalize().map_err(|_|"El backup no incluye su archivo de arranque. Revisa la copia seleccionada.")?;
         if !file.starts_with(source.canonicalize().map_err(|e|e.to_string())?) {return Err("El arranque del backup sale de su carpeta".into());}
     }
-    create_preserving(root,server_id,&[backup_id.to_owned()],task)?;
+    create_preserving(root,server_id,&[backup_id.to_owned()],task,Reason::BeforeRestore)?;
     if let Some(task)=task{task.report("Preparando archivos de la restauración","preparing");task.cancellation.check()?;}
     let (target,stage,previous,journal)=restore_paths(root,&server)?;
     let token=Uuid::new_v4().to_string();
@@ -256,6 +297,19 @@ mod tests {
         let root=std::env::temp_dir().join(format!("tch-backup-metadata-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
         let server=storage::create(&root,crate::model::CreateServer{name:"Backup".into(),version:"1.21.4".into(),platform:"fabric".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();
         (Library(root),server)
+    }
+    #[test]
+    fn backup_list_uses_saved_reason_and_version_without_guessing_old_metadata(){
+        let (root,server)=fixture();let task=crate::download::DownloadTask::new(&server.id,"minecraft_update",|_|{}).unwrap();
+        let update=create_tracked(&root.0,&server.id,&task).unwrap();let scheduled_task=crate::download::DownloadTask::new(&server.id,"backup",|_|{}).unwrap();let scheduled=create_tracked_for(&root.0,&server.id,&scheduled_task,Reason::Scheduled).unwrap();let manual=create(&root.0,&server.id).unwrap();
+        let details=list_details(&root.0,&server.id).unwrap();assert_eq!(details.len(),3);
+        let saved=details.iter().find(|value|value.backup.id==update.id).unwrap();assert_eq!(saved.reason,Some(Reason::BeforeMinecraftUpdate));assert_eq!(saved.minecraft_version.as_deref(),Some("1.21.4"));assert_eq!(saved.platform.as_deref(),Some("fabric"));assert!(saved.metadata_error.is_none());
+        assert_eq!(details.iter().find(|value|value.backup.id==scheduled.id).unwrap().reason,Some(Reason::Scheduled));assert_eq!(details.iter().find(|value|value.backup.id==manual.id).unwrap().reason,Some(Reason::Manual));
+        let path=Path::new(&manual.path).join(SNAPSHOT);let mut old:serde_json::Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();old.as_object_mut().unwrap().remove("reason");fs::write(&path,serde_json::to_vec(&old).unwrap()).unwrap();
+        let old=list_details(&root.0,&server.id).unwrap().into_iter().find(|value|value.backup.id==manual.id).unwrap();assert!(old.reason.is_none());assert_eq!(old.minecraft_version.as_deref(),Some("1.21.4"));
+        fs::remove_file(&path).unwrap();let missing=list_details(&root.0,&server.id).unwrap().into_iter().find(|value|value.backup.id==manual.id).unwrap();assert!(missing.minecraft_version.is_none());assert!(missing.reason.is_none());assert!(missing.metadata_error.is_none());
+        fs::write(Path::new(&update.path).join(SNAPSHOT),b"broken").unwrap();let details=list_details(&root.0,&server.id).unwrap();assert_eq!(details.len(),3);assert!(details.iter().find(|value|value.backup.id==update.id).unwrap().metadata_error.is_some());assert_eq!(details.iter().find(|value|value.backup.id==scheduled.id).unwrap().reason,Some(Reason::Scheduled));
+        let foreign=root.0.join("foreign");fs::create_dir(&foreign).unwrap();fs::write(foreign.join(SNAPSHOT),b"{} ").unwrap();storage::connect(&root.0).unwrap().execute("UPDATE backups SET path=?2 WHERE id=?1",rusqlite::params![manual.id,foreign.to_string_lossy()]).unwrap();assert!(list_details(&root.0,&server.id).unwrap().iter().find(|value|value.backup.id==manual.id).unwrap().metadata_error.is_some());
     }
     #[test]
     fn tracked_backup_reports_real_bytes_before_publication(){

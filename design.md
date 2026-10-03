@@ -100,3 +100,15 @@ controls. Java/network/backup/task controls clearly identify the selected server
 Storage exposes actual native locations and folder actions; Information uses the
 native binary version, OS/architecture and persisted EULA record. Diagnostics and
 shortcuts live in Advanced. Native appearance and keyboard review remain manual.
+
+## Observed startup path
+
+Overview places a compact Java / Mundo / Listo ordered path between the current
+server state and its metrics. Native events alone advance phases; loading a world
+and preparing its spawn have distinct status text. No generated percent, elapsed
+time heuristic, pulsing decoration or synthetic Ready transition is used. A server
+that does not emit recognized intermediate events may jump directly to Ready.
+Current, completed and pending steps use text and native list semantics as well as
+theme accents; color/border transitions use the existing 160 ms motion tokens and
+respect system/application reduced motion. Labels wrap on narrow windows. The
+provided actual Paper log passes parsing; native appearance remains manual.

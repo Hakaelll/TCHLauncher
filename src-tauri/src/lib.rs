@@ -1,4 +1,6 @@
 mod backup;
+mod stop_backup;
+mod startup;
 mod application;
 mod app_log;
 mod backup_retention;
@@ -63,7 +65,7 @@ pub struct Engine {
     processes: ProcessManager,
     metrics_system: Arc<Mutex<sysinfo::System>>,
     sampled_pids: Arc<Mutex<HashSet<u32>>>,
-    size_cache: Arc<Mutex<HashMap<String,(Instant,u64)>>>,
+    size_cache: Arc<storage_usage::SizeCache>,
     operations: Arc<Mutex<HashSet<String>>>,
     installations: Arc<Mutex<HashMap<String,Arc<download::DownloadTask>>>>,
     content_plans: Arc<Mutex<HashMap<String,content_storage::PreparedPlan>>>,
@@ -81,6 +83,15 @@ impl Drop for OperationGuard {
 }
 
 impl Engine {
+    // Caller owns the server reservation, including when about to restart.
+    fn backup_after_stop(&self,id:&str,app:AppHandle)->Result<bool,String>{
+        if self.processes.is_active(id)||self.processes.state(id)!="stopped"{return Ok(false);}
+        let Some(exit)=self.processes.exits().get(id).cloned()else{return Ok(false);};
+        let emitter=app.clone();let result=stop_backup::run(&self.root,id,&exit,&self.installations,move|event|{let _=emitter.emit("install-progress",event);});
+        if !matches!(result,Ok(false)){let _=app.emit("stop-backup-updated",id);}
+        result
+    }
+
     fn start_prepared(&self,id:&str,app:AppHandle)->Result<(),String> {
         if self.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
         storage::sync_legacy_icon(&self.root,id)?;
@@ -109,7 +120,7 @@ impl Engine {
     }
 
     fn invalidate_size(&self, id: &str) {
-        if let Ok(mut cache) = self.size_cache.lock() { cache.remove(id); }
+        self.size_cache.invalidate(id);
     }
 }
 
@@ -509,6 +520,13 @@ fn manage_player(engine: State<'_, Engine>, id: String, action: String, target: 
 }
 
 #[tauri::command]
+async fn save_operator(engine:State<'_,Engine>,id:String,edit:players::OperatorEdit)->Result<String,String>{
+    let guard=engine.reserve_stopped(&id)?;
+    let server=storage::get(&engine.root,&id)?;
+    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;players::save_operator(&server,&edit)}).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
 async fn pick_whitelist_file() -> Result<Option<WhitelistImport>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let Some(path) = rfd::FileDialog::new().add_filter("Lista de jugadores", &["txt", "json"]).pick_file() else { return Ok(None); };
@@ -584,6 +602,13 @@ async fn create_backup(app:AppHandle,engine: State<'_, Engine>, id: String) -> R
 }
 
 #[tauri::command]
+fn get_stop_backup(engine:State<'_,Engine>,id:String)->Result<stop_backup::Status,String>{stop_backup::status(&engine.root,&id)}
+#[tauri::command]
+fn set_stop_backup(engine:State<'_,Engine>,id:String,enabled:bool)->Result<(),String>{
+    let _guard=engine.reserve_stopped(&id)?;
+    stop_backup::configure(&engine.root,&id,enabled,engine.processes.exit_token(&id).as_deref())
+}
+#[tauri::command]
 fn get_backup_policy(engine:State<'_,Engine>,id:String)->Result<backup_retention::Policy,String> {backup_retention::get(&engine.root,&id)}
 
 #[tauri::command]
@@ -604,9 +629,8 @@ async fn apply_backup_retention(engine:State<'_,Engine>,id:String,fingerprint:St
 }
 
 #[tauri::command]
-fn list_backups(engine: State<'_, Engine>, id: String) -> Result<Vec<Backup>, String> {
-    storage::get(&engine.root,&id)?;
-    storage::list_backups(&engine.root,&id)
+async fn list_backups(engine: State<'_, Engine>, id: String) -> Result<Vec<backup::Details>, String> {
+    let root=engine.root.clone();tauri::async_runtime::spawn_blocking(move||backup::list_details(&root,&id)).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -719,13 +743,13 @@ fn request_tps(engine:State<'_,Engine>,id:String)->Result<(),String>{engine.proc
 async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, String> {
     let root=engine.root.clone();
     let server = storage::get(&engine.root,&id)?;
-    let pid_uptime = engine.processes.pid_and_uptime(&id);
+    let pid_uptime = engine.processes.process_snapshot(&id);
     let tps=engine.processes.tick_snapshot(&id);
     let metrics_system = engine.metrics_system.clone();
     let sampled_pids = engine.sampled_pids.clone();
     let size_cache = engine.size_cache.clone();
     tauri::async_runtime::spawn_blocking(move || {
-    let (memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes) = if let Some((pid,_)) = pid_uptime {
+    let (memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes) = if let Some((pid,_,_,_)) = pid_uptime {
         let mut system = metrics_system.lock().map_err(|e| e.to_string())?;
         let sys_pid = sysinfo::Pid::from_u32(pid);
         system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[sys_pid]),true);
@@ -736,15 +760,15 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
         (process.map(|p| p.memory()),if sampled { None } else { process.map(|p| (p.cpu_usage() / cores).clamp(0.0,100.0)) },disk.map(|d| d.total_read_bytes),disk.map(|d| d.total_written_bytes))
     } else { (None,None,None,None) };
     let sampled_at = chrono::Utc::now().timestamp_millis();
-    let cached = size_cache.lock().map_err(|e| e.to_string())?.get(&id).copied()
-        .filter(|(when,_)| when.elapsed() < Duration::from_secs(60));
-    let size_bytes = if let Some((_,size)) = cached { size } else {
-        let size = backup::size(&PathBuf::from(server.directory));
-        size_cache.lock().map_err(|e| e.to_string())?.insert(id.clone(), (Instant::now(),size));
-        size
+    let (size_bytes,size_error,size_sampled_at,size_skipped_links)=match size_cache.sample(&id,std::path::Path::new(&server.directory)){
+        Ok(sample)=>match sample.result{
+            Ok(measured)=>(Some(measured.bytes),None,Some(sample.sampled_at),Some(measured.skipped_links)),
+            Err(error)=>(None,Some(error),Some(sample.sampled_at),None),
+        },
+        Err(error)=>(None,Some(error),None,None),
     };
     let storage_warning_percent=storage_usage::warning_percent(&root,&id)?;
-    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes,storage_warning_percent,tps})
+    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),startup_duration_ms:pid_uptime.and_then(|p|p.2),startup_phase:pid_uptime.map(|p|p.3),memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes,size_error,size_sampled_at,size_skipped_links,storage_warning_percent,tps})
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -960,19 +984,25 @@ fn hide_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<(), String> {
-    engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
-    let ids = engine.processes.active_ids();
-    for id in &ids { if let Err(error)=engine.processes.stop(id,app.clone()) {engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);return Err(error);} }
-    let processes = engine.processes.processes.clone();
-    std::thread::spawn(move || {
-        for _ in 0..75 {
-            if processes.lock().unwrap().is_empty() { break; }
-            std::thread::sleep(std::time::Duration::from_millis(500));
-        }
-        app.exit(0);
-    });
-    Ok(())
+async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<(), String> {
+    let (ids,guards)={
+        let mut operations=engine.operations.lock().map_err(|e|e.to_string())?;
+        if !operations.is_empty(){return Err("Espera a que terminen las operaciones antes de salir".into());}
+        engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
+        let ids=engine.processes.active_ids();let guards=ids.iter().map(|id|{operations.insert(id.clone());OperationGuard{id:id.clone(),operations:engine.operations.clone()}}).collect::<Vec<_>>();(ids,guards)
+    };
+    tauri::async_runtime::spawn_blocking(move||{
+        let engine=app.state::<Engine>();
+        let result=scheduler::guarded(||{
+            for id in &ids{engine.processes.stop(id,app.clone())?;}
+            for id in &ids{wait_scheduled_stop(&engine,id)?;}
+            for id in &ids{engine.backup_after_stop(id,app.clone())?;}
+            Ok(())
+        });
+        drop(guards);
+        if result.is_err(){engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);}else{app.exit(0);}
+        result
+    }).await.map_err(|error|error.to_string())?
 }
 
 fn show_main(app: &AppHandle) {
@@ -1059,7 +1089,7 @@ fn execute_scheduled(app:&AppHandle,task:&scheduler::Task)->Result<String,String
         "restart"|"backup_restart"=>{
             if task.action=="restart"&&!active{return Err("No se reinició: el servidor estaba detenido".into());}
             if active {engine.processes.stop(id,app.clone())?;wait_scheduled_stop(&engine,id)?;}
-            let copy=if task.action=="backup_restart" {let emitter=app.clone();Some(file_tasks::create_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}))}else{None};
+            let copy=if task.action=="backup_restart" {let emitter=app.clone();Some(file_tasks::create_scheduled_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}))}else{None};
             // Resume a server explicitly stopped for a backup even if copying
             // failed. Report both failures if its restart also fails.
             let resumed=if active {engine.start_prepared(id,app.clone())}else{Ok(())};
@@ -1074,7 +1104,7 @@ fn execute_scheduled(app:&AppHandle,task:&scheduler::Task)->Result<String,String
         },
         "backup"=>{
             if active{return Err("Copia omitida: el servidor estaba en ejecución. Usa «Copia con parada y reinicio» si permites una interrupción.".into());}
-            let emitter=app.clone();let copy=match file_tasks::create_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}){
+            let emitter=app.clone();let copy=match file_tasks::create_scheduled_backup(&engine.root,id,&engine.installations,move|progress|{let _=emitter.emit("install-progress",progress);}){
                 Err(error) if error==download::CANCELLED=>return Ok("Copia cancelada; servidor detenido".into()),
                 value=>value?,
             };
@@ -1098,6 +1128,13 @@ fn start_scheduler(app:AppHandle) {
             std::thread::sleep(Duration::from_secs(1));
             let engine=app.state::<Engine>();
             if engine.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){continue;}
+            for (id,exit) in engine.processes.exits(){
+                if workers.load(std::sync::atomic::Ordering::SeqCst)>=4{break;}
+                if engine.processes.is_active(&id)||engine.processes.state(&id)!="stopped"||!stop_backup::pending(&engine.root,&id,&exit).unwrap_or(false){continue;}
+                let guard=match engine.reserve_stopped(&id){Ok(guard)=>guard,Err(_)=>continue};
+                let worker=scheduler::WorkerPermit::new(workers.clone());let app=app.clone();
+                std::thread::spawn(move||{let _worker=worker;let _guard=guard;let engine=app.state::<Engine>();let _=scheduler::guarded(||engine.backup_after_stop(&id,app.clone()));});
+            }
             for (id,exit) in engine.processes.exits() {
                 if exit.unexpected&&!engine.processes.is_active(&id) {
                     match crash_restart::observe(&engine.root,&id,&exit.token,chrono::Utc::now().timestamp_millis()) {Ok(true)=>{let _=app.emit("scheduler-updated",&id);},Ok(false)=>(),Err(error)=>eprintln!("Crash could not be recorded: {error}")}
@@ -1110,22 +1147,22 @@ fn start_scheduler(app:AppHandle) {
             if workers.load(std::sync::atomic::Ordering::SeqCst)>=4 {continue;}
             match crash_restart::claim(&engine.root,chrono::Utc::now().timestamp_millis()) {
                 Ok(Some(claim))=>{
-                    workers.fetch_add(1,std::sync::atomic::Ordering::SeqCst);let workers=workers.clone();let app=app.clone();
+                    let worker=scheduler::WorkerPermit::new(workers.clone());let app=app.clone();
                     let _=app.emit("scheduler-updated",&claim.server_id);
                     std::thread::spawn(move||{
+                        let _worker=worker;
                         let engine=app.state::<Engine>();
-                        let result=(||->Result<bool,String>{
+                        let result=scheduler::guarded(||->Result<bool,String>{
                             if !crash_restart::allowed(&engine.root,&claim)?||engine.processes.exit_token(&claim.server_id).as_deref()!=Some(&claim.token){crash_restart::cancel(&engine.root,&claim)?;return Ok(false);}
                             if engine.operations.lock().map_err(|e|e.to_string())?.contains(&claim.server_id){crash_restart::defer(&engine.root,&claim,chrono::Utc::now().timestamp_millis())?;return Ok(false);}
                             let _guard=engine.reserve_stopped(&claim.server_id)?;
                             if !crash_restart::allowed(&engine.root,&claim)?||engine.processes.exit_token(&claim.server_id).as_deref()!=Some(&claim.token){crash_restart::cancel(&engine.root,&claim)?;return Ok(false);}
                             engine.start_prepared(&claim.server_id,app.clone())?;Ok(true)
-                        })();
+                        });
                         if !matches!(&result,Ok(false)) {
                             if let Err(error)=crash_restart::finish(&engine.root,&claim,result.map(|_|()),chrono::Utc::now().timestamp_millis()){eprintln!("Crash restart result could not be stored: {error}");}
                         }
                         let _=app.emit("scheduler-updated",&claim.server_id);
-                        workers.fetch_sub(1,std::sync::atomic::Ordering::SeqCst);
                     });
                 },
                 Ok(None)=>(),Err(error)=>eprintln!("Crash restart could not be claimed: {error}"),
@@ -1133,14 +1170,13 @@ fn start_scheduler(app:AppHandle) {
             if workers.load(std::sync::atomic::Ordering::SeqCst)>=4 {continue;}
             match scheduler::claim(&engine.root,chrono::Utc::now().timestamp_millis()) {
                 Ok(Some(task))=>{
-                    workers.fetch_add(1,std::sync::atomic::Ordering::SeqCst);
-                    let workers=workers.clone();let app=app.clone();
+                    let worker=scheduler::WorkerPermit::new(workers.clone());let app=app.clone();
                     let _=app.emit("scheduler-updated",&task.server_id);
                     std::thread::spawn(move||{
-                        let result=execute_scheduled(&app,&task).unwrap_or_else(|error|format!("Error: {error}"));
+                        let _worker=worker;
+                        let result=scheduler::guarded(||execute_scheduled(&app,&task)).unwrap_or_else(|error|format!("Error: {error}"));
                         if let Err(error)=scheduler::finish(&app.state::<Engine>().root,&task.id,&result){eprintln!("Scheduler result could not be stored: {error}");}
                         let _=app.emit("scheduler-updated",&task.server_id);
-                        workers.fetch_sub(1,std::sync::atomic::Ordering::SeqCst);
                     });
                 },
                 Ok(None)=>(),
@@ -1196,8 +1232,9 @@ pub fn run() {
             pack_install::recover_all(&root).map_err(std::io::Error::other)?;
             loader_update::recover_all(&root).map_err(std::io::Error::other)?;
             scheduler::recover(&root).map_err(std::io::Error::other)?;
+            stop_backup::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),tunnels:Arc::new(tunnel::Manager::new(vec![Arc::new(bore::Provider::default())]).expect("valid built-in tunnel provider")),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(Mutex::new(HashMap::new())),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),tunnels:Arc::new(tunnel::Manager::new(vec![Arc::new(bore::Provider::default())]).expect("valid built-in tunnel provider")),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(storage_usage::SizeCache::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
             start_router_maintenance(app.handle().clone());
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
@@ -1233,13 +1270,15 @@ pub fn run() {
         .on_window_event(|window,event| {
             if let tauri::WindowEvent::CloseRequested { api,.. } = event {
                 let app = window.app_handle();
-                if app.state::<Engine>().processes.any_active() {
+                if !app.state::<Engine>().operations.lock().map(|items|items.is_empty()).unwrap_or(false){
+                    api.prevent_close();let _=app.emit("close-task-active",());
+                }else if app.state::<Engine>().processes.any_active() {
                     api.prevent_close();
                     let _ = app.emit("close-with-servers",());
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![get_last_crash_report,get_crash_report,get_tunnel_status,open_tunnel,close_tunnel,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_tunnel_status,open_tunnel,close_tunnel,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {
@@ -1254,6 +1293,14 @@ pub fn run() {
                     let router=engine.router.clone();let natpmp=engine.natpmp.clone();let tunnels=engine.tunnels.clone();let root=engine.root.clone();let shutdown=engine.router_shutdown.clone();
                     let app=app.clone();
                     std::thread::spawn(move||{
+                        let engine=app.state::<Engine>();
+                        // Finish owned file operations before shutdown, then
+                        // process any clean stops not yet observed by the runner.
+                        while !engine.operations.lock().map(|items|items.is_empty()).unwrap_or(false){std::thread::sleep(Duration::from_millis(100));}
+                        for (id,exit) in engine.processes.exits(){
+                            if engine.processes.is_active(&id)||engine.processes.state(&id)!="stopped"||!stop_backup::pending(&root,&id,&exit).unwrap_or(false){continue;}
+                            if let Ok(_guard)=engine.reserve_stopped(&id){let _=scheduler::guarded(||engine.backup_after_stop(&id,app.clone()));}
+                        }
                         let _=tunnels.disconnect_all();
                         router.close_all(&root);
                         natpmp.close_all(&root);
