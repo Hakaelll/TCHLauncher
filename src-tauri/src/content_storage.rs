@@ -192,25 +192,34 @@ fn publish(server:&Server,target:&Path,stage:&Path,old:&Path,id:&str)->Result<()
     recover(server)
 }
 
+#[cfg(test)]
 pub fn remove(root:&Path,server:&Server,filename:&str,expected_hash:&str)->Result<(),String> {
+    let task=DownloadTask::new(&server.id,"content_remove",|_|{})?;
+    remove_tracked(root,server,filename,expected_hash,&task)
+}
+
+pub fn remove_tracked(root:&Path,server:&Server,filename:&str,expected_hash:&str,task:&DownloadTask)->Result<(),String> {
+    task.cancellation.check()?;task.report("Comprobando el contenido que se va a retirar","preparing");
     if !safe_name(filename) {return Err("Nombre de contenido no válido".into());}
     recover(server)?;
     let files=list(server)?;let file=files.iter().find(|file|file.filename==filename).ok_or("El archivo ya no existe")?;
     if file.sha512!=expected_hash {return Err("El archivo ha cambiado desde la confirmación. Revisa el contenido de nuevo.".into());}
     let snapshot_before=snapshot(server,&files)?;
     let remaining:Vec<_>=files.iter().filter(|file|file.filename!=filename).cloned().collect();
-    let task=DownloadTask::new(&server.id,"content_remove",|_|{})?;
     let empty=ContentPlan {minecraft_version:server.version.clone(),loader:crate::content::loader(server)?.into(),entries:vec![],optional:vec![],incompatible:vec![]};
-    crate::content::check_existing(&task,&remaining,&empty)?;
-    backup::create(root,&server.id)?;
+    crate::content::check_existing(task,&remaining,&empty)?;
+    backup::create_tracked(root,&server.id,task)?;
+    task.report("Preparando la retirada del contenido","preparing");task.cancellation.check()?;
     let target=folder(server)?;let base=target.parent().ok_or("Carpeta no válida")?;let id=uuid::Uuid::new_v4().to_string();
     let stage=base.join(format!(".tch-content-{id}"));let old=base.join(format!(".tch-content-old-{id}"));
     let result=(|| {
-        backup::copy_tree(&target,&stage)?;
+        backup::copy_tree_tracked(&target,&stage,task,"Preparando los archivos de contenido")?;
+        task.cancellation.check()?;
         fs::remove_file(stage.join(filename)).map_err(|e|e.to_string())?;
         let mut records=manifest(&target)?;records.retain(|record|record.filename!=filename);
         fs::write(stage.join(MANIFEST),serde_json::to_vec_pretty(&records).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
         if snapshot(server,&list(server)?)?!=snapshot_before {return Err("Los archivos han cambiado. No se ha eliminado el contenido.".into());}
+        task.begin_publication("Guardando la retirada del contenido")?;
         publish(server,&target,&stage,&old,&id)
     })();
     if result.is_err() && !base.join(JOURNAL).exists() {let _=fs::remove_dir_all(stage);}
@@ -282,6 +291,36 @@ mod tests {
     }
     impl Drop for Fixture {fn drop(&mut self) {let _=fs::remove_dir_all(&self.root);}}
     fn empty_plan()->ContentPlan {ContentPlan {minecraft_version:"1.21.4".into(),loader:"fabric".into(),entries:vec![],optional:vec![],incompatible:vec![]}}
+    #[test]
+    fn tracked_removal_preserves_content_on_cancellation_and_keeps_a_safety_copy(){
+        use std::sync::{Arc,Mutex};
+        for mode in ["backup_cancel","after_backup_cancel","content_cancel","complete"]{
+            let fixture=Fixture::platform("paper");let directory=folder(&fixture.server).unwrap();fs::create_dir_all(directory.join("config")).unwrap();
+            fs::write(directory.join("manual.jar"),vec![6u8;300_000]).unwrap();fs::write(directory.join("config/settings.yml"),b"keep: true\n").unwrap();
+            let digest=hash(&directory.join("manual.jar")).unwrap();let backup_size=backup::size(Path::new(&fixture.server.directory));let content_size=backup::size(&directory);
+            let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(HashMap::new()));let observed=jobs.clone();let events=Arc::new(Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
+            let result=crate::file_tasks::remove_content(&fixture.root,&fixture.server,"manual.jar",&digest,&jobs,move|event|{
+                let task=observed.lock().unwrap()[&event.server_id].clone();assert_eq!(event.task_id,task.id);assert!(task.is_file_operation());
+                if (mode=="backup_cancel"&&event.stage=="copying"&&event.label=="Copiando archivos del servidor"&&event.received>0)
+                    || (mode=="after_backup_cancel"&&event.label=="Preparando la retirada del contenido")
+                    || (mode=="content_cancel"&&event.stage=="copying"&&event.label=="Preparando los archivos de contenido"&&event.received>0){assert!(task.request_cancel());}
+                if event.stage=="publishing"{assert!(!task.request_cancel());}
+                capture.lock().unwrap().push(event);
+            });
+            assert!(jobs.lock().unwrap().is_empty());let events=events.lock().unwrap();
+            if mode=="complete"{
+                result.unwrap();assert_eq!(events.last().unwrap().stage,"completed");assert!(!directory.join("manual.jar").exists());
+                for (label,total) in [("Copiando archivos del servidor",backup_size),("Preparando los archivos de contenido",content_size)]{let measured=events.iter().filter(|event|event.label==label&&event.stage=="copying").last().unwrap();assert_eq!(measured.received,total);assert_eq!(measured.total,Some(total));}
+                assert!(list(&fixture.server).unwrap().is_empty());
+            }else{assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert_eq!(events.last().unwrap().stage,"cancelled");assert_eq!(fs::read(directory.join("manual.jar")).unwrap(),vec![6u8;300_000]);}
+            assert_eq!(fs::read(directory.join("config/settings.yml")).unwrap(),b"keep: true\n");
+            let backups=crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap();assert_eq!(backups.len(),usize::from(mode!="backup_cancel"));
+            if let Some(copy)=backups.first(){assert_eq!(fs::read(Path::new(&copy.path).join("plugins/manual.jar")).unwrap(),vec![6u8;300_000]);}
+            assert!(!Path::new(&fixture.server.directory).join(JOURNAL).exists());
+            assert!(fs::read_dir(&fixture.server.directory).unwrap().all(|entry|!entry.unwrap().file_name().to_string_lossy().starts_with(".tch-content-")));
+        }
+    }
+
     #[test]
     fn inventory_detects_manual_and_modified_files_and_stale_review() {
         let fixture=Fixture::new();let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();

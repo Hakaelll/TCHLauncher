@@ -1,4 +1,4 @@
-# TCHLauncher - End / Obsidian visual system (0.13.0)
+# TCHLauncher - End / Obsidian visual system (0.14.0)
 
 ## Authority and use
 
@@ -48,8 +48,10 @@ bar uses the same raised selected treatment and one moving indicator. Primary
 controls avoid constant glow and pill geometry. Destructive controls remain coral.
 Compact rail actions use bare icons with a 44px-high hit area, without resting
 rectangular frames. Hover and selected states use the theme's violet wash. Labels
-fade and slide into the expanded rail while its width eases over 240ms; reduced
-motion removes the transition. Expanded actions include labels.
+fade and slide into the expanded rail after a 45ms delay while its width eases
+over 280ms. Collapse takes 190ms, with labels fading out in 90ms. Icons and the
+workspace remain stationary; reduced motion removes the transition. Expanded
+actions include labels.
 
 ## Composition
 
@@ -88,3 +90,13 @@ TypeScript, production build, preference persistence/failure tests, existing man
 regressions and Windows packaging are executable checks. Token contrast covers all
 three palettes and log tags. No native screenshot or gameplay verification is claimed.
 The broader original specification remains in development; see NEXT_TODOS.md.
+
+## Application preferences
+
+Ajustes uses one main surface and a horizontal, wrapping category bar: General,
+Java, Almacenamiento, Red, Copias, Avanzado and Información. It introduces no extra
+sidebar. General retains immediate theme/font/motion preferences and real startup
+controls. Java/network/backup/task controls clearly identify the selected server.
+Storage exposes actual native locations and folder actions; Information uses the
+native binary version, OS/architecture and persisted EULA record. Diagnostics and
+shortcuts live in Advanced. Native appearance and keyboard review remain manual.

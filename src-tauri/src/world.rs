@@ -122,13 +122,20 @@ pub fn inspect(path: &Path) -> Result<WorldInspection, String> {
 }
 
 fn copy_as(source: &Path, root: &Path, name: &str) -> Result<PathBuf, String> {
+    copy_as_inner(source, root, name, None)
+}
+
+fn copy_as_inner(source: &Path, root: &Path, name: &str, task: Option<&crate::download::DownloadTask>) -> Result<PathBuf, String> {
     valid_name(name)?;
     let target = root.join(name);
     if target.exists() { return Err("Ya existe un archivo o mundo con ese nombre".into()); }
     let stage = root.join(format!(".tch-world-{}.part", Uuid::new_v4()));
     let result = (|| {
-        backup::copy_tree(source, &stage)?;
+        if let Some(task)=task { backup::copy_tree_tracked(source,&stage,task,"Importando archivos del mundo")?; }
+        else { backup::copy_tree(source, &stage)?; }
+        if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando el mundo importado","verifying"); }
         valid_level_dat(&stage)?;
+        if let Some(task)=task { task.begin_publication("Guardando el mundo importado")?; }
         fs::rename(&stage, &target).map_err(|e| e.to_string())?;
         Ok(target)
     })();
@@ -136,13 +143,26 @@ fn copy_as(source: &Path, root: &Path, name: &str) -> Result<PathBuf, String> {
     result
 }
 
+#[cfg(test)]
 pub fn import(server: &Server, source: &Path, name: &str) -> Result<WorldInfo, String> {
-    let inspection = inspect(source)?;
-    let source = Path::new(&inspection.path);
+    import_inner(server, source, name, None)
+}
+
+pub fn import_tracked(server: &Server, source: &Path, name: &str, task: &crate::download::DownloadTask) -> Result<WorldInfo, String> {
+    import_inner(server, source, name, Some(task))
+}
+
+fn import_inner(server: &Server, source: &Path, name: &str, task: Option<&crate::download::DownloadTask>) -> Result<WorldInfo, String> {
+    if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando la carpeta del mundo","preparing"); }
+    let source_path = source.canonicalize().map_err(|e|format!("No se pudo abrir la carpeta: {e}"))?;
+    let source = source_path.as_path();
+    if !source.is_dir() { return Err("Selecciona una carpeta de mundo".into()); }
+    valid_level_dat(source)?;
     let root = server_root(server)?;
     if root.starts_with(source) { return Err("Elige una carpeta de mundo, no la carpeta completa del servidor".into()); }
-    let target = copy_as(source, &root, name)?;
-    Ok(world_info(name.into(), &target, name == active_name(server)?))
+    let active = name == active_name(server)?;
+    let target = copy_as_inner(source, &root, name, task)?;
+    Ok(world_info(name.into(), &target, active))
 }
 
 pub fn duplicate(server: &Server, name: &str, new_name: &str) -> Result<WorldInfo, String> {
@@ -207,6 +227,40 @@ mod tests {
         encoder.write_all(&[10, 0, 0, 10, 0, 4, b'D', b'a', b't', b'a', 0]).unwrap();
         encoder.finish().unwrap();
         fs::write(path.join("region/r.0.0.mca"), b"world data").unwrap();
+    }
+
+    #[test]
+    fn tracked_import_measures_files_and_publishes_only_a_complete_world() {
+        use std::sync::{Arc,Mutex};
+        let root=std::env::temp_dir().join(format!("tch-world-progress-{}",Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();let server=fixture(&root);let source=root.join("original");make_world(&source);
+        fs::write(source.join("region/r.0.0.mca"),vec![7u8;300_000]).unwrap();
+        let expected=backup::size(&source);
+        for (name,cancel,corrupt) in [("Complete",false,false),("Cancelled",true,false),("Invalid",false,true)] {
+            let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(std::collections::HashMap::new()));
+            let observed=jobs.clone();let events=Arc::new(Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();let directory=PathBuf::from(&server.directory);
+            let result=crate::file_tasks::import_world(&server,&source,name,&jobs,move|event|{
+                let task=observed.lock().unwrap().get(&event.server_id).unwrap().clone();
+                assert_eq!(task.id,event.task_id);assert!(task.is_file_operation());
+                if cancel&&event.stage=="copying"&&event.received>0 {assert!(task.request_cancel());}
+                if corrupt&&event.stage=="verifying" {
+                    let stage=fs::read_dir(&directory).unwrap().map(|entry|entry.unwrap().path()).find(|path|path.file_name().unwrap().to_string_lossy().starts_with(".tch-world-")).unwrap();
+                    fs::write(stage.join("level.dat"),b"invalid").unwrap();
+                }
+                if event.stage=="publishing" {assert!(!task.request_cancel());}
+                capture.lock().unwrap().push(event);
+            });
+            assert!(jobs.lock().unwrap().is_empty());
+            let events=events.lock().unwrap();let terminal=&events.last().unwrap().stage;
+            if cancel {assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert_eq!(terminal,"cancelled");}
+            else if corrupt {assert!(result.is_err());assert_eq!(terminal,"failed");}
+            else {assert_eq!(result.unwrap().name,name);assert_eq!(terminal,"completed");let measured=events.iter().filter(|event|event.stage=="copying").last().unwrap();assert_eq!(measured.received,expected);assert_eq!(measured.total,Some(expected));assert_eq!(fs::read(Path::new(&server.directory).join(name).join("region/r.0.0.mca")).unwrap(),vec![7u8;300_000]);}
+            assert_eq!(Path::new(&server.directory).join(name).exists(),!cancel&&!corrupt);
+            assert!(fs::read_dir(&server.directory).unwrap().all(|entry|!entry.unwrap().file_name().to_string_lossy().starts_with(".tch-world-")));
+            assert_eq!(fs::read(source.join("region/r.0.0.mca")).unwrap(),vec![7u8;300_000]);valid_level_dat(&source).unwrap();
+        }
+        assert_eq!(list(&server).unwrap().iter().map(|world|world.name.as_str()).collect::<Vec<_>>(),vec!["Complete"]);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

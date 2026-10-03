@@ -1,4 +1,5 @@
 mod backup;
+mod application;
 mod app_log;
 mod backup_retention;
 mod file_tasks;
@@ -199,10 +200,11 @@ async fn install_modpack(app:AppHandle,engine:State<'_,Engine>,id:String,path:St
 }
 
 #[tauri::command]
-async fn remove_content(engine:State<'_,Engine>,id:String,filename:String,sha512:String)->Result<(),String> {
+async fn remove_content(app:AppHandle,engine:State<'_,Engine>,id:String,filename:String,sha512:String)->Result<(),String> {
     let guard=engine.reserve_stopped(&id)?;
     let root=engine.root.clone();let server=storage::get(&root,&id)?;
-    let result=tauri::async_runtime::spawn_blocking(move ||{let _guard=guard;content_storage::remove(&root,&server,&filename,&sha512)}).await.map_err(|e|e.to_string())?;
+    let jobs=engine.installations.clone();
+    let result=tauri::async_runtime::spawn_blocking(move ||{let _guard=guard;file_tasks::remove_content(&root,&server,&filename,&sha512,&jobs,move|progress|{let _=app.emit("install-progress",progress);})}).await.map_err(|e|e.to_string())?;
     engine.invalidate_size(&id);result
 }
 
@@ -297,9 +299,14 @@ async fn inspect_import(path: String) -> Result<ImportInspection, String> {
 }
 
 #[tauri::command]
-async fn import_server(engine: State<'_, Engine>, input: ImportServer) -> Result<Server, String> {
+async fn import_server(app:AppHandle,engine: State<'_, Engine>, input: ImportServer) -> Result<Server, String> {
     let root = engine.root.clone();
-    tauri::async_runtime::spawn_blocking(move || storage::import(&root,input)).await.map_err(|e| e.to_string())?
+    let id=uuid::Uuid::new_v4().to_string();
+    engine.operations.lock().map_err(|_|"No se pudo reservar la importación")?.insert(id.clone());
+    let guard=OperationGuard{id:id.clone(),operations:engine.operations.clone()};
+    let jobs=engine.installations.clone();
+    tauri::async_runtime::spawn_blocking(move ||{let _guard=guard;file_tasks::import_server(&root,input,&id,&jobs,move|progress|{let _=app.emit("install-progress",progress);})})
+        .await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -625,12 +632,13 @@ async fn pick_world_folder() -> Result<Option<world::WorldInspection>, String> {
 }
 
 #[tauri::command]
-async fn import_world(engine: State<'_, Engine>, id: String, path: String, name: String) -> Result<world::WorldInfo, String> {
+async fn import_world(app: AppHandle, engine: State<'_, Engine>, id: String, path: String, name: String) -> Result<world::WorldInfo, String> {
     let guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root, &id)?;
+    let jobs=engine.installations.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let _guard = guard;
-        world::import(&server, &PathBuf::from(path), &name)
+        let _guard=guard;
+        file_tasks::import_world(&server, &PathBuf::from(path), &name, &jobs, move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?;
     if result.is_ok() { engine.invalidate_size(&id); }
     result
@@ -742,6 +750,18 @@ async fn get_public_ip() -> Result<String, String> {
 async fn open_application_logs(engine:State<'_,Engine>)->Result<(),String> {
     let root=engine.root.clone();
     tauri::async_runtime::spawn_blocking(move||app_log::open(&root)).await.map_err(|error|error.to_string())?
+}
+
+#[tauri::command]
+async fn get_application_info(engine:State<'_,Engine>)->Result<application::Info,String>{
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move||application::info(&root)).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn open_application_folder(engine:State<'_,Engine>,key:String,id:Option<String>)->Result<(),String>{
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move||application::open_folder(&root,&key,id.as_deref())).await.map_err(|e|e.to_string())?
 }
 
 fn router_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Result<(std::net::Ipv4Addr,u16),String> {
@@ -1100,7 +1120,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {

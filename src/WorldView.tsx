@@ -51,7 +51,7 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
       await refresh()
       if (backupsChanged) await onBackupsChanged()
       setNotice(success)
-    } catch(error) { setError(errorText(error)) }
+    } catch(error) { if(errorText(error)!=='Instalación cancelada')setError(errorText(error)) }
     finally { setBusy(false) }
   }
   const choose = async () => {
@@ -80,7 +80,7 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
     try {
       const destination = await api.exportWorld(server.id,name)
       if (destination) setNotice(`Mundo exportado a ${destination}`)
-    } catch(error) { setError(errorText(error)) }
+    } catch(error) { if(errorText(error)!=='Instalación cancelada')setError(errorText(error)) }
     finally { setBusy(false) }
   }
   const openFolder = async (name: string) => {

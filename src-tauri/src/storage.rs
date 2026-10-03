@@ -361,7 +361,18 @@ fn detect_jar_version(path: &Path) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(&text).ok()?["id"].as_str().map(str::to_owned)
 }
 
+#[cfg(test)]
 pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
+    import_inner(root,input,&Uuid::new_v4().to_string(),None)
+}
+
+pub fn import_tracked(root:&Path,input:ImportServer,id:&str,task:&crate::download::DownloadTask)->Result<Server,String>{
+    import_inner(root,input,id,Some(task))
+}
+
+fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::download::DownloadTask>)->Result<Server,String>{
+    Uuid::parse_str(id).map_err(|_|"Identificador de servidor no válido")?;
+    if let Some(task)=task {task.cancellation.check()?;task.report("Comprobando la carpeta del servidor","preparing");}
     let source = PathBuf::from(&input.path).canonicalize().map_err(|e| e.to_string())?;
     let inspection = inspect_import(&source)?;
     if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo de arranque seleccionado no existe en esa carpeta".into()); }
@@ -380,16 +391,27 @@ pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
     let max_players = properties.get("max-players").and_then(|v| v.parse::<u32>().ok()).unwrap_or(20);
     validate(&CreateServer {name:input.name.clone(),version:input.version.clone(),platform:input.platform.clone(),memory_min_mb:1024,memory_max_mb:2048,max_players,port,storage_target_gb:input.storage_target_gb,image_path:input.image_path.clone()})?;
     let image = input.image_path.as_ref().map(|path| image_bytes(Path::new(path))).transpose()?;
-    let id = Uuid::new_v4().to_string();
+    let db = connect(root)?;
+    if input.copy && root.canonicalize().map_err(|e|e.to_string())?.starts_with(&source){return Err("Selecciona la carpeta de un servidor, no la biblioteca completa".into());}
     let target = if input.copy {
         let target = root.join("servers").join(&id);
         let stage = root.join("servers").join(format!(".{id}.part"));
-        if let Err(e) = crate::backup::copy_tree(&source,&stage) { let _ = std::fs::remove_dir_all(&stage); return Err(e); }
-        std::fs::rename(&stage,&target).map_err(|e| e.to_string())?;
+        let prepared=(||{
+            if let Some(task)=task {crate::backup::copy_tree_tracked(&source,&stage,task,"Importando archivos del servidor")?;task.cancellation.check()?;task.report("Comprobando el servidor importado","verifying");}
+            else {crate::backup::copy_tree(&source,&stage)?;}
+            let copied=inspect_import(&stage)?;
+            if !copied.jar_files.contains(&input.jar_file){return Err("El archivo de arranque cambió durante la importación".into());}
+            if input.platform=="neoforge"{crate::neoforge::validate_import(&stage,&input.jar_file,&input.version)?;}
+            if let Some(task)=task {task.begin_publication("Incorporando el servidor a la biblioteca")?;}
+            std::fs::rename(&stage,&target).map_err(|e|e.to_string())
+        })();
+        if let Err(error)=prepared {let _=std::fs::remove_dir_all(&stage);return Err(error);}
         target
-    } else { source };
+    } else {
+        if let Some(task)=task {task.begin_publication("Incorporando la carpeta a la biblioteca")?;}
+        source
+    };
     let jar = target.join(&input.jar_file);
-    let db = connect(root)?;
     let inserted = db.execute("INSERT INTO servers (id,name,version,platform,directory,jar_path,memory_min_mb,memory_max_mb,created_at,storage_target_gb) VALUES (?1,?2,?3,?4,?5,?6,1024,2048,?7,?8)",
         params![id,input.name,input.version,input.platform,target.to_string_lossy(),jar.to_string_lossy(),chrono::Utc::now().to_rfc3339(),input.storage_target_gb])
         .map_err(|e| e.to_string());

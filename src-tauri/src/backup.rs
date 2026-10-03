@@ -68,7 +68,7 @@ pub(crate) fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn copy_tree_tracked(from:&Path,to:&Path,task:&crate::download::DownloadTask,label:&str)->Result<(),String>{
+pub(crate) fn copy_tree_tracked(from:&Path,to:&Path,task:&crate::download::DownloadTask,label:&str)->Result<(),String>{
     use std::io::{Read,Write};
     let mut total=0u64;
     for entry in WalkDir::new(from){
