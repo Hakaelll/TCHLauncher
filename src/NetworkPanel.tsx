@@ -3,6 +3,7 @@ import { api, type NetworkSnapshot, type Server } from './api'
 import {RouterPanel} from './RouterPanel'
 import {NatPmpPanel} from './NatPmpPanel'
 import {TunnelPanel} from './TunnelPanel'
+import {ServerResponsePanel} from './ServerResponsePanel'
 
 const stateLabels: Record<NetworkSnapshot['portState'], string> = {
   listening: 'Responde en este equipo',
@@ -60,6 +61,7 @@ export function NetworkPanel({server}: {server: Server}) {
     <dl className="data-list network-facts"><div><dt>IP local</dt><dd>{network?.localIp || '—'}</dd></div><div><dt>Puerto TCP</dt><dd>{network?.port ?? '—'}</dd></div><div><dt>Estado local</dt><dd>{network ? stateLabels[network.portState] : 'Comprobando…'}</dd></div><div><dt>En este equipo</dt><dd>{network?.localAddress || '—'}</dd></div></dl>
     {network?.configuredIp && <p className="muted-note">El servidor está configurado para escuchar en {network.configuredIp}. Si esta dirección es de loopback, otros equipos no podrán entrar.</p>}
     {!network?.lanAddress && network && <p className="muted-note">Comprueba que el ordenador esté conectado a la red y que el servidor no esté limitado a una dirección local.</p>}
+    <ServerResponsePanel key={server.id} server={server}/>
     <details className="network-guide"><summary>Jugar desde fuera de esta red</summary><div className="network-guide-content"><TunnelPanel key={`tunnel:${server.id}`} server={server} network={network}/><RouterPanel key={server.id} server={server} network={network}/><NatPmpPanel key={`natpmp:${server.id}`} server={server} network={network}/><p>Si la apertura automática no está disponible, redirige manualmente el puerto <strong>{network?.port ?? 'del servidor'} TCP</strong> en tu router hacia <strong>{network?.localIp ?? 'la IP local de este equipo'}</strong> y permite Java en el firewall.</p><div className="network-public"><div><span>IP pública de salida</span><strong>{publicIp || 'Sin consultar'}</strong></div><button type="button" disabled={checkingPublic} onClick={checkPublic}>{checkingPublic ? 'Consultando…' : 'Consultar IP pública'}</button></div><p className="network-disclosure">Esta consulta opcional contacta con ipify. No comprueba el router ni crea una apertura de puerto; el servidor local funciona sin usar ese servicio.</p></div></details>
   </section>
 }

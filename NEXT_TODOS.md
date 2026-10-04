@@ -1,5 +1,11 @@
 # Trabajo pendiente
 
+Petición añadida: diagnosticar crecimiento de RAM en Fabric 1.21.11 con unos 30 mods, Xms 1 GB / Xmx 12 GB, observado también en Windows en el ordenador del amigo. Después de 0.16.0: lectura HotSpot de heap usado/reservado y eventos del recolector, junto a RAM residente y curva de heap discontinua. Parser y lectura real de un proceso Java 21 propio aprobados fuera del aislamiento; falta comprobar esa partida, retención tras GC y posibles mods causantes. La cifra de proceso por sí sola no prueba una fuga; no se fuerza GC ni se cambian parámetros sin evidencia.
+
+CLIENT-FABRIC-01 — Alta, TODO: gestionar instancias cliente Fabric con cuenta Microsoft dentro de TCHLauncher, sin depender de otro launcher. Flujo pendiente: registro propio y acceso autorizado a Minecraft Services, OAuth de aplicación pública con PKCE o device flow, tokens solo en backend y almacenamiento de credenciales del sistema, renovación/cierre de sesión, comprobación de licencia/perfil, instalación cliente/assets/librerías/nativas con hashes, aislamiento de mundos/mods y lanzamiento autenticado. No reutilizar IDs ni tokens de otros launchers. Hay una consulta pendiente sobre Client ID propio. No hay inicio de sesión ni lanzamiento cliente implementados aún; no presentar la gestión de servidores como implementación de esta petición.
+
+Después de 0.16.0: el espacio del Resumen usa lecturas comprobadas y caché independiente por servidor/ruta (60 s para datos, 15 s para errores), conserva CPU/RAM si falla la lectura y distingue carpeta vacía de medición no disponible. Hora de medición, enlaces omitidos y error local conectados a Configuración. Tres pruebas de almacenamiento con archivos reales aprobadas; TypeScript/Vite aprobados. Pendientes permisos de carpeta no legible y revisión visual nativa; no incluido en el instalador 0.16.0.
+
 Estados: `DONE` solo para flujos conectados al backend y verificados por pruebas; `REVIEW` para implementación pendiente de validación integral.
 
 | ID | Prioridad | Estado | Trabajo | Criterio de aceptación |

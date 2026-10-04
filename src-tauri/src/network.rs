@@ -41,9 +41,16 @@ fn route_ipv4() -> Option<Ipv4Addr> {
 
 fn address(ip: IpAddr, port: u16) -> String { SocketAddr::new(ip, port).to_string() }
 
+fn local_target(binding:Option<IpAddr>)->IpAddr{
+    match binding{Some(ip)if !ip.is_unspecified()=>ip,Some(IpAddr::V6(_))=>IpAddr::V6(std::net::Ipv6Addr::LOCALHOST),_=>IpAddr::V4(Ipv4Addr::LOCALHOST)}
+}
+fn configured_port(values:&std::collections::BTreeMap<String,String>)->Result<u16,String>{
+    values.get("server-port").map(String::as_str).unwrap_or("25565").parse::<u16>().ok().filter(|port|*port>0).ok_or_else(||"El puerto de server.properties no es válido".into())
+}
+
 fn probe_port(state: &str, port: u16, binding: Option<IpAddr>) -> PortState {
     if state == "running" || state == "starting" || state == "stopping" || state == "installing" {
-        let target = binding.filter(|ip| !ip.is_unspecified()).unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let target = local_target(binding);
         if TcpStream::connect_timeout(&SocketAddr::new(target, port), Duration::from_millis(350)).is_ok() {
             PortState::Listening
         } else if state == "starting" || state == "installing" {
@@ -62,9 +69,7 @@ fn probe_port(state: &str, port: u16, binding: Option<IpAddr>) -> PortState {
 pub fn inspect(server: &Server, state: &str) -> Result<NetworkSnapshot, String> {
     let path = Path::new(&server.directory).join("server.properties");
     let values = properties::read(&path)?;
-    let port = values.get("server-port").map(String::as_str).unwrap_or("25565")
-        .parse::<u16>().ok().filter(|port| *port > 0)
-        .ok_or("El puerto de server.properties no es válido")?;
+    let port = configured_port(&values)?;
     let configured_ip = values.get("server-ip").map(|value| value.trim()).filter(|value| !value.is_empty()).map(str::to_string);
     let binding = configured_ip.as_deref().and_then(|value| value.parse::<IpAddr>().ok());
     let route = route_ipv4().map(IpAddr::V4);
@@ -75,7 +80,7 @@ pub fn inspect(server: &Server, state: &str) -> Result<NetworkSnapshot, String> 
     let local_address = match (configured_ip.as_deref(), binding) {
         (_, Some(ip)) if !ip.is_unspecified() => address(ip, port),
         (Some(host), None) => format!("{host}:{port}"),
-        _ => address(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+        _ => address(local_target(binding), port),
     };
     let port_state = if configured_ip.is_some() && binding.is_none() { PortState::Unknown } else { probe_port(state, port, binding) };
     Ok(NetworkSnapshot {
@@ -102,6 +107,15 @@ pub fn public_ip() -> Result<String, String> {
     Ok(ip.to_string())
 }
 
+pub fn check_response(server:&Server,state:&str)->Result<crate::server_ping::Response,String>{
+    if !matches!(state,"running"|"starting"){return Err("Inicia el servidor antes de comprobar su respuesta Minecraft".into());}
+    let values=properties::read(&Path::new(&server.directory).join("server.properties"))?;
+    if values.get("enable-status").is_some_and(|value|value=="false"){return Err("La consulta Minecraft está desactivada (enable-status=false). Puedes activarla en Configuración y reiniciar el servidor.".into());}
+    let binding=values.get("server-ip").map(|value|value.trim()).filter(|value|!value.is_empty()).map(|value|value.parse::<IpAddr>()).transpose().map_err(|_|"La dirección configurada no es una IP; no se pudo comprobar Minecraft localmente")?;
+    let address=SocketAddr::new(local_target(binding),configured_port(&values)?);
+    crate::server_ping::query(address)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,6 +134,8 @@ mod tests {
     fn formats_ipv4_and_ipv6_addresses() {
         assert_eq!(address(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 34)), 25565), "192.168.1.34:25565");
         assert_eq!(address("2001:db8::1".parse().unwrap(), 25565), "[2001:db8::1]:25565");
+        assert_eq!(address(local_target(Some("::".parse().unwrap())),25565),"[::1]:25565");
+        assert_eq!(address(local_target(Some("0.0.0.0".parse().unwrap())),25565),"127.0.0.1:25565");
     }
 
     #[test]
@@ -136,6 +152,13 @@ mod tests {
         let snapshot = inspect(&server, "stopped").unwrap();
         assert!(snapshot.lan_address.is_none());
         assert_eq!(snapshot.local_address, "127.0.0.1:25565");
+        let original=std::fs::read(root.join("server.properties")).unwrap();
+        assert!(check_response(&server,"stopped").unwrap_err().contains("Inicia"));
+        std::fs::write(root.join("server.properties"),"server-port=25565\nserver-ip=127.0.0.1\nonline-mode=true\nenable-status=false\n").unwrap();
+        let disabled=std::fs::read(root.join("server.properties")).unwrap();
+        assert!(check_response(&server,"running").unwrap_err().contains("enable-status=false"));
+        assert_eq!(std::fs::read(root.join("server.properties")).unwrap(),disabled);
+        std::fs::write(root.join("server.properties"),&original).unwrap();
         let _ = std::fs::remove_dir_all(root);
     }
 }

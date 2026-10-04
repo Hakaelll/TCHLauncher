@@ -34,3 +34,13 @@ test('unavailable CPU samples and gaps do not draw invented connecting lines', (
   assert.deepEqual(seriesSegments(history,'cpuPercent').map(segment => segment.length),[1,1,1])
   assert.deepEqual(seriesSegments(history,'memoryBytes').map(segment => segment.length),[3,1])
 })
+
+test('heap history retains measured drops independently of resident process RAM and unavailable reads',()=>{
+  let history=recordSample([],sample({heap:{usedBytes:900}}))
+  history=recordSample(history,sample({sampledAt:203_000,memoryBytes:1100,heap:{usedBytes:200}}))
+  history=recordSample(history,sample({sampledAt:206_000,memoryBytes:1100,heap:null}))
+  history=recordSample(history,sample({sampledAt:209_000,memoryBytes:1100,heap:{usedBytes:400}}))
+  assert.deepEqual(history.map(item=>item.heapUsedBytes),[900,200,null,400])
+  assert.deepEqual(seriesSegments(history,'heapUsedBytes').map(segment=>segment.length),[2,1])
+  assert.deepEqual(seriesSegments(history,'memoryBytes').map(segment=>segment.length),[4])
+})

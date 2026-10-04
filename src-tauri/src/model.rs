@@ -105,6 +105,8 @@ pub struct Metrics {
     pub startup_duration_ms: Option<u64>,
     pub startup_phase:Option<crate::startup::Phase>,
     pub memory_bytes: Option<u64>,
+    pub heap:Option<crate::heap::Reading>,
+    pub heap_error:Option<String>,
     pub cpu_percent: Option<f32>,
     pub disk_read_bytes: Option<u64>,
     pub disk_written_bytes: Option<u64>,

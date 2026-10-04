@@ -1,7 +1,7 @@
 import type { Metrics } from './api'
 
 export const HISTORY_MS = 120_000
-export type MetricSample = Pick<Metrics,'serverId' | 'sampledAt' | 'pid' | 'memoryBytes' | 'cpuPercent' | 'diskReadBytes' | 'diskWrittenBytes'>
+export type MetricSample = Pick<Metrics,'serverId' | 'sampledAt' | 'pid' | 'memoryBytes' | 'cpuPercent' | 'diskReadBytes' | 'diskWrittenBytes'> & {heapUsedBytes?:number|null}
 
 export function recordSample(history: MetricSample[],metrics: Metrics): MetricSample[] {
   if (metrics.pid == null || metrics.memoryBytes == null || !Number.isFinite(metrics.sampledAt)) return history
@@ -9,7 +9,7 @@ export function recordSample(history: MetricSample[],metrics: Metrics): MetricSa
   const sameProcess = last?.serverId === metrics.serverId && last.pid === metrics.pid
   if (sameProcess && metrics.sampledAt <= last.sampledAt) return history
   const retained = sameProcess ? history.filter(sample => sample.sampledAt >= metrics.sampledAt - HISTORY_MS) : []
-  return [...retained,metrics].slice(-65)
+  return [...retained,{...metrics,heapUsedBytes:metrics.heap?.usedBytes??null}].slice(-65)
 }
 
 export function diskRate(history: MetricSample[],key: 'diskReadBytes' | 'diskWrittenBytes'): number | null {
@@ -23,7 +23,7 @@ export function diskRate(history: MetricSample[],key: 'diskReadBytes' | 'diskWri
   return (bytes - before) / seconds
 }
 
-export function seriesSegments(history: MetricSample[],key: 'memoryBytes' | 'cpuPercent'): MetricSample[][] {
+export function seriesSegments(history: MetricSample[],key: 'memoryBytes' | 'cpuPercent' | 'heapUsedBytes'): MetricSample[][] {
   const segments: MetricSample[][] = []
   let current: MetricSample[] = []
   for (const sample of history) {
