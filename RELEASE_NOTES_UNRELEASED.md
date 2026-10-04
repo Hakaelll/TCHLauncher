@@ -176,3 +176,10 @@ Separate live installation checks passed for Minecraft 26.4-snapshot-2 on Vanill
 - Include post-0.9 experimental catalog and strict readiness parsing source changes.
 - Verify 110 offline Rust tests and 13 frontend behavioral tests; 18 external integration tests are excluded from the offline run. Validate 24 text/semantic token combinations (minimum 5.23:1) and actual Spanish font glyph coverage.
 - Native screenshot/gameplay verification is not performed: the user requested manual visual assessment and prohibited computer use.
+
+### Memory report export
+
+- Performance now exports a native JSON report through the Save dialog, with resident memory, used/committed heap and collector events. It retains up to 30 minutes / 901 actual samples for the latest observed Java session while that server is selected, bounded to 32 server histories in memory.
+- Missing heap readings remain null and gaps are preserved. Reports label current configured heap limits separately from measured JVM values; no logs, commands, executable paths, player identifiers or credentials are included.
+- Session tokens discard readings interrupted by a restart. Collection does not force GC or change JVM flags. Saving stages a complete file and preserves the previous destination if publication fails.
+- Two native regressions cover sample limits, session changes, unavailable heap, excluded private fields and file publication. Native Save-dialog review and the friend's Fabric session remain pending. This is not included in the 0.16.0 installer.

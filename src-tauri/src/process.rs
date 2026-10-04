@@ -141,9 +141,17 @@ impl ProcessManager {
             .map(|p| p.online.lock().unwrap().iter().cloned().collect()).unwrap_or_default()
     }
 
+    pub fn session_token(&self,id:&str)->Option<String>{
+        self.processes.lock().ok()?.get(id).map(|process|process.session.clone())
+    }
+
     pub fn process_snapshot(&self, id: &str) -> Option<(u32,u64,Option<u64>,crate::startup::Phase)> {
         self.processes.lock().unwrap().get(id)
             .map(|p| (p.child.lock().unwrap().id(),p.started.elapsed().as_secs(),p.running_since.lock().unwrap().map(|ready|ready.duration_since(p.started).as_millis() as u64),*p.startup_phase.lock().unwrap()))
+    }
+
+    pub fn memory_sample_identity(&self,id:&str)->Option<((u32,u64,Option<u64>,crate::startup::Phase),String)>{
+        self.processes.lock().ok()?.get(id).map(|p|((p.child.lock().unwrap().id(),p.started.elapsed().as_secs(),p.running_since.lock().unwrap().map(|ready|ready.duration_since(p.started).as_millis() as u64),*p.startup_phase.lock().unwrap()),p.session.clone()))
     }
 
     pub fn start(&self, server: &Server, app: AppHandle, jvm:&crate::jvm::Settings) -> Result<(), String> {

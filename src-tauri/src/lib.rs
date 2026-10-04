@@ -27,6 +27,7 @@ mod pack_install;
 mod network;
 mod server_ping;
 mod heap;
+mod memory_report;
 mod crash_diagnostics;
 mod bore;
 mod natpmp;
@@ -68,6 +69,7 @@ pub struct Engine {
     metrics_system: Arc<Mutex<sysinfo::System>>,
     sampled_pids: Arc<Mutex<HashSet<u32>>>,
     size_cache: Arc<storage_usage::SizeCache>,
+    memory_history: Arc<memory_report::History>,
     operations: Arc<Mutex<HashSet<String>>>,
     installations: Arc<Mutex<HashMap<String,Arc<download::DownloadTask>>>>,
     content_plans: Arc<Mutex<HashMap<String,content_storage::PreparedPlan>>>,
@@ -571,6 +573,18 @@ async fn export_log(engine: State<'_, Engine>, id: String) -> Result<Option<Stri
 }
 
 #[tauri::command]
+async fn export_memory_report(engine:State<'_,Engine>,id:String)->Result<Option<String>,String>{
+    let server=storage::get(&engine.root,&id)?;
+    let bytes=engine.memory_history.report(&server)?;
+    tauri::async_runtime::spawn_blocking(move||{
+        let Some(destination)=rfd::FileDialog::new().add_filter("Diagnóstico de memoria",&["json"])
+            .set_file_name(format!("tchlauncher-{}-memory.json",server.id)).save_file() else{return Ok(None);};
+        memory_report::write_report(&destination,&bytes)?;
+        Ok(Some(destination.to_string_lossy().into_owned()))
+    }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
 fn get_properties(engine: State<'_, Engine>, id: String) -> Result<BTreeMap<String,String>, String> {
     let server = storage::get(&engine.root,&id)?;
     properties::read(&PathBuf::from(server.directory).join("server.properties"))
@@ -745,12 +759,17 @@ fn request_tps(engine:State<'_,Engine>,id:String)->Result<(),String>{engine.proc
 async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, String> {
     let root=engine.root.clone();
     let server = storage::get(&engine.root,&id)?;
-    let pid_uptime = engine.processes.process_snapshot(&id);
+    let identity=engine.processes.memory_sample_identity(&id);
+    let pid_uptime=identity.as_ref().map(|(snapshot,_)|*snapshot);
+    let session=identity.map(|(_,token)|token);
+    let processes=engine.processes.clone();
     let tps=engine.processes.tick_snapshot(&id);
     let metrics_system = engine.metrics_system.clone();
     let sampled_pids = engine.sampled_pids.clone();
     let size_cache = engine.size_cache.clone();
+    let memory_history=engine.memory_history.clone();
     tauri::async_runtime::spawn_blocking(move || {
+    let sampled_at = chrono::Utc::now().timestamp_millis();
     let (memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes) = if let Some((pid,_,_,_)) = pid_uptime {
         let mut system = metrics_system.lock().map_err(|e| e.to_string())?;
         let sys_pid = sysinfo::Pid::from_u32(pid);
@@ -762,7 +781,6 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
         (process.map(|p| p.memory()),if sampled { None } else { process.map(|p| (p.cpu_usage() / cores).clamp(0.0,100.0)) },disk.map(|d| d.total_read_bytes),disk.map(|d| d.total_written_bytes))
     } else { (None,None,None,None) };
     let (heap,heap_error)=match pid_uptime.map(|process|process.0){Some(pid)=>match crate::heap::inspect(pid){Ok(value)=>(Some(value),None),Err(error)=>(None,Some(error))},None=>(None,None)};
-    let sampled_at = chrono::Utc::now().timestamp_millis();
     let (size_bytes,size_error,size_sampled_at,size_skipped_links)=match size_cache.sample(&id,std::path::Path::new(&server.directory)){
         Ok(sample)=>match sample.result{
             Ok(measured)=>(Some(measured.bytes),None,Some(sample.sampled_at),Some(measured.skipped_links)),
@@ -771,7 +789,9 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
         Err(error)=>(None,Some(error),None,None),
     };
     let storage_warning_percent=storage_usage::warning_percent(&root,&id)?;
-    Ok(Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),startup_duration_ms:pid_uptime.and_then(|p|p.2),startup_phase:pid_uptime.map(|p|p.3),memory_bytes,heap,heap_error,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes,size_error,size_sampled_at,size_skipped_links,storage_warning_percent,tps})
+    let metrics=Metrics {server_id:id,sampled_at,pid:pid_uptime.map(|p|p.0),uptime_seconds:pid_uptime.map(|p|p.1),startup_duration_ms:pid_uptime.and_then(|p|p.2),startup_phase:pid_uptime.map(|p|p.3),memory_bytes,heap,heap_error,cpu_percent,disk_read_bytes,disk_written_bytes,size_bytes,size_error,size_sampled_at,size_skipped_links,storage_warning_percent,tps};
+    if let Some(session)=session.filter(|token|processes.session_token(&metrics.server_id).as_ref()==Some(token)){memory_history.record(&metrics,&session);}
+    Ok(metrics)
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -1244,7 +1264,7 @@ pub fn run() {
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             stop_backup::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),tunnels:Arc::new(tunnel::Manager::new(vec![Arc::new(bore::Provider::default())]).expect("valid built-in tunnel provider")),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(storage_usage::SizeCache::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),tunnels:Arc::new(tunnel::Manager::new(vec![Arc::new(bore::Provider::default())]).expect("valid built-in tunnel provider")),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(storage_usage::SizeCache::default()),memory_history:Arc::new(memory_report::History::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
             start_router_maintenance(app.handle().clone());
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
@@ -1288,7 +1308,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_tunnel_status,open_tunnel,close_tunnel,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_tunnel_status,open_tunnel,close_tunnel,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {

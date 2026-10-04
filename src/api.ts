@@ -163,6 +163,7 @@ export const api = {
   pickWhitelistFile: () => invoke<WhitelistImport | null>('pick_whitelist_file'),
   importWhitelist: (id: string, names: string[]) => invoke<number>('import_whitelist', { id, names }),
   log: (id: string) => invoke<LogLine[]>('read_log', { id }),
+  exportMemoryReport: (id: string) => invoke<string | null>('export_memory_report', { id }),
   exportLog: (id: string) => invoke<string | null>('export_log', { id }),
   properties: (id: string) => invoke<Record<string, string>>('get_properties', { id }),
   saveProperties: (id: string, values: Record<string, string>) => invoke<void>('save_properties', { id, values }),

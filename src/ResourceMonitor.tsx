@@ -1,5 +1,5 @@
 import {api,type Metrics,type Server} from './api'
-import { useEffect,useState } from 'react'
+import { useEffect,useState,useRef } from 'react'
 import { AnimatedLine, AnimatedValue } from './motion'
 import { diskRate, HISTORY_MS, seriesSegments, type MetricSample } from './telemetry'
 
@@ -49,7 +49,7 @@ export function ResourceMonitor(props:MonitorProps) {
   const writeRate=props.metrics?.pid ? diskRate(samples,'diskWrittenBytes'):null
   return <section className="resource-monitor"><div className="section-heading"><div><h2>Rendimiento</h2><p>Proceso Java · últimos dos minutos</p></div></div>
     <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes"/><ResourceChart {...props} metric="cpuPercent"/></div>
-    <section className="heap-diagnostics" aria-label="Memoria interna de Java"><h3>Memoria de Java</h3><dl className="monitor-details"><div><dt>Heap usado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.usedBytes):'—'}</dd></div><div><dt>Heap reservado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.committedBytes):'—'}</dd></div><div><dt>Eventos del recolector</dt><dd>{props.metrics?.heap?.collections.toLocaleString('es-ES')??'—'}</dd></div></dl><p className="field-help">La gráfica mide la RAM residente del proceso, incluidos heap y memoria nativa. Java puede reutilizar heap reservado sin devolverlo inmediatamente a Windows o Linux. El heap usado incluye objetos aún no recogidos; no equivale a memoria retenida después de una recolección.</p>{props.metrics?.heapError&&<details><summary>Heap no disponible</summary><p className="field-help">{props.metrics.heapError}</p></details>}{props.metrics?.heap&&<p className="field-help">Contadores HotSpot leídos a las {new Date(props.metrics.heap.sampledAt).toLocaleTimeString('es-ES')}. Son muestras de Java; no se fuerza ninguna recolección.</p>}</section>
+    <section className="heap-diagnostics" aria-label="Memoria interna de Java"><MemoryExport key={props.server.id} id={props.server.id}/><dl className="monitor-details"><div><dt>Heap usado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.usedBytes):'—'}</dd></div><div><dt>Heap reservado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.committedBytes):'—'}</dd></div><div><dt>Eventos del recolector</dt><dd>{props.metrics?.heap?.collections.toLocaleString('es-ES')??'—'}</dd></div></dl><p className="field-help">La gráfica mide la RAM residente del proceso, incluidos heap y memoria nativa. Java puede reutilizar heap reservado sin devolverlo inmediatamente a Windows o Linux. El heap usado incluye objetos aún no recogidos; no equivale a memoria retenida después de una recolección.</p>{props.metrics?.heapError&&<details><summary>Heap no disponible</summary><p className="field-help">{props.metrics.heapError}</p></details>}{props.metrics?.heap&&<p className="field-help">Contadores HotSpot leídos a las {new Date(props.metrics.heap.sampledAt).toLocaleTimeString('es-ES')}. Son muestras de Java; no se fuerza ninguna recolección.</p>}</section>
     <TickMonitor key={`${props.server.id}:${props.metrics?.pid}`} server={props.server} metrics={props.metrics}/>
     <dl className="monitor-details"><div><dt>Lectura de disco</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>Escritura de disco</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>Heap máximo de Java</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>Proceso</dt><dd>{props.metrics?.pid??'—'}</dd></div><div><dt>Tiempo de arranque</dt><dd>{props.metrics?.startupDurationMs==null?'—':`${(props.metrics.startupDurationMs/1000).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} s`}</dd></div></dl>
     <p className="field-help">Arranque: desde el lanzamiento de Java hasta que el servidor comunica que está listo. Se mide para el proceso actual; una salida antes de estar listo no produce un valor.</p>
@@ -73,4 +73,20 @@ function TickMonitor({server,metrics}:{server:Server;metrics:Metrics|null}){
     <p className="field-help" role="status">{server.platform!=='paper'?'TPS no disponibles para este motor.':pending?'Esperando respuesta del proceso Java…':reading?`Consulta recibida a las ${new Date(reading.sampledAt).toLocaleTimeString()}. La lectura caduca tras un minuto.`:server.state!=='running'?'Inicia el servidor para consultar su ritmo.':requested?'No hay una lectura reciente. El comando puede no estar disponible en este servidor.':'Sin lectura: pulsa Consultar TPS para solicitarla.'}</p>
     {error&&<p className="form-error" role="alert">{error}</p>}
   </section>
+}
+
+function MemoryExport({id}:{id:string}) {
+  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[saved,setSaved]=useState<string|null>(null)
+  const active=useRef(true),inFlight=useRef(false)
+  useEffect(()=>{active.current=true;return()=>{active.current=false}},[])
+  const save=async()=>{
+    if(inFlight.current)return
+    inFlight.current=true;setBusy(true);setError(null);setSaved(null)
+    try{const path=await api.exportMemoryReport(id);if(active.current)setSaved(path)}
+    catch(cause){if(active.current)setError(cause instanceof Error?cause.message:String(cause))}
+    finally{inFlight.current=false;if(active.current)setBusy(false)}
+  }
+  return <><div className="section-heading"><h3>Memoria de Java</h3><button disabled={busy} onClick={()=>void save()}>{busy?'Guardando…':'Exportar diagnóstico'}</button></div>
+    <p className="field-help">Hasta 30 minutos de muestras recogidas con este servidor seleccionado. Sin logs ni comandos. Guarda el archivo en el equipo que aloja el servidor.</p>
+    {error&&<p className="form-error" role="alert">{error}</p>}{saved&&<p className="field-help" role="status">Diagnóstico guardado: {saved}</p>}</>
 }
