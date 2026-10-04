@@ -131,3 +131,5 @@ hardening, isolated NAT-PMP maintenance, startup duration and operator/player co
 are included. Native desktop, real scheduled Java resume, Minecraft gameplay and
 permission effects, stop-copy/shutdown behavior, physical routers and Linux remain
 open. The full original goal remains active. See RELEASE_NOTES_v0.16.0.md.
+
+Release 0.17.0: instalador Windows NSIS x64 generado a petición del usuario, con progreso nativo de arranque, consulta SLP, heap y exportación de memoria y almacenamiento comprobado. 175 pruebas nativas offline y 27 frontend aprobadas; 22 integraciones externas excluidas en esta ejecución. TypeScript/Vite, versión del ejecutable e iconos de aplicación/instalador comprobados. SHA-256 y notas en inglés en RELEASE_NOTES_v0.17.0.md. Cliente Fabric/Microsoft sigue aparcado; prueba de instalación/escritorio, partida del amigo, Minecraft/router reales y distribución Linux siguen pendientes. Objetivo completo activo.

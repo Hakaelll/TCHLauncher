@@ -1,8 +1,8 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.16.0](RELEASE_NOTES_v0.16.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.17.0](RELEASE_NOTES_v0.17.0.md). The development history below is retained for context.
 
-## Changes after 0.16.0
+## Included in 0.17.0 (changes after 0.16.0)
 
 - Add explicit Minecraft Server List Ping in Connection, with a validated status response and matching pong, local query latency, advertised version/player counts and sample time. Bound packets and the complete exchange, keep unavailable data explicit, respect disabled status queries and preserve authentication/properties. IPv6 wildcard listeners now use IPv6 loopback for local checks. Three protocol/socket regressions and three network regressions pass; live Minecraft and native UI review remain pending.
 
