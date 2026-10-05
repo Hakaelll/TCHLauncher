@@ -1,6 +1,34 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.19.0](RELEASE_NOTES_v0.19.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.21.0](RELEASE_NOTES_v0.21.0.md). The development history below is retained for context.
+
+## Included in 0.21.0
+
+Release gate: 188 native tests and 41 frontend tests pass; 24 external/runtime/helper checks are excluded from the offline suite. Separate real Paper plugin installation, TypeScript/Vite, Windows NSIS packaging, native versions and embedded icons pass. See the dedicated notes for the checksum and manual verification limits.
+
+- Read bounded Paper YAML descriptors for declared plugin name, literal version, main class and API version. Reject malformed or ambiguous identity fields without executing plugins or expanding YAML collections. Scalar aliases remain supported. A real LuckPerms installation integration passes without Java or EULA acceptance.
+- Read NeoForge TOML metadata for declared IDs (including multiple mods in one JAR), display name, literal version and the primary mod's Minecraft dependency expression. Show all declared IDs in details, detect duplicate secondary IDs and associate their explicit console references with the shared file. Expressions remain informational; metadata does not certify loading or gameplay.
+- Read declared NeoForge PNG logos through the existing bounded local icon pipeline. Malformed TOML, invalid/duplicate IDs and escaping icon paths are rejected or shown as unavailable. Unresolved version placeholders stay unknown. Format follows the [official NeoForge mod-file documentation](https://docs.neoforged.net/docs/gettingstarted/modfiles/).
+- Compile diagnostic reference patterns once per installed file rather than for every log row. Nine frontend attribution tests, five native descriptor/icon tests and five native content-storage regressions pass; three external content-storage integrations were excluded. TypeScript/production build pass. NeoForge gameplay and native visual review remain pending; included in 0.21.0.
+- Persist an explicit forced-exit flag with backwards-compatible reads of existing diagnostic files. Retain forced shutdowns in failure history even if the OS exit code is zero, preserve earlier real error findings and present a clear forced-close heading instead of an unknown crash cause.
+- Require diagnostic severity or recognized unheaded JVM/loader failures for saved error findings. Structured INFO mentions, player messages and commands cannot become known failure diagnoses. Four diagnostic persistence/rule tests and two process tests pass (including actual owned-child termination and durable report); two external/helper fixtures stay excluded. TypeScript and production build pass; Minecraft/native visual review remains pending.
+- Remove the automatic Java kill after thirty seconds of graceful shutdown. Offer confirmed force termination only after normal stop has been requested, with a native process-session token to reject stale dialogs. Forced exits are unsuccessful and user-requested, excluding clean-stop backups and crash retries; a pending restart refuses to launch a successor after an unsuccessful exit.
+- Verify force termination against an owned native test child, including state/session rejection, PID preview, actual termination/reaping and forced-success override. TypeScript and production build pass; native Minecraft shutdown and dialog review remain pending. Included in the 0.21.0 preview.
+- Add installed-content card/compact presentation, alphabetical or attention-first ordering, a direct attention filter and filtered-console actions on related diagnostic cards. Preserve existing file review, version planning and confirmed removal. Use theme tokens and reduced-motion-aware state feedback.
+- Recognize raw NeoForge/Log4j diagnostic headers and explicit warning prefixes when associating console evidence with installed files; INFO headers terminate diagnostic continuations. Eight attribution tests and TypeScript/production build pass. Native visual review remains pending; included in 0.21.0.
+- Separate world-save start, per-dimension completion, whole-save notification and explicit failure in the native parser. Require recognized server messages for operational events; mentions in chat, commands or plugin-prefixed output do not become save completion.
+- Show observed save state and the last whole-save notification in Overview. Only an actual failure creates the failure review; exit without completion stays unconfirmed, and a new observed startup clears old-session save evidence. A server notification is not an independent disk-durability check.
+- Derive console severity from structured headers, Java exception lines or explicit diagnostic prefixes. Preserve the observed unbracketed Log4j warning format and stop coloring ordinary INFO descriptions as errors from keyword matches.
+- Bound history reads to the initially observed file extent and 512 KB, ignoring unfinished records at the snapshot boundary. Export remains a separate byte-preserving snapshot operation.
+- TypeScript/production build pass. All 39 frontend tests passed, followed by ten focused attribution/save tests after the final fallback changes. Sixteen related local native tests pass (log/application-log, startup, player replay and crash diagnostics). A separate read-only integration against the user's supplied Paper log also passes. No Minecraft process or native visual review was exercised.
+- Recognized save-message examples were checked against the [Paper issue log](https://github.com/PaperMC/Paper/issues/9142). These changes are included in 0.21.0.
+
+## Included in 0.20.0
+
+- Replace the installed-content file list with Minecraft inventory cards, bounded local Fabric icons, search, attention/source filters and expanded file details. Preserve reviewed updates, stopped-server mutations and confirmed removal with backups.
+- Associate recent real console diagnostics with explicit mod IDs, names, filenames and bounded Fabric dependency continuations. Show related errors in red and warnings in amber with evidence and direct filtered-console navigation; associations do not establish causation. Chat, commands, generic mentions and INFO discussion are excluded.
+- Add restrained item entrance/hover motion and selected-tab feedback using the existing themes and reduced-motion controls. Keep filters and details while refreshing inventory. Read the rail version from the package manifest.
+- Native visual review and real third-party mod failure verification remain manual; see the dedicated release notes for validation and packaging evidence.
 
 ## Included in 0.19.0
 

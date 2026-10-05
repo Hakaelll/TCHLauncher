@@ -40,6 +40,35 @@ fn server_info(line:&str)->bool {
     paper_prefix||prefix.ends_with("[Server thread/INFO")||prefix.contains("[Server thread/INFO]")||prefix.ends_with("[ServerMain/INFO")||prefix.contains("[ServerMain/INFO]")
 }
 
+pub(crate) fn header_level(line:&str)->Option<&str> {
+    for (prefix,level) in [("ERROR:","ERROR"),("Error:","ERROR"),("WARN:","WARN"),("WARNING:","WARN")] {if line.starts_with(prefix){return Some(level);}}
+    if !line.starts_with('[') {
+        let mut words=line.split_whitespace();
+        let date=words.next()?;let time=words.next()?;let thread=words.next()?;let level=words.next()?;
+        if date.len()==10&&chrono::NaiveDate::parse_from_str(date,"%Y-%m-%d").is_ok()&&time.len()==12&&time.as_bytes()[8]==b','&&time.as_bytes()[9..].iter().all(u8::is_ascii_digit)&&chrono::NaiveTime::parse_from_str(&time[..8],"%H:%M:%S").is_ok()&&thread.len()<=128&&matches!(level,"TRACE"|"DEBUG"|"INFO"|"WARN"|"ERROR"|"FATAL") {return Some(level);}
+        return None;
+    }
+    let rest=line.strip_prefix('[')?;
+    let (first,tail)=rest.split_once(']')?;
+    let recognized=|value:&str|matches!(value,"TRACE"|"DEBUG"|"INFO"|"WARN"|"WARNING"|"ERROR"|"SEVERE"|"FATAL");
+    if minecraft_time(line).is_some() {
+        if let Some((_,level))=first.rsplit_once(' ') {if recognized(level){return Some(level);}}
+        let rest=tail.trim_start().strip_prefix('[')?;
+        let (thread,_)=rest.split_once(']')?;
+        let (_,level)=thread.rsplit_once('/')?;
+        return recognized(level).then_some(level);
+    }
+    // Some launcher/loader formatters omit the clock but retain [thread/LEVEL].
+    first.rsplit_once('/').and_then(|(_,level)|recognized(level).then_some(level))
+}
+
+fn throwable(message:&str)->bool {
+    if message.starts_with("Exception in thread \""){return true;}
+    let text=message.trim_start().strip_prefix("Caused by: ").unwrap_or(message.trim_start());
+    let name=text.split([':', ' ']).next().unwrap_or("");
+    name.contains('.')&&(name.ends_with("Exception")||name.ends_with("Error"))&&name.bytes().all(|byte|byte.is_ascii_alphanumeric()||b".$_".contains(&byte))
+}
+
 fn startup_complete(line:&str,message:&str)->bool {
     if !server_info(line){return false;}
     let Some(rest)=message.strip_prefix("Done (") else {return false;};
@@ -74,16 +103,20 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
         let area=message.strip_prefix("Preparing spawn area: ").and_then(|rest|rest.strip_suffix('%')).and_then(|value|value.parse::<u8>().ok()).is_some_and(|value|value<=100);
         if region||area{return ("system",Some("spawn_prepare"));}
     }
-    if lower.contains("can't keep up") { return ("warn", Some("lag")); }
-    if lower.contains("exception") || lower.contains("[severe]") || lower.contains("[fatal]") {
-        return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "exception" }));
+    let level=header_level(line);
+    if server_info(line){
+        if message=="Stopping server"||message=="Stopping the server" {return ("system",Some("shutdown"));}
+        if message=="Saving the game (this may take a moment!)"||message=="Saving worlds"||message.starts_with("Saving chunks for level '") {return ("system",Some("save_started"));}
+        if message=="Saved the game"||message=="ThreadedAnvilChunkStorage: All dimensions are saved" {return ("system",Some("save"));}
+        if message=="Failed to save the game" {return ("error",Some("save_failed"));}
+        if message.starts_with("ThreadedAnvilChunkStorage (")&&message.ends_with("): All chunks are saved") {return ("system",Some("save_dimension"));}
     }
-    if lower.contains("error") {
-        return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else { "error" }));
+    if matches!(level,Some("WARN"|"WARNING"))&&message.starts_with("Can't keep up!") {return ("warn",Some("lag"));}
+    if matches!(level,Some("ERROR"|"SEVERE"|"FATAL"))&&["Failed to save the game","Failed to save level ","Failed to save chunk ","Couldn't save chunk ","Error saving chunk "].iter().any(|prefix|message.starts_with(prefix)) {return ("error",Some("save_failed"));}
+    if matches!(level,Some("ERROR"|"SEVERE"|"FATAL"))||level.is_none()&&throwable(message) {
+        return ("error", Some(if lower.contains("plugin") { "plugin_error" } else if lower.contains("mod") { "mod_error" } else if throwable(message)||message.contains("Exception") {"exception"}else {"error"}));
     }
-    if lower.contains("warn") { return ("warn", Some("warning")); }
-    if message_lower.contains("stopping server") { return ("system", Some("shutdown")); }
-    if message_lower.contains("saving chunks") || message_lower.contains("saved the game") { return ("system", Some("save")); }
+    if matches!(level,Some("WARN"|"WARNING"))||level.is_none()&&(message.starts_with("WARNING:")||message.starts_with("Warning:")||message.starts_with("*** Warning,")) {return ("warn",Some("warning"));}
     if message_lower.starts_with("proceso finalizado:") { return ("system", Some("exit")); }
     ("info", None)
 }
@@ -117,17 +150,27 @@ pub fn recent(path: &Path, server_id: &str) -> Result<Vec<LogEvent>, String> {
     let length = file.metadata().map_err(|e| e.to_string())?.len();
     let offset = length.saturating_sub(512_000);
     file.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    // Freeze the observed extent. A busy server appending output cannot grow this read.
+    let mut bytes = recent_bytes(file,length-offset)?;
     if offset > 0 {
         if let Some(first_newline) = bytes.iter().position(|&byte| byte == b'\n') {
             bytes.drain(..=first_newline);
         } else { return Ok(Vec::new()); }
     }
+    // A record still being written is not evidence of a completed operation.
+    if bytes.last()!=Some(&b'\n') {
+        if let Some(last_newline)=bytes.iter().rposition(|&byte|byte==b'\n') {bytes.truncate(last_newline+1);}else{return Ok(Vec::new());}
+    }
     let content = String::from_utf8_lossy(&bytes);
     let mut records: Vec<_> = content.lines().rev().take(1000).map(|line| parse(server_id, line.trim_end_matches('\r'))).collect();
     records.reverse();
     Ok(records)
+}
+
+fn recent_bytes(reader:impl Read,length:u64)->Result<Vec<u8>,String> {
+    let mut bytes=Vec::new();
+    reader.take(length.min(512_000)).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
+    Ok(bytes)
 }
 
 pub fn export_snapshot(source: &Path, destination: &Path) -> Result<u64, String> {
@@ -229,5 +272,47 @@ mod tests {
         assert_eq!(export_snapshot(&source, &destination).unwrap(), fs::metadata(&source).unwrap().len());
         assert_eq!(fs::read(&source).unwrap(), fs::read(&destination).unwrap());
         let _ = fs::remove_dir_all(root);
+    }
+    #[test]
+    fn saves_separate_start_dimension_completion_and_failure_without_keyword_spoofing() {
+        for prefix in ["[12:00:00 INFO]: ","[12:00:00] [Server thread/INFO]: "] {
+            for text in ["Saving worlds","Saving the game (this may take a moment!)","Saving chunks for level 'ServerLevel[world]'/minecraft:overworld"] {assert_eq!(parse("real",&format!("{prefix}{text}")).event.as_deref(),Some("save_started"));}
+            assert_eq!(parse("real",&format!("{prefix}ThreadedAnvilChunkStorage (world): All chunks are saved")).event.as_deref(),Some("save_dimension"));
+            for text in ["Saved the game","ThreadedAnvilChunkStorage: All dimensions are saved"] {assert_eq!(parse("real",&format!("{prefix}{text}")).event.as_deref(),Some("save"));}
+            for text in ["Plugin says Saved the game","[Plugin] Saved the game","Not saved the game","<Alex> Saved the game","Alex issued server command: /say Saved the game"] {assert_ne!(parse("real",&format!("{prefix}{text}")).event.as_deref(),Some("save"));}
+            assert_eq!(parse("real",&format!("{prefix}Failed to save the game")).event.as_deref(),Some("save_failed"));
+        }
+        assert_ne!(parse("real","[12:00:00] [Worker/INFO]: Saved the game").event.as_deref(),Some("save"));
+        assert_eq!(parse("real","[12:00:00] [IO-Worker/ERROR]: Failed to save chunk 1,2").event.as_deref(),Some("save_failed"));
+        assert_ne!(parse("real","[12:00:00 ERROR]: [Plugin] Failed to save chunk 1,2").event.as_deref(),Some("save_failed"));
+    }
+    #[test]
+    fn severity_comes_from_the_header_not_informative_keyword_mentions() {
+        for text in ["No error occurred", "Loaded mod warnhelper", "Exception handling enabled", "Plugin explaining Can't keep up!", "java.lang.ExampleException: example documentation"] {assert_eq!(parse("real",&format!("[12:00:00 INFO]: {text}")).level,"info");}
+        assert_eq!(parse("real","[12:00:00 WARN]: Library reported an ERROR during retry").level,"warn");
+        assert_eq!(parse("real","[12:00:00 ERROR]: Connection failed").event.as_deref(),Some("error"));
+        assert_eq!(parse("real","java.lang.OutOfMemoryError: Java heap space").event.as_deref(),Some("exception"));
+        assert_eq!(parse("real","Exception in thread \"main\" java.lang.IllegalStateException").level,"error");
+        assert_eq!(parse("real","Error: Could not find or load main class Server").level,"error");
+        assert_eq!(parse("real","2026-10-03 02:25:54,621 main WARN Advanced terminal features are not available").level,"warn");
+        assert_eq!(parse("real","[12:00:00 INFO]: This plugin describes stopping server").event,None);
+        assert_eq!(parse("real","[12:00:00 INFO]: Stopping server").event.as_deref(),Some("shutdown"));
+        assert_ne!(parse("real","[12:00:00 INFO]: Can't keep up!").event.as_deref(),Some("lag"));
+    }
+    #[test]
+    fn history_read_terminates_at_observed_extent_even_when_reader_keeps_producing_bytes() {
+        assert_eq!(recent_bytes(std::io::repeat(b'x'),19).unwrap().len(),19);
+        assert_eq!(recent_bytes(std::io::repeat(b'x'),u64::MAX).unwrap().len(),512_000);
+        assert!(recent_bytes(std::io::repeat(b'x'),0).unwrap().is_empty());
+    }
+    #[test]
+    fn history_does_not_confirm_an_unfinished_record_at_the_snapshot_boundary() {
+        let root=std::env::temp_dir().join(format!("tch-log-partial-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();let path=root.join("latest.log");
+        fs::write(&path,"[12:00:00 INFO]: Saving worlds\n[12:00:01 INFO]: Saved the game").unwrap();
+        let history=recent(&path,"real").unwrap();assert_eq!(history.len(),1);assert_eq!(history[0].event.as_deref(),Some("save_started"));
+        let mut file=fs::OpenOptions::new().append(true).open(&path).unwrap();writeln!(file).unwrap();drop(file);
+        let history=recent(&path,"real").unwrap();assert_eq!(history.len(),2);assert_eq!(history[1].event.as_deref(),Some("save"));
+        fs::write(&path,"[12:00:01 INFO]: Saved the game").unwrap();assert!(recent(&path,"real").unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
     }
 }

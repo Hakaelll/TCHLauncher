@@ -79,7 +79,7 @@ export type ContentSearch = { hits: {project_id: string; title: string; descript
 export type InstalledContent = {filename: string; title: string; projectId: string | null; versionId: string | null; versionNumber: string | null; sha512: string; size: number; modified: boolean}
 export type ContentSearchOptions = {category:string;sort:string;allVersions:boolean}
 export type ContentAvailability = {versionId:string|null;versionNumber:string|null;channel:string|null;environment:string|null}
-export type ContentCheck = {filename:string;descriptor:{id:string|null;name:string|null;version:string|null;environment:string|null;minecraft:string|null;note:string|null};issues:string[];listedInLog:boolean|null}
+export type ContentCheck = {filename:string;descriptor:{id:string|null;ids?:string[];apiVersion?:string|null;name:string|null;version:string|null;environment:string|null;minecraft:string|null;note:string|null};issues:string[];listedInLog:boolean|null}
 export type ContentAudit = {files:InstalledContent[];checks:ContentCheck[];logModifiedAt:number|null;logNote:string}
 export type ContentReview = {token: string; plan: ContentPlan; changes: {title: string; filename: string; action: 'install' | 'update' | 'present'; previousVersion: string | null; version: string}[]; warnings: string[]}
 export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean; protected: boolean}
@@ -125,6 +125,7 @@ export const api = {
   inspectModpack: (path:string) => invoke<PackInspection>('inspect_modpack',{path}),
   removeContent: (id:string,filename:string,sha512:string) => invoke<void>('remove_content',{id,filename,sha512}),
   planContentUpdates: (id:string) => invoke<ContentReview>('plan_content_updates',{id}),
+  installedContentIcon: (id:string,filename:string) => invoke<string|null>('installed_content_icon',{id,filename}),
   contentIcon: (url:string) => invoke<string>('content_icon',{url}),
   listContent: (id:string) => invoke<InstalledContent[]>('list_content',{id}),
   installContent: (id:string,token:string) => invoke<void>('install_content',{id,token}),
@@ -161,6 +162,8 @@ export const api = {
   acceptEula: (id: string) => invoke<void>('accept_eula', { id }),
   start: (id: string) => invoke<void>('start_server', { id }),
   stop: (id: string) => invoke<void>('stop_server', { id }),
+  previewForceStop: (id:string) => invoke<{sessionId:string;pid:number}>('preview_force_stop',{id}),
+  forceStop: (id:string,sessionId:string) => invoke<void>('force_stop_server',{id,sessionId}),
   restart: (id: string) => invoke<void>('restart_server', { id }),
   send: (id: string, command: string) => invoke<void>('send_command', { id, command }),
   players: (id: string) => invoke<PlayersSnapshot>('get_players', { id }),
@@ -202,6 +205,6 @@ export const api = {
 }
 
 
-export type CrashReport={serverId:string;sessionId:string;endedAt:number;exitCode:number|null;stopRequested:boolean;outputComplete:boolean;diagnoses:{kind:string;title:string;explanation:string;recommendation:string;action:string;evidence:string[]}[];recentFiles:{name:string;folder:string;modifiedAt:number}[]}
+export type CrashReport={serverId:string;sessionId:string;endedAt:number;exitCode:number|null;stopRequested:boolean;forced:boolean;outputComplete:boolean;diagnoses:{kind:string;title:string;explanation:string;recommendation:string;action:string;evidence:string[]}[];recentFiles:{name:string;folder:string;modifiedAt:number}[]}
 
 export type StopBackupStatus={enabled:boolean;phase:'idle'|'copying'|'completed'|'cancelled'|'error';lastAt:number|null;lastResult:string|null}

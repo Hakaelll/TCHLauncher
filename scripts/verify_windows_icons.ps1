@@ -1,6 +1,6 @@
 param(
   [string]$Executable = 'src-tauri/target/release/tchlauncher.exe',
-  [string]$Installer = 'src-tauri/target/release/bundle/nsis/TCHLauncher_0.19.0_x64-setup.exe',
+  [string]$Installer = 'src-tauri/target/release/bundle/nsis/TCHLauncher_0.21.0_x64-setup.exe',
   [string]$ExpectedIcon = 'src-tauri/icons/icon.ico'
 )
 $ErrorActionPreference = 'Stop'

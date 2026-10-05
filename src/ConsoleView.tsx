@@ -14,7 +14,8 @@ function clockTime(timestamp: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
 }
 
-export function ConsoleView({serverId,state,logs,busy,onSend}: {
+export function ConsoleView({serverId,state,logs,busy,onSend,initialQuery=''}: {
+  initialQuery?: string;
   serverId: string;
   state: ServerState;
   logs: LogLine[];
@@ -22,7 +23,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   onSend: (command: string) => Promise<boolean>;
 }) {
   const acceptsCommands=state==='running' || state==='starting'
-  const [query,setQuery] = useState('')
+  const [query,setQuery] = useState(initialQuery)
   const [level,setLevel] = useState('all')
   const [command,setCommand] = useState('')
   const [following,setFollowing] = useState(true)
@@ -33,7 +34,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend}: {
   const automaticScroll=useRef(false)
   const scrollFrame=useRef(0)
   const pauseFollowing=()=>{cancelAnimationFrame(scrollFrame.current);automaticScroll.current=false;setFollowing(false)}
-  useEffect(() => { setQuery(''); setLevel('all'); setCommand(''); setClearedAt(null); setFollowing(true); setNotice(null) },[serverId])
+  useEffect(() => { setQuery(initialQuery); setLevel('all'); setCommand(''); setClearedAt(null); setFollowing(true); setNotice(null) },[serverId,initialQuery])
   const visible = useMemo(() => logs.filter(item => {
     if (clearedAt && (!item.timestamp?.includes('T') || item.timestamp <= clearedAt)) return false
     if (level !== 'all' && item.level !== level) return false

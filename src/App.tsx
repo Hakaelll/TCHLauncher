@@ -1,3 +1,5 @@
+import {saveState} from './saveState'
+import {version as appVersion} from '../package.json'
 import {PixelIcon,PixelMeter} from './PixelIndicators'
 import {CrashPanel} from './CrashPanel'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -15,6 +17,7 @@ import { WorldView } from './WorldView'
 import { ContentManager } from './ContentManager'
 import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
+import {ForceStopDialog} from './ForceStopDialog'
 import { ResourceMonitor } from './ResourceMonitor'
 import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
@@ -97,6 +100,7 @@ function App() {
   const sidebarCollapsed = !railHovered && !railKeyboardFocus && !menuTarget && !railTasksOpen
   const menuTargetRef = useRef<ServerMenuTarget|null>(null)
   const [deleteTarget,setDeleteTarget] = useState<Server|null>(null)
+  const [forceStopTarget,setForceStopTarget]=useState<Server|null>(null)
   const closeMenu = useCallback((restoreFocus=false)=>{
     if(restoreFocus && menuTargetRef.current?.trigger.isConnected) menuTargetRef.current.trigger.focus({preventScroll:true})
     menuTargetRef.current=null;setMenuTarget(null)
@@ -118,7 +122,7 @@ function App() {
   const backupListRef=useRef<HTMLDivElement>(null)
   const contentRef=useRef<HTMLDivElement>(null)
   const [navigationDirection,setNavigationDirection]=useState(1)
-  const navigate=(next:View)=>{setNavigationDirection(viewOrder.indexOf(next)>viewOrder.indexOf(view)?1:-1);setView(next)}
+  const navigate=(next:View)=>{setConsoleQuery('');setNavigationDirection(viewOrder.indexOf(next)>viewOrder.indexOf(view)?1:-1);setView(next)}
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [packOpen,setPackOpen]=useState(false)
@@ -140,6 +144,8 @@ function App() {
   const [metricsError,setMetricsError] = useState<string|null>(null)
   const [metricsHistory,setMetricsHistory] = useState<Record<string,MetricSample[]>>({})
   const [players, setPlayers] = useState<PlayersSnapshot | null>(null)
+  const [consoleQuery,setConsoleQuery]=useState('')
+  useEffect(()=>{if(view!=='console'||libraryOpen||creating||importing||appearanceOpen)setConsoleQuery('')},[view,libraryOpen,creating,importing,appearanceOpen])
   const [logs, setLogs] = useState<LogLine[]>([])
   const [backups, setBackups] = useState<Backup[]>([])
   const [restoreTarget,setRestoreTarget]=useState<{serverId:string;backup:Backup}|null>(null)
@@ -236,7 +242,7 @@ function App() {
     if (!selectedId) return
     let active = true
     const generation=metricsGeneration.current[selectedId]??0
-    setMetrics(null); setMetricsError(null); setPlayers(null); setLogs([]); setBackups([]); setProps({}); setEula(false); propsDirtyRef.current = false
+    setMetrics(null); setMetricsError(null); setPlayers(null); setConsoleQuery(''); setLogs([]); setBackups([]); setProps({}); setEula(false); propsDirtyRef.current = false
     Promise.all([api.metrics(selectedId), api.log(selectedId), api.backups(selectedId), api.eulaAccepted(selectedId)])
       .then(([m, log, b, accepted]) => {
         if (!active) return
@@ -397,7 +403,7 @@ function App() {
       <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>{const server=servers.find(item=>item.id===task.serverId);if(!server)return;openServer(server);if((task.kind==='backup'||task.kind==='restore'))setView('backups');if((task.kind==='world_import'||task.kind==='world_duplicate'||task.kind==='world_export'||task.kind==='world_activate'||task.kind==='world_delete'))setView('worlds');if(task.kind==='content_install'||task.kind==='content_remove')setView('content');if(task.kind==='loader_update'||task.kind==='minecraft_update')setView('settings')}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       <button className="rail-startup" onClick={()=>setStartupOpen(true)} aria-label="Inicio automático" title="Inicio automático"><SectionIcon name="settings"/><span>Inicio automático</span></button>
       <button className={`rail-settings ${appearanceOpen?'active':''}`} onClick={()=>{setAppearanceOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip();closeMenu()}} aria-current={appearanceOpen?'page':undefined} aria-label="Ajustes" title="Ajustes"><SectionIcon name="appearance"/><span>Ajustes</span></button>
-      <span className="rail-version">v0.18.0</span>
+      <span className="rail-version">v{appVersion}</span>
     </aside>
     <main className="main" ref={mainRef}>
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
@@ -410,6 +416,7 @@ function App() {
         <header className="page-head">
           <div className="page-identity"><ServerArtwork server={selected}/><div><h1>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
           <div className="head-actions">
+            {selected.state==='stopping'&&<button className="danger-button" onClick={()=>setForceStopTarget(selected)}>Forzar cierre…</button>}
             {view !== 'overview' && <span className={`status-label ${selected.state}`}><span className={`state-dot ${selected.state}`} aria-hidden="true"/>{stateText(selected.state)}</span>}
             {selected.jarPath && selected.javaPath ? selected.state === 'running' ? <>
               <button disabled={busy} onClick={() => act(() => api.restart(selected.id))}>Reiniciar</button>
@@ -427,8 +434,8 @@ function App() {
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
-          {view === 'content' && selected.platform!=='vanilla' && <ContentManager key={selected.id} server={selected} progress={progress} onInstalled={async()=>{await refresh();setBackups(await api.backups(selected.id))}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {view === 'console'  && <ConsoleView serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
+          {view === 'content' && selected.platform!=='vanilla' && <ContentManager key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();setBackups(await api.backups(selected.id))}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
           {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { const copy=await api.createBackup(selected.id); setBackups(await api.backups(selected.id));if(copy.retentionWarning)throw new Error(copy.retentionWarning) })}>Crear copia</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={async()=>setBackups(await api.backups(selected.id))}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table" ref={backupListRef}><div className="table-head"><span>Fecha y motivo</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><div className="backup-description"><span>{new Date(backup.createdAt).toLocaleString()}</span><strong>{backup.reason?backupReason[backup.reason]??'Motivo no disponible':'Motivo no registrado'}</strong><small>{backup.minecraftVersion?`${backup.platform??'Motor no registrado'} · Minecraft ${backup.minecraftVersion}`:'Versión no registrada'}</small>{backup.metadataError&&<small className="form-error">{backup.metadataError}</small>}</div><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
           {view === 'settings' && <Settings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={values => { propsDirtyRef.current = true; setProps(values) }} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} progress={progress} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)); propsDirtyRef.current = false })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
@@ -437,6 +444,7 @@ function App() {
     {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
     {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || activeInstallationIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
     {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
+    {forceStopTarget&&<ForceStopDialog key={forceStopTarget.id} server={forceStopTarget} onClose={()=>setForceStopTarget(null)} onStopped={()=>void refresh()}/>}
     {startupOpen&&<Modal labelledBy="startup-title" busy={startupBusy} onClose={()=>setStartupOpen(false)}><h2 id="startup-title">Inicio automático</h2><StartupPanel servers={servers} onBusy={setStartupBusy}/><div className="modal-actions"><button data-modal-close disabled={startupBusy}>Cerrar</button></div></Modal>}
     {restoreTarget && <Modal labelledBy="restore-title" describedBy="restore-description" busy={operationBusy} onClose={()=>setRestoreTarget(null)}>
       <h2 id="restore-title">Restaurar copia de seguridad</h2>
@@ -471,7 +479,7 @@ function App() {
 const eventLabels: Record<string,string> = {
   startup:'Servidor iniciado', shutdown:'Servidor deteniéndose', join:'Jugador conectado',
   world_load:'Cargando mundo',spawn_prepare:'Preparando zona inicial',
-  leave:'Jugador desconectado', save:'Mundo guardado', lag:'Retraso del servidor',
+  leave:'Jugador desconectado', save:'Guardado notificado', save_started:'Guardado iniciado',save_dimension:'Dimensión guardada',save_failed:'Fallo de guardado',lag:'Retraso del servidor',
   warning:'Aviso', error:'Error', exception:'Excepción', plugin_error:'Error de plugin',
   mod_error:'Error de mod', crash:'Cierre inesperado', exit:'Proceso finalizado',
 }
@@ -489,7 +497,8 @@ function Overview({server,metrics,observedPhase,players,logs,backups,eula,busy,o
   const recentEvents = logs.filter(item => item.event && eventLabels[item.event]).slice(-4).reverse()
   const warnings = logs.filter(item => item.level === 'warn').length
   const errors = logs.filter(item => item.level === 'error').length
-  const lastSave = logs.filter(item => item.event === 'save').at(-1)
+  const save=saveState(logs,server.state)
+  const saveLabel={unknown:'Sin confirmación registrada',saving:'Guardado en curso',confirmed:'Finalización registrada',failed:'Fallo registrado',unconfirmed:'Finalización sin confirmar'}[save.phase]
   const description = server.state === 'running' ? 'Minecraft ha terminado de cargar el mundo.'
     : server.state === 'starting' ? 'Puedes seguir las fases del arranque o abrir la consola.'
     : server.state === 'stopping' ? 'Guardando el mundo y cerrando el proceso.'
@@ -514,7 +523,7 @@ function Overview({server,metrics,observedPhase,players,logs,backups,eula,busy,o
     <NetworkPanel server={server}/>
     <div className="overview-storage"><section className="resource-section"><h2>Almacenamiento</h2>
       <StorageMeter metrics={metrics} targetGb={server.storageTargetGb} onSettings={onSettings}/>
-    </section><section><h2>Estado del registro</h2><dl className="resource-facts"><div><dt>Avisos</dt><dd>{warnings}</dd></div><div><dt>Errores</dt><dd>{errors}</dd></div><div><dt>Último guardado registrado</dt><dd>{eventTime(lastSave?.timestamp ?? null)}</dd></div></dl><p className="field-help">En las últimas {logs.length} líneas cargadas.</p></section></div>
+    </section><section><h2>Estado del registro</h2><dl className="resource-facts"><div><dt>Avisos</dt><dd>{warnings}</dd></div><div><dt>Errores</dt><dd>{errors}</dd></div><div><dt>Guardado del mundo</dt><dd className={`save-state ${save.phase}`} role="status">{saveLabel}</dd></div><div><dt>Última finalización registrada</dt><dd>{eventTime(save.lastConfirmed?.timestamp??null)}</dd></div></dl><p className="field-help">En las últimas {logs.length} líneas cargadas. La finalización se basa en el mensaje del servidor.</p>{save.phase==='failed'&&save.latest&&<div className="save-failure"><strong>Fallo de guardado · {eventTime(save.latest.timestamp)}</strong><p>{save.latest.message}</p><button onClick={onConsole}>Revisar consola</button></div>}</section></div>
     <div className="overview-lower"><section className="recent-activity"><div className="section-heading"><h2>Actividad reciente</h2><button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button></div>{recentEvents.length ? <div className="event-list">{recentEvents.map((item,index) => <div className="event-row" key={`${item.timestamp ?? 'legacy'}-${index}`}><span className={`event-mark ${item.level}`} aria-hidden="true"/><div><strong>{eventLabels[item.event!]}</strong><span>{item.message}</span></div><time>{eventTime(item.timestamp)}</time></div>)}</div> : <p className="empty-inline">Todavía no hay actividad.</p>}</section><section className="recent-backups"><div className="section-heading"><h2>Copias recientes</h2></div>{backups.length ? <div className="backup-mini-list">{backups.slice(0,3).map(backup => <div key={backup.id}><strong>{new Date(backup.createdAt).toLocaleString('es-ES')}</strong><span>{fmtBytes(backup.sizeBytes)}</span></div>)}</div> : <p className="empty-inline">Aún no hay copias guardadas.</p>}</section></div>
   </div>
 }

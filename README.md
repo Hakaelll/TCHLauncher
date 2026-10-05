@@ -2,13 +2,17 @@
 
 Gestor local de servidores Minecraft para Windows y Linux, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
 
-## Vista previa actual: 0.19.0
+## Vista previa actual: 0.21.0
 
-[Instalador Windows 0.19.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.19.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.19.0.md).
+[Instalador Windows 0.21.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.21.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.21.0.md).
 
 Temas End, Obsidiana y Nether en Ajustes, debajo de Inicio automático. La elección se recuerda entre sesiones. End usa negro/gris y morado; la tipografía Minecraft aparece en más controles y puede cambiarse por la de lectura. Logo sin fondo cuadrado, inicio con ilustraciones voxel y panel Java reorganizado. [design.md](design.md) describe el sistema visual. La comprobación visual nativa queda a cargo del usuario, como solicitó.
 
 La 0.19.0 mejora el explorador de Modrinth con categoría, orden, otras versiones y compatibilidad comprobada por publicación. Instalar conserva la búsqueda y la página. El inventario revisa descriptores Fabric, archivos de otro cargador, mods solo de cliente e IDs duplicados, y puede comparar su presencia en el último log. Las gráficas eliminan medidores duplicados y la conexión reduce los textos permanentes. La partida del amigo y la revisión visual nativa siguen pendientes; esta revisión no confirma el comportamiento de los mods dentro del mundo.
+
+La 0.20.0 convierte los mods/plugins instalados en tarjetas de inventario con búsqueda, filtros e iconos locales cuando Fabric los declara. Los errores y avisos del registro reciente se asocian con referencias explícitas a archivos, IDs o nombres, muestran evidencia y abren la consola filtrada. Rojo significa error relacionado en el registro, sin afirmar que ese mod sea necesariamente la causa. Mantiene las operaciones de versión/retirada y las preferencias de tema y animación. Revisión visual nativa y fallos reales de terceros pendientes.
+
+La 0.21.0 añade vista compacta y orden por atención al inventario, metadatos e iconos declarados de NeoForge y nombres/versiones/API de plugins Paper. Los errores de IDs secundarios también se relacionan con su archivo. El resumen diferencia guardado en curso, completo y fallido según el registro real; detener ya no mata Java automáticamente tras treinta segundos y ofrece cierre forzado con confirmación. Las comprobaciones visuales y de partida siguen pendientes.
 
 ## Ejecutar
 

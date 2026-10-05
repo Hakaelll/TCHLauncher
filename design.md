@@ -126,3 +126,10 @@ Performance keeps RAM and CPU together. Square framing, pixel icons, orthogonal 
 Use square item cards, inset icon wells, restrained category tags and a release status footer in Modrinth. Keep category, sort and version filters visible, preserving browsing after installation. Color signals are paired with text: compatible, experimental, unavailable and unverified. Local inventory separates descriptor warnings from historical Fabric startup-list evidence.
 
 RAM and CPU remain simultaneous orthogonal plots, with lightly shaded measured areas, three quiet horizontal guides, compact peak readings and a dashed heap legend. Remove the duplicate segmented meters from these plot cards. Pointer or keyboard sample inspection shows measured values and time; gaps and unavailable readings remain explicit. Keep network controls visible, placing lengthy instructions in optional help or the confirmation dialog.
+
+## Installed mod inventory
+
+Use responsive square item cards with 64-pixel icon slots, readable version/origin metadata, compact semantic status and separate detail/version/remove actions. Red and amber always include a text label and evidence. Put long filenames, declared requirements and related console messages in the detail dialog; keep search and attention/source filters visible. Never imply a JAR in the inventory proves world behavior or blame a mod from a generic log mention. Keep item order stable while diagnostics update. Use short opacity entrance and a two-pixel hover lift on the icon only; respect system/application reduced motion. Preserve filters during audit refreshes.
+# Installed content refinements
+
+Installed mods/plugins offer inventory cards and a compact presentation. Keep file icons, explicit diagnostic labels and semantic red/amber states in both views. Provide name/problem ordering and direct console navigation without treating a log association as a root-cause diagnosis. State transitions use existing motion tokens and respect reduced motion; compact rows reflow on narrow windows.

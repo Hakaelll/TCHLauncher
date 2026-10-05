@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter};
 
 pub struct ProcessControl {
     stop_requested: std::sync::atomic::AtomicBool,
+    forced: std::sync::atomic::AtomicBool,
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
     started: Instant,
@@ -26,7 +27,7 @@ pub struct ProcessControl {
 
 impl ProcessControl {
     fn new(child:Child,stdin:ChildStdin,paper:bool,started:Instant)->Self{
-        Self{stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
+        Self{forced:std::sync::atomic::AtomicBool::new(false),stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
     }
 }
 
@@ -39,6 +40,26 @@ pub struct ProcessManager {
 
 #[derive(Clone)]
 pub struct Exit {pub token:String,pub unexpected:bool,pub successful:bool,pub was_running:bool}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct ForceStopPreview {pub session_id:String,pub pid:u32}
+
+fn validate_force_stop(state:&str,session:&str,expected:&str)->Result<(),String>{
+    if state!="stopping" {return Err("Solicita primero la parada normal del servidor".into());}
+    if session!=expected {return Err("El proceso ha cambiado. Vuelve a revisar su estado".into());}
+    Ok(())
+}
+
+fn terminate(control:&ProcessControl,expected:&str)->Result<(),String>{
+    let state=control.state.lock().map_err(|e|e.to_string())?;
+    validate_force_stop(&state,&control.session,expected)?;
+    let mut child=control.child.lock().map_err(|e|e.to_string())?;
+    if child.try_wait().map_err(|e|e.to_string())?.is_some(){return Err("El proceso ya ha terminado".into());}
+    child.kill().map_err(|e|format!("No se pudo terminar el proceso: {e}"))?;
+    control.forced.store(true,std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
 
 pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
     use tauri::Manager;
@@ -81,7 +102,8 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
 fn save_exit(directory:&std::path::Path,id:&str,control:&ProcessControl,code:Option<i32>,complete:bool){
     let time=chrono::Utc::now().timestamp_millis();
     let lines=control.output.lock().map(|output|output.lines()).unwrap_or_default();
-    let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),output_complete:complete,diagnoses:crate::crash_diagnostics::analyze(&lines),recent_files:crate::crash_diagnostics::recent_files(directory,time)};
+    let forced=control.forced.load(std::sync::atomic::Ordering::SeqCst);
+    let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),forced,output_complete:complete,diagnoses:crate::crash_diagnostics::analyze_exit(&lines,forced),recent_files:crate::crash_diagnostics::recent_files(directory,time)};
     if let Err(error)=crate::crash_diagnostics::save(directory,&report){eprintln!("Could not save process diagnostics: {error}");}
 }
 fn drained(stdout:&std::thread::JoinHandle<()>,stderr:&std::thread::JoinHandle<()>)->bool{
@@ -92,6 +114,7 @@ fn drained(stdout:&std::thread::JoinHandle<()>,stderr:&std::thread::JoinHandle<(
 
 impl ProcessManager {
     fn record_terminal(&self,id:&str,control:&Arc<ProcessControl>,successful:bool)->String{
+        let successful=successful&&!control.forced.load(std::sync::atomic::Ordering::SeqCst);
         let state=if successful{"stopped"}else{"crashed"};
         *control.state.lock().unwrap()=state.into();
         self.terminal_states.lock().unwrap().insert(id.into(),state.into());
@@ -216,10 +239,11 @@ impl ProcessManager {
                     let final_state=manager.record_terminal(&id,&control,status.success());
                     emit_state(&app,&id,&final_state);
                     manager.release_terminal(&id,&control);
-                    let message = format!("Proceso finalizado: {status}");
+                    let forced=control.forced.load(std::sync::atomic::Ordering::SeqCst);
+                    let message = if forced {format!("Proceso finalizado: {status}. Cierre forzado solicitado; guardado sin confirmar")}else{format!("Proceso finalizado: {status}")};
                     let mut event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &message).ok())
                         .unwrap_or_else(|| log::parse(&id, &log::stamp(&message)));
-                    if !status.success() { event.level = "error".into(); event.event = Some("crash".into()); }
+                    if !status.success()||forced { event.level = "error".into(); event.event = Some("crash".into()); }
                     let _ = app.emit("server-log", event);
                     break;
                 }
@@ -270,19 +294,70 @@ impl ProcessManager {
             if *state == "stopping" { *state = previous_state; emit_state(&app,id,&state); }
             return Err(error);
         }
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(30));
-            if let Ok(mut child) = process.child.lock() {
-                if child.try_wait().ok().flatten().is_none() { let _ = child.kill(); }
-            }
-        });
         Ok(())
+    }
+
+    pub fn preview_force_stop(&self,id:&str)->Result<ForceStopPreview,String>{
+        let process=self.processes.lock().map_err(|e|e.to_string())?.get(id).cloned().ok_or("El servidor no está en ejecución")?;
+        let state=process.state.lock().map_err(|e|e.to_string())?;
+        validate_force_stop(&state,&process.session,&process.session)?;
+        let mut child=process.child.lock().map_err(|e|e.to_string())?;
+        if child.try_wait().map_err(|e|e.to_string())?.is_some(){return Err("El proceso ya ha terminado".into());}
+        Ok(ForceStopPreview{session_id:process.session.clone(),pid:child.id()})
+    }
+
+    pub fn force_stop(&self,id:&str,expected:&str)->Result<(),String>{
+        let process=self.processes.lock().map_err(|e|e.to_string())?.get(id).cloned().ok_or("El servidor no está en ejecución")?;
+        terminate(&process,expected)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore="Spawned only by the force-stop process test with an explicit fixture marker"]
+    fn force_stop_child_fixture(){
+        if std::env::var("TCH_FORCE_STOP_FIXTURE").as_deref()!=Ok("owned-test-child"){return;}
+        std::thread::sleep(Duration::from_secs(60));
+    }
+
+    #[test]
+    fn forced_stop_requires_stopping_and_exact_session_and_never_marks_a_clean_exit(){
+        let mut command=Command::new(std::env::current_exe().unwrap());
+        command.args(["--exact","process::tests::force_stop_child_fixture","--ignored"])
+            .env("TCH_FORCE_STOP_FIXTURE","owned-test-child").stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        let mut child=command.spawn().unwrap();let stdin=child.stdin.take().unwrap();
+        let control=Arc::new(ProcessControl::new(child,stdin,false,Instant::now()));
+        struct Cleanup(Arc<ProcessControl>);
+        impl Drop for Cleanup{fn drop(&mut self){if let Ok(mut child)=self.0.child.lock(){let _=child.kill();let _=child.wait();}}}
+        let _cleanup=Cleanup(control.clone());
+        let manager=ProcessManager::default();manager.processes.lock().unwrap().insert("test".into(),control.clone());
+        assert!(manager.preview_force_stop("test").is_err());
+        assert!(manager.force_stop("test",&control.session).is_err());
+        assert!(control.child.lock().unwrap().try_wait().unwrap().is_none());
+        *control.state.lock().unwrap()="stopping".into();control.stop_requested.store(true,std::sync::atomic::Ordering::SeqCst);
+        *control.running_since.lock().unwrap()=Some(Instant::now());
+        let preview=manager.preview_force_stop("test").unwrap();assert_eq!(preview.session_id,control.session);assert_eq!(preview.pid,control.child.lock().unwrap().id());
+        assert!(manager.force_stop("test","obsolete-session").is_err());
+        assert!(!control.forced.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(control.child.lock().unwrap().try_wait().unwrap().is_none());
+        manager.force_stop("test",&preview.session_id).unwrap();
+        let deadline=Instant::now()+Duration::from_secs(5);
+        loop{if control.child.lock().unwrap().try_wait().unwrap().is_some(){break;}assert!(Instant::now()<deadline);std::thread::sleep(Duration::from_millis(10));}
+        assert!(control.forced.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(manager.force_stop("test",&preview.session_id).is_err());
+        // Even a platform reporting success after termination cannot trigger clean-stop backups.
+        assert_eq!(manager.record_terminal("test",&control,true),"crashed");
+        let exit=manager.exits()["test"].clone();assert!(exit.was_running);assert!(!exit.successful);assert!(!exit.unexpected);
+        let directory=std::env::temp_dir().join(format!("tch-forced-child-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
+        save_exit(&directory,"test",&control,Some(0),true);
+        let report=crate::crash_diagnostics::last_failure(&directory,"test").unwrap().unwrap();assert!(report.forced);assert!(report.stop_requested);assert_eq!(report.session_id,preview.session_id);assert_eq!(report.diagnoses[0].kind,"forced_stop");
+        fs::remove_dir_all(directory).unwrap();
+        manager.release_terminal("test",&control);assert!(!manager.is_active("test"));
+        assert!(manager.force_stop("test",&preview.session_id).is_err());
+    }
     #[test]
     #[ignore="Requires TCH_TEST_JAVA; runs Java on a deliberately unsupported test class, never Minecraft"]
     fn real_java_exit_preserves_stderr_session_report_and_terminal_state(){
