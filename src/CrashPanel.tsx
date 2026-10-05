@@ -8,21 +8,27 @@ export function CrashPanel(props:Props){
   return <CrashHistory key={`${props.server.id}:${props.server.state}`} {...props}/>
 }
 function CrashHistory(props:Props){
+  const [report,setReport]=useState<CrashReport|null>(null)
+  const [error,setError]=useState('')
   const [expanded,setExpanded]=useState(false)
+  useEffect(()=>{let alive=true;void api.lastCrashReport(props.server.id).then(value=>{if(alive)setReport(value)},cause=>{if(alive)setError(String(cause))});return()=>{alive=false}},[props.server.id,props.server.state])
+  if(error)return <p className="field-help" role="status">No se pudo consultar el historial de fallos: {error}</p>
+  if(!report)return null
   return <details className="crash-history" onToggle={event=>setExpanded(event.currentTarget.open)}>
-    <summary>Consultar el último fallo guardado</summary>
-    {expanded&&<CrashReview {...props} historical/>}
+    <summary>Último cierre con error · {new Date(report.endedAt).toLocaleString('es-ES')}</summary>
+    {expanded&&<CrashReview {...props} historical initial={report}/>}
   </details>
 }
-function CrashReview({server,onConsole,onSettings,onContent,historical}:Props&{historical:boolean}){
-  const [report,setReport]=useState<CrashReport|null>(null)
+function CrashReview({server,onConsole,onSettings,onContent,historical,initial}:Props&{historical:boolean;initial?:CrashReport}){
+  const [report,setReport]=useState<CrashReport|null>(initial??null)
   const [error,setError]=useState('')
   const [loading,setLoading]=useState(true)
   useEffect(()=>{
+    if(initial){setReport(initial);setLoading(false);return}
     let alive=true;setReport(null);setError('');setLoading(true)
     void (historical?api.lastCrashReport(server.id):api.crashReport(server.id)).then(value=>{if(alive)setReport(value)},reason=>{if(alive)setError(String(reason))}).finally(()=>{if(alive)setLoading(false)})
     return()=>{alive=false}
-  },[server.id,server.state,historical])
+  },[server.id,server.state,historical,initial])
   const review=(action:string)=>{
     if(action==='settings')onSettings()
     else if(action==='content'&&server.platform!=='vanilla')onContent()

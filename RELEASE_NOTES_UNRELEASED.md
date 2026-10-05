@@ -1,6 +1,12 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.17.0](RELEASE_NOTES_v0.17.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.18.0](RELEASE_NOTES_v0.18.0.md). The development history below is retained for context.
+
+## Included in 0.18.0
+
+- Remove Bore from production. Discover routers automatically, preserve confirmed openings and show internet access without a disclosure. Move Minecraft status queries to Performance and hide historical failure review when no report exists.
+- Adopt Minecraft inventory compartments, authored pixel icons, measured segmented indicators, orthogonal charts and native segmented progress bars. Keep unavailable values, real transfer totals, cancellation, themes and reduced motion.
+- See the dedicated 0.18.0 release notes for verification and packaging.
 
 ## Included in 0.17.0 (changes after 0.16.0)
 

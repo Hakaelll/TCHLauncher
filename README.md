@@ -2,13 +2,13 @@
 
 Gestor local de servidores Minecraft para Windows y Linux, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
 
-## Vista previa actual: 0.17.0
+## Vista previa actual: 0.18.0
 
-[Instalador Windows 0.17.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.17.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.17.0.md).
+[Instalador Windows 0.18.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.18.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.18.0.md).
 
 Temas End, Obsidiana y Nether en Ajustes, debajo de Inicio automático. La elección se recuerda entre sesiones. End usa negro/gris y morado; la tipografía Minecraft aparece en más controles y puede cambiarse por la de lectura. Logo sin fondo cuadrado, inicio con ilustraciones voxel y panel Java reorganizado. [design.md](design.md) describe el sistema visual. La comprobación visual nativa queda a cargo del usuario, como solicitó.
 
-La 0.17.0 añade el recorrido de arranque observado, consulta real de respuesta de Minecraft, métricas de heap de Java y exportación del diagnóstico de memoria, además de mediciones de almacenamiento comprobadas. Conserva las copias al detener, el historial de fallos y la edición de operadores. Conexión incorpora detección UPnP explícita, apertura TCP temporal confirmada, renovación y retirada de aperturas propias. La comprobación con router físico sigue pendiente; no verifica accesibilidad externa ni cambia el firewall.
+La 0.18.0 reorganiza Conexión con acceso desde internet siempre visible y detección automática UPnP/NAT-PMP. Retira Bore y mueve la respuesta de Minecraft a Rendimiento. Métricas, gráficas y barras de carga adoptan el estilo de inventario de Minecraft; el historial de fallos solo aparece cuando existe uno. Conserva el diagnóstico de memoria, copias y controles de operadores. La apertura TCP sigue siendo temporal y confirmada, con renovación y retirada de aperturas propias. La comprobación con router físico sigue pendiente; no verifica accesibilidad externa ni cambia el firewall.
 
 ## Ejecutar
 
@@ -189,15 +189,15 @@ cargo test --manifest-path src-tauri/Cargo.toml install::tests::installs_snapsho
 ```
 
 By default it selects the latest experimental entry from the official platform catalog. `TCH_TEST_SNAPSHOT` can select a specific catalog-listed snapshot. The configured test Java must match the official major requirement; each run uses a temporary library and never registers consent. Failed runs retain their diagnostic files.
-# Windows preview 0.17.0
+# Windows preview 0.18.0
 
-The current preview adds observed startup phases, Minecraft status queries and
-Java heap diagnostics with native memory report export. It retains automatic stop
-backups, historical failure review and operator editing. See [release notes](RELEASE_NOTES_v0.17.0.md)
+The current preview reorganizes Connection with automatic router discovery, removes
+Bore and adds Minecraft inventory styling to metrics, charts and progress bars. It retains automatic stop
+backups, historical failure review and operator editing. See [release notes](RELEASE_NOTES_v0.18.0.md)
 for verification limits and the installer checksum.
 
 - **Rendimiento → Exportar diagnóstico:** save up to 30 minutes of native resident/heap/collector samples from the hosting computer. Keep that server selected while playing; missing readings remain explicit. Reports do not prove a memory leak.
-- **Resumen → Conexión → Respuesta de Minecraft:** explicitly query the local Java server. This measures its local status exchange, not internet latency or a friend’s connection.
+- **Rendimiento → Respuesta de Minecraft:** explicitly query the local Java server. This measures its local status exchange, not internet latency or a friend’s connection.
 
 - **Copias → Copia al detener:** enable a per-server automatic copy after a successful
   session that reached Running. It is off by default. Progress/cancellation appears

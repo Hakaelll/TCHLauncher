@@ -1,3 +1,5 @@
+import {PixelIcon,PixelMeter} from './PixelIndicators'
+import {ServerResponsePanel} from './ServerResponsePanel'
 import {api,type Metrics,type Server} from './api'
 import { useEffect,useState,useRef } from 'react'
 import { AnimatedLine, AnimatedValue } from './motion'
@@ -24,15 +26,17 @@ function ResourceChart({server,metrics,history,error,metric}:MonitorProps & {met
   const hovered=samples.find(sample=>sample.sampledAt===hoverTime && sample[metric]!=null)
 
   return <section className={`resource-chart ${metric === 'memoryBytes' ? 'memory' : 'cpu'}`} aria-label={metric === 'memoryBytes' ? 'Memoria del proceso Java' : 'CPU del proceso Java'}>
-    <h3>{metric === 'memoryBytes' ? 'Memoria' : 'CPU'}</h3>
+    <div className="chart-heading"><PixelIcon kind={metric==='memoryBytes'?'memory':'cpu'}/><h3>{metric === 'memoryBytes' ? 'Memoria' : 'CPU'}</h3><span>JAVA</span></div>
     <div className="monitor-reading"><strong><AnimatedValue key={`${server.id}:${metrics?.pid}`} value={latest} format={format}/></strong><span>{metric === 'memoryBytes' ? 'RAM del proceso' : 'CPU del proceso'}</span><small>Pico {hasPeak ? format(metric === 'memoryBytes' ? peakMemory : peakCpu) : '—'}</small></div>
+    <PixelMeter label={metric==='memoryBytes'?'Heap usado respecto al máximo configurado':'CPU del proceso'} ratio={metric==='memoryBytes'?metrics?.heap?metrics.heap.usedBytes/(server.memoryMaxMb*1024**2):null:latest==null?null:latest/100}/>
     <div className="monitor-chart">
       <div className="chart-scale"><span>{format(maximum)}</span><span>0</span></div>
       <svg viewBox="0 0 500 154" preserveAspectRatio="none" role="img" aria-label={`${metric === 'memoryBytes' ? 'Memoria' : 'CPU'} durante los últimos dos minutos. Valor actual: ${current}.`} onPointerLeave={()=>setHoverTime(null)} onPointerMove={event=>{const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*500;const nearest=samples.filter(sample=>sample[metric]!=null).reduce<MetricSample|null>((best,sample)=>!best || Math.abs(x(sample)-position)<Math.abs(x(best)-position)?sample:best,null);setHoverTime(nearest?.sampledAt ?? null)}}>
+        {[0,100,200,300,400,500].map(column=><line key={`x:${column}`} x1={column} y1="14" x2={column} y2="142" className="chart-grid chart-grid-time"/>)}
         {[14,78,142].map(row => <line key={row} x1="0" y1={row} x2="500" y2={row} className="chart-grid"/>)}
-        {segments.map((segment,index) => <AnimatedLine key={index} identity={`${server.id}:${metrics?.pid}:${metric}:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample => [x(sample),y(sample)])}/>)}
-        <g className="heap-chart-line">{heapSegments.map((segment,index)=><AnimatedLine key={index} identity={`${server.id}:${metrics?.pid}:heap:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample=>[x(sample),142-Math.min(1,(sample.heapUsedBytes??0)/maximum)*128])}/>)}</g>
-        {hovered && <circle className="chart-point" cx={x(hovered)} cy={y(hovered)} r="3"/>}
+        {segments.map((segment,index) => <AnimatedLine stepped key={index} identity={`${server.id}:${metrics?.pid}:${metric}:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample => [x(sample),y(sample)])}/>)}
+        <g className="heap-chart-line">{heapSegments.map((segment,index)=><AnimatedLine stepped key={index} identity={`${server.id}:${metrics?.pid}:heap:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample=>[x(sample),142-Math.min(1,(sample.heapUsedBytes??0)/maximum)*128])}/>)}</g>
+        {hovered && <rect className="chart-point" x={x(hovered)-3} y={y(hovered)-3} width="6" height="6"/>}
       </svg>
       {hovered && <div className="chart-tooltip" role="tooltip" style={{left:`${Math.max(16,Math.min(84,x(hovered)/5))}%`}}><strong>{format(hovered[metric]!)}</strong>{metric==='memoryBytes'&&hovered.heapUsedBytes!=null&&<span>Heap usado: {bytesLabel(hovered.heapUsedBytes)}</span>}<span>{new Date(hovered.sampledAt).toLocaleTimeString('es-ES')}</span></div>}
       {!samples.length && <p className="chart-empty">{error ? 'No se pudo actualizar el rendimiento.' : metrics?.pid ? 'Recogiendo muestras…' : 'Inicia el servidor para ver su rendimiento.'}</p>}
@@ -50,6 +54,7 @@ export function ResourceMonitor(props:MonitorProps) {
   return <section className="resource-monitor"><div className="section-heading"><div><h2>Rendimiento</h2><p>Proceso Java · últimos dos minutos</p></div></div>
     <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes"/><ResourceChart {...props} metric="cpuPercent"/></div>
     <section className="heap-diagnostics" aria-label="Memoria interna de Java"><MemoryExport key={props.server.id} id={props.server.id}/><dl className="monitor-details"><div><dt>Heap usado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.usedBytes):'—'}</dd></div><div><dt>Heap reservado</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.committedBytes):'—'}</dd></div><div><dt>Eventos del recolector</dt><dd>{props.metrics?.heap?.collections.toLocaleString('es-ES')??'—'}</dd></div></dl><p className="field-help">La gráfica mide la RAM residente del proceso, incluidos heap y memoria nativa. Java puede reutilizar heap reservado sin devolverlo inmediatamente a Windows o Linux. El heap usado incluye objetos aún no recogidos; no equivale a memoria retenida después de una recolección.</p>{props.metrics?.heapError&&<details><summary>Heap no disponible</summary><p className="field-help">{props.metrics.heapError}</p></details>}{props.metrics?.heap&&<p className="field-help">Contadores HotSpot leídos a las {new Date(props.metrics.heap.sampledAt).toLocaleTimeString('es-ES')}. Son muestras de Java; no se fuerza ninguna recolección.</p>}</section>
+    <ServerResponsePanel key={props.server.id} server={props.server}/>
     <TickMonitor key={`${props.server.id}:${props.metrics?.pid}`} server={props.server} metrics={props.metrics}/>
     <dl className="monitor-details"><div><dt>Lectura de disco</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>Escritura de disco</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>Heap máximo de Java</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>Proceso</dt><dd>{props.metrics?.pid??'—'}</dd></div><div><dt>Tiempo de arranque</dt><dd>{props.metrics?.startupDurationMs==null?'—':`${(props.metrics.startupDurationMs/1000).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} s`}</dd></div></dl>
     <p className="field-help">Arranque: desde el lanzamiento de Java hasta que el servidor comunica que está listo. Se mide para el proceso actual; una salida antes de estar listo no produce un valor.</p>

@@ -191,14 +191,10 @@ export const api = {
   closeRouterPort: (id:string) => invoke<RouterStatus>('close_router_port',{id}),
   lastCrashReport: (id:string) => invoke<CrashReport|null>('get_last_crash_report',{id}),
   crashReport: (id:string) => invoke<CrashReport|null>('get_crash_report',{id}),
-  tunnelStatus: (id:string) => invoke<TunnelStatus|null>('get_tunnel_status',{id}),
-  openTunnel: (id:string,expectedAddress:string) => invoke<TunnelStatus>('open_tunnel',{id,confirmed:true,expectedAddress}),
-  closeTunnel: (id:string) => invoke<void>('close_tunnel',{id}),
   hideWindow: () => invoke<void>('hide_window'),
   stopAllAndExit: () => invoke<void>('stop_all_and_exit'),
 }
 
-export type TunnelStatus={serverId:string;providerId:string;phase:"creating"|"active"|"closing"|"attention";endpoint:{host:string;port:number}|null}
 
 export type CrashReport={serverId:string;sessionId:string;endedAt:number;exitCode:number|null;stopRequested:boolean;outputComplete:boolean;diagnoses:{kind:string;title:string;explanation:string;recommendation:string;action:string;evidence:string[]}[];recentFiles:{name:string;folder:string;modifiedAt:number}[]}
 

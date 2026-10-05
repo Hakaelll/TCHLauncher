@@ -112,3 +112,11 @@ Current, completed and pending steps use text and native list semantics as well 
 theme accents; color/border transitions use the existing 160 ms motion tokens and
 respect system/application reduced motion. Labels wrap on narrow windows. The
 provided actual Paper log passes parsing; native appearance remains manual.
+
+## Connection and inventory monitoring (0.18.0)
+
+Connection groups the LAN address and its facts before an always-visible internet section. UPnP and NAT-PMP discovery run automatically when a valid LAN interface is observed; explicit confirmation still owns all port creation. Retry and advanced gateway selection remain available. There is no Bore panel or production provider/IPC. Minecraft status response belongs to Performance. A historical crash disclosure appears only after a real saved failure has been loaded.
+
+Overview uses one inventory-style metric strip: authored pixel icons, display typography, square inset segments and theme/semantic colors. Player segments measure occupied slots; memory segments show measured used heap relative to the configured Xmx, separately from resident RAM. CPU segments measure process CPU. Missing values are labelled and never rendered as measured zero. Uptime remains elapsed text with no invented gauge.
+
+Performance keeps RAM and CPU together. Square framing, pixel icons, orthogonal sampled lines and square hover points match the controls; dashed heap remains distinct from resident RAM. Lines preserve sampling gaps. Download, copy and storage bars retain native progress semantics, real totals and cancellation, with square segmented fills. Motion remains brief and respects reduced-motion preferences. Native visual review remains the user's manual check.

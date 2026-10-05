@@ -11,7 +11,7 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
   const [error,setError]=useState<string|null>(null)
   const [busy,setBusy]=useState<'detect'|'open'|'close'|null>(null)
   const [consent,setConsent]=useState<{ip:string;port:number}|null>(null)
-  const alive=useRef(false),inFlight=useRef(false),sequence=useRef(0)
+  const alive=useRef(false),inFlight=useRef(false),sequence=useRef(0),detectedInterface=useRef('')
   useEffect(()=>{
     alive.current=true
     const refresh=async()=>{
@@ -35,13 +35,19 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
       try{const value=await api.routerStatus(server.id);if(alive.current)setStatus(value)}catch{/* Preserve the actionable operation error. */}
     } finally {inFlight.current=false;if(alive.current)setBusy(null)}
   }
+  useEffect(()=>{
+    const key=network?.lanAddress?`${server.id}:${network.localIp}`:''
+    if(!key||detectedInterface.current===key||inFlight.current||busy)return
+    detectedInterface.current=key
+    void act('detect',()=>api.detectRouter(server.id))
+  },[server.id,network?.localIp,network?.lanAddress,busy])
   const mapping=status?.mapping
   const expired=!!mapping?.expiresAt&&mapping.expiresAt<=Date.now()
   const canOpen=server.state==='running'&&network?.portState==='listening'&&!!network.lanAddress&&!!status?.router&&!mapping
   return <section className="router-control" aria-labelledby="router-title">
-    <div className="router-heading"><div><h3 id="router-title">Apertura automática · UPnP</h3><p>Una concesión temporal para el puerto TCP de este servidor.</p></div><button disabled={!!busy} onClick={()=>void act('detect',()=>api.detectRouter(server.id))}>{busy==='detect'?'Detectando…':'Detectar router'}</button></div>
+    <div className="router-heading"><div><h3 id="router-title">Puerto del router · UPnP</h3><p>Detectamos la compatibilidad del router en esta red.</p></div><span className="router-discovery-status" role="status">{!network?.lanAddress?'Esperando red local':busy==='detect'?'Buscando router…':status?.router?'Router compatible':'Sin UPnP detectado'}</span></div>
     {error&&<p className="network-error" role="alert">{error}</p>}
-    {status?.discoveryError&&<p className="muted-note">{status.discoveryError}</p>}
+    {status?.discoveryError&&<p className="muted-note">{status.discoveryError} <button className="text-button" disabled={!!busy} onClick={()=>void act('detect',()=>api.detectRouter(server.id))}>Volver a comprobar</button></p>}
     {status?.router&&<dl className="data-list network-facts"><div><dt>Router</dt><dd>{status.router.name} · {status.router.ip}</dd></div><div><dt>IP externa del router</dt><dd>{status.router.externalIp||'No disponible'}</dd></div></dl>}
     {status?.router?.publicAddress===false&&<p className="muted-note">El router no tiene una IPv4 pública utilizable. Esta apertura por sí sola puede ser insuficiente si hay otro router o CGNAT.</p>}
     {mapping?<>

@@ -90,10 +90,11 @@ export function AnimatedValue({value,format=(n:number)=>String(Math.round(n))}:{
   return <>{display==null || !Number.isFinite(display)?'—':format(display)}</>
 }
 
-export function AnimatedLine({points,times,identity}:{points:[number,number][];times:number[];identity:string}) {
+export function AnimatedLine({points,times,identity,stepped=false}:{points:[number,number][];times:number[];identity:string;stepped?:boolean}) {
   const element=useRef<SVGPolylineElement>(null)
   const previous=useRef<{identity:string;points:[number,number][];times:number[]}>({identity,points,times})
-  const target=points.map(point=>point.map(value=>value.toFixed(1)).join(',')).join(' ')
+  const encode=(values:[number,number][])=>{const geometry=stepped?values.flatMap((point,index)=>index?[[point[0],values[index-1][1]],point]:[point]):values;return geometry.map(point=>point.map(value=>value.toFixed(1)).join(',')).join(' ')}
+  const target=encode(points)
   const timeKey=times.join(',')
   useLayoutEffect(()=>{
     const before=previous.current;previous.current={identity,points,times}
@@ -105,11 +106,11 @@ export function AnimatedLine({points,times,identity}:{points:[number,number][];t
     const tick=(now:number)=>{
       if(reducedMotion()){line.setAttribute('points',target);return}
       const progress=Math.min(1,(now-began)/motion.navigation),weight=1-(1-progress)**3
-      line.setAttribute('points',points.map((point,index)=>point.map((value,axis)=>(from[index][axis]+(value-from[index][axis])*weight).toFixed(1)).join(',')).join(' '))
+      line.setAttribute('points',encode(points.map((point,index)=>point.map((value,axis)=>from[index][axis]+(value-from[index][axis])*weight) as [number,number])))
       if(progress<1)frame=requestAnimationFrame(tick)
     }
     frame=requestAnimationFrame(tick)
     return()=>{cancelAnimationFrame(frame);line.setAttribute('points',target)}
-  },[target,identity,timeKey])
+  },[target,identity,timeKey,stepped])
   return <polyline ref={element} className="chart-line" points={target}/>
 }
