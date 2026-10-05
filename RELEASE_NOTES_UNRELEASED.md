@@ -1,6 +1,13 @@
 # TCHLauncher — Unreleased
 
-The latest Windows preview is documented in [0.18.0](RELEASE_NOTES_v0.18.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.19.0](RELEASE_NOTES_v0.19.0.md). The development history below is retained for context.
+
+## Included in 0.19.0
+
+- Add release-level compatibility, category/sort/version filters and persistent browsing to Modrinth discovery. Add read-only JAR descriptor checks and bounded Fabric startup-list comparison, with explicit unknowns instead of claiming that inventory presence proves loading.
+- Reject modern Fabric client-only or malformed descriptors during reviewed Modrinth installation. Keep legacy descriptors explicit and preserve installed files. Actual friend's-world symptoms remain unverified without the exact mod names/log.
+- Remove duplicate chart meters, simplify chart framing and legends, add sampled area shading and keyboard exploration, and move lengthy network explanations into optional help and port confirmation.
+- See the dedicated 0.19.0 release notes for test and packaging evidence.
 
 ## Included in 0.18.0
 

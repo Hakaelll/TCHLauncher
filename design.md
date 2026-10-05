@@ -120,3 +120,9 @@ Connection groups the LAN address and its facts before an always-visible interne
 Overview uses one inventory-style metric strip: authored pixel icons, display typography, square inset segments and theme/semantic colors. Player segments measure occupied slots; memory segments show measured used heap relative to the configured Xmx, separately from resident RAM. CPU segments measure process CPU. Missing values are labelled and never rendered as measured zero. Uptime remains elapsed text with no invented gauge.
 
 Performance keeps RAM and CPU together. Square framing, pixel icons, orthogonal sampled lines and square hover points match the controls; dashed heap remains distinct from resident RAM. Lines preserve sampling gaps. Download, copy and storage bars retain native progress semantics, real totals and cancellation, with square segmented fills. Motion remains brief and respects reduced-motion preferences. Native visual review remains the user's manual check.
+
+## Mod inventory and chart refinement (0.19.0)
+
+Use square item cards, inset icon wells, restrained category tags and a release status footer in Modrinth. Keep category, sort and version filters visible, preserving browsing after installation. Color signals are paired with text: compatible, experimental, unavailable and unverified. Local inventory separates descriptor warnings from historical Fabric startup-list evidence.
+
+RAM and CPU remain simultaneous orthogonal plots, with lightly shaded measured areas, three quiet horizontal guides, compact peak readings and a dashed heap legend. Remove the duplicate segmented meters from these plot cards. Pointer or keyboard sample inspection shows measured values and time; gaps and unavailable readings remain explicit. Keep network controls visible, placing lengthy instructions in optional help or the confirmation dialog.

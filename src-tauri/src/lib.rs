@@ -14,6 +14,7 @@ mod minecraft_update;
 mod instance_publication;
 mod content;
 mod content_storage;
+mod content_diagnostics;
 mod download;
 mod eula;
 mod fabric;
@@ -143,12 +144,27 @@ async fn get_versions(platform: Option<String>,experimental:Option<bool>) -> Res
 }
 
 #[tauri::command]
-async fn search_content(engine: State<'_, Engine>, id: String, query: String, offset: u32) -> Result<serde_json::Value, String> {
+async fn search_content(engine: State<'_, Engine>, id: String, query: String, offset: u32, options: Option<content::SearchOptions>) -> Result<serde_json::Value, String> {
     let server = storage::get(&engine.root, &id)?;
     tauri::async_runtime::spawn_blocking(move || {
         let task = download::DownloadTask::new(&server.id, "content_search", |_| {})?;
-        content::search(&task, &server, &query, offset)
+        content::search(&task, &server, &query, offset, &options.unwrap_or_default())
     }).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn content_availability(engine:State<'_,Engine>,id:String,project_id:String)->Result<content::Availability,String> {
+    let server=storage::get(&engine.root,&id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let task=download::DownloadTask::new(&server.id,"content_search",|_|{})?;
+        content::availability(&task,&server,&project_id)
+    }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+async fn audit_content(engine:State<'_,Engine>,id:String)->Result<content_diagnostics::Audit,String> {
+    let server=storage::get(&engine.root,&id)?;
+    tauri::async_runtime::spawn_blocking(move ||content_diagnostics::audit(&server)).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -1276,7 +1292,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {

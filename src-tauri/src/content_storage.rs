@@ -167,14 +167,9 @@ pub fn recover(server:&Server)->Result<(),String> {
 }
 
 fn validate_jar(path:&Path,platform:&str)->Result<(),String> {
-    let mut archive=zip::ZipArchive::new(fs::File::open(path).map_err(|e|e.to_string())?).map_err(|_|"El archivo descargado no es un JAR válido")?;
-    if archive.is_empty() || archive.len()>100000 {return Err("Contenido JAR no válido".into());}
-    // Read the declared loader descriptor without executing code or extracting archive paths.
-    let descriptors:&[&str]=match platform {"fabric"=>&["fabric.mod.json"],"neoforge"=>&["META-INF/neoforge.mods.toml","META-INF/mods.toml"],"paper"=>&["plugin.yml","paper-plugin.yml"],_=>return Err("Loader de contenido no válido".into())};
-    for name in descriptors {
-        if let Ok(file)=archive.by_name(name) {if file.size()>1_000_000 {return Err("Descriptor de contenido demasiado grande".into());}return Ok(());}
-    }
-    Err("El JAR no incluye un descriptor de mod o plugin reconocido".into())
+    let descriptor=crate::content_diagnostics::inspect(path,platform)?;
+    if descriptor.environment.as_deref()==Some("client") {return Err("El JAR es solo de cliente y no se cargará en el servidor".into());}
+    Ok(())
 }
 
 fn record(entry:&PlannedContent)->InstalledContent {
@@ -420,7 +415,7 @@ mod tests {
     #[ignore="Reads the live catalog and project icon from official Modrinth endpoints"]
     fn search_and_icon_use_live_official_catalog() {
         let fixture=Fixture::platform("paper");let task=DownloadTask::new(&fixture.server.id,"content_search",|_|{}).unwrap();
-        let result=crate::content::search(&task,&fixture.server,"luckperms",0).unwrap();
+        let result=crate::content::search(&task,&fixture.server,"luckperms",0,&crate::content::SearchOptions::default()).unwrap();
         let hits=result["hits"].as_array().unwrap();let project=hits.iter().find(|hit|hit["title"]=="LuckPerms").expect("LuckPerms should appear in compatible Paper search");
         let icon=crate::content::icon(&fixture.root,project["icon_url"].as_str().unwrap()).unwrap();
         assert!(icon.starts_with("data:image/png;base64,"));

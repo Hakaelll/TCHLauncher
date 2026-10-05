@@ -848,3 +848,82 @@ html[data-motion="reduced"] .startup-progress * { transition:none; }
 @media (max-width:1280px) { .overview .stage-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .overview .stage-stats > div:nth-child(3) { border-left:0; } .overview .stage-stats > div:nth-child(n+3) { border-top:2px solid var(--line); } }
 html[data-motion="reduced"] .pixel-meter-slot i { transition:none; }
 @media (prefers-reduced-motion:reduce) { .pixel-meter-slot i { transition:none; } }
+
+/* Mod inventory and discovery: readable item cards with explicit release states. */
+.content-manager [hidden] { display:none; }
+.content-discovery-heading,.content-inventory-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:24px 0 18px; }
+.content-discovery-heading h3,.content-inventory-heading h3 { margin:0 0 8px; font:14px/1.7 var(--font-display); }
+.content-discovery-heading p,.content-inventory-heading p { color:var(--secondary); margin:0; font-size:12px; }
+.content-source-label { font:10px/1.6 var(--font-display); color:var(--accent); letter-spacing:1px; }
+.content-discovery .content-search { border:2px solid var(--field-edge); border-radius:0; background:var(--surface-deep); box-shadow:inset 0 2px 0 #00000030; }
+.content-discovery .content-search:focus-within { border-color:var(--accent); }
+.content-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:18px; align-items:end; margin-top:18px; }
+.content-filters > label { display:grid; gap:8px; font-size:12px; color:var(--secondary); }
+.content-filters select { width:100%; min-width:0; font-family:var(--font-reading); }
+.content-filters .content-version-filter { display:flex; align-items:center; gap:10px; min-height:46px; cursor:pointer; }
+.content-version-filter input { width:18px; height:18px; flex:none; }
+.content-discovery .content-results-label { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin:24px 0 14px; }
+.content-results-label > span { color:var(--muted); }
+.content-discovery .content-results { gap:18px; align-items:stretch; }
+.content-discovery .content-project { grid-template-columns:56px minmax(0,1fr); align-content:start; gap:16px; padding:20px; border:2px solid var(--line); background:var(--surface); box-shadow:inset 0 2px 0 var(--control-edge),0 3px 0 var(--surface-deep); transition:border-color var(--motion-interaction) var(--motion-ease),background var(--motion-interaction) var(--motion-ease); }
+.content-discovery .content-project:hover,.content-discovery .content-project:focus-within { border-color:var(--accent-line); background:var(--surface-feature); }
+.content-discovery .content-project-icon { width:56px; height:56px; border-radius:0; background:var(--surface-deep); border:2px solid var(--field-edge); box-shadow:0 2px 0 var(--surface-deep); }
+.content-project-body { min-width:0; }
+.content-project-title { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.content-discovery .content-project h3 { font:14px/1.7 var(--font-display); }
+.content-installed-badge { font-size:10px; color:var(--success); border:1px solid var(--success); padding:2px 5px; }
+.content-project-body p { min-height:42px; }
+.content-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.content-tags > span { color:var(--secondary); background:var(--surface-deep); padding:4px 7px; font-size:10px; line-height:1.5; }
+.content-project-footer { grid-column:1/-1; display:flex; flex-direction:column; align-items:flex-start; gap:14px; border-top:1px solid var(--line); padding-top:16px; }
+.content-project-footer > button { font-size:11px; width:100%; margin-top:auto; }
+.content-availability { min-width:0; border-left:3px solid var(--line); padding-left:10px; }
+.content-availability strong { display:block; font:12px/1.6 var(--font-reading); font-weight:600; }
+.content-availability > span { display:block; margin-top:4px; font-size:11px; color:var(--secondary); overflow-wrap:anywhere; }
+.content-availability.compatible { border-color:var(--success); color:var(--success); }
+.content-availability.experimental,.content-availability.unknown { border-color:var(--warning); color:var(--warning); }
+.content-availability.unavailable { border-color:var(--muted); color:var(--secondary); }
+.content-availability.checking { border-color:var(--accent-line); color:var(--accent); }
+.content-audit-summary { display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; background:var(--surface); border-left:3px solid var(--accent-line); padding:14px 16px; margin-bottom:12px; font-size:12px; color:var(--secondary); }
+.content-audit-summary details { flex-basis:100%; }
+.content-audit-summary summary { cursor:pointer; color:var(--ink); }
+.content-audit-summary p { line-height:1.7; max-width:85ch; }
+.content-installed-row { align-items:flex-start; padding:20px 4px; }
+.content-file-status { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; }
+.content-installed-row .content-file-status > span { font-size:11px; margin:0; }
+.content-installed-row .content-file-status > .compatible { color:var(--success); }
+.content-installed-row .content-file-status > .experimental,.content-file-warning { color:var(--warning); }
+.content-file-warning { margin:8px 0 0; font-size:12px; line-height:1.65; }
+.content-row-actions { max-width:210px; }
+.content-row-actions button { font-size:11px; }
+@media(max-width:1150px) { .content-discovery .content-results { grid-template-columns:1fr; } .content-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .content-filters .content-version-filter { grid-column:1/-1; min-height:32px; } }
+@media(max-width:760px) { .content-filters { grid-template-columns:1fr; } .content-installed-row { flex-wrap:wrap; } .content-installed-row .content-row-actions { max-width:none; flex-basis:100%; padding-left:54px; } }
+
+/* Performance plots carry the data; no duplicate segmented meter underneath. */
+.resource-chart { padding:22px; background:var(--surface); }
+.resource-chart .chart-heading { border-bottom:0; padding-bottom:4px; }
+.resource-chart .chart-heading .pixel-icon { width:24px; height:24px; }
+.resource-chart .monitor-reading { margin:16px 0 18px; gap:6px 12px; }
+.resource-chart .monitor-reading > span { display:none; }
+.resource-chart .monitor-reading small { background:var(--surface-deep); border:1px solid var(--line); padding:5px 8px; }
+.resource-chart .monitor-chart { margin-top:0; height:190px; grid-template-columns:60px minmax(0,1fr); }
+.resource-chart .monitor-chart svg { height:190px; background:var(--surface-deep); }
+.resource-chart .chart-grid { stroke-dasharray:0; opacity:.55; }
+.resource-chart .chart-area { fill:var(--metric-blue); opacity:.09; }
+.resource-chart.cpu .chart-area { fill:var(--metric-teal); }
+.resource-chart .chart-cursor { stroke:var(--secondary); stroke-dasharray:3 4; stroke-width:1; vector-effect:non-scaling-stroke; }
+.resource-chart .chart-times { padding-left:60px; margin-top:8px; }
+.resource-chart .chart-scale { font:11px/1.5 var(--font-reading); padding-top:12px; padding-bottom:12px; }
+.resource-chart .chart-empty { inset:0 0 0 60px; align-content:center; gap:12px; padding:16px; background:var(--surface-deep); }
+.resource-chart .chart-empty strong { font:12px/1.7 var(--font-display); color:var(--ink); }
+.resource-chart .chart-empty span { font-size:12px; }
+.chart-legend { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:18px; padding-top:12px; border-top:1px solid var(--line); color:var(--secondary); font-size:11px; }
+.chart-legend > span { display:flex; align-items:center; gap:7px; }
+.chart-legend > span::before { content:''; width:14px; height:3px; background:var(--metric-blue); }
+.resource-chart.cpu .process-legend::before { background:var(--metric-teal); }
+.chart-legend .heap-legend::before { height:0; border-top:2px dashed var(--success); background:none; }
+.network-manual { padding:0; margin-top:16px; }
+.network-manual .network-public { margin:0; padding:14px 16px; background:var(--surface); border:1px solid var(--line); }
+.connection-help { margin-top:14px; color:var(--secondary); font-size:12px; }
+.connection-help summary { cursor:pointer; }
+.connection-help p { line-height:1.8; max-width:90ch; }

@@ -135,16 +135,52 @@ impl Source for Modrinth<'_> {
     }
 }
 
-pub fn search(task: &DownloadTask, server: &Server, query: &str, offset: u32) -> Result<serde_json::Value, String> {
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct SearchOptions {
+    #[serde(default)] pub category: String,
+    #[serde(default)] pub sort: String,
+    #[serde(default)] pub all_versions: bool,
+}
+
+fn search_url(server:&Server,query:&str,offset:u32,options:&SearchOptions)->Result<reqwest::Url,String> {
     let platform = loader(server)?;
     if query.len() > 200 || offset > 10000 { return Err("La búsqueda es demasiado larga".into()); }
     let mut url = reqwest::Url::parse(&format!("{API}/search")).map_err(|e| e.to_string())?;
     let categories:Vec<_>=supported_loaders(platform).iter().map(|loader|format!("categories:{loader}")).collect();
-    let facets = serde_json::json!([categories, [format!("versions:{}", server.version)],
-        [format!("all_project_types:{}", if platform == "paper" {"plugin"} else {"mod"})]]);
-    url.query_pairs_mut().append_pair("query", query.trim()).append_pair("facets", &facets.to_string())
+    let sort=if options.sort.is_empty(){"relevance"}else{options.sort.as_str()};
+    if !matches!(sort,"relevance"|"downloads"|"follows"|"newest"|"updated") {return Err("Orden de búsqueda no válido".into());}
+    if options.category.len()>64 || !options.category.bytes().all(|c|c.is_ascii_lowercase()||c==b'-') {return Err("Categoría no válida".into());}
+    let mut facets=vec![categories,vec![format!("all_project_types:{}",if platform=="paper"{"plugin"}else{"mod"})]];
+    if !options.all_versions {facets.push(vec![format!("versions:{}",server.version)]);}
+    if !options.category.is_empty(){facets.push(vec![format!("categories:{}",options.category)]);}
+    url.query_pairs_mut().append_pair("query", query.trim()).append_pair("facets", &serde_json::json!(facets).to_string()).append_pair("index",sort)
         .append_pair("limit", "20").append_pair("offset", &offset.to_string());
-    task.json(url.as_str(), "Buscando en Modrinth")
+    Ok(url)
+}
+
+pub fn search(task:&DownloadTask,server:&Server,query:&str,offset:u32,options:&SearchOptions)->Result<serde_json::Value,String> {
+    task.json(search_url(server,query,offset,options)?.as_str(),"Buscando en Modrinth")
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct Availability {pub version_id:Option<String>,pub version_number:Option<String>,pub channel:Option<String>,pub environment:Option<String>}
+
+pub fn availability(task:&DownloadTask,server:&Server,project_id:&str)->Result<Availability,String> {
+    use std::sync::{Mutex,OnceLock};
+    use std::time::{Duration,Instant};
+    type Cache=HashMap<(String,String,String),(Instant,Availability)>;
+    static CACHE:OnceLock<Mutex<Cache>>=OnceLock::new();
+    identifier(project_id)?;
+    let key=(project_id.to_string(),server.version.clone(),loader(server)?.to_string());
+    let cache=CACHE.get_or_init(||Mutex::new(HashMap::new()));
+    if let Ok(cache)=cache.lock(){if let Some((at,value))=cache.get(&key){if at.elapsed()<Duration::from_secs(300){return Ok(value.clone());}}}
+    let available=versions(task,server,project_id)?;
+    let selected=available.iter().find(|v|v.version_type=="release").or_else(||available.first());
+    let result=Availability {version_id:selected.map(|v|v.id.clone()),version_number:selected.map(|v|v.version_number.clone()),channel:selected.map(|v|v.version_type.clone()),environment:selected.and_then(|v|v.environment.clone())};
+    if let Ok(mut cache)=cache.lock(){cache.retain(|_,(at,_)|at.elapsed()<Duration::from_secs(300));if cache.len()>=512{cache.clear();}cache.insert(key,(Instant::now(),result.clone()));}
+    Ok(result)
 }
 
 fn server_supported(environment: Option<&str>, legacy: Option<&str>) -> bool {
@@ -335,6 +371,19 @@ fn resolve_many(source: &impl Source, minecraft: &str, loader: &str, projects: &
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn catalog_filters_are_conjunctive_and_allow_other_versions_without_changing_loader() {
+        let server:Server=serde_json::from_value(serde_json::json!({"id":"search","name":"Search","version":"1.21.11","platform":"fabric","directory":"unused","jarPath":null,"javaPath":null,"memoryMinMb":1024,"memoryMaxMb":2048,"storageTargetGb":20,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap();
+        let options=SearchOptions {category:"worldgen".into(),sort:"downloads".into(),all_versions:false};
+        let url=search_url(&server," structures ",20,&options).unwrap();
+        let params:HashMap<_,_>=url.query_pairs().into_owned().collect();
+        let facets:Vec<Vec<String>>=serde_json::from_str(&params["facets"]).unwrap();
+        for expected in ["categories:fabric","categories:worldgen","versions:1.21.11","all_project_types:mod"] {assert!(facets.contains(&vec![expected.into()]));}
+        assert_eq!(params["index"],"downloads");assert_eq!(params["query"],"structures");assert_eq!(params["offset"],"20");
+        let url=search_url(&server,"",0,&SearchOptions {all_versions:true,..options}).unwrap();
+        assert!(!url.query_pairs().find(|(key,_)|key=="facets").unwrap().1.contains("versions:"));
+        assert!(search_url(&server,"",0,&SearchOptions {category:"worldgen\"],[\"versions:other".into(),..Default::default()}).is_err());
+    }
     struct Fixture { projects: HashMap<String, Project>, versions: HashMap<String, ContentVersion> }
     impl Source for Fixture {
         fn project(&self, id: &str) -> Result<Project,String> {self.projects.get(id).cloned().ok_or("Proyecto ausente".into())}
@@ -429,6 +478,16 @@ mod tests {
             assert_eq!(entry.version.version_type,"release");
             assert_eq!(entry.file.hashes["sha512"].len(),128);
         }
+    }
+
+    #[test]
+    #[ignore = "Checks release-level availability against the official Modrinth API without installing JARs"]
+    fn checks_live_server_availability_before_installation() {
+        let task=DownloadTask::new("availability","content_search",|_|{}).unwrap();
+        let mut server:Server=serde_json::from_value(serde_json::json!({"id":"availability","name":"Availability","version":"1.21.4","platform":"fabric","directory":"unused","jarPath":null,"javaPath":null,"memoryMinMb":1024,"memoryMaxMb":2048,"storageTargetGb":20,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap();
+        let found=availability(&task,&server,"lithium").unwrap();assert!(found.version_id.is_some());assert_eq!(found.channel.as_deref(),Some("release"));
+        let versions=versions(&task,&server,"lithium").unwrap();assert!(versions.iter().any(|version|Some(&version.id)==found.version_id.as_ref()));
+        server.version="1.0".into();assert!(availability(&task,&server,"lithium").unwrap().version_id.is_none());
     }
 
     #[test]

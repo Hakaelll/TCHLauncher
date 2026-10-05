@@ -74,9 +74,13 @@ export type ContentFile = { filename: string; url: string; hashes: Record<string
 export type ContentVersion = { id: string; project_id: string; name: string; version_number: string; version_type: string; date_published: string; game_versions: string[]; loaders: string[]; environment: string | null; changelog: string | null; dependencies: ContentDependency[]; files: ContentFile[] }
 export type ContentProject = { id: string; title: string; description: string; icon_url: string | null; environment: string[]; server_side: string | null }
 export type ContentPlan = { minecraftVersion: string; loader: string; entries: {project: ContentProject; version: ContentVersion; file: ContentFile; required: boolean}[]; optional: ContentDependency[]; incompatible: ContentDependency[] }
-export type ContentSearch = { hits: {project_id: string; title: string; description: string; author: string; icon_url: string | null; categories: string[]; versions: string[]; environment?: string[]; server_side?: string}[]; offset: number; limit: number; total_hits: number }
+export type ContentSearch = { hits: {project_id: string; title: string; description: string; author: string; icon_url: string | null; categories: string[]; versions: string[]; downloads?:number; environment?: string[]; server_side?: string}[]; offset: number; limit: number; total_hits: number }
 
 export type InstalledContent = {filename: string; title: string; projectId: string | null; versionId: string | null; versionNumber: string | null; sha512: string; size: number; modified: boolean}
+export type ContentSearchOptions = {category:string;sort:string;allVersions:boolean}
+export type ContentAvailability = {versionId:string|null;versionNumber:string|null;channel:string|null;environment:string|null}
+export type ContentCheck = {filename:string;descriptor:{id:string|null;name:string|null;version:string|null;environment:string|null;minecraft:string|null;note:string|null};issues:string[];listedInLog:boolean|null}
+export type ContentAudit = {files:InstalledContent[];checks:ContentCheck[];logModifiedAt:number|null;logNote:string}
 export type ContentReview = {token: string; plan: ContentPlan; changes: {title: string; filename: string; action: 'install' | 'update' | 'present'; previousVersion: string | null; version: string}[]; warnings: string[]}
 export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean; protected: boolean}
 export type PackInspection = {path: string; archiveSha512: string; name: string; versionId: string; summary: string | null; minecraft: string; loader: string; loaderVersion: string | null; entries: PackEntry[]; excludedClientFiles: number; selectedBytes: number; blockers: string[]; warnings: string[]}
@@ -125,7 +129,9 @@ export const api = {
   listContent: (id:string) => invoke<InstalledContent[]>('list_content',{id}),
   installContent: (id:string,token:string) => invoke<void>('install_content',{id,token}),
   contentVersions: (id:string,projectId:string) => invoke<ContentVersion[]>('content_versions',{id,projectId}),
-  searchContent: (id:string,query:string,offset=0) => invoke<ContentSearch>('search_content',{id,query,offset}),
+  searchContent: (id:string,query:string,offset=0,options?:ContentSearchOptions) => invoke<ContentSearch>('search_content',{id,query,offset,options}),
+  contentAvailability: (id:string,projectId:string) => invoke<ContentAvailability>('content_availability',{id,projectId}),
+  auditContent: (id:string) => invoke<ContentAudit>('audit_content',{id}),
   planContent: (id:string,projectId:string,versionId:string|null=null) => invoke<ContentReview>('plan_content',{id,projectId,versionId}),
   listServers: () => invoke<Server[]>('list_servers'),
   versions: (platform:Server['platform']='vanilla',experimental=false) => invoke<Version[]>('get_versions',{platform,experimental}),

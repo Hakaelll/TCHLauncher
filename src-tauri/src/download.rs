@@ -50,8 +50,9 @@ impl DownloadTask {
                 else if attempt.previous().len() > 10 { attempt.error("too many redirects") }
                 else { attempt.follow() }
             }))
-            .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
-            .timeout(Duration::from_secs(900)).build().map_err(|e| e.to_string())?;
+            .connect_timeout(Duration::from_secs(if kind=="content_search" {8}else{20}))
+            .read_timeout(Duration::from_secs(if kind=="content_search" {12}else{30}))
+            .timeout(Duration::from_secs(if kind=="content_search" {20}else{900})).build().map_err(|e| e.to_string())?;
         let id=Uuid::new_v4().to_string();
         let latest=Mutex::new(Progress{server_id:server_id.into(),task_id:id.clone(),kind:kind.into(),label:"Preparando tarea".into(),stage:"preparing".into(),received:0,total:None,bytes_per_second:None,attempt:1,error:None});
         Ok(Self { id,server_id:server_id.into(),kind:kind.into(),client,max_bytes:MAX_BYTES,

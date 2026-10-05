@@ -1,4 +1,4 @@
-import {PixelIcon,PixelMeter} from './PixelIndicators'
+import {PixelIcon} from './PixelIndicators'
 import {ServerResponsePanel} from './ServerResponsePanel'
 import {api,type Metrics,type Server} from './api'
 import { useEffect,useState,useRef } from 'react'
@@ -26,23 +26,23 @@ function ResourceChart({server,metrics,history,error,metric}:MonitorProps & {met
   const hovered=samples.find(sample=>sample.sampledAt===hoverTime && sample[metric]!=null)
 
   return <section className={`resource-chart ${metric === 'memoryBytes' ? 'memory' : 'cpu'}`} aria-label={metric === 'memoryBytes' ? 'Memoria del proceso Java' : 'CPU del proceso Java'}>
-    <div className="chart-heading"><PixelIcon kind={metric==='memoryBytes'?'memory':'cpu'}/><h3>{metric === 'memoryBytes' ? 'Memoria' : 'CPU'}</h3><span>JAVA</span></div>
+    <div className="chart-heading"><PixelIcon kind={metric==='memoryBytes'?'memory':'cpu'}/><h3>{metric === 'memoryBytes' ? 'Memoria' : 'CPU'}</h3><span>2 MIN · JAVA</span></div>
     <div className="monitor-reading"><strong><AnimatedValue key={`${server.id}:${metrics?.pid}`} value={latest} format={format}/></strong><span>{metric === 'memoryBytes' ? 'RAM del proceso' : 'CPU del proceso'}</span><small>Pico {hasPeak ? format(metric === 'memoryBytes' ? peakMemory : peakCpu) : '—'}</small></div>
-    <PixelMeter label={metric==='memoryBytes'?'Heap usado respecto al máximo configurado':'CPU del proceso'} ratio={metric==='memoryBytes'?metrics?.heap?metrics.heap.usedBytes/(server.memoryMaxMb*1024**2):null:latest==null?null:latest/100}/>
+
     <div className="monitor-chart">
       <div className="chart-scale"><span>{format(maximum)}</span><span>0</span></div>
-      <svg viewBox="0 0 500 154" preserveAspectRatio="none" role="img" aria-label={`${metric === 'memoryBytes' ? 'Memoria' : 'CPU'} durante los últimos dos minutos. Valor actual: ${current}.`} onPointerLeave={()=>setHoverTime(null)} onPointerMove={event=>{const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*500;const nearest=samples.filter(sample=>sample[metric]!=null).reduce<MetricSample|null>((best,sample)=>!best || Math.abs(x(sample)-position)<Math.abs(x(best)-position)?sample:best,null);setHoverTime(nearest?.sampledAt ?? null)}}>
-        {[0,100,200,300,400,500].map(column=><line key={`x:${column}`} x1={column} y1="14" x2={column} y2="142" className="chart-grid chart-grid-time"/>)}
+      <svg viewBox="0 0 500 154" preserveAspectRatio="none" role="img" tabIndex={samples.some(sample=>sample[metric]!=null)?0:undefined} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const measured=samples.filter(sample=>sample[metric]!=null);const index=measured.findIndex(sample=>sample.sampledAt===hoverTime);const target=event.key==='Home'?0:event.key==='End'?measured.length-1:event.key==='ArrowLeft'?Math.max(0,index<0?measured.length-1:index-1):Math.min(measured.length-1,index+1);setHoverTime(measured[target]?.sampledAt??null)}} onBlur={()=>setHoverTime(null)} aria-label={`${metric === 'memoryBytes' ? 'Memoria' : 'CPU'} durante los últimos dos minutos. Valor actual: ${current}. Usa las flechas para explorar las muestras.`} onPointerLeave={()=>setHoverTime(null)} onPointerMove={event=>{const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*500;const nearest=samples.filter(sample=>sample[metric]!=null).reduce<MetricSample|null>((best,sample)=>!best || Math.abs(x(sample)-position)<Math.abs(x(best)-position)?sample:best,null);setHoverTime(nearest?.sampledAt ?? null)}}>
+        {segments.map((segment,index)=><polygon key={`area:${index}`} className="chart-area" points={[`${x(segment[0])},142`,...segment.flatMap((sample,i)=>i===0?[`${x(sample)},${y(sample)}`]:[`${x(sample)},${y(segment[i-1])}`,`${x(sample)},${y(sample)}`]),`${x(segment[segment.length-1])},142`].join(' ')}/>)}
         {[14,78,142].map(row => <line key={row} x1="0" y1={row} x2="500" y2={row} className="chart-grid"/>)}
         {segments.map((segment,index) => <AnimatedLine stepped key={index} identity={`${server.id}:${metrics?.pid}:${metric}:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample => [x(sample),y(sample)])}/>)}
         <g className="heap-chart-line">{heapSegments.map((segment,index)=><AnimatedLine stepped key={index} identity={`${server.id}:${metrics?.pid}:heap:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample=>[x(sample),142-Math.min(1,(sample.heapUsedBytes??0)/maximum)*128])}/>)}</g>
-        {hovered && <rect className="chart-point" x={x(hovered)-3} y={y(hovered)-3} width="6" height="6"/>}
+        {hovered && <><line className="chart-cursor" x1={x(hovered)} y1="14" x2={x(hovered)} y2="142"/><rect className="chart-point" x={x(hovered)-3} y={y(hovered)-3} width="6" height="6"/></>}
       </svg>
-      {hovered && <div className="chart-tooltip" role="tooltip" style={{left:`${Math.max(16,Math.min(84,x(hovered)/5))}%`}}><strong>{format(hovered[metric]!)}</strong>{metric==='memoryBytes'&&hovered.heapUsedBytes!=null&&<span>Heap usado: {bytesLabel(hovered.heapUsedBytes)}</span>}<span>{new Date(hovered.sampledAt).toLocaleTimeString('es-ES')}</span></div>}
-      {!samples.length && <p className="chart-empty">{error ? 'No se pudo actualizar el rendimiento.' : metrics?.pid ? 'Recogiendo muestras…' : 'Inicia el servidor para ver su rendimiento.'}</p>}
+      {hovered && <div className="chart-tooltip" role="tooltip" aria-live="polite" style={{left:`${Math.max(16,Math.min(84,x(hovered)/5))}%`}}><strong>{format(hovered[metric]!)}</strong>{metric==='memoryBytes'&&hovered.heapUsedBytes!=null&&<span>Heap usado: {bytesLabel(hovered.heapUsedBytes)}</span>}<span>{new Date(hovered.sampledAt).toLocaleTimeString('es-ES')}</span></div>}
+      {!samples.some(sample=>sample[metric]!=null) && <p className="chart-empty"><strong>{error ? 'Lectura no disponible' : metrics?.pid ? 'Recogiendo muestras…' : 'Esperando al servidor'}</strong><span>{metrics?.pid?'Las lecturas aparecerán aquí.':'Inicia el servidor para medir su rendimiento.'}</span></p>}
     </div>
     <div className="chart-times"><span>Hace 2 min</span><span>Ahora</span></div>
-    {metric==='memoryBytes'&&<p className="heap-chart-legend"><span>━━ RAM del proceso</span><span>┄┄ Heap usado {metrics?.heap?bytesLabel(metrics.heap.usedBytes):'no disponible'}</span></p>}
+    <div className="chart-legend"><span className="process-legend">{metric==='memoryBytes'?'RAM del proceso':'CPU del proceso'}</span>{metric==='memoryBytes'&&<span className="heap-legend">Heap usado {metrics?.heap?bytesLabel(metrics.heap.usedBytes):'no disponible'}</span>}</div>
     {error && <p className="network-error" role="status">{error}</p>}
   </section>
 }
