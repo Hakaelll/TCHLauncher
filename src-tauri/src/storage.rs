@@ -293,7 +293,11 @@ pub fn clear_image(root: &Path, id: &str) -> Result<Server, String> {
 }
 
 pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
+    create_with_seed(root,input,None)
+}
+pub fn create_with_seed(root: &Path, input: CreateServer,seed:Option<String>) -> Result<Server, String> {
     validate(&input)?;
+    crate::properties::validate_seed(seed.as_deref().unwrap_or(""))?;
     let image = input.image_path.as_ref().map(|path| image_bytes(Path::new(path))).transpose()?;
     let id = Uuid::new_v4().to_string();
     let dir = root.join("servers").join(&id);
@@ -301,6 +305,9 @@ pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
     let now = chrono::Utc::now().to_rfc3339();
     let props = format!("# Managed by TCHLauncher\nserver-port={}\nmax-players={}\nmotd={}\nonline-mode=true\n", input.port, input.max_players, input.name.replace(['\n', '\r'], " "));
     std::fs::write(dir.join("server.properties"), props).map_err(|e| e.to_string())?;
+    let mut defaults=crate::properties::editor_defaults(&input.version);
+    defaults.insert("level-seed".into(),seed.unwrap_or_default());
+    crate::properties::write(&dir.join("server.properties"),defaults)?;
     let db = connect(root)?;
     db.execute("INSERT INTO servers (id,name,version,platform,directory,memory_min_mb,memory_max_mb,created_at,storage_target_gb) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
         params![id,input.name,input.version,input.platform,dir.to_string_lossy(),input.memory_min_mb,input.memory_max_mb,now,input.storage_target_gb])
@@ -310,6 +317,23 @@ pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
     server.image_data = read_image(root, &id);
     crate::eula::apply_recorded(root,&server)?;
     Ok(server)
+}
+
+#[cfg(test)]
+mod creation_rules_tests {
+    use super::*;
+    fn input()->CreateServer{CreateServer{name:"Seed world".into(),version:"1.21.11".into(),platform:"fabric".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}}
+    #[test]
+    fn creation_persists_seed_and_editable_rules_before_java_or_world_exists(){
+        let root=std::env::temp_dir().join(format!("tch-create-seed-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+        let server=create_with_seed(&root,input(),Some("-9223372036854775808".into())).unwrap();
+        let dir=Path::new(&server.directory);let props=crate::properties::read(&dir.join("server.properties")).unwrap();
+        assert_eq!(props["level-seed"],"-9223372036854775808");assert_eq!(props["gamemode"],"survival");assert_eq!(props["difficulty"],"easy");assert_eq!(props["online-mode"],"true");assert_eq!(props["server-port"],"25565");
+        assert!(server.jar_path.is_none());assert!(!dir.join("world").exists());assert!(!dir.join("eula.txt").exists());
+        let second=create(&root,input()).unwrap();assert_eq!(crate::properties::read(&Path::new(&second.directory).join("server.properties")).unwrap()["level-seed"],"");
+        assert!(create_with_seed(&root,input(),Some("seed\nonline-mode=false".into())).is_err());assert_eq!(list(&root).unwrap().len(),2);
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
@@ -336,29 +360,15 @@ pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
     jars.retain(|name|source.join(name).canonicalize().is_ok_and(|path|path.starts_with(&source)));
     jars.sort();
     if jars.is_empty() { return Err("No se encontró un archivo de arranque compatible en la carpeta".into()); }
-    let detected_version = jars.iter().find_map(|jar|crate::neoforge::detected_version(&source.join(jar)).or_else(||detect_jar_version(&source.join(jar))).or_else(||{
-        if !jar.starts_with(".tch-fabric/"){return None;}
-        let path=source.join(jar).parent()?.join("installation.json");
-        if fs::metadata(&path).ok()?.len()>4096{return None;}
-        let meta:serde_json::Value=serde_json::from_slice(&fs::read(path).ok()?).ok()?;
-        let version=meta["minecraft"].as_str()?;crate::fabric::validate_version(version).ok()?;Some(version.into())
-    }));
+    if jars.len()>1000{return Err("Hay demasiados archivos de arranque para inspeccionar la carpeta".into());}
+    let launchers=jars.iter().map(|jar|crate::import_identity::inspect(&source,jar)).collect::<Vec<_>>();
+    let versions=launchers.iter().filter_map(|launcher|launcher.version.as_ref()).collect::<std::collections::HashSet<_>>();
+    let detected_version=(versions.len()==1).then(||(*versions.iter().next().unwrap()).clone());
     Ok(ImportInspection {
         path:source.to_string_lossy().into(),
         suggested_name:source.file_name().map(|n| n.to_string_lossy().into()).unwrap_or_else(|| "Servidor importado".into()),
-        jar_files:jars,detected_version,
+        jar_files:jars,detected_version,launchers,
     })
-}
-
-fn detect_jar_version(path: &Path) -> Option<String> {
-    use std::io::Read;
-    let file = std::fs::File::open(path).ok()?;
-    let mut archive = zip::ZipArchive::new(file).ok()?;
-    let mut entry = archive.by_name("version.json").ok()?;
-    if entry.size() > 32_000 { return None; }
-    let mut text = String::new();
-    entry.read_to_string(&mut text).ok()?;
-    serde_json::from_str::<serde_json::Value>(&text).ok()?["id"].as_str().map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -376,16 +386,10 @@ fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::downlo
     let source = PathBuf::from(&input.path).canonicalize().map_err(|e| e.to_string())?;
     let inspection = inspect_import(&source)?;
     if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo de arranque seleccionado no existe en esa carpeta".into()); }
-    let jar_lower = input.jar_file.to_ascii_lowercase();
-    if jar_lower.contains("forge") && !jar_lower.contains("neoforge") {
-        return Err("El loader de este servidor aún no es compatible con la importación".into());
-    }
-    if jar_lower.contains("neoforge") {
-        if input.platform!="neoforge" {return Err("Selecciona NeoForge como tipo de este servidor".into());}
-        crate::neoforge::validate_import(&source,&input.jar_file,&input.version)?;
-        if crate::neoforge::detected_version(&source.join(&input.jar_file)).as_deref()!=Some(&input.version) {return Err("La versión Minecraft no coincide con el arranque NeoForge".into());}
-    } else if input.platform=="neoforge" {return Err("Selecciona el archivo de argumentos de una instalación NeoForge, no un .jar".into());}
-    if jar_lower.contains("fabric") && input.platform!="fabric" {return Err("Selecciona Fabric como tipo de este servidor".into());}
+    let selected=inspection.launchers.iter().find(|launcher|launcher.filename==input.jar_file).ok_or("Falta el arranque seleccionado")?;
+    if let Some(platform)=&selected.platform{if platform!=&input.platform{return Err(format!("El archivo seleccionado declara {platform}; revisa el tipo del servidor"));}}
+    if let Some(version)=&selected.version{if version!=&input.version{return Err(format!("El archivo seleccionado declara Minecraft {version}; revisa la versión"));}}
+    if input.platform=="neoforge"{crate::neoforge::validate_import(&source,&input.jar_file,&input.version)?;}
     let properties = crate::properties::read(&source.join("server.properties"))?;
     let port = properties.get("server-port").and_then(|v| v.parse::<u16>().ok()).unwrap_or(25565);
     let max_players = properties.get("max-players").and_then(|v| v.parse::<u32>().ok()).unwrap_or(20);

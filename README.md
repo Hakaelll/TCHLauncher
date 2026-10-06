@@ -1,10 +1,14 @@
 # TCHLauncher
 
-Gestor local de servidores Minecraft para Windows y Linux, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
+Gestor local de servidores Minecraft para Windows, construido con Tauri, Rust, React y TypeScript. El código actual es una base funcional en desarrollo; [NEXT_TODOS.md](NEXT_TODOS.md) registra lo pendiente.
 
-## Vista previa actual: 0.21.0
+Linux queda aplazado por petición del usuario; su preparación y verificaciones futuras están en [LINUX_LATER.md](LINUX_LATER.md).
 
-[Instalador Windows 0.21.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.21.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.21.0.md).
+## Vista previa actual: 0.25.0
+
+[Instalador Windows 0.25.0](src-tauri/target/release/bundle/nsis/TCHLauncher_0.25.0_x64-setup.exe) - [Release notes (English)](RELEASE_NOTES_v0.25.0.md).
+
+La 0.25.0 añade categorías de exploración para mods/plugins, modpacks, texturas y shaders, refina el inventario instalado y elimina el texto redundante del asistente. Los modpacks usan el importador .mrpack para crear una instancia; texturas y shaders muestran publicaciones para el cliente. La revisión Fabric comprueba rangos reconocidos e incompatibilidades entre mods principales, con límites explícitos. La revisión visual nativa y el funcionamiento dentro del juego siguen pendientes.
 
 Temas End, Obsidiana y Nether en Ajustes, debajo de Inicio automático. La elección se recuerda entre sesiones. End usa negro/gris y morado; la tipografía Minecraft aparece en más controles y puede cambiarse por la de lectura. Logo sin fondo cuadrado, inicio con ilustraciones voxel y panel Java reorganizado. [design.md](design.md) describe el sistema visual. La comprobación visual nativa queda a cargo del usuario, como solicitó.
 

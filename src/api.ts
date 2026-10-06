@@ -52,8 +52,8 @@ export type BannedPlayer = PlayerIdentity & { created: string | null; source: st
 export type BannedIp = { ip: string; created: string | null; source: string | null; expires: string | null; reason: string | null }
 export type PlayersSnapshot = { online: string[]; known: KnownPlayer[]; whitelisted: PlayerIdentity[]; operators: Operator[]; bannedPlayers: BannedPlayer[]; bannedIps: BannedIp[]; whitelistEnabled: boolean; enforceWhitelist: boolean; maxPlayers: number; onlineMode: boolean }
 export type WhitelistImport = { fileName: string; names: string[] }
-export type CreateInput = { name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
-export type ImportInspection = { path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null }
+export type CreateInput = { seed?:string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
+export type ImportInspection = { path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null; launchers: {filename:string;platform:Server['platform']|null;version:string|null;note:string|null}[] }
 export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
 export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }
@@ -77,9 +77,10 @@ export type ContentPlan = { minecraftVersion: string; loader: string; entries: {
 export type ContentSearch = { hits: {project_id: string; title: string; description: string; author: string; icon_url: string | null; categories: string[]; versions: string[]; downloads?:number; environment?: string[]; server_side?: string}[]; offset: number; limit: number; total_hits: number }
 
 export type InstalledContent = {filename: string; title: string; projectId: string | null; versionId: string | null; versionNumber: string | null; sha512: string; size: number; modified: boolean}
-export type ContentSearchOptions = {category:string;sort:string;allVersions:boolean}
+export type ContentKind = 'mod'|'plugin'|'modpack'|'resourcepack'|'shader'
+export type ContentSearchOptions = {category:string;sort:string;allVersions:boolean;projectKind?:ContentKind}
 export type ContentAvailability = {versionId:string|null;versionNumber:string|null;channel:string|null;environment:string|null}
-export type ContentCheck = {filename:string;descriptor:{id:string|null;ids?:string[];apiVersion?:string|null;name:string|null;version:string|null;environment:string|null;minecraft:string|null;note:string|null};issues:string[];listedInLog:boolean|null}
+export type ContentCheck = {filename:string;descriptor:{id:string|null;ids?:string[];apiVersion?:string|null;dependencies?:{id:string;kind:'depends'|'recommends'|'suggests'|'conflicts'|'breaks';alternatives:string[]}[];name:string|null;version:string|null;environment:string|null;minecraft:string|null;note:string|null};issues:string[];listedInLog:boolean|null}
 export type ContentAudit = {files:InstalledContent[];checks:ContentCheck[];logModifiedAt:number|null;logNote:string}
 export type ContentReview = {token: string; plan: ContentPlan; changes: {title: string; filename: string; action: 'install' | 'update' | 'present'; previousVersion: string | null; version: string}[]; warnings: string[]}
 export type PackEntry = {path: string; size: number; source: 'download' | 'overrides' | 'server-overrides'; server: 'required' | 'optional'; selected: boolean; replacesCommon: boolean; protected: boolean}
@@ -131,12 +132,13 @@ export const api = {
   installContent: (id:string,token:string) => invoke<void>('install_content',{id,token}),
   contentVersions: (id:string,projectId:string) => invoke<ContentVersion[]>('content_versions',{id,projectId}),
   searchContent: (id:string,query:string,offset=0,options?:ContentSearchOptions) => invoke<ContentSearch>('search_content',{id,query,offset,options}),
+  openContentProject: (projectId:string) => invoke<void>('open_content_project',{projectId}),
   contentAvailability: (id:string,projectId:string) => invoke<ContentAvailability>('content_availability',{id,projectId}),
   auditContent: (id:string) => invoke<ContentAudit>('audit_content',{id}),
   planContent: (id:string,projectId:string,versionId:string|null=null) => invoke<ContentReview>('plan_content',{id,projectId,versionId}),
   listServers: () => invoke<Server[]>('list_servers'),
   versions: (platform:Server['platform']='vanilla',experimental=false) => invoke<Version[]>('get_versions',{platform,experimental}),
-  create: (input: CreateInput) => invoke<Server>('create_server', { input }),
+  create: (input: CreateInput) => invoke<Server>('create_server', { input,seed:input.seed??null }),
   setPinned: (id:string,pinned:boolean) => invoke<void>('set_server_pinned',{id,pinned}),
   pickImportFolder: () => invoke<string | null>('pick_import_folder'),
   pickServerImage: () => invoke<ImageSelection | null>('pick_server_image'),
@@ -177,6 +179,7 @@ export const api = {
   properties: (id: string) => invoke<Record<string, string>>('get_properties', { id }),
   saveProperties: (id: string, values: Record<string, string>) => invoke<void>('save_properties', { id, values }),
   saveMemory: (id: string, min: number, max: number) => invoke<void>('save_memory', { id, min, max }),
+  saveServerSettings: (id:string,values:Record<string,string>,min:number,max:number,gb:number)=>invoke<void>('save_server_settings',{id,values,min,max,gb}),
   saveStorageTarget: (id: string, gb: number) => invoke<void>('save_storage_target', { id, gb }),
   createBackup: (id: string) => invoke<Backup>('create_backup', { id }),
   backups: (id: string) => invoke<Backup[]>('list_backups', { id }),

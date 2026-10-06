@@ -1,8 +1,15 @@
+import {acknowledgedAction} from './acknowledgedAction'
+import { PackImport } from './PackImport'
+import {deferredPanel} from './DeferredPanel'
+import {useServerRead} from './useServerRead'
+import {SettingsPropertyGroups,knownSettings} from './SettingsProperties'
+import {useBackupList} from './useBackupList'
+import {useServerProperties} from './useServerProperties'
 import {saveState} from './saveState'
 import {version as appVersion} from '../package.json'
 import {PixelIcon,PixelMeter} from './PixelIndicators'
 import {CrashPanel} from './CrashPanel'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react'
 import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
@@ -13,12 +20,12 @@ import {StorageMeter} from './StorageMeter'
 import {acceptStartupEvent,type StartupEvent} from './startupEvents'
 import { SliderField } from './SliderField'
 import { ConsoleView } from './ConsoleView'
-import { WorldView } from './WorldView'
-import { ContentManager } from './ContentManager'
+
+
 import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
 import {ForceStopDialog} from './ForceStopDialog'
-import { ResourceMonitor } from './ResourceMonitor'
+
 import { InstallProgress } from './InstallProgress'
 import { RuntimePanel } from './RuntimePanel'
 import { JvmPanel } from './JvmPanel'
@@ -27,11 +34,12 @@ import { TasksPanel } from './TasksPanel'
 import { StartupPanel } from './StartupPanel'
 import { LoaderPanel } from './LoaderPanel'
 import { MinecraftUpdatePanel } from './MinecraftUpdatePanel'
-import { PackImport } from './PackImport'
+
 import { ServerLibrary } from './ServerLibrary'
-import { ApplicationSettings } from './ApplicationSettings'
+
 import { applyAppearance, browserPreferenceStorage, readAppearance, saveAppearance, type Appearance } from './appearance'
 import launcherEmblem from './assets/launcher-logo.png'
+import worldIllustration from './assets/choice-world.png'
 import { motion, MovingIndicator, AnimatedValue, useListMotion, useNavigationMotion } from './motion'
 import { ServerMenu, type ServerMenuTarget } from './ServerMenu'
 import { ServerDeleteDialog } from './ServerDeleteDialog'
@@ -40,6 +48,12 @@ import {CommandPalette} from './CommandPalette'
 import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
+
+const WorldView=deferredPanel<ComponentProps<typeof import('./WorldView').WorldView>>('Mundos',()=>import('./WorldView').then(module=>({default:module.WorldView})))
+const ContentManager=deferredPanel<ComponentProps<typeof import('./ContentManager').ContentManager>>('Mods y plugins',()=>import('./ContentManager').then(module=>({default:module.ContentManager})))
+const ResourceMonitor=deferredPanel<ComponentProps<typeof import('./ResourceMonitor').ResourceMonitor>>('Rendimiento',()=>import('./ResourceMonitor').then(module=>({default:module.ResourceMonitor})))
+const ApplicationSettings=deferredPanel<ComponentProps<typeof import('./ApplicationSettings').ApplicationSettings>>('Ajustes',()=>import('./ApplicationSettings').then(module=>({default:module.ApplicationSettings})))
+
 
 type View = 'overview' | 'performance' | 'players' | 'worlds' | 'content' | 'console' | 'backups' | 'settings'
 const backupReason:Record<string,string>={manual:'Manual',scheduled:'Programada',server_stop:'Tras detener el servidor',before_restore:'Antes de restaurar',before_minecraft_update:'Antes de actualizar Minecraft',before_loader_update:'Antes de actualizar el loader',before_content_update:'Antes de actualizar contenido',before_content_removal:'Antes de quitar contenido',before_world_change:'Antes de cambiar mundo',before_world_deletion:'Antes de borrar mundo'}
@@ -143,14 +157,19 @@ function App() {
   const [startupPhases,setStartupPhases]=useState<Record<string,StartupEvent>>({})
   const [metricsError,setMetricsError] = useState<string|null>(null)
   const [metricsHistory,setMetricsHistory] = useState<Record<string,MetricSample[]>>({})
-  const [players, setPlayers] = useState<PlayersSnapshot | null>(null)
+  const {data:players,loading:playersLoading,error:playersError,refresh:refreshPlayers}=useServerRead(selectedId,api.players,3000)
+  const {data:logHistory,loading:logLoading,error:logError,refresh:refreshLog}=useServerRead(selectedId,api.log)
   const [consoleQuery,setConsoleQuery]=useState('')
   useEffect(()=>{if(view!=='console'||libraryOpen||creating||importing||appearanceOpen)setConsoleQuery('')},[view,libraryOpen,creating,importing,appearanceOpen])
   const [logs, setLogs] = useState<LogLine[]>([])
-  const [backups, setBackups] = useState<Backup[]>([])
+  const {copies:backups,loaded:backupsLoaded,loading:backupsLoading,error:backupsError,refresh:refreshBackups}=useBackupList(selectedId)
+  const [restoreSync,setRestoreSync]=useState<Record<string,{loading:boolean;error:string|null}>>({})
+  const restoreSyncRevision=useRef<Record<string,number>>({})
   const [restoreTarget,setRestoreTarget]=useState<{serverId:string;backup:Backup}|null>(null)
-  const [props, setProps] = useState<Record<string, string>>({})
-  const propsDirtyRef = useRef(false)
+  const {values:props,loaded:propsLoaded,loading:propsLoading,error:propsError,dirty:propsDirty,edit:setProps,refresh:refreshProperties,acknowledge:acknowledgeProperties}=useServerProperties(selectedId,servers.find(server=>server.id===selectedId)?.state)
+  const [capacityDirty,setCapacityDirty]=useState(false)
+  const capacityDirtyRef=useRef(false)
+  const capacityServer=useRef<string|null>(null)
   const [eula, setEula] = useState(false)
   const [downloadConsent,setDownloadConsent] = useState<{id:string;kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'>}|null>(null)
   const [consentBusy,setConsentBusy] = useState(false)
@@ -162,6 +181,19 @@ function App() {
   const [startupOpen,setStartupOpen]=useState(false)
   const [startupBusy,setStartupBusy]=useState(false)
   const [closingBusy, setClosingBusy] = useState(false)
+  const [closeError,setCloseError]=useState<string|null>(null)
+  const closeOwner=useRef({active:true,working:false})
+  useEffect(()=>{const current={active:true,working:false};closeOwner.current=current;return()=>{current.active=false}},[])
+  const closeApplication=async(action:'hide'|'stop')=>{
+    const current=closeOwner.current;if(!current.active||current.working)return
+    current.working=true;setClosingBusy(true);setCloseError(null)
+    let exitRequested=false
+    try{
+      if(action==='hide'){await api.hideWindow();if(current.active)setClosing(false)}
+      else {await api.stopAllAndExit();exitRequested=true}
+    }catch(cause){if(current.active)setCloseError(errorText(cause))}
+    finally{if(!exitRequested){current.working=false;if(current.active)setClosingBusy(false)}}
+  }
   const selected = servers.find(server => server.id === selectedId) ?? null
 
 
@@ -205,11 +237,11 @@ function App() {
         if (event.payload.serverId === selectedRef.current) setLogs(lines => [...lines.slice(-999), event.payload])
       }),
       listen('close-task-active',()=>setError('Espera a que termine la operación antes de cerrar. Puedes cancelar la copia desde Tareas.')),
-      listen('close-with-servers', () => setClosing(true)),
+      listen('close-with-servers', () => {setClosing(true);if(!closeOwner.current.working)setCloseError(null)}),
       listen<[string,string]>('startup-result',event=>{if(event.payload[1].startsWith('Error:'))setError(`Inicio automático de «${event.payload[0]}»: ${event.payload[1]}`)}),
       listen<string>('scheduler-updated',event=>{
         const id=event.payload
-        if(id===selectedRef.current)void api.backups(id).then(value=>{if(id===selectedRef.current)setBackups(value)}).catch(cause=>setError(errorText(cause)))
+        if(id===selectedRef.current)void refreshBackups(id).catch(()=>{})
       }),
     ]
     return () => { listeners.forEach(p => p.then(unlisten => unlisten()).catch(() => {})) }
@@ -242,31 +274,31 @@ function App() {
     if (!selectedId) return
     let active = true
     const generation=metricsGeneration.current[selectedId]??0
-    setMetrics(null); setMetricsError(null); setPlayers(null); setConsoleQuery(''); setLogs([]); setBackups([]); setProps({}); setEula(false); propsDirtyRef.current = false
-    Promise.all([api.metrics(selectedId), api.log(selectedId), api.backups(selectedId), api.eulaAccepted(selectedId)])
-      .then(([m, log, b, accepted]) => {
-        if (!active) return
-        if(generation===(metricsGeneration.current[selectedId]??0))setMetrics(current => !current || m.sampledAt >= current.sampledAt ? m : current)
-        setLogs(current => {
-          const loaded = new Set(log.map(item => `${item.timestamp ?? ''}\0${item.line}`))
-          return [...log, ...current.filter(item => !loaded.has(`${item.timestamp ?? ''}\0${item.line}`))].slice(-1000)
-        })
-        setBackups(b); setEula(accepted)
-      }).catch(e => { if (active) setError(errorText(e)) })
-    api.players(selectedId).then(value => { if (active) setPlayers(value) }).catch(e => { if (active) setError(errorText(e)) })
+    const restoredRevision=restoreSyncRevision.current[selectedId]??0
+    setMetrics(null); setMetricsError(null); setConsoleQuery(''); setLogs([]); setEula(false)
+    api.metrics(selectedId).then(m=>{
+      if(active&&generation===(metricsGeneration.current[selectedId]??0)){
+        setMetrics(current=>!current||m.sampledAt>=current.sampledAt?m:current);setMetricsError(null)
+      }
+    }).catch(e=>{if(active)setMetricsError(`No se pudo leer el proceso: ${errorText(e)}`)})
+    api.eulaAccepted(selectedId).then(accepted=>{
+      if(active&&restoredRevision===(restoreSyncRevision.current[selectedId]??0))setEula(accepted)
+    }).catch(e=>{if(active)setError(errorText(e))})
     return () => { active = false }
   }, [selectedId])
 
-  useEffect(() => {
-    if (!selectedId) return
-    let active = true
-    api.properties(selectedId).then(values => { if (active && !propsDirtyRef.current) setProps(values) })
-      .catch(cause => { if (active) setError(errorText(cause)) })
-    return () => { active = false }
-  },[selectedId,selected?.state])
+  useEffect(()=>{
+    if(!logHistory)return
+    setLogs(current=>{
+      const loaded=new Set(logHistory.map(item=>`${item.timestamp??''}\0${item.line}`))
+      return [...logHistory,...current.filter(item=>!loaded.has(`${item.timestamp??''}\0${item.line}`))].slice(-1000)
+    })
+  },[logHistory])
 
   useEffect(() => {
     if (!selected) return
+    if(capacityServer.current!==selected.id){capacityServer.current=selected.id;capacityDirtyRef.current=false;setCapacityDirty(false)}
+    if(capacityDirtyRef.current)return
     setMemory({ min: selected.memoryMinMb, max: selected.memoryMaxMb })
     setStorageTarget(selected.storageTargetGb)
   }, [selected?.id, selected?.memoryMinMb, selected?.memoryMaxMb, selected?.storageTargetGb])
@@ -277,14 +309,13 @@ function App() {
     let timer: number
     const poll = async () => {
       const generation=metricsGeneration.current[selectedId]??0
-      const results = await Promise.allSettled([api.metrics(selectedId),api.players(selectedId)])
+      const results = await Promise.allSettled([api.metrics(selectedId)])
       if (!active) return
-      const [sample,people] = results
+      const [sample] = results
       if(generation===(metricsGeneration.current[selectedId]??0)){
         if (sample.status === 'fulfilled') { setMetrics(sample.value); setMetricsError(null) }
         else setMetricsError(`No se pudo leer el proceso: ${errorText(sample.reason)}`)
       }
-      if (people.status === 'fulfilled') setPlayers(people.value)
       timer = window.setTimeout(poll,3000)
     }
     timer = window.setTimeout(poll,3000)
@@ -313,12 +344,50 @@ function App() {
     return () => window.removeEventListener('keydown',shortcut)
   }, [operationBusy,closeMenu])
 
+  const [actionRefreshError,setActionRefreshError]=useState<string|null>(null)
   const act = async (fn: () => Promise<unknown>) => {
-    setError(null); setBusy(true)
-    try { await fn(); await refresh(); return true }
+    setError(null);setActionRefreshError(null);setBusy(true)
+    try {const result=await acknowledgedAction(fn,refresh);setActionRefreshError(result.refreshError);return true}
     catch (e) { if(errorText(e)!=='Instalación cancelada')setError(errorText(e)) }
     finally { setBusy(false) }
     return false
+  }
+
+  const syncRestored=async(id:string)=>{
+    const revision=(restoreSyncRevision.current[id]??0)+1;restoreSyncRevision.current[id]=revision
+    setRestoreSync(current=>({...current,[id]:{loading:true,error:null}}))
+    const results=await Promise.allSettled([refreshProperties(id,true),refreshBackups(id),api.eulaAccepted(id),refresh()])
+    if(restoreSyncRevision.current[id]!==revision)return
+    const [,,consent]=results
+    if(selectedRef.current===id){
+      if(consent.status==='fulfilled')setEula(consent.value)
+    }
+    const labels=['propiedades','copias','EULA','servidores']
+    const failures=results.flatMap((result,index)=>result.status==='rejected'?[`${labels[index]}: ${errorText(result.reason)}`]:[])
+    setRestoreSync(current=>{const next={...current};if(failures.length)next[id]={loading:false,error:`La copia se restauró, pero faltan datos por actualizar. ${failures.join(' · ')}`};else delete next[id];return next})
+  }
+  const saveSettings=async(id:string)=>{
+    if(!propsLoaded||propsLoading||propsError)return
+    const values={...props};const capacity={...memory};const target=storageTarget
+    setError(null);setBusy(true)
+    try{
+      await api.saveServerSettings(id,values,capacity.min,capacity.max,target)
+      acknowledgeProperties(id,values)
+      if(selectedRef.current===id){capacityDirtyRef.current=false;setCapacityDirty(false)}
+      try{await refresh()}catch(cause){setError(`Ajustes guardados. No se pudo actualizar el servidor: ${errorText(cause)}`)}
+    }catch(cause){setError(errorText(cause))}
+    finally{setBusy(false)}
+  }
+  const createCopy=async(id:string)=>{
+    setError(null);setBusy(true)
+    try{
+      const copy=await api.createBackup(id)
+      const results=await Promise.allSettled([refreshBackups(id),refresh()])
+      const failures=results.flatMap(result=>result.status==='rejected'?[errorText(result.reason)]:[])
+      const warnings=[copy.retentionWarning,...failures].filter(Boolean)
+      if(warnings.length)setError(`La copia se creó. ${warnings.join(' · ')}`)
+    }catch(cause){setError(errorText(cause))}
+    finally{setBusy(false)}
   }
 
   const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'>='install')=>{
@@ -386,7 +455,7 @@ function App() {
     if(current.action==='stop')void act(()=>api.stop(server.id))
     if(current.action==='backup') {
       setView('backups')
-      void act(async()=>{const copy=await api.createBackup(server.id);const copies=await api.backups(server.id);if(selectedRef.current===server.id)setBackups(copies);if(copy.retentionWarning)throw new Error(copy.retentionWarning)})
+      void createCopy(server.id)
     }
   }
   return <div className={`shell auto-rail ${sidebarCollapsed ? 'sidebar-collapsed' : 'rail-expanded'}`}>
@@ -406,6 +475,7 @@ function App() {
       <span className="rail-version">v{appVersion}</span>
     </aside>
     <main className="main" ref={mainRef}>
+      {actionRefreshError&&<div className="panel-read-state failed" role="alert"><div><strong>Acción completada · datos sin actualizar</strong><p>{actionRefreshError}</p></div><button disabled={operationBusy} onClick={async()=>{try{await refresh();setActionRefreshError(null)}catch(cause){setActionRefreshError(errorText(cause))}}}>Actualizar datos</button><button className="text-button" onClick={()=>setActionRefreshError(null)}>Cerrar aviso</button></div>}
       {error && <div className="error-banner" role="alert"><div><strong>No se pudo completar la acción</strong><p>{error}</p></div><button onClick={() => setError(null)} aria-label="Cerrar error">×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Cerrar aviso">×</button></div>}
       {appearanceOpen ? <ApplicationSettings appearance={appearance} saved={appearanceSaved} onAppearance={changeAppearance} servers={servers} selectedId={selectedId} onSelect={setSelectedId} busy={operationBusy} progress={progressByServer} onPrepare={(id,reinstall)=>void runInstallation(id,reinstall?'runtime_reinstall':'runtime')} onChanged={refresh} onOpenServer={(server,section)=>{openServer(server);setView(section)}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
@@ -430,14 +500,15 @@ function App() {
         </nav>
         <div className="content" ref={contentRef}>
           {progress && !(view==='content'&&(progress.kind==='content_install'||progress.kind==='content_remove'))&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} retryLabel={(progress.kind==='backup'||progress.kind==='restore')?'Ver copias':(progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')?'Ver mundos':'Reintentar'} onRetry={()=>{if(progress.kind==='server_import'){setView('overview');return;}if((progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')){setView('worlds');return;}if((progress.kind==='backup'||progress.kind==='restore')){setView('backups');return;}if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'||progress.kind==='content_remove'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {view === 'overview' && <Overview key={selected.id} server={selected} observedPhase={startupPhases[selected.id]?.phase} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} logs={logs} backups={backups} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')} onSettings={()=>setView('settings')} onContent={()=>setView('content')}/>}
+          {restoreSync[selected.id]&&<div className="restore-sync-notice"><p className={restoreSync[selected.id].error?'form-error':'field-help'} role={restoreSync[selected.id].error?'alert':'status'}>{restoreSync[selected.id].loading?'Copia restaurada. Actualizando datos…':restoreSync[selected.id].error}</p><button disabled={operationBusy||restoreSync[selected.id].loading} onClick={()=>void syncRestored(selected.id)}>Actualizar datos</button></div>}
+          {view === 'overview' && <Overview key={selected.id} server={selected} observedPhase={startupPhases[selected.id]?.phase} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} playersStale={!!playersError} logs={logs} backups={backups} backupsStatus={backupsError?'No se pudieron actualizar las copias.':!backupsLoaded?'Cargando copias…':backupsLoading?'Actualizando copias…':null} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')} onSettings={()=>setView('settings')} onContent={()=>setView('content')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
-          {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} busy={busy} onRefresh={async () => { try { setPlayers(await api.players(selected.id)) } catch(e) { setError(errorText(e)) } }} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={() => act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values); setProps(values) } setPlayers(await api.players(selected.id)) })} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
-          {view === 'worlds' && <WorldView server={selected} onBackupsChanged={async () => setBackups(await api.backups(selected.id))}/>}
-          {view === 'content' && selected.platform!=='vanilla' && <ContentManager key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();setBackups(await api.backups(selected.id))}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
-          {view === 'backups' && <section><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={() => act(async () => { const copy=await api.createBackup(selected.id); setBackups(await api.backups(selected.id));if(copy.retentionWarning)throw new Error(copy.retentionWarning) })}>Crear copia</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={async()=>setBackups(await api.backups(selected.id))}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backups.length ? <div className="table" ref={backupListRef}><div className="table-head"><span>Fecha y motivo</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><div className="backup-description"><span>{new Date(backup.createdAt).toLocaleString()}</span><strong>{backup.reason?backupReason[backup.reason]??'Motivo no disponible':'Motivo no registrado'}</strong><small>{backup.minecraftVersion?`${backup.platform??'Motor no registrado'} · Minecraft ${backup.minecraftVersion}`:'Versión no registrada'}</small>{backup.metadataError&&<small className="form-error">{backup.metadataError}</small>}</div><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>Restaurar</button></div>)}</div> : <div className="empty-inline">Aún no hay copias de este servidor.</div>}</section>}
-          {view === 'settings' && <Settings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={values => { propsDirtyRef.current = true; setProps(values) }} memory={memory} setMemory={setMemory} storageTarget={storageTarget} setStorageTarget={setStorageTarget} systemMemory={systemMemory} busy={busy} progress={progress} onSave={() => act(async () => { await api.saveProperties(selected.id,props); await api.saveMemory(selected.id,memory.min,memory.max); await api.saveStorageTarget(selected.id,storageTarget); setProps(await api.properties(selected.id)); propsDirtyRef.current = false })} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
+          {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} loading={playersLoading} readError={playersError} busy={busy} onRefresh={() => refreshPlayers(selected.id)} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={async () => { const success=await act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values) } });if(success&&selected.state!=='running')await refreshProperties(selected.id).catch(()=>{});return success }} onImportWhitelist={names => act(() => api.importWhitelist(selected.id,names))}/>}
+          {view === 'worlds' && <WorldView server={selected} onBackupsChanged={()=>refreshBackups(selected.id)}/>}
+          {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
+          {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
+          {view === 'backups' && <section className="backup-view"><div className="section-heading"><div><h2>Copias de seguridad</h2><p>Se guardan en el almacenamiento local de la aplicación.</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>void createCopy(selected.id)}>Crear copia</button><button disabled={backupsLoading} onClick={()=>void refreshBackups(selected.id).catch(()=>{})}>{backupsLoading?'Consultando…':'Actualizar lista'}</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={()=>refreshBackups(selected.id)}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">Detén el servidor para crear una copia consistente.</p>}{backupsError&&<p className="form-error" role="alert">No se pudo consultar la lista: {backupsError}{backupsLoaded?' Se muestran las últimas copias conocidas.':''}</p>}{!backupsLoaded&&!backupsError&&<p className="empty-inline" role="status">Cargando copias…</p>}{backups.length ? <div className="table backup-table" ref={backupListRef}><div className="table-head"><span>Fecha y motivo</span><span>Tamaño</span><span>Acción</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><div className="backup-description"><span>{new Date(backup.createdAt).toLocaleString()}</span><strong>{backup.reason?backupReason[backup.reason]??'Motivo no disponible':'Motivo no registrado'}</strong><small>{backup.minecraftVersion?`${backup.platform??'Motor no registrado'} · Minecraft ${backup.minecraftVersion}`:'Versión no registrada'}</small>{backup.metadataError&&<small className="form-error">{backup.metadataError}</small>}</div><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || backupsLoading || !!backupsError || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>Restaurar</button></div>)}</div> : backupsLoaded&&!backupsError?<div className="empty-inline">Aún no hay copias de este servidor.</div>:null}</section>}
+          {view === 'settings' && <Settings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}
     </main>
@@ -453,11 +524,10 @@ function App() {
       {progressByServer[restoreTarget.serverId]?.kind==='restore'&&<InstallProgress key={progressByServer[restoreTarget.serverId].taskId} progress={progressByServer[restoreTarget.serverId]} busy={operationBusy} allowRetry={false} onRetry={()=>{}} onDismiss={()=>{const task=progressByServer[restoreTarget.serverId];progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="modal-actions"><button data-modal-close disabled={operationBusy}>Cancelar</button><button className="primary-button" disabled={operationBusy} onClick={async()=>{
-        const target=restoreTarget;const success=await act(async()=>{
-          await api.restoreBackup(target.serverId,target.backup.id)
-          const [values,copies,accepted]=await Promise.all([api.properties(target.serverId),api.backups(target.serverId),api.eulaAccepted(target.serverId)])
-          if(selectedRef.current===target.serverId){propsDirtyRef.current=false;setProps(values);setBackups(copies);setEula(accepted)}
-        });if(success)setRestoreTarget(null)
+        const target=restoreTarget;setError(null);setBusy(true)
+        try{await api.restoreBackup(target.serverId,target.backup.id);if(selectedRef.current===target.serverId){capacityDirtyRef.current=false;setCapacityDirty(false)}setRestoreTarget(null);await syncRestored(target.serverId)}
+        catch(cause){setError(errorText(cause))}
+        finally{setBusy(false)}
       }}>{operationBusy?'Restaurando…':'Restaurar copia'}</button></div>
     </Modal>}
     {packOpen && <PackImport resumeId={packResume} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
@@ -472,7 +542,12 @@ function App() {
         finally {setConsentBusy(false);}
       }}>{consentBusy?'Guardando…':'Aceptar y descargar'}</button></div>
     </Modal>}
-    {closing && <Modal labelledBy="close-title" describedBy="close-description" busy={closingBusy} onClose={() => setClosing(false)}><h2 id="close-title">Hay servidores en ejecución</h2><p id="close-description">Elige qué hacer antes de cerrar.</p><div className="close-options"><button disabled={closingBusy} onClick={() => { setError(null); api.hideWindow().then(() => setClosing(false)).catch(e => setError(errorText(e))) }}>Mantener en segundo plano</button><button disabled={closingBusy} onClick={() => { setClosingBusy(true); api.stopAllAndExit().catch(e => { setClosingBusy(false); setError(errorText(e)); setClosing(false) }) }}>{closingBusy ? 'Deteniendo y guardando copias…' : 'Detener y salir'}</button><button data-modal-close autoFocus disabled={closingBusy} onClick={() => setClosing(false)}>Cancelar</button></div></Modal>}
+    {closing && <Modal labelledBy="close-title" describedBy="close-description" busy={closingBusy} onClose={() => {setClosing(false);setCloseError(null)}}>
+      <h2 id="close-title">Cerrar TCHLauncher</h2><p id="close-description">Mantén los servidores en segundo plano o detenlos antes de salir.</p>
+      {closeError&&<p className="form-error close-operation-error" role="alert">{closeError}</p>}
+      {closingBusy&&<p className="field-help" role="status">Procesando la solicitud de cierre…</p>}
+      <div className="close-options"><button disabled={closingBusy} onClick={()=>void closeApplication('hide')}>Mantener en segundo plano</button><button disabled={closingBusy} onClick={()=>void closeApplication('stop')}>Detener y salir</button><button data-modal-close autoFocus disabled={closingBusy}>Cancelar</button></div>
+    </Modal>}
   </div>
 }
 
@@ -490,8 +565,8 @@ const eventTime = (timestamp: string | null) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
 }
 
-function Overview({server,metrics,observedPhase,players,logs,backups,eula,busy,onAccept,onInstall,onConsole,onSettings,onContent}: {
-  observedPhase?:StartupEvent['phase']; server: Server; metrics: Metrics | null; players: PlayersSnapshot | null; logs: LogLine[]; backups: Backup[];
+function Overview({server,metrics,observedPhase,players,playersStale,logs,backups,backupsStatus,eula,busy,onAccept,onInstall,onConsole,onSettings,onContent}: {
+  observedPhase?:StartupEvent['phase']; server: Server; metrics: Metrics | null; players: PlayersSnapshot | null; playersStale:boolean; logs: LogLine[]; backups: Backup[]; backupsStatus:string|null;
   eula: boolean; busy: boolean; onAccept: () => void; onInstall: () => void; onConsole: () => void; onSettings:()=>void; onContent:()=>void;
 }) {
   const recentEvents = logs.filter(item => item.event && eventLabels[item.event]).slice(-4).reverse()
@@ -511,7 +586,7 @@ function Overview({server,metrics,observedPhase,players,logs,backups,eula,busy,o
       <div className="stage-main"><div className="stage-copy" role="status"><h2><span className={`state-dot large ${server.state}`} aria-hidden="true"/>{stateText(server.state)}</h2><p>{description}</p></div>{['starting','stopping','crashed','error'].includes(server.state) && <button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button>}</div>
       <StartupProgress state={server.state} metrics={metrics} observedPhase={observedPhase}/>
       <div className="stage-stats">
-        <div className="stat-players"><PixelIcon kind="players"/><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong><PixelMeter label="Plazas ocupadas" ratio={players&&players.maxPlayers>0?players.online.length/players.maxPlayers:null} valueText={players?`${players.online.length} de ${players.maxPlayers} plazas ocupadas`:undefined}/><small>{players ? `${Math.max(0,players.maxPlayers-players.online.length)} plazas libres` : 'Consultando jugadores'}</small></div>
+        <div className="stat-players"><PixelIcon kind="players"/><span>Jugadores</span><strong>{players ? `${players.online.length} / ${players.maxPlayers}` : '—'}</strong><PixelMeter label="Plazas ocupadas" ratio={players&&players.maxPlayers>0?players.online.length/players.maxPlayers:null} valueText={players?`${players.online.length} de ${players.maxPlayers} plazas ocupadas`:undefined}/><small>{playersStale?'Última lectura · sin actualizar':players ? `${Math.max(0,players.maxPlayers-players.online.length)} plazas libres` : 'Consultando jugadores'}</small></div>
         <div className="stat-uptime"><PixelIcon kind="clock"/><span>Tiempo activo</span><strong><AnimatedValue value={metrics?.uptimeSeconds} format={fmtUptime}/></strong><small>Desde el inicio de Java</small></div>
         <div className="stat-memory"><PixelIcon kind="memory"/><span>RAM del proceso</span><strong><AnimatedValue value={metrics?.memoryBytes} format={fmtBytes}/></strong><PixelMeter label="Heap usado respecto al máximo configurado" ratio={metrics?.heap&&server.memoryMaxMb>0?metrics.heap.usedBytes/(server.memoryMaxMb*1024**2):null}/><small>Heap: {metrics?.heap?fmtBytes(metrics.heap.usedBytes):'—'} / {(server.memoryMaxMb/1024).toFixed(1)} GB configurados</small></div>
         <div className="stat-cpu"><PixelIcon kind="cpu"/><span>CPU</span><strong><AnimatedValue value={metrics?.cpuPercent} format={value=>`${value.toFixed(1)} %`}/></strong><PixelMeter label="CPU del proceso" ratio={metrics?.cpuPercent==null?null:metrics.cpuPercent/100}/><small>Uso del proceso Java</small></div>
@@ -524,7 +599,7 @@ function Overview({server,metrics,observedPhase,players,logs,backups,eula,busy,o
     <div className="overview-storage"><section className="resource-section"><h2>Almacenamiento</h2>
       <StorageMeter metrics={metrics} targetGb={server.storageTargetGb} onSettings={onSettings}/>
     </section><section><h2>Estado del registro</h2><dl className="resource-facts"><div><dt>Avisos</dt><dd>{warnings}</dd></div><div><dt>Errores</dt><dd>{errors}</dd></div><div><dt>Guardado del mundo</dt><dd className={`save-state ${save.phase}`} role="status">{saveLabel}</dd></div><div><dt>Última finalización registrada</dt><dd>{eventTime(save.lastConfirmed?.timestamp??null)}</dd></div></dl><p className="field-help">En las últimas {logs.length} líneas cargadas. La finalización se basa en el mensaje del servidor.</p>{save.phase==='failed'&&save.latest&&<div className="save-failure"><strong>Fallo de guardado · {eventTime(save.latest.timestamp)}</strong><p>{save.latest.message}</p><button onClick={onConsole}>Revisar consola</button></div>}</section></div>
-    <div className="overview-lower"><section className="recent-activity"><div className="section-heading"><h2>Actividad reciente</h2><button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button></div>{recentEvents.length ? <div className="event-list">{recentEvents.map((item,index) => <div className="event-row" key={`${item.timestamp ?? 'legacy'}-${index}`}><span className={`event-mark ${item.level}`} aria-hidden="true"/><div><strong>{eventLabels[item.event!]}</strong><span>{item.message}</span></div><time>{eventTime(item.timestamp)}</time></div>)}</div> : <p className="empty-inline">Todavía no hay actividad.</p>}</section><section className="recent-backups"><div className="section-heading"><h2>Copias recientes</h2></div>{backups.length ? <div className="backup-mini-list">{backups.slice(0,3).map(backup => <div key={backup.id}><strong>{new Date(backup.createdAt).toLocaleString('es-ES')}</strong><span>{fmtBytes(backup.sizeBytes)}</span></div>)}</div> : <p className="empty-inline">Aún no hay copias guardadas.</p>}</section></div>
+    <div className="overview-lower"><section className="recent-activity"><div className="section-heading"><h2>Actividad reciente</h2><button className="text-button" onClick={onConsole}>Ver consola <Icon name="arrow" size={15}/></button></div>{recentEvents.length ? <div className="event-list">{recentEvents.map((item,index) => <div className="event-row" key={`${item.timestamp ?? 'legacy'}-${index}`}><span className={`event-mark ${item.level}`} aria-hidden="true"/><div><strong>{eventLabels[item.event!]}</strong><span>{item.message}</span></div><time>{eventTime(item.timestamp)}</time></div>)}</div> : <p className="empty-inline">Todavía no hay actividad.</p>}</section><section className="recent-backups"><div className="section-heading"><h2>Copias recientes</h2></div>{backupsStatus&&<p className="field-help">{backupsStatus}</p>}{backups.length ? <div className="backup-mini-list">{backups.slice(0,3).map(backup => <div key={backup.id}><strong>{new Date(backup.createdAt).toLocaleString('es-ES')}</strong><span>{fmtBytes(backup.sizeBytes)}</span></div>)}</div> : !backupsStatus?<p className="empty-inline">Aún no hay copias guardadas.</p>:null}</section></div>
   </div>
 }
 
@@ -546,12 +621,13 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
   const [worldMode,setWorldMode] = useState<'new'|'existing'>('new')
   const [worldSource,setWorldSource] = useState<WorldInspection|null>(null)
   const [worldError,setWorldError] = useState<string|null>(null)
-  const [input,setInput] = useState<CreateInput>({ name:'',version:'',platform:'vanilla',memoryMinMb:1024,memoryMaxMb:2048,maxPlayers:20,port:25565,storageTargetGb:20,imagePath:null })
+  const [input,setInput] = useState<CreateInput>({ name:'',version:'',platform:'vanilla',memoryMinMb:1024,memoryMaxMb:2048,maxPlayers:20,port:25565,storageTargetGb:20,imagePath:null,seed:'' })
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(input.memoryMaxMb,systemMemoryMb || 16384))
   const invalidCapacity = input.memoryMinMb < 512 || input.memoryMaxMb < input.memoryMinMb || input.memoryMaxMb > 65536 || input.maxPlayers < 1 || input.maxPlayers > 1000 || input.storageTargetGb < 1 || input.storageTargetGb > 2048 || input.port < 1 || input.port > 65535 || ![input.memoryMinMb,input.memoryMaxMb,input.maxPlayers,input.storageTargetGb,input.port].every(Number.isFinite)
-  const readyToCreate = !!input.name.trim() && !!input.version && !versionError && !versionLoading && !invalidCapacity && (worldMode === 'new' || !!worldSource)
-  const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError && !versionLoading : step === 2 ? worldMode === 'new' || !!worldSource : step === 3 ? !invalidCapacity : readyToCreate
+  const invalidSeed=worldMode==='new'&&(new TextEncoder().encode(input.seed??'').length>1024||/[\u0000-\u001f\u007f]/.test(input.seed??''))
+  const readyToCreate = !invalidSeed && !!input.name.trim() && !!input.version && !versionError && !versionLoading && !invalidCapacity && (worldMode === 'new' || !!worldSource)
+  const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError && !versionLoading : step === 2 ? !invalidSeed && (worldMode === 'new' || !!worldSource) : step === 3 ? !invalidCapacity : readyToCreate
   const loadVersions = () => setCatalogRevision(value=>value+1)
   useEffect(() => {
     let active=true;setVersionLoading(true);setVersionError(null)
@@ -576,18 +652,19 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
     try { const selected = await api.pickWorldFolder(); if (selected) setWorldSource(selected) }
     catch(e) { setWorldError(errorText(e)) }
   }
-  useEffect(() => { if (step > 0) document.querySelector<HTMLElement>('.wizard-panel h2')?.focus() },[step])
+  const previousStep=useRef(step)
+  useEffect(() => { if(previousStep.current!==step)wizardRef.current?.querySelector<HTMLElement>('h2')?.focus();previousStep.current=step },[step])
   const advance = () => {
     if (!canAdvance || busy) return
     if (step < steps.length - 1) {
       const next = step + 1
       moveStep(next)
       setFurthestStep(current => Math.max(current,next))
-    } else onCreate(input,worldMode === 'existing' ? worldSource?.path : undefined)
+    } else onCreate({...input,seed:worldMode==='new'?input.seed:''},worldMode === 'existing' ? worldSource?.path : undefined)
   }
   return <div className="form-page">
     <div className="form-heading wizard-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><div className="wizard-title-row"><h1>Nuevo servidor</h1><span className="wizard-counter">Paso {step + 1} de {steps.length}</span></div></div>
-    <nav className="wizard-steps" aria-label="Pasos de creación"><MovingIndicator active={String(step)} axis="horizontal"/>{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => moveStep(index)}><span>{String(index + 1).padStart(2,'0')}</span><strong>{label}</strong></button>)}</nav>
+    <nav className="wizard-steps" aria-label="Pasos de creación"><MovingIndicator active={String(step)} axis="horizontal"/>{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-label={`Paso ${index+1}: ${label}`} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => moveStep(index)}><span aria-hidden="true">{index < step ? '✓' : String(index + 1).padStart(2,'0')}</span><strong>{label}</strong></button>)}</nav>
     <div className="form-layout wizard-layout"><form className="create-form wizard-form" onSubmit={e => { e.preventDefault(); advance() }}>
       <div className="wizard-panel" key={step} ref={wizardRef}>
       {step === 0 && <>
@@ -596,12 +673,13 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       </>}
       {step === 1 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Versión y tipo</h2><p>Elige la versión de Minecraft que utilizarán tus jugadores.</p></div>
-      <div className="form-pair"><div className="form-row"><label htmlFor="new-version">Versión de Minecraft</label>{versionError ? <div className="form-error" role="alert">No se pudo cargar el catálogo: {versionError} <button type="button" onClick={loadVersions}>Reintentar</button></div> : <select id="new-version" disabled={versionLoading} required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versionLoading ? 'Cargando versiones…' : 'Selecciona una versión'}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}{v.kind==='snapshot'?' · Experimental':''}</option>)}</select>}</div><div className="form-row"><label htmlFor="new-platform">Tipo de servidor</label><select id="new-platform" value={input.platform} onChange={e => {setVersionLoading(true);setVersionError(null);if(!['vanilla','fabric'].includes(e.target.value))setExperimental(false);setInput({...input,platform:e.target.value as CreateInput['platform']})}}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help type-help">{input.platform === 'neoforge' ? 'NeoForge permite mods de servidor. Se elegirá una versión estable compatible y su Java necesario.' : input.platform === 'fabric' ? 'Fabric permite mods de servidor. Se elegirá automáticamente un loader estable compatible.' : input.platform === 'paper' ? 'Paper admite plugins y opciones extra de rendimiento.' : 'Vanilla ofrece la experiencia original de Minecraft.'}</p>
+      <div className="form-pair version-step-grid"><div className="form-row"><label htmlFor="new-version">Versión de Minecraft</label>{versionError ? <div className="form-error" role="alert">No se pudo cargar el catálogo: {versionError} <button type="button" onClick={loadVersions}>Reintentar</button></div> : <select id="new-version" className="minecraft-version-list" size={6} aria-describedby="new-version-help" disabled={versionLoading} required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versionLoading ? 'Cargando versiones…' : 'Selecciona una versión'}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}{v.kind==='snapshot'?' · Experimental':''}</option>)}</select>}<p id="new-version-help" className="field-help">{!versionLoading&&!versionError?`${versions.length} versiones en el catálogo · Desplázate para ver las anteriores.`:'Versiones del catálogo oficial del tipo seleccionado.'}</p></div><fieldset className="version-platform-picker"><legend>Tipo de servidor</legend><div>{(['vanilla','paper','fabric','neoforge'] as const).map(platform=><label key={platform}><input type="radio" name="new-platform" value={platform} checked={input.platform===platform} onChange={()=>{setVersionLoading(true);setVersionError(null);if(!['vanilla','fabric'].includes(platform))setExperimental(false);setInput(old=>({...old,platform}))}}/><span><strong>{platformName(platform)}</strong><small>{({vanilla:'Minecraft original',paper:'Servidor con plugins',fabric:'Mods de Fabric',neoforge:'Mods de NeoForge'})[platform]}</small></span></label>)}</div></fieldset></div><p className="field-help type-help">{input.platform === 'neoforge' ? 'NeoForge permite mods de servidor. Incluye la edición histórica para Minecraft 1.20.1 y el catálogo moderno desde 1.20.2. No hay ediciones anteriores; usa mods compatibles con la versión elegida.' : input.platform === 'fabric' ? 'Fabric permite mods de servidor. Se elegirá automáticamente un loader estable compatible.' : input.platform === 'paper' ? 'Paper admite plugins y opciones extra de rendimiento.' : 'Vanilla ofrece la experiencia original de Minecraft.'}</p>
       {['vanilla','fabric'].includes(input.platform)&&<div className="experimental-versions"><label><input type="checkbox" checked={experimental} disabled={busy} onChange={event=>{setVersionLoading(true);setExperimental(event.target.checked)}}/><span>Mostrar versiones experimentales</span></label>{experimental&&<p className="field-help">Incluye snapshots y versiones de prueba del catálogo oficial. Pueden fallar y cambiar el formato de los mundos; crea una instancia separada para probarlas.</p>}</div>}
       </>}
       {step === 2 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Elige un mundo</h2><p>Genera uno nuevo o importa un mundo de Minecraft Java.</p></div>
       <div className="world-choice"><label><input type="radio" name="world-mode" checked={worldMode === 'new'} onChange={() => setWorldMode('new')}/><span><strong>Mundo nuevo</strong><small>Minecraft lo generará en el primer inicio.</small></span></label><label><input type="radio" name="world-mode" checked={worldMode === 'existing'} onChange={() => setWorldMode('existing')}/><span><strong>Usar un mundo existente</strong><small>Se copiará a este servidor; el original se conserva.</small></span></label></div>
+      {worldMode === 'new' && <div className="world-generation"><label htmlFor="new-world-seed"><strong>Semilla del mundo</strong><span className="field-optional">Opcional</span></label><input id="new-world-seed" type="text" value={input.seed??''} disabled={busy} aria-invalid={invalidSeed} aria-describedby="new-world-seed-help" placeholder="Aleatoria si la dejas vacía" onChange={event=>setInput({...input,seed:event.target.value})}/><p id="new-world-seed-help" className={invalidSeed?'form-error':'field-help'}>{invalidSeed?'Usa hasta 1024 bytes, sin saltos de línea ni caracteres de control.':'Número o texto. Se usará al generar el mundo en su primer inicio.'}</p></div>}
       {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld}>Elegir carpeta del mundo</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldError && <p className="form-error" role="alert">{worldError}</p>}</div>}
       </>}
       {step === 3 && <>
@@ -612,12 +690,13 @@ function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;on
       </>}
       {step === 4 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>Revisar y crear</h2><p>Comprueba los datos antes de instalar.</p></div>
-      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => moveStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'}{versions.find(version=>version.id===input.version)?.kind==='snapshot'?' · Experimental':''} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => moveStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : 'Mundo nuevo'}</strong><button type="button" className="text-button" onClick={() => moveStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div></div>
+      <div className="wizard-review"><div><span>Identidad</span><strong>{input.name.trim() || 'Sin nombre'}</strong><button type="button" className="text-button" onClick={() => moveStep(0)}>Editar</button></div><div><span>Versión y tipo</span><strong>{input.version || 'Sin versión'}{versions.find(version=>version.id===input.version)?.kind==='snapshot'?' · Experimental':''} · {platformName(input.platform)}</strong><button type="button" className="text-button" onClick={() => moveStep(1)}>Editar</button></div><div><span>Mundo</span><strong>{worldMode === 'existing' ? `Copia de ${worldSource?.suggestedName || 'mundo pendiente'}` : `Mundo nuevo · ${input.seed?'Semilla elegida':'Semilla aleatoria'}`}</strong><button type="button" className="text-button" onClick={() => moveStep(2)}>Editar</button></div><div><span>Recursos</span><strong>{fmtBytes(input.memoryMinMb * 1024 * 1024)}–{fmtBytes(input.memoryMaxMb * 1024 * 1024)} · {input.maxPlayers} jugadores · {input.storageTargetGb} GB</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div><div><span>Puerto</span><strong>{input.port}</strong><button type="button" className="text-button" onClick={() => moveStep(3)}>Editar</button></div></div>
+      {worldMode==='new'&&input.seed&&<div className="wizard-seed-review"><span>Semilla</span><code>{input.seed}</code></div>}
       <p className="wizard-final-note">La instalación descargará Java y los archivos del servidor. En la primera descarga te pediremos aceptar la EULA de Minecraft. La decisión se recordará en este equipo.</p>
       </>}
       </div>
-      <div className="form-actions wizard-actions"><span>{step === steps.length - 1 ? 'Se descargarán Java y Minecraft.' : ''}</span><div>{step > 0 && <button type="button" disabled={busy} onClick={() => moveStep(step - 1)}>Anterior</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? 'Preparando…' : step === steps.length - 1 ? 'Crear e instalar' : 'Continuar'}<Icon name="arrow" size={16}/></button></div></div>
-    </form><aside className="form-aside"><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{platformName(input.platform)} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Mundo</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || 'Por elegir' : 'Nuevo'}</dd></div><div><dt>Memoria</dt><dd><AnimatedValue value={input.memoryMaxMb * 1024 * 1024} format={fmtBytes}/></dd></div><div><dt>Jugadores</dt><dd>Hasta <AnimatedValue value={input.maxPlayers}/></dd></div><div><dt>Objetivo de espacio</dt><dd><AnimatedValue value={input.storageTargetGb}/> GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
+      <div className="form-actions wizard-actions"><div>{step > 0 && <button type="button" disabled={busy} onClick={() => moveStep(step - 1)}>Anterior</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? 'Preparando…' : step === steps.length - 1 ? 'Crear e instalar' : 'Continuar'}<Icon name="arrow" size={16}/></button></div></div>
+    </form><aside className="form-aside wizard-preview"><div className="wizard-preview-art" aria-hidden="true"><img src={worldIllustration} alt=""/></div><div className="aside-title">Tu configuración</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || 'Nuevo servidor'}</strong><span>{platformName(input.platform)} · {input.version || 'Versión pendiente'}</span></div></div><dl><div><dt>Mundo</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || 'Por elegir' : 'Nuevo'}</dd></div><div><dt>Memoria</dt><dd><AnimatedValue value={input.memoryMaxMb * 1024 * 1024} format={fmtBytes}/></dd></div><div><dt>Jugadores</dt><dd>Hasta <AnimatedValue value={input.maxPlayers}/></dd></div><div><dt>Objetivo de espacio</dt><dd><AnimatedValue value={input.storageTargetGb}/> GB</dd></div><div><dt>Puerto</dt><dd>{input.port}</dd></div></dl><p>El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.</p></aside></div>
   </div>
 }
 
@@ -630,7 +709,7 @@ function ImportView({onCancel,onImport,busy}: {onCancel:()=>void;onImport:(input
   const [input,setInput] = useState<ImportInput>({path:'',name:'',version:'',platform:'vanilla',jarFile:'',copy:true,storageTargetGb:20,imagePath:null})
   useEffect(() => {
     if (!isTauri()) { setFormError('Abre la aplicación de escritorio para importar una carpeta.'); return }
-    api.versions().then(items => { setVersions(items); setInput(old => old.version ? old : {...old,version:items[0]?.id || ''}) }).catch(e => setFormError(`No se pudo consultar el catálogo: ${errorText(e)}`))
+    api.versions().then(items => { setVersions(items) }).catch(e => setFormError(`No se pudo consultar el catálogo: ${errorText(e)}`))
   },[])
   const choose = async () => {
     setPicking(true); setFormError(null)
@@ -639,7 +718,9 @@ function ImportView({onCancel,onImport,busy}: {onCancel:()=>void;onImport:(input
       if (!path) return
       const info = await api.inspectImport(path)
       setInspection(info)
-      setInput(old => ({path:info.path,name:info.suggestedName,version:info.detectedVersion || versions[0]?.id || '',platform:info.jarFiles.some(j=>j.toLowerCase().includes('neoforge')) ? 'neoforge' : info.jarFiles.some(j=>j.toLowerCase().includes('fabric')) ? 'fabric' : info.jarFiles.some(j => j.toLowerCase().includes('paper')) ? 'paper':'vanilla',jarFile:info.jarFiles.find(j=>j.toLowerCase().includes('neoforge')) || info.jarFiles.find(j=>j.toLowerCase().includes('fabric')) || info.jarFiles[0] || '',copy:true,storageTargetGb:old.storageTargetGb,imagePath:old.imagePath}))
+      const known=info.launchers.filter(launcher=>launcher.platform)
+      const selected=known.length===1?known[0]:info.launchers.length===1?info.launchers[0]:null
+      setInput(old=>({path:info.path,name:info.suggestedName,version:selected?.version??'',platform:selected?.platform??'vanilla',jarFile:selected?.filename??'',copy:true,storageTargetGb:old.storageTargetGb,imagePath:old.imagePath}))
     } catch(e) { setFormError(errorText(e)) }
     finally { setPicking(false) }
   }
@@ -648,43 +729,17 @@ function ImportView({onCancel,onImport,busy}: {onCancel:()=>void;onImport:(input
     try { const image = await api.pickServerImage(); if (image) { setImagePreview(image.data); setInput(old => ({...old,imagePath:image.path})) } }
     catch(e) { setFormError(errorText(e)) }
   }
-  return <div className="form-page import-page"><div className="form-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><h1>Importar servidor</h1><p>Trae un servidor existente a tu biblioteca sin perder sus archivos.</p></div><div className="import-source"><div className="import-source-icon"><Icon name="folder" size={22}/></div><div><strong>{inspection ? 'Carpeta seleccionada' : 'Selecciona la carpeta del servidor'}</strong><p>{inspection ? inspection.path : 'Debe contener server.properties y un archivo de arranque compatible'}</p></div><button onClick={choose} disabled={picking || busy}>{picking ? 'Inspeccionando…' : inspection ? 'Cambiar carpeta' : 'Elegir carpeta'}</button></div>{formError && <p className="form-error" role="alert">{formError}</p>}{inspection && <form className="create-form import-form" onSubmit={e => { e.preventDefault(); onImport(input) }}><div className="form-section-title"><span>01</span><div><h2>Identidad</h2><p>Así aparecerá en tu biblioteca.</p></div></div><div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt="Vista previa de la imagen"/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage}>Elegir imagen</button><p>PNG, JPG o WebP · hasta 2 MB</p></div><div className="form-row"><label htmlFor="import-name">Nombre del servidor</label><input id="import-name" required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})}/></div></div><div className="form-section-title"><span>02</span><div><h2>Datos del servidor</h2><p>Revisa los valores detectados.</p></div></div><div className="form-pair"><div className="form-row"><label htmlFor="import-version">Versión de Minecraft</label><input id="import-version" list="import-versions" required value={input.version} onChange={e => setInput({...input,version:e.target.value})}/><datalist id="import-versions">{versions.map(v => <option key={v.id} value={v.id}/>)}</datalist></div><div className="form-row"><label htmlFor="import-platform">Tipo</label><select id="import-platform" value={input.platform} onChange={e => setInput({...input,platform:e.target.value as ImportInput['platform']})}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help">Comprueba la versión del servidor original. La usaremos para elegir Java compatible.</p><div className="form-row"><label htmlFor="import-jar">Archivo del servidor</label><select id="import-jar" value={input.jarFile} onChange={e => setInput({...input,jarFile:e.target.value})}>{inspection.jarFiles.map(jar => <option key={jar} value={jar}>{jar}</option>)}</select></div><div className="import-storage"><SliderField id="import-storage" label="Objetivo de espacio" value={input.storageTargetGb} min={1} max={Math.max(200,input.storageTargetGb)} maxInput={2048} step={1} unit="GB" onChange={value => setInput({...input,storageTargetGb:value})}/><p className="field-help">Se usa para avisar cuando el servidor ocupa más espacio. No limita el disco.</p></div><fieldset className="import-mode"><legend>Ubicación de los archivos</legend><label><input type="radio" checked={input.copy} onChange={() => setInput({...input,copy:true})}/> Copiar a la biblioteca de TCHLauncher</label><label><input type="radio" checked={!input.copy} onChange={() => setInput({...input,copy:false})}/> Administrar la carpeta actual</label><p className="field-help">Si administras la carpeta actual, los cambios y las restauraciones afectarán a los archivos originales.</p></fieldset><div className="form-actions"><button type="button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={busy || !input.version || input.storageTargetGb < 1 || input.storageTargetGb > 2048}>{busy ? 'Importando…' : 'Importar servidor'}<Icon name="arrow" size={16}/></button></div></form>}</div>
+  return <div className="form-page import-page"><div className="form-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/> Servidores</button><h1>Importar servidor</h1><p>Trae un servidor existente a tu biblioteca sin perder sus archivos.</p></div><div className="import-source"><div className="import-source-icon"><Icon name="folder" size={22}/></div><div><strong>{inspection ? 'Carpeta seleccionada' : 'Selecciona la carpeta del servidor'}</strong><p>{inspection ? inspection.path : 'Debe contener server.properties y un archivo de arranque compatible'}</p></div><button onClick={choose} disabled={picking || busy}>{picking ? 'Inspeccionando…' : inspection ? 'Cambiar carpeta' : 'Elegir carpeta'}</button></div>{formError && <p className="form-error" role="alert">{formError}</p>}{inspection && <form className="create-form import-form" onSubmit={e => { e.preventDefault(); onImport(input) }}><div className="form-section-title"><span>01</span><div><h2>Identidad</h2><p>Así aparecerá en tu biblioteca.</p></div></div><div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt="Vista previa de la imagen"/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage}>Elegir imagen</button><p>PNG, JPG o WebP · hasta 2 MB</p></div><div className="form-row"><label htmlFor="import-name">Nombre del servidor</label><input id="import-name" required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})}/></div></div><div className="form-section-title"><span>02</span><div><h2>Datos del servidor</h2><p>Revisa los valores detectados.</p></div></div><div className="form-pair"><div className="form-row"><label htmlFor="import-version">Versión de Minecraft</label><input id="import-version" list="import-versions" required value={input.version} onChange={e => setInput({...input,version:e.target.value})}/><datalist id="import-versions">{versions.map(v => <option key={v.id} value={v.id}/>)}</datalist></div><div className="form-row"><label htmlFor="import-platform">Tipo</label><select id="import-platform" value={input.platform} onChange={e => setInput({...input,platform:e.target.value as ImportInput['platform']})}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help">Comprueba la versión del servidor original. La usaremos para elegir Java compatible.</p><div className="form-row"><label htmlFor="import-jar">Archivo del servidor</label><select id="import-jar" required value={input.jarFile} onChange={e=>{const filename=e.target.value;const launcher=inspection.launchers.find(launcher=>launcher.filename===filename);setInput(old=>({...old,jarFile:filename,platform:launcher?.platform??'vanilla',version:launcher?.version??''}))}}><option value="">Selecciona el archivo de arranque</option>{inspection.launchers.map(launcher=><option key={launcher.filename} value={launcher.filename}>{launcher.filename}{launcher.platform?` · ${platformName(launcher.platform)}`:''}{launcher.version?` · ${launcher.version}`:''}</option>)}</select>{inspection.launchers.find(launcher=>launcher.filename===input.jarFile)?.note&&<p className="field-help">{inspection.launchers.find(launcher=>launcher.filename===input.jarFile)?.note}</p>}</div><div className="import-storage"><SliderField id="import-storage" label="Objetivo de espacio" value={input.storageTargetGb} min={1} max={Math.max(200,input.storageTargetGb)} maxInput={2048} step={1} unit="GB" onChange={value => setInput({...input,storageTargetGb:value})}/><p className="field-help">Se usa para avisar cuando el servidor ocupa más espacio. No limita el disco.</p></div><fieldset className="import-mode"><legend>Ubicación de los archivos</legend><label><input type="radio" checked={input.copy} onChange={() => setInput({...input,copy:true})}/> Copiar a la biblioteca de TCHLauncher</label><label><input type="radio" checked={!input.copy} onChange={() => setInput({...input,copy:false})}/> Administrar la carpeta actual</label><p className="field-help">Si administras la carpeta actual, los cambios y las restauraciones afectarán a los archivos originales.</p></fieldset><div className="form-actions"><button type="button" onClick={onCancel}>Cancelar</button><button className="primary-button" disabled={busy || !input.version || !input.jarFile || input.storageTargetGb < 1 || input.storageTargetGb > 2048}>{busy ? 'Importando…' : 'Importar servidor'}<Icon name="arrow" size={16}/></button></div></form>}</div>
 }
 
-type SettingField = {key:string;label:string;description:string;kind:'text'|'number'|'toggle'|'choice';min?:number;max?:number;options?:{value:string;label:string}[]}
-const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = [
-  {title:'Identidad y conexión',description:'Lo que verán los jugadores y cómo se conectarán.',fields:[
-    {key:'motd',label:'Mensaje del servidor',description:'Aparece en la lista de servidores de Minecraft.',kind:'text'},
-    {key:'server-port',label:'Puerto',description:'Puerto TCP usado para las conexiones.',kind:'number',min:1,max:65535},
-    {key:'online-mode',label:'Verificación de cuentas',description:'Comprueba las cuentas con los servicios oficiales de Minecraft.',kind:'toggle'},
-  ]},
-  {title:'Juego',description:'Reglas y distancia que se aplican al mundo.',fields:[
-    {key:'gamemode',label:'Modo de juego',description:'Modo inicial de los jugadores nuevos.',kind:'choice',options:[{value:'survival',label:'Supervivencia'},{value:'creative',label:'Creativo'},{value:'adventure',label:'Aventura'},{value:'spectator',label:'Espectador'}]},
-    {key:'difficulty',label:'Dificultad',description:'Afecta al combate y a las criaturas.',kind:'choice',options:[{value:'peaceful',label:'Pacífica'},{value:'easy',label:'Fácil'},{value:'normal',label:'Normal'},{value:'hard',label:'Difícil'}]},
-    {key:'pvp',label:'Combate entre jugadores',description:'Permite que los jugadores se dañen entre sí.',kind:'toggle'},
-    {key:'view-distance',label:'Distancia de visión',description:'Chunks que el servidor envía a cada jugador.',kind:'number',min:2,max:32},
-    {key:'simulation-distance',label:'Distancia de simulación',description:'Chunks donde el mundo sigue activo.',kind:'number',min:2,max:32},
-  ]},
-  {title:'Acceso',description:'Quién puede entrar y cómo se aplica la lista blanca.',fields:[
-    {key:'white-list',label:'Lista blanca',description:'Solo permite jugadores añadidos a la lista.',kind:'toggle'},
-    {key:'enforce-whitelist',label:'Expulsar a no autorizados',description:'Saca a quien deje de estar autorizado.',kind:'toggle'},
-  ]},
-]
-const knownSettings = new Set(settingsGroups.flatMap(group => group.fields.map(field => field.key)))
-
-function SettingsPropertyGroups({values,onChange}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void}) {
-  const update = (key: string, value: string) => onChange({...values,[key]:value})
-  return <div className="settings-groups">{settingsGroups.map(group => <section className="settings-group" key={group.title} aria-label={group.title}><div className="settings-group-heading"><h4>{group.title}</h4><p>{group.description}</p></div><div className="settings-fields">{group.fields.map(field => <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{field.label}</strong><small>{field.description}</small></span>{field.kind === 'toggle' ? <input className="setting-toggle" type="checkbox" checked={values[field.key] === 'true'} onChange={event => update(field.key,String(event.target.checked))}/> : field.kind === 'choice' ? <select value={values[field.key] || field.options?.[0]?.value || ''} onChange={event => update(field.key,event.target.value)}>{field.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input type={field.kind} min={field.min} max={field.max} value={values[field.key] ?? ''} onChange={event => update(field.key,event.target.value)}/>}</label>)}</div></section>)}</div>
-}
-
-function Settings({onConsole,onRuntimeChanged,onPrepareRuntime,server,props,setProps,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,progress,onSave,onPickImage,onClearImage,onDelete}: {onConsole:()=>void;onRuntimeChanged:()=>Promise<void>;onPrepareRuntime:(reinstall:boolean)=>void;server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;progress:Progress|null;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>void}) {
+function Settings({onConsole,onRuntimeChanged,onPrepareRuntime,server,props,setProps,propertiesLoaded,propertiesLoading,propertiesError,propertiesDirty,onReloadProperties,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,progress,onSave,onPickImage,onClearImage,onDelete}: {onConsole:()=>void;onRuntimeChanged:()=>Promise<void>;onPrepareRuntime:(reinstall:boolean)=>void;server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;propertiesLoaded:boolean;propertiesLoading:boolean;propertiesError:string|null;propertiesDirty:boolean;onReloadProperties:()=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;progress:Progress|null;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>void}) {
   const [newKey,setNewKey] = useState('')
   const [newValue,setNewValue] = useState('')
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(memory.max,systemMemoryMb || 16384))
   const maxPlayers = Number(props['max-players'] || 20)
   const invalidCapacity = memory.min < 512 || memory.max < memory.min || memory.max > 65536 || storageTarget < 1 || storageTarget > 2048 || maxPlayers < 1 || maxPlayers > 1000 || ![memory.min,memory.max,maxPlayers,storageTarget].every(Number.isFinite)
-  return <section className="settings-view"><div className="section-heading"><div><h2>Configuración</h2><p>Personaliza la apariencia y los ajustes del servidor.</p></div><button className="primary-button" disabled={busy || invalidCapacity || !['stopped','crashed','error'].includes(server.state)} onClick={onSave}>Guardar cambios <Icon name="check" size={16}/></button></div>
+  return <section className="settings-view"><div className="section-heading"><div><h2>Configuración</h2><p>Personaliza la apariencia y los ajustes del servidor.</p></div><button className="primary-button" disabled={busy || !propertiesLoaded || propertiesLoading || !!propertiesError || invalidCapacity || !['stopped','crashed','error'].includes(server.state)} onClick={onSave}>Guardar cambios <Icon name="check" size={16}/></button></div>
     <h3>Imagen del servidor</h3><div className="settings-image"><ServerArtwork server={server}/><div><strong>{server.name}</strong><p>La misma imagen en el launcher y en la lista de Minecraft. Se adapta a 64 × 64. PNG, JPG o WebP, hasta 2 MB.</p><div className="settings-image-actions"><button disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onPickImage}>{server.imageData ? 'Cambiar imagen' : 'Elegir imagen'}</button>{server.imageData && <button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onClearImage}>Quitar imagen</button>}</div></div></div>
     {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">Detén el servidor para editar su configuración.</p>}
     <RuntimePanel key={server.id} onChanged={onRuntimeChanged} server={server} busy={busy} onPrepare={onPrepareRuntime}/>
@@ -692,10 +747,11 @@ function Settings({onConsole,onRuntimeChanged,onPrepareRuntime,server,props,setP
     <MinecraftUpdatePanel key={`minecraft-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged} currentProgress={progress} onConsole={onConsole}/>
     <LoaderPanel key={`loader-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged}/>
     <TasksPanel key={`tasks-${server.id}`} id={server.id}/>
-    <h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}
-    <h3>Propiedades del servidor</h3><SettingsPropertyGroups values={props} onChange={setProps}/>
+    <div className={`properties-load-state ${propertiesError?'error':''}`} role={propertiesError?'alert':'status'}><div><strong>{propertiesLoading?'Consultando propiedades…':propertiesError?'Propiedades no disponibles':!propertiesLoaded?'Cargando propiedades…':propertiesDirty?'Cambios sin guardar':'Propiedades cargadas'}</strong><p>{propertiesError?`${propertiesError}${propertiesLoaded?' Se conservan los últimos valores leídos.':''}`:propertiesDirty?'Las actualizaciones automáticas conservarán tus cambios.':'Los cambios se aplican en el próximo inicio del servidor.'}</p></div><button disabled={busy||propertiesLoading||propertiesDirty} onClick={onReloadProperties}>Recargar propiedades</button></div>
+    {propertiesLoaded&&<fieldset className="settings-edit-fields" aria-label="Propiedades y capacidad" disabled={busy || propertiesLoading || !!propertiesError || !['stopped','crashed','error'].includes(server.state)}><h3>Capacidad</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label="RAM máxima" value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label="Jugadores máximos" value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label="Objetivo de espacio" value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? `Memoria física: ${fmtBytes(systemMemory)}.` : ''} El objetivo de espacio solo activa avisos; no impone una cuota al disco.</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">La RAM máxima supera el 75 % de la memoria física.</p>}{invalidCapacity && <p className="form-error" role="alert">Revisa los límites de RAM, jugadores y espacio antes de guardar.</p>}
+    <h3>Propiedades del servidor</h3><p className="field-help">Configura el juego antes del primer arranque. Los valores guardados se conservan; las opciones ausentes usan valores iniciales al guardar.</p><SettingsPropertyGroups values={props} onChange={setProps} version={server.version}/>
     <details className="advanced-properties"><summary>Otras propiedades</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !knownSettings.has(key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label="Nombre de propiedad" placeholder="Nombre de propiedad" value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label="Valor" placeholder="Valor" value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>Añadir</button></div></details>
-    <div className="delete-server-section"><div><h3>Eliminar servidor</h3><p>Quita este servidor de la biblioteca. Si sus archivos están guardados aquí, también se eliminarán junto con sus copias de seguridad.</p></div><button className="danger-outline-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onDelete}>Eliminar servidor</button></div>
+    </fieldset>}<div className="delete-server-section"><div><h3>Eliminar servidor</h3><p>Quita este servidor de la biblioteca. Si sus archivos están guardados aquí, también se eliminarán junto con sus copias de seguridad.</p></div><button className="danger-outline-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onDelete}>Eliminar servidor</button></div>
   </section>
 }
 

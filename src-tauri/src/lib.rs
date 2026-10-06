@@ -1,6 +1,7 @@
 mod backup;
 mod stop_backup;
 mod startup;
+mod shutdown;
 mod application;
 mod app_log;
 mod backup_retention;
@@ -12,14 +13,19 @@ mod loader_update;
 mod loader_identity;
 mod minecraft_update;
 mod instance_publication;
+mod import_identity;
 mod content;
 mod content_storage;
 mod content_diagnostics;
+mod fabric_presence;
+mod fabric_version;
 mod download;
 mod eula;
 mod fabric;
 mod neoforge;
+mod neoforge_release;
 mod install;
+mod paper_catalog;
 mod jvm;
 mod log;
 mod model;
@@ -41,6 +47,7 @@ mod players;
 mod process;
 mod ticks;
 mod properties;
+mod server_settings;
 mod runtime;
 mod skin;
 mod storage;
@@ -100,6 +107,7 @@ impl Engine {
 
     fn start_prepared(&self,id:&str,app:AppHandle)->Result<(),String> {
         if self.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
+        server_settings::recover(&self.root,id)?;
         storage::sync_legacy_icon(&self.root,id)?;
         let server=storage::get(&self.root,id)?;
         content_storage::recover(&server)?;
@@ -108,17 +116,23 @@ impl Engine {
         if self.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
         self.processes.start(&server,app,&jvm::get(&self.root,id)?)
     }
-    fn reserve_stopped(&self, id: &str) -> Result<OperationGuard, String> {
+    fn reserve_stopped(&self,id:&str)->Result<OperationGuard,String>{self.reserve_stopped_inner(id,false)}
+    fn reserve_stopped_inner(&self,id:&str,shutdown_copy:bool)->Result<OperationGuard,String>{
         let mut operations = self.operations.lock().map_err(|e| e.to_string())?;
+        if !shutdown_copy&&self.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
         if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
         if self.processes.is_active(id) { return Err("Detén el servidor antes de modificar sus archivos".into()); }
         storage::get(&self.root, id)?;
         operations.insert(id.into());
-        Ok(OperationGuard { id: id.into(), operations: self.operations.clone() })
+        let guard=OperationGuard { id: id.into(), operations: self.operations.clone() };
+        drop(operations);
+        server_settings::recover(&self.root,id)?;
+        Ok(guard)
     }
 
     fn reserve_running(&self, id: &str) -> Result<OperationGuard, String> {
         let mut operations = self.operations.lock().map_err(|e| e.to_string())?;
+        if self.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
         if operations.contains(id) { return Err("Ya hay una operación en curso para este servidor".into()); }
         if self.processes.state(id) != "running" { return Err("El servidor debe estar en ejecución para realizar esta acción".into()); }
         operations.insert(id.into());
@@ -159,6 +173,17 @@ async fn content_availability(engine:State<'_,Engine>,id:String,project_id:Strin
         let task=download::DownloadTask::new(&server.id,"content_search",|_|{})?;
         content::availability(&task,&server,&project_id)
     }).await.map_err(|e|e.to_string())?
+}
+
+#[tauri::command]
+fn open_content_project(project_id:String)->Result<(),String>{
+    let url=content::project_page(&project_id)?;
+    #[cfg(windows)]{
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer.exe").arg(url).creation_flags(0x08000000).spawn().map_err(|e|format!("No se pudo abrir Modrinth: {e}"))?;
+        Ok(())
+    }
+    #[cfg(not(windows))]{let _=url;Err("Abrir Modrinth solo está disponible en Windows por ahora".into())}
 }
 
 #[tauri::command]
@@ -284,8 +309,8 @@ async fn content_versions(engine: State<'_, Engine>, id: String, project_id: Str
 }
 
 #[tauri::command]
-fn create_server(engine: State<'_, Engine>, input: CreateServer) -> Result<Server, String> {
-    storage::create(&engine.root,input)
+fn create_server(engine: State<'_, Engine>, input: CreateServer,seed:Option<String>) -> Result<Server, String> {
+    storage::create_with_seed(&engine.root,input,seed)
 }
 
 #[tauri::command]
@@ -349,7 +374,11 @@ async fn inspect_import(path: String) -> Result<ImportInspection, String> {
 async fn import_server(app:AppHandle,engine: State<'_, Engine>, input: ImportServer) -> Result<Server, String> {
     let root = engine.root.clone();
     let id=uuid::Uuid::new_v4().to_string();
-    engine.operations.lock().map_err(|_|"No se pudo reservar la importación")?.insert(id.clone());
+    {
+        let mut operations=engine.operations.lock().map_err(|_|"No se pudo reservar la importación")?;
+        if engine.scheduler_stopping.load(std::sync::atomic::Ordering::SeqCst){return Err("La aplicación se está cerrando".into());}
+        operations.insert(id.clone());
+    }
     let guard=OperationGuard{id:id.clone(),operations:engine.operations.clone()};
     let jobs=engine.installations.clone();
     tauri::async_runtime::spawn_blocking(move ||{let _guard=guard;file_tasks::import_server(&root,input,&id,&jobs,move|progress|{let _=app.emit("install-progress",progress);})})
@@ -625,7 +654,7 @@ async fn export_memory_report(engine:State<'_,Engine>,id:String)->Result<Option<
 #[tauri::command]
 fn get_properties(engine: State<'_, Engine>, id: String) -> Result<BTreeMap<String,String>, String> {
     let server = storage::get(&engine.root,&id)?;
-    properties::read(&PathBuf::from(server.directory).join("server.properties"))
+    properties::read_for_editor(&PathBuf::from(server.directory).join("server.properties"),&server.version)
 }
 
 #[tauri::command]
@@ -633,6 +662,12 @@ fn save_properties(engine: State<'_, Engine>, id: String, values: BTreeMap<Strin
     let _guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root,&id)?;
     properties::write(&PathBuf::from(server.directory).join("server.properties"),values)
+}
+
+#[tauri::command]
+fn save_server_settings(engine:State<'_,Engine>,id:String,values:BTreeMap<String,String>,min:u32,max:u32,gb:u32)->Result<(),String>{
+    let _guard=engine.reserve_stopped(&id)?;
+    server_settings::save(&engine.root,&id,values,min,max,gb)
 }
 
 #[tauri::command]
@@ -1023,16 +1058,23 @@ async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<
     let (ids,guards)={
         let mut operations=engine.operations.lock().map_err(|e|e.to_string())?;
         if !operations.is_empty(){return Err("Espera a que terminen las operaciones antes de salir".into());}
-        engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
+        if engine.scheduler_stopping.swap(true,std::sync::atomic::Ordering::SeqCst){return Err("Ya se está cerrando la aplicación".into());}
         let ids=engine.processes.active_ids();let guards=ids.iter().map(|id|{operations.insert(id.clone());OperationGuard{id:id.clone(),operations:engine.operations.clone()}}).collect::<Vec<_>>();(ids,guards)
     };
     tauri::async_runtime::spawn_blocking(move||{
         let engine=app.state::<Engine>();
         let result=scheduler::guarded(||{
-            for id in &ids{engine.processes.stop(id,app.clone())?;}
-            for id in &ids{wait_scheduled_stop(&engine,id)?;}
-            for id in &ids{engine.backup_after_stop(id,app.clone())?;}
-            Ok(())
+            let targets=ids.iter().map(|id|shutdown::Target{id:id.clone(),label:storage::get(&engine.root,id).map(|server|server.name).unwrap_or_else(|_|id.clone())}).collect::<Vec<_>>();
+            shutdown::stop_all(&targets,|id|{
+                match engine.processes.stop(id,app.clone()){
+                    Err(_) if !engine.processes.is_active(id)&&engine.processes.state(id)=="stopped"=>Ok(()),
+                    value=>value,
+                }
+            },|id|{
+                if engine.processes.is_active(id){shutdown::StopState::Active}
+                else if engine.processes.state(id)=="stopped"{shutdown::StopState::Clean}
+                else{shutdown::StopState::Failed("El proceso no se cerró correctamente; revisa la consola.".into())}
+            },|id|engine.backup_after_stop(id,app.clone()).map(|_|()),Duration::from_secs(45))
         });
         drop(guards);
         if result.is_err(){engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);}else{app.exit(0);}
@@ -1266,6 +1308,7 @@ pub fn run() {
             backup::recover_all(&root).map_err(std::io::Error::other)?;
             pack_install::recover_all(&root).map_err(std::io::Error::other)?;
             loader_update::recover_all(&root).map_err(std::io::Error::other)?;
+            server_settings::recover_all(&root).map_err(std::io::Error::other)?;
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             stop_backup::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
@@ -1313,7 +1356,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,open_content_project,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_server_settings,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {
@@ -1322,6 +1365,10 @@ pub fn run() {
                 let phase=engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst);
                 if phase==2 {return;}
                 api.prevent_exit();
+                if phase==0 {
+                    if !engine.operations.lock().map(|items|items.is_empty()).unwrap_or(false){show_main(app);let _=app.emit("close-task-active",());return;}
+                    if engine.processes.any_active(){show_main(app);let _=app.emit("close-with-servers",());return;}
+                }
                 if engine.router_shutdown.compare_exchange(0,1,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok() {
                     engine.scheduler_stopping.store(true,std::sync::atomic::Ordering::SeqCst);
                     app_log::record(&engine.root,app_log::Event::ApplicationStopping,None);
@@ -1332,9 +1379,16 @@ pub fn run() {
                         // Finish owned file operations before shutdown, then
                         // process any clean stops not yet observed by the runner.
                         while !engine.operations.lock().map(|items|items.is_empty()).unwrap_or(false){std::thread::sleep(Duration::from_millis(100));}
+                        // A start admitted before shutdown may have finished while we
+                        // waited. Do not leave its Java process behind without consent.
+                        if engine.processes.any_active(){
+                            shutdown.store(0,std::sync::atomic::Ordering::SeqCst);
+                            engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);
+                            show_main(&app);let _=app.emit("close-with-servers",());return;
+                        }
                         for (id,exit) in engine.processes.exits(){
                             if engine.processes.is_active(&id)||engine.processes.state(&id)!="stopped"||!stop_backup::pending(&root,&id,&exit).unwrap_or(false){continue;}
-                            if let Ok(_guard)=engine.reserve_stopped(&id){let _=scheduler::guarded(||engine.backup_after_stop(&id,app.clone()));}
+                            if let Ok(_guard)=engine.reserve_stopped_inner(&id,true){let _=scheduler::guarded(||engine.backup_after_stop(&id,app.clone()));}
                         }
                         router.close_all(&root);
                         natpmp.close_all(&root);

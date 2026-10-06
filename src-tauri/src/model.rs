@@ -40,6 +40,7 @@ pub struct ImportInspection {
     pub suggested_name: String,
     pub jar_files: Vec<String>,
     pub detected_version: Option<String>,
+    pub launchers: Vec<crate::import_identity::Launcher>,
 }
 
 #[derive(Debug, Deserialize)]

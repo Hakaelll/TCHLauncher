@@ -55,7 +55,8 @@ fn fabric_catalog(data:&Value,official:Vec<VersionInfo>,experimental:bool)->Resu
 
 pub fn platform_versions_with_options(platform:&str,experimental:bool)->Result<Vec<VersionInfo>,String> {
     if experimental && !matches!(platform,"vanilla"|"fabric") {return Err("El catálogo experimental solo está disponible para Vanilla y Fabric.".into());}
-    if matches!(platform,"vanilla"|"paper") {return catalog_versions(&json(&client()?,MANIFEST)?,experimental);}
+    if platform=="vanilla" {return catalog_versions(&json(&client()?,MANIFEST)?,experimental);}
+    if platform=="paper" {let client=client()?;return crate::paper_catalog::versions(&client,catalog_versions(&json(&client,MANIFEST)?,false)?);}
     if platform=="neoforge" {return crate::neoforge::versions(&DownloadTask::new("catalog","install",|_|{})?,versions()?);}
     if platform!="fabric" {return Err("Plataforma de servidor no compatible".into());}
     let task=DownloadTask::new("catalog","install",|_|{})?;
@@ -423,15 +424,16 @@ mod tests {
     #[ignore="Downloads official NeoForge/Minecraft; boots original and copied installations to EULA refusal"]
     fn installs_neoforge_and_imports_without_accepting_eula() {
         let minecraft=std::env::var("TCH_TEST_MINECRAFT").unwrap_or_else(|_|"1.21.4".into());
+        let required=if minecraft=="1.20.1"{17}else{21};
         use std::process::{Command,Stdio};
         let root=std::env::temp_dir().join(format!("tch neoforge live {}",Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         let result=(|| -> Result<(),String> {
             if let Ok(java)=std::env::var("TCH_TEST_JAVA") {
                 let java=Path::new(&java).canonicalize().map_err(|e|e.to_string())?;
-                verify_java(&java,21)?;
+                verify_java(&java,required)?;
                 let directory=java.parent().and_then(Path::parent).ok_or("Java has no runtime directory")?;
-                let target=root.join("runtimes").join(format!("temurin-21-{}-{}",std::env::consts::OS,std::env::consts::ARCH));
+                let target=root.join("runtimes").join(format!("temurin-{required}-{}-{}",std::env::consts::OS,std::env::consts::ARCH));
                 crate::backup::copy_tree(directory,&target)?;
             }
             let server=storage::create(&root,crate::model::CreateServer{name:"NeoForge validation".into(),version:minecraft.clone(),platform:"neoforge".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
@@ -444,7 +446,7 @@ mod tests {
             let installed=storage::get(&root,&server.id)?;
             assert_eq!(fs::read(directory.join("server.properties")).unwrap(),properties);
             assert_eq!(fs::read(directory.join("config/preserved.txt")).unwrap(),b"keep this configuration");
-            assert_eq!(crate::runtime::cached_requirement(&root,&minecraft),Some(21));
+            assert_eq!(crate::runtime::cached_requirement(&root,&minecraft),Some(required));
             assert!(!directory.join("eula.txt").exists());
             assert!(Path::new(installed.jar_path.as_ref().unwrap()).is_file());
             let boot=|server:&Server,label:&str| -> Result<(),String> {

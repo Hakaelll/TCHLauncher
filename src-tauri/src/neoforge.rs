@@ -4,7 +4,9 @@ use std::{collections::{BTreeMap, HashSet}, fs::{self, File}, io::{Read, Seek, S
 use uuid::Uuid;
 
 const CATALOG: &str = "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge";
-const MAVEN: &str = "https://maven.neoforged.net/releases/net/neoforged/neoforge";
+pub fn catalog_url(minecraft:&str)->&'static str {
+    if minecraft=="1.20.1" {"https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/forge"}else{CATALOG}
+}
 const MAX_TEXT: u64 = 128 * 1024;
 
 use crate::jvm::java_path;
@@ -33,11 +35,18 @@ fn select_loader(data: &Value, minecraft: &str) -> Result<String, String> {
         .ok_or_else(|| format!("NeoForge no tiene una versión estable para Minecraft {minecraft}"))
 }
 pub fn stable_loaders(data:&Value,minecraft:&str)->Result<Vec<String>,String> {
-    let mut versions=releases(data)?.into_iter().filter_map(|version|{let parts=stable_parts(&version)?;(minecraft_version(&parts)==minecraft).then_some((parts,version))}).collect::<Vec<_>>();
-    versions.sort_by(|a,b|b.0.cmp(&a.0));Ok(versions.into_iter().map(|(_,version)|version).collect())
+    Ok(crate::neoforge_release::stable(data,minecraft)?.into_iter().map(|release|release.version).collect())
 }
 
 pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Result<String,String> {
+    if minecraft=="1.20.1"{
+        let available=stable_loaders(data,minecraft)?;
+        return match requested {
+            Some(version) if available.iter().any(|value|value==version)=>Ok(version.into()),
+            Some(version)=>Err(format!("NeoForge {version} no está disponible para Minecraft {minecraft}")),
+            None=>available.into_iter().next().ok_or_else(||format!("NeoForge no tiene una versión estable para Minecraft {minecraft}")),
+        };
+    }
     let Some(version)=requested else {return select_loader(data,minecraft);};
     crate::fabric::validate_version(version)?;
     let parts=stable_parts(version.split('-').next().unwrap_or_default()).ok_or("Versión NeoForge solicitada no compatible")?;
@@ -49,8 +58,10 @@ pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Resu
 
 pub fn versions(task: &DownloadTask, minecraft: Vec<VersionInfo>) -> Result<Vec<VersionInfo>, String> {
     let data = task.json(CATALOG, "Consultando versiones NeoForge")?;
-    let supported: HashSet<_> = releases(&data)?.iter().filter_map(|version|stable_parts(version))
+    let legacy=task.json(catalog_url("1.20.1"),"Consultando NeoForge histórico")?;
+    let mut supported: HashSet<_> = releases(&data)?.iter().filter_map(|version|stable_parts(version))
         .map(|parts|minecraft_version(&parts)).collect();
+    if !stable_loaders(&legacy,"1.20.1")?.is_empty(){supported.insert("1.20.1".into());}
     Ok(minecraft.into_iter().filter(|version|supported.contains(&version.id)).collect())
 }
 
@@ -165,7 +176,7 @@ pub fn install(server: &Server, minecraft: &Value, java: &Path, task: &DownloadT
 }
 
 pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&DownloadTask,requested:Option<&str>)->Result<PathBuf,String> {
-    let data=task.json(CATALOG,"Buscando NeoForge compatible")?;
+    let data=task.json(catalog_url(&server.version),"Buscando NeoForge compatible")?;
     let loader=requested_loader(&data,&server.version,requested)?;
     let server_root=Path::new(&server.directory).canonicalize().map_err(|e|e.to_string())?;
     let base=server_root.join(".tch-neoforge");
@@ -175,7 +186,8 @@ pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&Downlo
     let generation=Uuid::new_v4();let stage=base.join(format!(".stage-{generation}"));let target=base.join(generation.to_string());
     fs::create_dir(&stage).map_err(|e|e.to_string())?;
     let result=(|| {
-        let url=format!("{MAVEN}/{loader}/neoforge-{loader}-installer.jar");
+        let release=crate::neoforge_release::Release::selected(&loader).ok_or("Versión NeoForge no válida")?;
+        let url=release.installer_url();
         let hash=task.text(&format!("{url}.sha256"),"Consultando checksum NeoForge")?.trim().to_owned();valid_hash(&hash,64)?;
         let installer=stage.join("original-installer.jar");
         task.download(&url,&installer,Some(("sha256",&hash)),&format!("NeoForge {loader}"))?;
@@ -184,7 +196,7 @@ pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&Downlo
         let profile:Value=serde_json::from_slice(&read_entry(&mut archive,"install_profile.json")?).map_err(|e|e.to_string())?;
         let version:Value=serde_json::from_slice(&read_entry(&mut archive,"version.json")?).map_err(|e|e.to_string())?;
         if profile["minecraft"].as_str()!=Some(&server.version) || version["inheritsFrom"].as_str()!=Some(&server.version)
-            || profile["version"].as_str()!=Some(&format!("neoforge-{loader}")) {
+            || profile["version"].as_str()!=Some(&release.profile_version()) {
             return Err("El instalador NeoForge no corresponde a la versión Minecraft seleccionada".into());
         }
         let server_jar=profile["serverJarPath"].as_str().ok_or("NeoForge no indicó el servidor base")?
@@ -221,7 +233,7 @@ pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&Downlo
         drop(archive);
         let offline=stage.join("installer.jar");offline_installer(&installer,&offline,&mapping,&server.version,task)?;
         run_installer(java,&offline,&stage,task)?;
-        let args=stage.join("libraries/net/neoforged/neoforge").join(&loader).join(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
+        let args=stage.join(release.library_directory()).join(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
         // Validate both the entrypoint and every referenced library before publication.
         launch_file(&server_root,&stage,&args,&server.version)?;
         fs::write(stage.join("installation.json"),serde_json::to_vec_pretty(&serde_json::json!({"minecraft":server.version,"loader":loader,"installerSha256":hash})).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
@@ -342,12 +354,15 @@ pub fn discover(root: &Path) -> Vec<String> {
         }
     }
     for base in bases {
-        if let Ok(loaders)=fs::read_dir(base.join("libraries/net/neoforged/neoforge")) {
-            for entry in loaders.take(1000).filter_map(Result::ok) {
-                if stable_parts(&entry.file_name().to_string_lossy()).is_none() {continue;}
-                let path=entry.path().join(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
-                if path.is_file() && path.canonicalize().is_ok_and(|path|path.starts_with(root)) {
-                    if let Ok(relative)=path.strip_prefix(root) {candidates.push(relative.to_string_lossy().replace('\\',"/"));}
+        for artifact in ["neoforge","forge"] {
+            if let Ok(loaders)=fs::read_dir(base.join("libraries/net/neoforged").join(artifact)) {
+                for entry in loaders.take(1000).filter_map(Result::ok) {
+                    let name=entry.file_name().to_string_lossy().into_owned();
+                    if !crate::neoforge_release::Release::selected(&name).is_some_and(|release|release.artifact==artifact){continue;}
+                    let path=entry.path().join(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
+                    if path.is_file()&&path.canonicalize().is_ok_and(|path|path.starts_with(root)) {
+                        if let Ok(relative)=path.strip_prefix(root){candidates.push(relative.to_string_lossy().replace('\\',"/"));}
+                    }
                 }
             }
         }
@@ -393,6 +408,15 @@ mod tests {
         assert_eq!(requested_loader(&data,"1.21.4",Some("21.4.200-beta")).unwrap(),"21.4.200-beta");
         assert!(requested_loader(&data,"1.21.4",Some("21.5.1")).is_err());
         assert!(requested_loader(&data,"1.21.4",Some("21.4.10")).is_err());
+    }
+    #[test]
+    fn historical_catalog_routes_only_matching_stable_coordinates(){
+        let data=serde_json::json!({"versions":["1.20.1-47.1.9","1.20.1-47.1.106","47.1.82","21.4.157","1.20.1-47.1.107-beta"]});
+        assert_eq!(requested_loader(&data,"1.20.1",None).unwrap(),"1.20.1-47.1.106");
+        assert_eq!(requested_loader(&data,"1.20.1",Some("1.20.1-47.1.9")).unwrap(),"1.20.1-47.1.9");
+        for version in ["47.1.82","21.4.157","1.20.1-47.1.107-beta","1.20.1-47.1.108"]{assert!(requested_loader(&data,"1.20.1",Some(version)).is_err());}
+        assert!(catalog_url("1.20.1").ends_with("/forge"));
+        assert!(catalog_url("1.21.4").ends_with("/neoforge"));
     }
     #[test]
     fn rejects_paths_and_classpath_overrides() {

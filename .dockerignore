@@ -1,0 +1,17 @@
+.git
+.agents
+.codex
+.impeccable
+node_modules
+.pnpm-store
+dist
+src-tauri/target
+artifacts
+.env
+.env.*
+*.exe
+*.deb
+*.AppImage
+*.msi
+*.log
+tmp

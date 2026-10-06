@@ -1,4 +1,50 @@
+CONTENT-DIVISIONS-17 — 0.25.0: four discovery types, validated native facets and project URLs, existing .mrpack review entry, client/server role labels, stale-result suppression and installed-card refinements. Redundant wizard next-step text removed. Fabric predicate review added for main-mod declarations with conservative nested/override limits. 225 offline native and 74 frontend tests passed; public Modrinth search integration passed without archive downloads. Native visual/keyboard/browser dispatch and gameplay still pending. English commit messages requested for subsequent iterations.
+
+0.25.0 Windows NSIS installer generated: 6,514,214 bytes; native version and executable/installer icons verified; SHA-256 in release notes and adjacent checksum file. Final category refinement uses official per-type tags, including texture resolution; ten focused content tests pass after that refinement. Not installed, committed, pushed or published.
+
+LIFECYCLE-14 — SOURCE CHANGES after 0.23.0: graceful stop requests dispatched to all active servers before a shared deadline; errors aggregated without skipping clean-stop copies. Native exit checks operations/processes before cleanup and after waiting, restoring the user choice if a previously admitted start produced active Java. Ordinary reservations/imports reject shutdown; internal cleanup-copy reservation retained. Close dialog preserves local errors and duplicate-dispatch guards, keeping acknowledged exit requests busy. Three batch regressions, two process and two post-stop backup tests, 72 frontend tests and TypeScript/Vite pass. Native window/tray/IPC race, real Minecraft stop and router cleanup review remain pending. No new installer.
+
+**Alcance activo: Windows. Linux aplazado por petición del usuario; ver [LINUX_LATER.md](LINUX_LATER.md). Las referencias históricas a Linux no son tareas activas.**
+
+STARTUP-UI-13 — SOURCE CHANGES after 0.23.0: independent OS/server preference reads and retries, last-known/error states, acknowledged snapshots invalidating earlier reads, scoped duplicate/disposal guards and catalogue refresh. Scheduled-task creation closes after native acknowledgement and reports follow-up list failure separately; integer interval validation added. 72 frontend tests and TypeScript/Vite pass; three native autostart and nine scheduler tests pass. Actual OS-session start, native visual/keyboard and IPC behavior remain pending. No additional installer.
+
+Release milestone — 0.23.0 generated locally: accumulated post-0.22 runtime/JVM/operator/update recovery, deferred sections, historical NeoForge integration and library browsing polish are included. Earlier source-only entries below are chronological development records. 70 frontend and 208 offline native tests pass; real historical NeoForge installation/import boot to EULA refusal passes separately. Windows installer/version/icons verified. Native visual/keyboard assessment, gameplay, external router access and Linux packaging remain open.
+
 # Trabajo pendiente
+
+SEED-VERIFY-16 — SOURCE after 0.24.0: unchanged imported seed escapes retained during unrelated property edits, including previously decoded escaped control characters. Seven focused properties tests pass; independent Java Properties integration passes with managed Java 8, 21 and 25 for large numbers, Unicode, spaces and literal escapes. No Minecraft process, EULA acceptance or world generation. Actual seeded-world gameplay and native visual/keyboard review remain pending; existing 0.24.0 installer does not contain this small follow-up.
+
+NEOFORGE-LEGACY-12 — INTEGRATED IN SOURCE after 0.22.0: official historical catalog, installer/profile/library routing, imported forgeVersion identity and numeric updates. Real isolated 1.20.1-47.1.106 installation and copied import booted with managed Temurin 17 to EULA refusal, preserved properties and created no world. Modern catalog-confirmed prerelease layout/import preserved. Gameplay/mod compatibility and native selector review remain pending; no new installer.
+
+
+PLAYER-UI-11 — REVIEW, después de 0.22.0: borradores de permisos OP conservados durante polling, conflicto de valores nativos bloquea escritura y permite cargar actuales explícitamente. Payload usa baseline original; guardado confirmado resetea borrador y guardas evitan doble envío/completado obsoleto. Acciones generales separan modificación confirmada del fallo posterior de lista; retry solo de lectura. Lista blanca detenida refresca propiedades después de confirmación, sin volver falso el resultado de escritura. 68 pruebas frontend, seis pruebas nativas de jugadores (incluidos permisos obsoletos y conservación de campos/identidades/bytes), TypeScript/Vite aprobados; revisión nativa visual/teclado, carreras IPC y comandos reales pendientes. Sin nuevo instalador.
+
+
+UPDATE-UI-10 — REVIEW, después de 0.22.0: actualización de loader confirmada separada del refresco posterior; diálogo cierra tras confirmación nativa, aviso de destino y warnings conservados, retry solo de metadatos. Revisiones/escrituras con guarda de operación y componente; eventos tardíos tras cleanup ignorados. Catálogo Minecraft distingue fallo de vacío y reintenta; acciones rechazan doble envío y servidor no detenido. Seis pruebas nativas loader (publicación, rollback, interrupciones, importados y fingerprint) y TypeScript aprobados; prueba con descargas/Java ignorada, interacción asíncrona nativa, teclado, apariencia y juego real pendientes. Sin nuevo instalador.
+
+
+PERF-UI-09 — REVIEW, después de 0.22.0: Mundos, Mods/Plugins, Rendimiento y Ajustes cargan al entrar, con carga local y frontera de error/reintento por sección. Biblioteca, controles de proceso/consola/creación y entradas de modal conservadas. TypeScript/Vite aprobados; manifiesto confirma cuatro entradas dinámicas sin imports iniciales de paneles. JS inicial 501,30 → 437,31 kB, gzip 148,35 → 130,96 kB; no equivale a tiempo de arranque/memoria medidos. Pendientes primer acceso nativo, recuperación tras fallo de módulo, teclado y apariencia. Sin nuevo instalador.
+
+
+JVM-UI-08 — REVIEW, después de 0.22.0: etiqueta no confirmada antes de leer, recarga explícita bloqueada con borrador y vista previa vinculada al servidor/runtime/RAM/arranque/argumentos efectivos. Guardado requiere vista previa actual y evita doble envío; confirmación solo tras persistencia nativa. Materiales End y foco de radios. Dos regresiones frontend de contexto, TypeScript/Vite y dos pruebas nativas JVM aprobadas. Prueba adicional con Temurin 21 real aprueba perfiles válidos, rechaza argumento inválido y conserva perfil previo. Prueba real de selección/runtime también aprueba compatibilidad y rechazo sin sustituir selección anterior. No se inicia Minecraft ni se acepta EULA. Revisión nativa visual/teclado pendiente; sin nuevo instalador.
+
+
+RUNTIME-UI-07 — REVIEW, después de 0.22.0: lectura de Java por selección con reintento y rechazo de respuestas antiguas; fallo de consulta nunca conserva «Listo» del dato anterior. Runtime ausente, inválido, incompatible y compatibilidad desconocida separados. Cambio de Java confirmado se distingue del fallo posterior al refrescar metadatos; guardas de operación/vida del componente. Cuatro pruebas frontend, TypeScript/Vite, dos pruebas nativas runtime y prueba adicional con Temurin 21 real aprobados; revisión nativa visual/teclado y ciclo real Minecraft pendientes. Sin nuevo instalador.
+
+
+RELEASE-0.22.0 — GENERATED locally: installer x64 NSIS de 6,495,003 bytes, recursos de versión 0.22.0 e iconos del ejecutable/instalador comprobados. Incluye los bloques de desarrollo siguientes que históricamente figuraban sin empaquetar después de 0.21.0. 60 pruebas frontend y 204 nativas aprobadas, 25 externas/runtime/helper ignoradas. No instalado, commit, push ni publicación. El objetivo completo sigue activo; pendientes juego real, revisión nativa visual/teclado, routers físicos y Linux.
+
+
+READ-UI-06 — REVIEW: consola y jugadores con lecturas independientes, reintento por servidor y rechazo de respuestas antiguas; últimos jugadores retenidos y marcados al fallar. Refinamiento End de avisos, indicadores e inventario de jugadores. 60 pruebas frontend y 204 pruebas Rust aprobadas; 25 externas/runtime/helper ignoradas. TypeScript/Vite aprobados. Revisión nativa visual/teclado y juego real pendientes.
+
+
+SETTINGS-UI-05 — REVIEW, después de 0.21.0: lectura propia de propiedades con carga/error/reintento, edición y guardado protegidos antes de leer o tras fallo; respuestas antiguas invalidadas al editar/guardar y borrador conservado durante eventos. Capacidad RAM/espacio conserva cambios locales ante refresco de metadatos. Restauración reemplaza propiedades por el mismo propietario después de confirmación nativa. Cuatro regresiones frontend asíncronas y TypeScript/Vite/whitespace aprobados. Pendientes pruebas nativas de interacción, capacidad, teclado y apariencia. Sin nuevo instalador.
+
+BACKUP-UI-04 — REVIEW, después de 0.21.0: carga de copias independiente de métricas/logs, propietario único de lecturas por selección y última respuesta, reintento y distinción vacío/error/últimos datos. Restauración confirmada separada de consultas posteriores; sincronización por servidor con retry de lectura y Configuración protegida hasta actualizar datos. Respuestas de propiedades/EULA anteriores a restaurar descartadas. Tres regresiones frontend asíncronas, TypeScript/Vite y whitespace aprobados. Pendientes interacción nativa, revisión visual/teclado y ciclo con mundos reales. Sin nuevo instalador.
+
+BACKUP-UI-03 — REVIEW, después de 0.21.0: retención reintentable, límites validados, foco de error y borrador conservado al actualizar; limpieza confirmada separada del fallo posterior de lista y callback aislado por servidor. Materiales End, versiones en revisión y detalles de restauración adaptados a ventanas estrechas. Dos pruebas frontend y seis pruebas nativas de retención aprobadas; TypeScript/Vite aprobados. Pendientes revisión visual/teclado, carreras IPC nativas y restauración con Minecraft real. La lectura compartida y la separación de restauración frente a consultas posteriores se abordaron en BACKUP-UI-04; queda validación nativa. Sin nuevo instalador.
+
+TASK-UI-02 — REVIEW, después de 0.21.0: tareas con materiales End, próxima fecha y resultado separados, recarga manual y respuestas antiguas aisladas. Reinicio automático con lectura reintentable, cambios locales conservados durante actualizaciones y guardado confirmado separado del fallo de consulta posterior. Validación entera y foco de errores conectados. Cuatro pruebas frontend de presentación/política y cinco pruebas nativas de reinicio aprobadas; TypeScript/Vite y whitespace aprobados. Pendientes revisión nativa visual/teclado, carreras asíncronas de IPC en escritorio y reinicio de Minecraft real. Sin nuevo instalador.
 
 Petición añadida: diagnosticar crecimiento de RAM en Fabric 1.21.11 con unos 30 mods, Xms 1 GB / Xmx 12 GB, observado también en Windows en el ordenador del amigo. Después de 0.16.0: lectura HotSpot de heap usado/reservado y eventos del recolector, junto a RAM residente y curva de heap discontinua. Parser y lectura real de un proceso Java 21 propio aprobados fuera del aislamiento; falta comprobar esa partida, retención tras GC y posibles mods causantes. Exportación nativa JSON de hasta 30 minutos observados con el servidor seleccionado, acotada a 901 muestras y 32 servidores; sesión real, huecos conservados, heap ausente explícito y configuración actual distinguida de límites JVM medidos. Guardado nativo sin logs/rutas/comandos; dos regresiones de aislamiento, límites y publicación aprobadas. La cifra de proceso por sí sola no prueba una fuga; no se fuerza GC ni se cambian parámetros sin evidencia.
 
@@ -166,3 +212,88 @@ Verificación 0.19.0: 179 pruebas nativas offline y 29 frontend aprobadas; 23 in
 Paper descriptor identity/API parsing now uses bounded streaming YAML, with scalar aliases, duplicate/invalid identity rejection and no plugin execution. Six descriptor/icon regressions pass; a real reviewed LuckPerms installation integration passes in an isolated plugins folder without Java or EULA acceptance. NeoForge secondary IDs/icons, compact inventory and related diagnostic refinements, observed-save reporting and explicit session-bound force close are included.
 
 Release gate: 188 native tests passed, 24 external/runtime/helper tests excluded; all 41 frontend tests passed. TypeScript/Vite and NSIS x64 packaging passed. Product/file versions are 0.21.0 and both embedded icons match the logo. Installer: 6,440,897 bytes; SHA-256 `56950b2ff5e0cb3e25050fd4e06ff37742e73d0ff23045e3aa9733806077528e`. English release notes: RELEASE_NOTES_v0.21.0.md. No install, native visual QA, subagents, computer use, commit, push or publication. Actual gameplay, slow-save shutdown, the friend's missing mods/RAM case, router and Linux checks remain open. Full original objective remains in progress.
+
+## Development after 0.21.0
+
+User clarified NeoForge selection opens and reaches Minecraft 1.20 but cannot scroll to earlier releases. Official modern NeoForge catalog has eleven stable families; NeoForge does not exist for 1.19 or older, and legacy 1.20.1 has separate coordinates not yet integrated. Creation now uses a visible bounded native list plus catalog count and scope explanation, and four native radio choices with End-themed selection/focus relief. Native visual/scroll/keyboard verification remains pending, not claimed fixed by browser automation.
+
+Fabric file details now show required/recommended/suggested/conflicting/breaking declarations with OR alternatives, bounded native metadata validation and no invented compatibility verdict. Real-JAR regression covers kinds, serialized identity/ranges, malformed shapes, ID/length/count limits and preservation of original bytes. Seven descriptor tests, five storage tests, nine frontend attribution tests, TypeScript and production build pass. No new installer/commit/publication; 0.21.0 remains the delivered preview. Full original goal remains in progress. Next catalog review should address Paper version availability at selection time, since its current source still uses the general stable Mojang list.
+
+## Paper catalog correction after 0.21.0
+
+Original sections 7/8/35: Paper creation no longer offers every Mojang release. Native `paper_catalog.rs` queries official paginated STABLE availability with current public-schema filtering and SHA-256/server-download evidence, then intersects official Mojang releases without chronological truncation. Malformed/partial pages, repeated cursors and query limits fail visibly. Installation retains exact-version REST revalidation. Two local regression cases and a separate live application-path catalog/REST evidence check pass, including old Minecraft 1.8.8. Experimental opt-in/chronology regression also passes. No Java, EULA acceptance, gameplay or native UI checks; no installer, commit or publication. Full goal remains active. The earlier noted Paper availability gap is now implemented; native selection and real boot/play verification remain open.
+# Current verification follow-up
+
+- Manually review creation steps, world/location radio focus and narrow layouts in
+  the native Windows app. Review the End preview and existing reduced-motion option.
+- Exercise renamed Paper/Fabric and NeoForge import folders with real startup in
+  the native app. Bounded metadata/import regressions pass; they do not establish
+  that every legacy or custom launcher format is identified.
+- Current import identity and creation finish changes are source-only after the
+  generated 0.21.0 installer; include them in the next requested significant release.
+- Original section 13: additional real-property controls and changed-value native
+  validation are implemented. Four file-based property regressions pass, including
+  preservation of legacy and unknown values. Review the native group layout and
+  verify version-specific behavior in a real stopped/save/start session. Properties
+  absent from server.properties are not inserted automatically by this UI.
+- Combined settings save now owns one stopped-server reservation and recoverable
+  file/SQLite publication. Eight file/database scenarios pass, including injected
+  database failure, four interruption phases, real filesystem rename failure,
+  read-only files and preservation of orphaned copies. Review native save feedback and
+  an actual application interruption; do not equate fixture recovery with that gate.
+- Player action form now includes target/effect preview, named actions, associated
+  errors and first-invalid focus. Five native player regressions and two frontend
+  name/reason boundary cases pass. Native keyboard review, IP failure feedback and
+  actual server command outcomes remain pending; command dispatch is not completion.
+- Player lists now provide category search and 50-row pagination without merging
+  identities or reducing category totals. Six native player regressions and two
+  frontend search/paging cases pass. File reads are bounded before/during loading,
+  and malformed data is preserved. Review search/page keyboard focus and a real
+  large usercache in the native app; special-file behavior on Linux remains untested.
+
+## Inventory refinement after 0.23.0
+
+- Source-only: independent state/origin filters, secondary-ID search, grouped tools,
+  explicit lock explanation and refined End inventory/empty state. All 74 frontend
+  tests, TypeScript and Vite pass. Native narrow layout, keyboard focus, all themes
+  and actual mod error review remain pending. Installer unchanged.
+- Linux container verification route prepared but not executed: Docker engine
+  remained unavailable after startup. PowerShell syntax passes; do not count this
+  as a Linux test/package/runtime gate. Retry only when the Linux engine is ready.
+
+## Fabric dependency presence
+
+- Implemented read-only required-ID checks with aliases/nested JARs and top-level
+  file attribution. Four archive/filesystem cases pass. Partial metadata/budgets
+  or loader overrides suppress negative absence conclusions. Client-only files
+  do not supply server dependencies. Optional declarations remain optional.
+- Version predicates, candidate selection and real gameplay remain unverified;
+  presence alone is not compatibility. TypeScript/production build pass.
+- Source-only after 0.23.0. Linux deferred; see LINUX_LATER.md.
+
+## Windows 0.24.0 preparation
+
+- New-world seed input/review and native string transport are connected. New
+  creation writes game rules before Java; editor reads merge missing core fields
+  while retaining real/unknown values without writing. Settings save uses existing
+  recoverable publication. Seed fixtures include large signed numbers, Unicode,
+  backslashes, spaces and injection rejection; creation proves no world/Java/EULA.
+- Six property and one real creation/storage regression pass. Full native suite:
+  218 passed, 25 external/runtime/helper checks excluded. All 74 frontend tests,
+  TypeScript and Vite pass. Native visual/keyboard and actual seeded generation
+  remain pending; static persistence does not prove gameplay.
+- Content confirmations now acknowledge completed writes before refreshing, with
+  read-only recovery, scoped inventory reads and late/duplicate dispatch guards.
+  Inventory failures are not empty lists. Actual native IPC interaction pending.
+- Packaging is running; mark release generated only after installer/version/icon
+  and checksum evidence. Windows only; Linux remains deferred in LINUX_LATER.md.
+
+## Windows 0.24.0 generated
+
+NSIS x64 installer generated: 6,499,032 bytes; SHA-256
+`483a5b3e7607eb3bd63c0c6d7f75e90040c8dcc2e1249b6c034c5e26a43df2f0`.
+Native file/product version 0.24.0 and executable/installer golden-logo icons pass.
+Includes accumulated post-0.23 changes above. Installer not installed; no commit,
+push or publication. Historical source-only notes are superseded by this packaging
+entry. Native UI/keyboard, seeded-world/gameplay and physical-router/OS-session
+checks remain pending. Full Windows objective remains active; Linux deferred.

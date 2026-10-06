@@ -10,7 +10,36 @@ pub struct Descriptor {
     pub environment:Option<String>,pub minecraft:Option<String>,pub note:Option<String>,
     pub ids:Vec<String>,
     pub api_version:Option<String>,
+    pub dependencies:Vec<Dependency>,
     #[serde(skip)]pub logo:Option<String>,
+}
+
+/// Preserve each declaration and its OR alternatives; no compatibility inference.
+#[derive(Clone,Serialize)]
+pub struct Dependency {pub id:String,pub kind:String,pub alternatives:Vec<String>}
+
+fn fabric_id(id:&str)->bool {
+    id.len()>=2&&id.len()<=64&&id.as_bytes()[0].is_ascii_lowercase()&&id.bytes().all(|c|c.is_ascii_lowercase()||c.is_ascii_digit()||matches!(c,b'-'|b'_'))
+}
+
+fn fabric_dependencies(value:&serde_json::Value)->Result<Vec<Dependency>,String>{
+    let mut result=Vec::new();
+    for kind in ["depends","recommends","suggests","conflicts","breaks"]{
+        let Some(declarations)=value.get(kind) else{continue;};
+        let declarations=declarations.as_object().ok_or_else(||format!("La declaración Fabric {kind} debe ser un objeto"))?;
+        if declarations.len()>512||result.len()+declarations.len()>512{return Err("Demasiadas dependencias declaradas".into());}
+        for(id,range)in declarations{
+            if !fabric_id(id){return Err(format!("Identificador de dependencia Fabric no válido en {kind}"));}
+            let ranges=match range{
+                serde_json::Value::String(value)=>vec![value.as_str()],
+                serde_json::Value::Array(values) if !values.is_empty()&&values.len()<=64=>values.iter().map(|value|value.as_str().ok_or("Rango de dependencia Fabric no válido")).collect::<Result<Vec<_>,_>>()?,
+                _=>return Err(format!("Rango de dependencia Fabric no válido para {id}")),
+            };
+            if ranges.iter().any(|range|range.is_empty()||range.len()>256||range.chars().any(char::is_control)){return Err(format!("Rango de dependencia Fabric no válido para {id}"));}
+            result.push(Dependency{id:id.clone(),kind:kind.into(),alternatives:ranges.into_iter().map(str::to_string).collect()});
+        }
+    }
+    Ok(result)
 }
 
 #[derive(Serialize)]
@@ -46,6 +75,10 @@ pub(crate) fn inspect(path:&Path,platform:&str)->Result<Descriptor,String> {
     if platform=="neoforge" {return inspect_neoforge(&data);}
     if platform=="paper" {return inspect_paper(&data);}
     let value:serde_json::Value=serde_json::from_slice(&data).map_err(|_|"fabric.mod.json no contiene JSON válido")?;
+    inspect_fabric(&value)
+}
+
+pub(crate) fn inspect_fabric(value:&serde_json::Value)->Result<Descriptor,String> {
     if !value.is_object() {return Err("fabric.mod.json debe contener un objeto de metadatos".into());}
     match value.get("schemaVersion") {
         None=>return Ok(Descriptor {note:Some("Descriptor Fabric antiguo: revisa su carga en la consola".into()),..Default::default()}),
@@ -53,7 +86,7 @@ pub(crate) fn inspect(path:&Path,platform:&str)->Result<Descriptor,String> {
         Some(schema) if schema.as_u64()==Some(1)=>{},
         _=>return Err("Formato Fabric desconocido; revisión manual necesaria".into()),
     }
-    let id=text(&value,"id").filter(|id|id.len()>=2&&id.len()<=64&&id.as_bytes()[0].is_ascii_lowercase()&&id.bytes().all(|c|c.is_ascii_lowercase()||c.is_ascii_digit()||matches!(c,b'-'|b'_'))).ok_or("Identificador Fabric no válido")?;
+    let id=text(&value,"id").filter(|id|fabric_id(id)).ok_or("Identificador Fabric no válido")?;
     let version=text(&value,"version").ok_or("Versión Fabric no válida")?;
     let environment=match value.get("environment") {
         None=>"*",
@@ -66,7 +99,7 @@ pub(crate) fn inspect(path:&Path,platform:&str)->Result<Descriptor,String> {
         Some(v)=>v.as_str().filter(|v|matches!(*v,"*"|"client"|"server")).ok_or("Entorno Fabric no válido")?,
     };
     let minecraft=value.get("depends").and_then(|v|v.get("minecraft")).map(|v|v.as_str().map(str::to_string).unwrap_or_else(||v.to_string())).filter(|v|v.len()<=256);
-    Ok(Descriptor {ids:vec![id.clone()],id:Some(id),name:text(&value,"name"),version:Some(version),environment:Some(environment.into()),minecraft,note:None,logo:None,api_version:None})
+    Ok(Descriptor {ids:vec![id.clone()],id:Some(id),name:text(&value,"name"),version:Some(version),environment:Some(environment.into()),minecraft,note:None,logo:None,api_version:None,dependencies:fabric_dependencies(&value)?})
 }
 
 fn inspect_neoforge(data:&[u8])->Result<Descriptor,String>{
@@ -82,7 +115,7 @@ fn inspect_neoforge(data:&[u8])->Result<Descriptor,String>{
     let first=&mods[0];let id=ids[0].clone();
     let version=field(first,"version").filter(|v|!v.contains("${"));
     let minecraft=value.get("dependencies").and_then(|value|value.get(&id)).and_then(toml::Value::as_array).and_then(|entries|entries.iter().find(|entry|entry.get("modId").and_then(toml::Value::as_str)==Some("minecraft"))).and_then(|entry|field(entry,"versionRange"));
-    Ok(Descriptor{id:Some(id),ids,name:field(first,"displayName"),version,environment:None,minecraft,note:None,logo:field(first,"logoFile").or_else(||field(&value,"logoFile")),api_version:None})
+    Ok(Descriptor{id:Some(id),ids,name:field(first,"displayName"),version,environment:None,minecraft,note:None,logo:field(first,"logoFile").or_else(||field(&value,"logoFile")),api_version:None,dependencies:vec![]})
 }
 
 fn inspect_paper(data:&[u8])->Result<Descriptor,String>{
@@ -234,6 +267,16 @@ pub fn audit(server:&Server)->Result<Audit,String> {
         checks.push(Check {filename:file.filename.clone(),descriptor,issues,listed_in_log});
     }
     for (id,indices) in owners {if indices.len()>1 {for i in indices {checks[i].issues.push(format!("Identificador duplicado: {id}. Hay más de un JAR de este {}",if server.platform=="paper"{"plugin"}else{"mod"}));checks[i].listed_in_log=None;}}}
+    let mut log_note=log_note;
+    if server.platform=="fabric" {
+        let presence=crate::fabric_presence::review(base,&files);
+        for check in &mut checks {
+            if let Some(issues)=presence.issues.get(&check.filename) {
+                check.issues.extend(issues.iter().cloned());
+            }
+        }
+        log_note.push_str(" ");log_note.push_str(&presence.note);
+    }
     Ok(Audit {files,checks,log_modified_at,log_note})
 }
 
@@ -244,6 +287,26 @@ mod tests {
     fn jar(path:&Path,name:&str,data:&[u8]) {
         let mut zip=zip::ZipWriter::new(fs::File::create(path).unwrap());
         zip.start_file(name,zip::write::SimpleFileOptions::default()).unwrap();zip.write_all(data).unwrap();zip.finish().unwrap();
+    }
+    #[test]
+    fn fabric_dependency_declarations_preserve_kinds_or_ranges_and_reject_invalid_shapes(){
+        let root=std::env::temp_dir().join(format!("tch-dependencies-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+        let path=root.join("backpack.jar");
+        let value=serde_json::json!({"schemaVersion":1,"id":"backpack","version":"2.0","depends":{"minecraft":[">=1.21 <1.22","26.1.x"],"java":">=21","fabricloader":">=0.16"},"recommends":{"library":"~2.0"},"suggests":{"optional":"*"},"conflicts":{"oldmod":"<3"},"breaks":{"incompatible":"^1.0"}});
+        let original=value.to_string();jar(&path,"fabric.mod.json",original.as_bytes());
+        let before=fs::read(&path).unwrap();
+        let descriptor=inspect(&path,"fabric").unwrap();assert_eq!(descriptor.dependencies.len(),7);
+        let required=descriptor.dependencies.iter().find(|dependency|dependency.id=="minecraft").unwrap();assert_eq!(required.kind,"depends");assert_eq!(required.alternatives,vec![">=1.21 <1.22","26.1.x"]);
+        for kind in ["depends","recommends","suggests","conflicts","breaks"]{assert!(descriptor.dependencies.iter().any(|dependency|dependency.kind==kind));}
+        let json=serde_json::to_value(&descriptor).unwrap();assert!(json["dependencies"].as_array().unwrap().iter().any(|entry|entry["id"]=="incompatible"&&entry["kind"]=="breaks"));
+        assert_eq!(fs::read(&path).unwrap(),before);
+        for invalid in [serde_json::json!([]),serde_json::json!({"BadID":"*"}),serde_json::json!({"library":[]}),serde_json::json!({"library":[">=1",2]}),serde_json::json!({"library":{"version":"1"}}),serde_json::json!({"library":"\n"}),serde_json::json!({"library":vec!["*";65]})]{
+            let mut malformed=value.clone();malformed["depends"]=invalid;jar(&path,"fabric.mod.json",malformed.to_string().as_bytes());assert!(inspect(&path,"fabric").is_err());
+        }
+        let mut oversized=value.clone();oversized["depends"]=serde_json::json!({"library":"x".repeat(257)});assert!(fabric_dependencies(&oversized).is_err());
+        let mut too_many=value.clone();too_many["depends"]=serde_json::Value::Object((0..513).map(|index|(format!("mod_{index}"),serde_json::json!("*"))).collect());assert!(fabric_dependencies(&too_many).is_err());
+        assert!(fabric_dependencies(&serde_json::json!({})).unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn descriptor_detects_client_wrong_loader_and_invalid_json_without_executing() {

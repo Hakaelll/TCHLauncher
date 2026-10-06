@@ -1,62 +1,70 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type JvmPreview, type JvmSettings, type Server } from './api'
+import {useServerRead} from './useServerRead'
+import {jvmPreviewKey} from './jvmPreview'
 
 const defaults:JvmSettings={mode:'recommended',arguments:''}
 
 export function JvmPanel({server,busy}:{server:Server;busy:boolean}) {
   const [draft,setDraft]=useState<JvmSettings>(defaults)
   const [saved,setSaved]=useState<JvmSettings>(defaults)
-  const [loading,setLoading]=useState(true)
-  const [loaded,setLoaded]=useState(false)
+  const {data:profile,loading,error:readError,refresh}=useServerRead(server.id,api.jvmSettings)
+  const loaded=profile!==null
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState<string|null>(null)
   const [previewError,setPreviewError]=useState<string|null>(null)
-  const [preview,setPreview]=useState<JvmPreview|null>(null)
+  const [previewRecord,setPreviewRecord]=useState<{key:string;value:JvmPreview}|null>(null)
+  const previewKey=jvmPreviewKey(server,draft)
+  const preview=previewRecord?.key===previewKey?previewRecord.value:null
   const [checking,setChecking]=useState(false)
   const [notice,setNotice]=useState('')
-  const [revision,setRevision]=useState(0)
-  const mounted=useRef(true)
-  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
+  const scope=useRef({active:true,saving:false})
   useEffect(()=>{
-    let active=true;setLoading(true);setLoaded(false);setError(null)
-    api.jvmSettings(server.id).then(value=>{if(active){setDraft(value);setSaved(value);setLoaded(true)}}).catch(cause=>{if(active)setError(String(cause))}).finally(()=>{if(active)setLoading(false)})
-    return()=>{active=false}
-  },[server.id,revision])
+    const current={active:true,saving:false};scope.current=current
+    return()=>{current.active=false}
+  },[server.id])
+  useEffect(()=>{if(profile){setDraft(profile);setSaved(profile);setNotice('');setError(null)}},[profile])
   useEffect(()=>{
-    if(loading || !loaded)return
-    let active=true;setChecking(true);setPreview(null);setPreviewError(null)
+    if(loading || !loaded || readError)return
+    let active=true;setChecking(true);setPreviewRecord(null);setPreviewError(null)
     const timer=setTimeout(()=>{
-      api.previewJvm(server.id,draft).then(value=>{if(active)setPreview(value)}).catch(cause=>{if(active)setPreviewError(String(cause))}).finally(()=>{if(active)setChecking(false)})
+      api.previewJvm(server.id,draft).then(value=>{if(active)setPreviewRecord({key:previewKey,value})}).catch(cause=>{if(active)setPreviewError(String(cause))}).finally(()=>{if(active)setChecking(false)})
     },250)
     return()=>{active=false;clearTimeout(timer)}
-  },[server.id,server.memoryMinMb,server.memoryMaxMb,server.jarPath,loading,loaded,draft])
+  },[server.id,previewKey,loading,loaded,readError])
   const stopped=['stopped','crashed','error'].includes(server.state)
-  const disabled=loading || !loaded || saving || busy || !stopped
+  const disabled=loading || !loaded || !!readError || saving || busy || !stopped
   const dirty=draft.mode!==saved.mode || (draft.mode==='custom' && draft.arguments!==saved.arguments)
-  const update=(value:JvmSettings)=>{setDraft(value);setError(null);setNotice('')}
+  const update=(value:JvmSettings)=>{if(jvmPreviewKey(server,value)!==previewKey){setPreviewRecord(null);setChecking(true)}setDraft(value);setError(null);setNotice('')}
   const save=async()=>{
-    setSaving(true);setError(null);setNotice('')
-    try{await api.saveJvm(server.id,draft);if(mounted.current){const value=draft.mode==='recommended'?defaults:draft;setDraft(value);setSaved(value);setNotice('Perfil JVM guardado. Se aplicará en el próximo inicio.')}}
-    catch(cause){if(mounted.current)setError(String(cause))}
-    finally{if(mounted.current)setSaving(false)}
+    if(disabled||!dirty||checking||previewError||!preview||scope.current.saving)return
+    const current=scope.current,value=draft.mode==='recommended'?{...defaults}:{...draft}
+    current.saving=true;setSaving(true);setError(null);setNotice('')
+    try{
+      await api.saveJvm(server.id,value)
+      if(current.active&&scope.current===current){setDraft(value);setSaved(value);setNotice('Perfil JVM guardado. Se aplicará en el próximo inicio.')}
+    }catch(cause){if(current.active&&scope.current===current)setError(String(cause))}
+    finally{current.saving=false;if(current.active&&scope.current===current)setSaving(false)}
   }
   return <details className="jvm-panel">
-    <summary><span>Argumentos JVM</span><span className="jvm-profile-label">{saved.mode==='recommended'?'Recomendado':'Personalizado'}</span></summary>
+    <summary><span>Argumentos JVM</span><span className="jvm-profile-label">{loading?'Consultando':readError?'Sin actualizar':!loaded?'No disponible':saved.mode==='recommended'?'Recomendado':'Personalizado'}</span></summary>
     <div className="jvm-panel-body">
-      {loading?<p role="status">Cargando perfil…</p>:loaded && <>
+      <div className="jvm-read-heading"><p className="field-help" role="status">{loading?'Consultando el perfil guardado…':readError?'No se pudo actualizar el perfil.':!loaded?'Perfil pendiente de consulta.':dirty?'Cambios sin guardar':'Perfil guardado para este servidor.'}</p><button disabled={loading||saving||busy||dirty} onClick={()=>void refresh(server.id)}>{loading?'Consultando…':'Actualizar perfil'}</button></div>
+      {readError&&<p className="form-error" role="alert">{readError}</p>}
+      {loaded && <>
         <fieldset className="jvm-profiles" disabled={disabled}>
           <legend>Perfil de arranque</legend>
           <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='recommended'} onChange={()=>update({...draft,mode:'recommended'})}/><span><strong>Recomendado</strong><small>G1 con procesamiento paralelo de referencias.</small></span></label>
           <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='custom'} onChange={()=>update({...draft,mode:'custom'})}/><span><strong>Personalizado</strong><small>Usa tus propias opciones de Java.</small></span></label>
         </fieldset>
         {draft.mode==='custom' && <div className="form-row"><label htmlFor="jvm-arguments">Opciones de Java</label><textarea id="jvm-arguments" rows={5} value={draft.arguments} disabled={disabled} maxLength={8192} spellCheck={false} autoComplete="off" placeholder={'-XX:+UseG1GC\n-XX:+ParallelRefProcEnabled'} aria-describedby={`jvm-help${previewError?' jvm-validation':''}`} aria-invalid={previewError?true:undefined} onChange={event=>update({...draft,arguments:event.target.value})}/><p id="jvm-help" className="field-help">Una opción por línea, sin comillas exteriores. Configura la RAM en Capacidad. Deja el campo vacío para usar los valores del runtime.</p></div>}
-        <div className="jvm-preview"><span>{checking?'Preparando vista previa…':'Argumentos del próximo inicio'}</span>{preview && <code>{preview.arguments.map(argument=>/\s/.test(argument)?JSON.stringify(argument):argument).join(' ')}</code>}<p>Usa los límites de RAM guardados.{preview && !preview.installed?' El archivo de arranque se añadirá al instalar el servidor.':''}</p></div>
+        <div className="jvm-preview"><span>{loading||readError?'Vista previa pendiente de consultar':checking||!preview?'Preparando vista previa…':'Argumentos del próximo inicio'}</span>{!loading&&!readError&&preview && <code>{preview.arguments.map(argument=>/\s/.test(argument)?JSON.stringify(argument):argument).join(' ')}</code>}<p>Usa los límites de RAM guardados.{preview && !preview.installed?' El archivo de arranque se añadirá al instalar el servidor.':''}</p></div>
         {previewError && <p id="jvm-validation" className="form-error" role="alert">{previewError}</p>}
-        <div className="jvm-actions"><button className="primary-button" disabled={disabled || !dirty || checking || !!previewError} onClick={save}>{saving?'Comprobando y guardando…':draft.mode==='custom'?'Comprobar y guardar perfil':'Guardar perfil'}</button><button disabled={disabled || (draft.mode==='recommended' && !draft.arguments)} onClick={()=>update(defaults)}>Restaurar valores predeterminados</button></div>
+        <div className="jvm-actions"><button className="primary-button" disabled={disabled || !dirty || checking || !!previewError || !preview} onClick={save}>{saving?'Comprobando y guardando…':draft.mode==='custom'?'Comprobar y guardar perfil':'Guardar perfil'}</button><button disabled={disabled || (draft.mode==='recommended' && !draft.arguments)} onClick={()=>update(defaults)}>Restaurar valores predeterminados</button></div>
         {draft.mode==='custom' && <p className="field-help">Antes de guardar se comprobará el perfil con Java instalado, sin iniciar Minecraft. Los agentes Java ejecutan código: usa archivos de confianza.</p>}
         {notice && <p className="jvm-notice" role="status">{notice}</p>}
       </>}
-      {error && <p className="form-error" role="alert">{error}{!loading && !loaded && <button onClick={()=>setRevision(value=>value+1)}>Reintentar</button>}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
     </div>
   </details>
 }

@@ -199,3 +199,130 @@ Exit diagnostics persist a `forced` flag; old reports without it read as false. 
 Normal stop writes the server `stop` command and waits for the real process exit. It does not impose an automatic kill deadline. Restart and application-exit orchestration can time out and report the still-active process without terminating it.
 
 The native force-stop preview is available only in `stopping` and carries the exact process session and PID. Confirmation revalidates that session and state before killing the owned child. The normal monitor reaps the process and publishes its terminal state. A forced exit is unsuccessful even if the OS reports a zero exit code; it is user-requested, so clean-stop backups and unexpected-crash retries are excluded. Restart refuses to continue after an unsuccessful exit. The UI dialog keeps cancellation focused and explains possible world-file loss.
+
+## Local Fabric dependency declarations
+
+Descriptor audits retain `depends`, `recommends`, `suggests`, `conflicts` and `breaks` as explicit kinds with bounded arrays of OR alternatives. Whitespace-separated comparisons within a string remain intact. Counts are capped at 512 declarations and 64 alternatives per declaration, strings at 256 bytes, and Fabric IDs use the existing grammar. The same validation is used before reviewed installation. UI details use a native disclosure/list and label declarations as unverified. This does not resolve installed/nested aliases, dependency overrides or version predicates; no missing/incompatible verdict is inferred from metadata alone.
+
+## Paper creation catalog
+
+`paper_catalog.rs` reads official Fill GraphQL version pages, requesting the latest STABLE server download per version with the current `channels` filter. Pages are bounded to 100 entries / 2 MB, ten pages, a sixty-second aggregate request window and validated advancing cursors. GraphQL partial errors abort the catalog instead of returning partial success. Eligible entries require a positive build number, a regular JAR filename, official HTTPS download host and a valid published SHA-256. The resulting set intersects Mojang release entries while retaining Mojang chronology; snapshots and catalog-only entries cannot enter Paper creation. Install/update continue to requery exact-version REST build metadata and verify downloaded bytes. The catalog proves published availability, not successful gameplay or continued network availability at installation time.
+# Imported launcher identity
+
+`import_identity` inspects bounded regular launch files without executing them.
+JAR identity uses known Main-Class entries, Minecraft version.json, Fabric
+install.properties/intermediary Class-Path coordinates, or the Paper/Mojang
+versions.list. Duplicate fields/entries, conflicting IDs and oversized metadata
+remain unconfirmed with an inspection note. NeoForge argument files use the
+existing native validator. Inspection reports each candidate independently; import
+reinspects before accepting known platform/version values. Unknown custom launchers
+remain manually configurable. Catalog loading never assigns an unobserved version.
+
+`SettingsProperties.tsx` owns the dedicated property controls, filtered by actual
+file keys. Unknown choice/boolean values remain explicit. Native `properties::write`
+checks structural validity for every update and numeric/boolean semantics for
+changed values; unchanged legacy values are retained for unrelated edits. The
+existing temporary-file publication and rollback remain responsible for writing.
+
+## Combined configuration publication
+
+The main Settings save action uses `save_server_settings` under one stopped-server
+reservation. `server_settings` validates capacity and prepares properties before
+mutation. A SQLite pending row holds bounded before/after file bytes and the
+canonical registered directory. File publication stages and syncs bytes locally;
+one SQLite transaction commits memory/space and removes the pending row. A pending
+row therefore means file changes must be restored, while its absence means the
+committed configuration survives cleanup. Recovery runs before stopped-server
+operations, launches and scheduler startup. It rejects an altered directory or
+external file content rather than overwriting an unrelated edit. This covers
+process interruption; power-loss guarantees and hostile concurrent filesystem
+replacement are not claimed. Existing individual commands remain for callers that
+change only one setting. The UI disables editing during save and while running.
+
+File publication copies existing permissions to the staged file. Normal saves
+reject read-only properties before preparing a journal. Recovery without a pending
+record preserves an old copy when the target is absent: it cannot infer which
+configuration matches SQLite and must not delete the only remaining properties.
+Existing recovery destinations are never overwritten by publication. Eight focused
+native scenarios pass on Windows; Unix permission-mode behavior remains unverified.
+
+
+### Independent frontend read ownership
+
+`serverRead.ts` owns a selected-server read revision, retained data and explicit
+loading/error state. `useServerRead` applies it independently to player polling
+and console history; disposal and selection invalidate outstanding replies,
+including A-B-A selection. Polling schedules only after the preceding scheduled
+read settles. Manual refresh can supersede a poll without letting its older reply
+overwrite newer data. Console history is merged with live events by timestamp and
+raw line, keeping the existing bounded 1,000-line window. Initial metrics and EULA
+queries settle independently; only EULA errors affect their existing consent flow.
+
+
+### On-demand section code
+
+`DeferredPanel.tsx` combines React lazy/Suspense with a local error boundary and
+retry generation. App supplies statically analyzable dynamic imports for Worlds,
+Content, Performance and Application Settings, preserving inferred component
+props through type-only imports. Vite emits separate section chunks. Panel failure
+cannot replace the shell; native jobs remain independent. Eager modal entry points
+retain their existing portal/focus behavior. Bundle-size evidence is distinct from
+native timing/memory measurements; first-entry and recovery QA remain manual.
+
+
+### NeoForge release families
+
+`neoforge_release.rs` preserves modern and historical artifact identities instead
+of deriving all installations from one Maven coordinate. Historical 1.20.1 uses
+`net.neoforged:forge:1.20.1-47.x.y` and profile `1.20.1-forge-47.x.y`; modern
+releases use `net.neoforged:neoforge`. Stable parsing excludes prerelease suffixes,
+bounds numeric inputs and sorts numerically. Explicit official prereleases retain
+the existing installation path. The historical identity model is groundwork;
+creation remains modern-only until all catalog/install/import/update paths and a
+real EULA-refusal verification are integrated.
+
+## Graceful shutdown coordination
+
+`shutdown::stop_all` issues all graceful-stop requests before observation and uses
+one shared deadline. It aggregates request/terminal/copy failures by server name,
+keeps active/unclean processes out of post-stop copying, and does not force kill.
+The engine holds the selected operation reservations through the batch and resumes
+normal admission if the shutdown attempt fails. New ordinary stopped/running
+reservations and imports reject the shutdown flag; the exit worker alone may
+reserve stopped servers for configured final copies.
+
+Exit requests independently check owned operations and active processes before
+cleanup, then recheck active Java after waiting for already-admitted work. A late
+start restores the close choice rather than leaving a live child behind. Background
+mode hides the window and retains the engine/tray. The protected close dialog shows
+local aggregate failures and prevents concurrent requests. Native window/tray race
+and Minecraft graceful-stop verification remain open.
+
+### Static Fabric presence evidence
+
+`fabric_presence.rs` scans declared metadata, provided IDs and nested JARs without
+executing or extracting code. A shared byte/node/depth budget bounds traversal.
+Required declarations without any provider are attached to their containing
+installed file only after the complete inventory is readable and no dependency
+override is present. Dedicated-client candidates are excluded. Incomplete reads
+produce review evidence, not missing-dependency conclusions. This does not replace
+Fabric's version matching/candidate selection or establish gameplay correctness.
+
+### Fabric predicate review and content divisions (0.25.0)
+
+`fabric_version.rs` compares declared OR alternatives and space-separated AND
+terms using Fabric-specific comparison semantics, including padded components,
+prereleases, wildcards, major-scoped caret and minor-scoped tilde. Unknown syntax
+returns no verdict. `fabric_presence.rs` warns when no candidate satisfies a
+main mod's recognized required ranges; declared breaks/conflicts are related only
+to known main providers, never optional nested selection. Partial metadata and
+overrides suppress negative dependency verdicts. This is not the loader's global
+solver and does not verify Java, Minecraft or loader-version predicates.
+Sources: Fabric Loader's VersionPredicateParser, SemanticVersionImpl and
+VersionComparisonOperator in the official repository.
+
+Search options carry a validated project kind. Client content and packs do not
+inherit the server-loader facet. Real public Modrinth searches passed for all three
+new divisions, with no archive downloads. A native command opens only validated
+project publication URLs under modrinth.com; arbitrary external URLs cannot be
+supplied through it. The actual desktop browser dispatch still needs native review.

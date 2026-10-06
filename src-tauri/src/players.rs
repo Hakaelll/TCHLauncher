@@ -4,6 +4,7 @@ use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
 use std::collections::HashSet;
+use std::io::Read;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,11 +75,19 @@ pub struct WhitelistImport {
 
 fn read_list<T: DeserializeOwned>(directory: &Path, name: &str) -> Result<Vec<T>, String> {
     let path = directory.join(name);
-    let bytes = match fs::read(&path) {
-        Ok(bytes) => bytes,
+    let preliminary=match fs::metadata(&path){Ok(metadata)=>metadata,Err(error)if error.kind()==std::io::ErrorKind::NotFound=>return Ok(Vec::new()),Err(error)=>return Err(format!("No se pudo leer {name}: {error}"))};
+    if !preliminary.is_file(){return Err(format!("{name} debe ser un archivo normal"));}
+    if preliminary.len()>5_000_000{return Err(format!("{name} supera el límite de 5 MB"));}
+    let file = match fs::File::open(&path) {
+        Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(format!("No se pudo leer {name}: {e}")),
     };
+    let metadata=file.metadata().map_err(|e|format!("No se pudo leer {name}: {e}"))?;
+    if !metadata.is_file(){return Err(format!("{name} debe ser un archivo normal"));}
+    if metadata.len()>5_000_000{return Err(format!("{name} supera el límite de 5 MB"));}
+    let mut bytes=Vec::new();
+    file.take(5_000_001).read_to_end(&mut bytes).map_err(|e|format!("No se pudo leer {name}: {e}"))?;
     if bytes.len() > 5_000_000 { return Err(format!("{name} supera el límite de 5 MB")); }
     serde_json::from_slice(&bytes).map_err(|e| format!("{name} no contiene una lista JSON válida: {e}"))
 }
@@ -118,9 +127,14 @@ pub fn validate_names(names: &[String]) -> Result<Vec<String>, String> {
 }
 
 pub fn read_whitelist_import(path: &Path) -> Result<WhitelistImport, String> {
-    let metadata = fs::metadata(path).map_err(|e| format!("No se pudo abrir la lista: {e}"))?;
+    let preliminary=fs::metadata(path).map_err(|e|format!("No se pudo abrir la lista: {e}"))?;
+    if !preliminary.is_file(){return Err("La lista debe ser un archivo normal".into());}
+    if preliminary.len()>1_000_000{return Err("El archivo debe ocupar menos de 1 MB".into());}
+    let file=fs::File::open(path).map_err(|e|format!("No se pudo abrir la lista: {e}"))?;
+    let metadata = file.metadata().map_err(|e| format!("No se pudo abrir la lista: {e}"))?;
+    if !metadata.is_file(){return Err("La lista debe ser un archivo normal".into());}
     if metadata.len() > 1_000_000 { return Err("El archivo debe ocupar menos de 1 MB".into()); }
-    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let mut bytes=Vec::new();file.take(1_000_001).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
     if bytes.len() > 1_000_000 { return Err("El archivo debe ocupar menos de 1 MB".into()); }
     let names: Vec<String> = if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("json")) {
         let entries: Vec<PlayerIdentity> = serde_json::from_slice(&bytes).map_err(|e| format!("El JSON no contiene una lista blanca válida: {e}"))?;
@@ -160,7 +174,7 @@ pub fn command(action: &str, target: Option<&str>, reason: Option<&str>) -> Resu
     if !matches!(action, "ban" | "ban_ip" | "kick") { return Ok(base); }
     let reason = reason.unwrap_or("").trim();
     if reason.is_empty() { return Ok(base); }
-    if reason.len() > 120 || reason.chars().any(char::is_control) {
+    if reason.chars().count() > 120 || reason.chars().any(char::is_control) {
         return Err("El motivo debe tener como máximo 120 caracteres y no contener saltos de línea".into());
     }
     Ok(format!("{base} {reason}"))
@@ -234,6 +248,18 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
+    fn list_reads_bound_large_files_and_preserve_malformed_data() {
+        let directory=std::env::temp_dir().join(format!("tch-player-limits-{}",Uuid::new_v4()));fs::create_dir_all(&directory).unwrap();
+        assert!(read_list::<KnownPlayer>(&directory,"usercache.json").unwrap().is_empty());
+        let path=directory.join("usercache.json");let file=fs::File::create(&path).unwrap();file.set_len(5_000_001).unwrap();drop(file);
+        assert!(read_list::<KnownPlayer>(&directory,"usercache.json").unwrap_err().contains("5 MB"));assert_eq!(fs::metadata(&path).unwrap().len(),5_000_001);
+        fs::write(&path,b"[{\"name\":\"Alex\"").unwrap();let before=fs::read(&path).unwrap();assert!(read_list::<KnownPlayer>(&directory,"usercache.json").unwrap_err().contains("JSON"));assert_eq!(fs::read(&path).unwrap(),before);
+        fs::remove_file(&path).unwrap();fs::create_dir(&path).unwrap();assert!(read_list::<KnownPlayer>(&directory,"usercache.json").is_err());
+        let import=directory.join("whitelist.txt");let file=fs::File::create(&import).unwrap();file.set_len(1_000_001).unwrap();drop(file);assert!(read_whitelist_import(&import).err().unwrap().contains("1 MB"));assert_eq!(fs::metadata(&import).unwrap().len(),1_000_001);
+        fs::write(&import,b"Alex\nSteve\n").unwrap();assert_eq!(read_whitelist_import(&import).unwrap().names,vec!["Alex","Steve"]);assert_eq!(fs::read(&import).unwrap(),b"Alex\nSteve\n");fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn parses_real_server_lists_and_online_state() {
         let directory = std::env::temp_dir().join(format!("tch-players-{}", Uuid::new_v4()));
         fs::create_dir_all(&directory).unwrap();
@@ -263,6 +289,10 @@ mod tests {
         assert!(command("op",Some("Alex\nstop"),None).is_err());
         assert!(command("ban_ip",Some("not-ip"),None).is_err());
         assert!(command("ban",Some("Alex"),Some("x\nstop")).is_err());
+        let reason="á".repeat(120);
+        assert_eq!(command("ban",Some("Alex"),Some(&reason)).unwrap(),format!("ban Alex {reason}"));
+        assert!(command("kick",Some("Alex"),Some(&"á".repeat(121))).is_err());
+        assert!(command("kick",Some("Alex"),Some("motivo\u{0085}stop")).is_err());
         assert_eq!(message_player_change("Alex joined the game"),Some(("Alex",true)));
         assert_eq!(message_player_change("Alex left the game"),Some(("Alex",false)));
         assert_eq!(message_player_change("Alex joined the game; stop"),None);

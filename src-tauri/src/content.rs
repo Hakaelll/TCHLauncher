@@ -138,6 +138,7 @@ impl Source for Modrinth<'_> {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct SearchOptions {
+    #[serde(default)] pub project_kind: String,
     #[serde(default)] pub category: String,
     #[serde(default)] pub sort: String,
     #[serde(default)] pub all_versions: bool,
@@ -150,8 +151,11 @@ fn search_url(server:&Server,query:&str,offset:u32,options:&SearchOptions)->Resu
     let categories:Vec<_>=supported_loaders(platform).iter().map(|loader|format!("categories:{loader}")).collect();
     let sort=if options.sort.is_empty(){"relevance"}else{options.sort.as_str()};
     if !matches!(sort,"relevance"|"downloads"|"follows"|"newest"|"updated") {return Err("Orden de búsqueda no válido".into());}
-    if options.category.len()>64 || !options.category.bytes().all(|c|c.is_ascii_lowercase()||c==b'-') {return Err("Categoría no válida".into());}
-    let mut facets=vec![categories,vec![format!("all_project_types:{}",if platform=="paper"{"plugin"}else{"mod"})]];
+    if options.category.len()>64 || !options.category.bytes().all(|c|c.is_ascii_lowercase()||c.is_ascii_digit()||matches!(c,b'-'|b'+')) {return Err("Categoría no válida".into());}
+    let kind=if options.project_kind.is_empty(){if platform=="paper"{"plugin"}else{"mod"}}else{options.project_kind.as_str()};
+    if !matches!(kind,"mod"|"plugin"|"modpack"|"resourcepack"|"shader"){return Err("Tipo de contenido no válido".into());}
+    let mut facets=vec![vec![format!("all_project_types:{kind}")]];
+    if matches!(kind,"mod"|"plugin"){facets.insert(0,categories);}
     if !options.all_versions {facets.push(vec![format!("versions:{}",server.version)]);}
     if !options.category.is_empty(){facets.push(vec![format!("categories:{}",options.category)]);}
     url.query_pairs_mut().append_pair("query", query.trim()).append_pair("facets", &serde_json::json!(facets).to_string()).append_pair("index",sort)
@@ -161,6 +165,11 @@ fn search_url(server:&Server,query:&str,offset:u32,options:&SearchOptions)->Resu
 
 pub fn search(task:&DownloadTask,server:&Server,query:&str,offset:u32,options:&SearchOptions)->Result<serde_json::Value,String> {
     task.json(search_url(server,query,offset,options)?.as_str(),"Buscando en Modrinth")
+}
+
+pub fn project_page(project_id:&str)->Result<String,String>{
+    identifier(project_id)?;
+    Ok(format!("https://modrinth.com/project/{project_id}/versions"))
 }
 
 #[derive(Clone, Serialize)]
@@ -374,7 +383,7 @@ mod tests {
     #[test]
     fn catalog_filters_are_conjunctive_and_allow_other_versions_without_changing_loader() {
         let server:Server=serde_json::from_value(serde_json::json!({"id":"search","name":"Search","version":"1.21.11","platform":"fabric","directory":"unused","jarPath":null,"javaPath":null,"memoryMinMb":1024,"memoryMaxMb":2048,"storageTargetGb":20,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap();
-        let options=SearchOptions {category:"worldgen".into(),sort:"downloads".into(),all_versions:false};
+        let options=SearchOptions {category:"worldgen".into(),sort:"downloads".into(),all_versions:false,..Default::default()};
         let url=search_url(&server," structures ",20,&options).unwrap();
         let params:HashMap<_,_>=url.query_pairs().into_owned().collect();
         let facets:Vec<Vec<String>>=serde_json::from_str(&params["facets"]).unwrap();
@@ -383,6 +392,20 @@ mod tests {
         let url=search_url(&server,"",0,&SearchOptions {all_versions:true,..options}).unwrap();
         assert!(!url.query_pairs().find(|(key,_)|key=="facets").unwrap().1.contains("versions:"));
         assert!(search_url(&server,"",0,&SearchOptions {category:"worldgen\"],[\"versions:other".into(),..Default::default()}).is_err());
+        let url=search_url(&server,"",0,&SearchOptions{project_kind:"resourcepack".into(),category:"16x".into(),..Default::default()}).unwrap();
+        assert!(url.query_pairs().find(|(key,_)|key=="facets").unwrap().1.contains("categories:16x"));
+    }
+    #[test]
+    fn discovery_types_do_not_apply_server_loader_filters_to_client_content_or_packs(){
+        let server:Server=serde_json::from_value(serde_json::json!({"id":"search","name":"Search","version":"1.21.11","platform":"fabric","directory":"x","jarPath":null,"javaPath":null,"memoryMinMb":1024,"memoryMaxMb":2048,"storageTargetGb":20,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap();
+        for kind in ["modpack","resourcepack","shader"]{
+            let url=search_url(&server,"",0,&SearchOptions{project_kind:kind.into(),..Default::default()}).unwrap();
+            let facets=url.query_pairs().find(|(key,_)|key=="facets").unwrap().1.into_owned();
+            assert!(facets.contains(&format!("all_project_types:{kind}")));assert!(!facets.contains("categories:fabric"));assert!(facets.contains("versions:1.21.11"));
+        }
+        assert!(search_url(&server,"",0,&SearchOptions{project_kind:"other".into(),..Default::default()}).is_err());
+        assert_eq!(project_page("Abc123").unwrap(),"https://modrinth.com/project/Abc123/versions");
+        for id in ["../x","x?url=evil","https://evil.test"]{assert!(project_page(id).is_err());}
     }
     struct Fixture { projects: HashMap<String, Project>, versions: HashMap<String, ContentVersion> }
     impl Source for Fixture {
@@ -488,6 +511,20 @@ mod tests {
         let found=availability(&task,&server,"lithium").unwrap();assert!(found.version_id.is_some());assert_eq!(found.channel.as_deref(),Some("release"));
         let versions=versions(&task,&server,"lithium").unwrap();assert!(versions.iter().any(|version|Some(&version.id)==found.version_id.as_ref()));
         server.version="1.0".into();assert!(availability(&task,&server,"lithium").unwrap().version_id.is_none());
+    }
+
+    #[test]
+    #[ignore = "Reads public Modrinth search metadata for packs, textures and shaders; downloads no content"]
+    fn searches_live_content_divisions_without_server_loader_constraints(){
+        let task=DownloadTask::new("discovery-types","content_search",|_|{}).unwrap();
+        let server:Server=serde_json::from_value(serde_json::json!({"id":"discovery-types","name":"Discovery","version":"1.21.11","platform":"fabric","directory":"unused","jarPath":null,"javaPath":null,"memoryMinMb":1024,"memoryMaxMb":2048,"storageTargetGb":20,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap();
+        for kind in ["modpack","resourcepack","shader"]{
+            let result=search(&task,&server,"",0,&SearchOptions{project_kind:kind.into(),all_versions:true,..Default::default()}).unwrap();
+            assert!(result["total_hits"].as_u64().unwrap()>0);
+            let hits=result["hits"].as_array().unwrap();assert!(!hits.is_empty());
+            assert!(hits.iter().all(|hit|hit["all_project_types"].as_array().is_some_and(|types|types.iter().any(|value|value.as_str()==Some(kind)))));
+            println!("{kind}: {} projects; {} returned",result["total_hits"],hits.len());
+        }
     }
 
     #[test]

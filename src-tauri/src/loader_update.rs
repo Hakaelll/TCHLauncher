@@ -57,14 +57,14 @@ pub fn installed(server:&Server)->Result<(String,String),String> {
     let mut digest=Sha512::new();for value in [&server.id,&server.platform,&server.version,server.jar_path.as_ref().unwrap(),server.java_path.as_deref().unwrap_or("")]{digest.update(value.as_bytes());digest.update([0]);}digest.update(bytes);digest.update(fs::read(jar).map_err(|e|e.to_string())?);
     Ok((version.into(),format!("{:x}",digest.finalize())))
 }
-fn numeric(version:&str)->Option<Vec<u32>> {let values=version.split('-').next()?.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;(values.len()==3).then_some(values)}
-fn newer(target:&str,current:&str)->bool {match (numeric(target),numeric(current)){(Some(target),Some(old))=>target>old||(target==old&&current.contains('-')),_=>false}}
+fn numeric(version:&str)->Option<Vec<u32>> {let version=version.strip_prefix("1.20.1-").unwrap_or(version);let values=version.split('-').next()?.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;(values.len()==3).then_some(values)}
+fn newer(target:&str,current:&str)->bool {match (numeric(target),numeric(current)){(Some(target),Some(old))=>target>old||(target==old&&current.strip_prefix("1.20.1-").unwrap_or(current).contains('-')),_=>false}}
 pub fn review(server:&Server,task:&DownloadTask)->Result<Review,String> {
     let (current,fingerprint)=installed(server)?;
     let versions=if server.platform=="fabric" {
         let data=task.json(&format!("https://meta.fabricmc.net/v2/versions/loader/{}",server.version),"Consultando loaders Fabric")?;
         data.as_array().ok_or("Catálogo Fabric no válido")?.iter().filter(|entry|entry["loader"]["stable"]==true).filter_map(|entry|entry["loader"]["version"].as_str().map(str::to_owned)).collect::<Vec<_>>()
-    }else{crate::neoforge::stable_loaders(&task.json("https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge","Consultando loaders NeoForge")?,&server.version)?};
+    }else{crate::neoforge::stable_loaders(&task.json(crate::neoforge::catalog_url(&server.version),"Consultando loaders NeoForge")?,&server.version)?};
     let mut available=versions.into_iter().filter(|version|newer(version,&current)).collect::<Vec<_>>();available.sort_by_key(|v|std::cmp::Reverse(numeric(v).unwrap()));available.dedup();
     Ok(Review{current,available,fingerprint})
 }
@@ -118,6 +118,14 @@ pub fn recover_all(root:&Path)->Result<(),String>{for server in storage::list(ro
 mod tests {
     use super::*;
     #[test]
+    fn historical_numeric_updates_do_not_offer_the_current_release(){
+        assert!(newer("1.20.1-47.1.106","1.20.1-47.1.9"));
+        assert!(!newer("1.20.1-47.1.106","1.20.1-47.1.106"));
+        assert!(!newer("1.20.1-47.1.9","1.20.1-47.1.106"));
+        assert!(newer("21.4.157","21.4.157-beta"));
+        assert!(!newer("21.4.157","21.4.157"));
+    }
+    #[test]
     #[ignore="Official downloads and Java; set TCH_TEST_JAVA and optionally TCH_TEST_UPDATE_PLATFORM=neoforge"]
     fn updates_real_loader_and_restores_previous_generation() {
         let platform=std::env::var("TCH_TEST_UPDATE_PLATFORM").unwrap_or_else(|_|"fabric".into());
@@ -131,7 +139,7 @@ mod tests {
             let mut server=storage::create(&root,crate::model::CreateServer{name:"Live loader update".into(),version:"1.21.4".into(),platform:platform.clone(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None})?;
             let task=DownloadTask::new(&server.id,"loader_update",|event|{if event.stage!="downloading"{eprintln!("{}: {}",event.stage,event.label);}})?;
             let initial=if platform=="fabric" {"0.16.10".to_owned()}else{
-                let data=task.json("https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge","Reviewing official NeoForge catalog")?;
+                let data=task.json(crate::neoforge::catalog_url(&server.version),"Reviewing official NeoForge catalog")?;
                 crate::neoforge::stable_loaders(&data,&server.version)?.get(1).cloned().ok_or("Need two stable NeoForge versions")?
             };
             crate::install::install_requested(&root,&server,&task,Some(&initial))?;

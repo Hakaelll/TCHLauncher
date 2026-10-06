@@ -38,12 +38,14 @@ pub fn imported(server:&Server)->Result<Identity,String> {
     checked_file(root,jar,64*1024*1024)?;
     if server.platform=="neoforge" {
         let args=crate::neoforge::launch_arguments(server)?;
-        let mut values=args.windows(2).filter(|pair|pair[0]=="--fml.neoForgeVersion").map(|pair|pair[1].clone());
+        let flag=if server.version=="1.20.1"{"--fml.forgeVersion"}else{"--fml.neoForgeVersion"};
+        let mut values=args.windows(2).filter(|pair|pair[0]==flag).map(|pair|if server.version=="1.20.1"{format!("1.20.1-{}",pair[1])}else{pair[1].clone()});
         let version=values.next().ok_or("El arranque no identifica la versión NeoForge")?;
         crate::fabric::validate_version(&version)?;
         crate::neoforge::requested_loader(&serde_json::json!({"versions":[version]}),&server.version,Some(&version))?;
         if values.next().is_some(){return Err("El arranque NeoForge identifica varias versiones".into());}
-        let relative=format!("libraries/net/neoforged/neoforge/{version}/{}",jar.file_name().ok_or("Falta el arranque")?.to_string_lossy());
+        let release=crate::neoforge_release::Release::selected(&version).ok_or("Identidad NeoForge no válida")?;
+        let relative=Path::new(&release.library_directory()).join(jar.file_name().ok_or("Falta el arranque")?);
         let canonical=root.canonicalize().map_err(|e|e.to_string())?;
         if jar.canonicalize().map_err(|e|e.to_string())?!=canonical.join(relative){return Err("El arranque NeoForge no coincide con su versión".into());}
         return Ok(Identity{version,evidence:vec![jar.into()]});
@@ -127,6 +129,10 @@ mod tests {
         fixture.1.jar_path=Some(path.to_string_lossy().into());
         let args="-p libraries/test/bootstrap.jar\nnet.neoforged.fml.startup.Server\n--fml.mcVersion 1.21.4\n--fml.neoForgeVersion 21.4.157\n";
         fs::write(&path,args).unwrap();assert_eq!(imported(&fixture.1).unwrap().version,"21.4.157");
+        let beta_path=path.parent().unwrap().with_file_name("21.4.157-beta").join(path.file_name().unwrap());
+        fs::create_dir_all(beta_path.parent().unwrap()).unwrap();fs::write(&beta_path,args.replace("21.4.157","21.4.157-beta")).unwrap();
+        fixture.1.jar_path=Some(beta_path.to_string_lossy().into());assert_eq!(imported(&fixture.1).unwrap().version,"21.4.157-beta");
+        fixture.1.jar_path=Some(path.to_string_lossy().into());
         for text in [args.replace("21.4.157","21.4.158"),format!("{args}--fml.neoForgeVersion 21.4.157\n"),args.replace("1.21.4","1.21.5")] {fs::write(&path,text).unwrap();assert!(imported(&fixture.1).is_err());}
     }
 }

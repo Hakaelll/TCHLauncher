@@ -1,29 +1,82 @@
-import {useEffect,useState} from 'react'
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type CrashPolicy,type CrashStatus} from './api'
+import {crashPolicyErrors,defaultCrashPolicy,reconcileCrashDraft,sameCrashPolicy} from './crashPolicy'
 
 export function CrashRestartPanel({id}:{id:string}) {
   const [status,setStatus]=useState<CrashStatus|null>(null)
-  const [draft,setDraft]=useState<CrashPolicy>({enabled:false,delaySeconds:30,maxAttempts:3})
-  const [error,setError]=useState<string|null>(null)
+  const [draft,setDraft]=useState<CrashPolicy>({...defaultCrashPolicy})
+  const [readError,setReadError]=useState<string|null>(null)
+  const [actionError,setActionError]=useState<string|null>(null)
+  const [saved,setSaved]=useState(false)
+  const [submitted,setSubmitted]=useState(false)
   const [working,setWorking]=useState(false)
+  const [loading,setLoading]=useState(false)
+  const delayInput=useRef<HTMLInputElement>(null)
+  const attemptsInput=useRef<HTMLInputElement>(null)
+  const scope=useRef({id,active:false,revision:0,saving:false,status:null as CrashStatus|null})
+  const load=useCallback(async()=>{
+    const current=scope.current
+    if(!current.active||current.saving)return
+    const revision=++current.revision;setLoading(true)
+    try{
+      const value=await api.crashRestart(current.id)
+      if(!current.active||scope.current!==current||revision!==current.revision)return
+      const previous=current.status?.policy??null
+      current.status=value;setStatus(value)
+      setDraft(draft=>reconcileCrashDraft(draft,previous,value.policy));setReadError(null)
+    }catch(cause){if(current.active&&scope.current===current&&revision===current.revision)setReadError(String(cause))}
+    finally{if(current.active&&scope.current===current&&revision===current.revision)setLoading(false)}
+  },[])
   useEffect(()=>{
-    let active=true
-    void api.crashRestart(id).then(value=>{if(active){setStatus(value);setDraft(value.policy)}}).catch(cause=>{if(active)setError(String(cause))})
-    const subscription=listen<string>('scheduler-updated',event=>{if(event.payload===id)void api.crashRestart(id).then(value=>{if(active)setStatus(value)}).catch(cause=>{if(active)setError(String(cause))})})
-    return()=>{active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
-  },[id])
-  const dirty=JSON.stringify(status?.policy)!==JSON.stringify(draft)
-  const save=async(policy:CrashPolicy)=>{setWorking(true);setError(null);try{await api.saveCrashRestart(id,policy);const value=await api.crashRestart(id);setStatus(value);setDraft(value.policy)}catch(cause){setError(String(cause))}finally{setWorking(false)}}
-  return <div className="crash-restart-panel">
-    <div className="crash-restart-heading"><h4>Reinicio tras un fallo</h4><span className="task-state">{status?status.policy.enabled?'Activado':'Desactivado':'Cargando…'}</span></div>
+    const current={id,active:true,revision:0,saving:false,status:null as CrashStatus|null};scope.current=current
+    setStatus(null);setDraft({...defaultCrashPolicy});setReadError(null);setActionError(null);setSaved(false);setSubmitted(false);setWorking(false)
+    void load()
+    const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
+    void subscription.catch(()=>{if(current.active&&scope.current===current)setReadError('No se pudieron recibir cambios automáticos. Usa Actualizar estado.')})
+    return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
+  },[id,load])
+  const dirty=!!status&&!sameCrashPolicy(status.policy,draft)
+  const errors=crashPolicyErrors(draft)
+  const save=async(policy:CrashPolicy)=>{
+    const current=scope.current
+    if(current.saving||!current.status)return
+    current.saving=true;current.revision++;setLoading(false);setWorking(true);setActionError(null);setSaved(false)
+    try{
+      await api.saveCrashRestart(current.id,policy)
+      if(!current.active||scope.current!==current)return
+      // Acknowledged writes remain successful even when the subsequent read fails.
+      current.status=null;setStatus(null);setDraft({...policy});setSaved(true);setSubmitted(false)
+    }catch(cause){if(current.active&&scope.current===current)setActionError(String(cause))}
+    finally{
+      current.saving=false
+      if(current.active&&scope.current===current){await load();if(current.active&&scope.current===current)setWorking(false)}
+    }
+  }
+  const submit=(event:FormEvent)=>{
+    event.preventDefault();setSubmitted(true)
+    if(errors.delaySeconds){delayInput.current?.focus();return}
+    if(errors.maxAttempts){attemptsInput.current?.focus();return}
+    void save(draft)
+  }
+  const edit=(value:CrashPolicy)=>{setDraft(value);setSaved(false);setActionError(null)}
+  return <section className="crash-restart-panel" aria-labelledby="crash-restart-title">
+    <div className="crash-restart-heading"><h4 id="crash-restart-title">Reinicio tras un fallo</h4><span className="task-state">{status?status.policy.enabled?'Activado':'Desactivado':readError?'No disponible':saved?'Actualizando estado…':'Cargando…'}</span></div>
+    <form noValidate onSubmit={submit}>
     <fieldset disabled={working||!status}>
-      <label className="schedule-repeat"><input type="checkbox" checked={draft.enabled} onChange={event=>setDraft({...draft,enabled:event.target.checked})}/>Volver a iniciar si el proceso termina inesperadamente</label>
+      <label className="schedule-repeat"><input type="checkbox" checked={draft.enabled} onChange={event=>edit({...draft,enabled:event.target.checked})}/>Volver a iniciar si el proceso termina inesperadamente</label>
       <p className="field-help">Las paradas solicitadas no se reinician. El contador se restablece tras 10 minutos de funcionamiento estable; guardar estos ajustes también lo restablece.</p>
-      <div className="backup-policy-fields"><label>Espera entre intentos (segundos)<input type="number" min={5} max={3600} step={1} value={draft.delaySeconds} onChange={event=>setDraft({...draft,delaySeconds:Number(event.target.value)})}/></label><label>Límite de intentos<input type="number" min={1} max={10} step={1} value={draft.maxAttempts} onChange={event=>setDraft({...draft,maxAttempts:Number(event.target.value)})}/></label></div>
-      <div className="backup-policy-actions"><button disabled={!dirty} onClick={()=>void save(draft)}>Guardar reinicio automático</button>{status&&status.attempts>0&&<button disabled={dirty} onClick={()=>void save(status.policy)}>Restablecer intentos</button>}</div>
+      <div className="backup-policy-fields">
+        <label>Espera entre intentos (segundos)<input ref={delayInput} type="number" min={5} max={3600} step={1} value={draft.delaySeconds} aria-invalid={submitted&&!!errors.delaySeconds} aria-describedby={submitted&&errors.delaySeconds?'restart-delay-error':undefined} onChange={event=>edit({...draft,delaySeconds:Number(event.target.value)})}/>{submitted&&errors.delaySeconds&&<span id="restart-delay-error" className="form-error">{errors.delaySeconds}</span>}</label>
+        <label>Límite de intentos<input ref={attemptsInput} type="number" min={1} max={10} step={1} value={draft.maxAttempts} aria-invalid={submitted&&!!errors.maxAttempts} aria-describedby={submitted&&errors.maxAttempts?'restart-attempts-error':undefined} onChange={event=>edit({...draft,maxAttempts:Number(event.target.value)})}/>{submitted&&errors.maxAttempts&&<span id="restart-attempts-error" className="form-error">{errors.maxAttempts}</span>}</label>
+      </div>
+      <div className="backup-policy-actions"><button className="primary-button" disabled={!dirty} type="submit">{working?'Guardando…':'Guardar reinicio automático'}</button>{status&&status.attempts>0&&<button type="button" disabled={dirty} onClick={()=>void save(status.policy)}>Restablecer intentos</button>}</div>
     </fieldset>
-    {status?.policy.enabled&&<p className="crash-status" role="status"><strong>{status.attempts} / {status.policy.maxAttempts} intentos usados</strong>{status.nextAt&&<span>Próximo intento: {new Date(status.nextAt).toLocaleString()}</span>}{status.lastResult&&<span>{status.lastResult}</span>}</p>}
-    {error&&<p className="form-error" role="alert">{error}</p>}
-  </div>
+    </form>
+    <div className="crash-refresh"><span>{dirty?'Cambios sin guardar':saved?'Ajustes guardados':status?'Configuración del servidor':''}</span><button type="button" disabled={working||loading} onClick={()=>void load()}>{loading?'Consultando…':'Actualizar estado'}</button></div>
+    {saved&&readError&&<p className="inline-note">Los ajustes se guardaron. No se pudo consultar el estado actualizado; vuelve a intentarlo con «Actualizar estado».</p>}
+    {status?.policy.enabled&&<p className="crash-status" role="status"><strong>{status.attempts} / {status.policy.maxAttempts} intentos usados</strong>{status.nextAt!==null&&<span>Próximo intento: {new Date(status.nextAt).toLocaleString()}</span>}{status.lastResult&&<span>{status.lastResult}</span>}</p>}
+    {readError&&<p className="form-error" role="alert">{readError}</p>}
+    {actionError&&<p className="form-error" role="alert">{actionError}</p>}
+  </section>
 }

@@ -78,7 +78,7 @@ pub fn review(root:&Path,server:&Server,target:&str,task:&DownloadTask)->Result<
         },
         "neoforge"=>{
             reviewed.current_loader=Some(crate::loader_update::installed(server)?.0);
-            let data=task.json("https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge","Revisando NeoForge para el nuevo Minecraft")?;
+            let data=task.json(crate::neoforge::catalog_url(target),"Revisando NeoForge para el nuevo Minecraft")?;
             reviewed.target_loader=Some(crate::neoforge::requested_loader(&data,target,None)?);
         },
         "paper"=>{
