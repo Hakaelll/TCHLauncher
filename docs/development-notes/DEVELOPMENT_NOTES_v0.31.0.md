@@ -293,3 +293,25 @@ native interface and physical router verification remain pending. Existing
 installer and application version are unchanged.
 
 Commit: `refactor: share frontend helpers and verify NeoForge lifecycle`
+
+## Deferred server creation and imports (not packaged)
+
+Extracted CreateView and ImportView from App and loaded them on demand, alongside
+PackImport, through the existing per-panel loading/error/retry boundary. Creation,
+seed selection, world import, capacity validation, version catalog, image picking,
+step motion and native import callbacks retain their existing implementation.
+An exact comparison against the preceding committed component bodies confirmed
+the extraction did not alter them. Platform display naming now has one shared
+owner; dynamic module failure cannot replace the application shell.
+
+The final production manifest establishes that all three workflow modules are
+outside the initial static graph. Initial JavaScript is 461,913 bytes, down 28,459
+from 490,372 (5.8%). SliderField is shared between deferred workflows. This is a
+startup bundle reduction, not deletion of those workflows or a measured RAM,
+launch-time or network improvement. No CSS or visual identity change is included.
+
+TypeScript, all 98 frontend regressions, production Vite and diff validation passed.
+Native wizard/import interaction and visual inspection remain manual. The app
+version and existing installer are unchanged.
+
+Commit: `perf: defer server creation and import workflows`

@@ -1,1 +1,1 @@
-refactor: share frontend helpers and verify NeoForge lifecycle
+perf: defer server creation and import workflows
