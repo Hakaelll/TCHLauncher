@@ -1,3 +1,4 @@
+import {isCapacityValid} from './capacity'
 import {errorText} from './format'
 import {translatedMessage,t} from './locale.ts'
 import {isTauri} from '@tauri-apps/api/core'
@@ -29,7 +30,7 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
   const [input,setInput] = useState<CreateInput>({ name:'',version:'',platform:'vanilla',memoryMinMb:1024,memoryMaxMb:2048,maxPlayers:20,port:25565,storageTargetGb:20,imagePath:null,seed:'' })
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(input.memoryMaxMb,systemMemoryMb || 16384))
-  const invalidCapacity = input.memoryMinMb < 512 || input.memoryMaxMb < input.memoryMinMb || input.memoryMaxMb > 65536 || input.maxPlayers < 1 || input.maxPlayers > 1000 || input.storageTargetGb < 1 || input.storageTargetGb > 2048 || input.port < 1 || input.port > 65535 || ![input.memoryMinMb,input.memoryMaxMb,input.maxPlayers,input.storageTargetGb,input.port].every(Number.isFinite)
+  const invalidCapacity = !isCapacityValid(input)
   const invalidSeed=worldMode==='new'&&(new TextEncoder().encode(input.seed??'').length>1024||/[\u0000-\u001f\u007f]/.test(input.seed??''))
   const readyToCreate = !invalidSeed && !!input.name.trim() && !!input.version && !versionError && !versionLoading && !invalidCapacity && (worldMode === 'new' || !!worldSource)
   const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError && !versionLoading : step === 2 ? !invalidSeed && (worldMode === 'new' || !!worldSource) : step === 3 ? !invalidCapacity : readyToCreate

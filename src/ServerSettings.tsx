@@ -1,3 +1,4 @@
+import {isCapacityValid} from './capacity'
 import {useState} from 'react'
 import {t} from './locale.ts'
 import type {Server,Progress} from './api'
@@ -16,7 +17,7 @@ export function ServerSettings({onConsole,onRuntimeChanged,onPrepareRuntime,serv
   const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
   const memorySliderMax = Math.min(65536,Math.max(memory.max,systemMemoryMb || 16384))
   const maxPlayers = Number(props['max-players'] || 20)
-  const invalidCapacity = memory.min < 512 || memory.max < memory.min || memory.max > 65536 || storageTarget < 1 || storageTarget > 2048 || maxPlayers < 1 || maxPlayers > 1000 || ![memory.min,memory.max,maxPlayers,storageTarget].every(Number.isFinite)
+  const invalidCapacity = !isCapacityValid({memoryMinMb:memory.min,memoryMaxMb:memory.max,maxPlayers,storageTargetGb:storageTarget})
   return <section className="settings-view"><div className="section-heading"><div><h2>{t("Configuración")}</h2><p>{t("Personaliza la apariencia y los ajustes del servidor.")}</p></div><button className="primary-button" disabled={busy || !propertiesLoaded || propertiesLoading || !!propertiesError || invalidCapacity || !['stopped','crashed','error'].includes(server.state)} onClick={onSave}>{t("Guardar cambios")} <Icon name="check" size={16}/></button></div>
     <h3>{t("Imagen del servidor")}</h3><div className="settings-image"><ServerArtwork server={server}/><div><strong>{server.name}</strong><p>{t("La misma imagen en el launcher y en la lista de Minecraft. Se adapta a 64 × 64. PNG, JPG o WebP, hasta 2 MB.")}</p><div className="settings-image-actions"><button disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onPickImage}>{server.imageData ? t("Cambiar imagen") : t("Elegir imagen")}</button>{server.imageData && <button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onClearImage}>{t("Quitar imagen")}</button>}</div></div></div>
     {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">{t("Detén el servidor para editar su configuración.")}</p>}

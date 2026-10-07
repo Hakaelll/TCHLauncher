@@ -315,3 +315,29 @@ Native wizard/import interaction and visual inspection remain manual. The app
 version and existing installer are unchanged.
 
 Commit: `perf: defer server creation and import workflows`
+
+## Integer capacity validation and real Vanilla lifecycle (not packaged)
+
+Creation and settings now share the same integer capacity validator. Previously,
+finite fractional values could leave actions enabled even though native integer
+serialization rejects them. The validator preserves existing limits and rejects
+fractional, nonfinite, out-of-range and reversed memory values before submission.
+Settings omit the creation-only port input. Two boundary/regression tests, all
+100 frontend tests, TypeScript and production Vite passed. This consolidates
+validation behavior; no measured RAM or connection improvement is claimed.
+
+Added Vanilla to the shared opt-in production lifecycle harness. Minecraft 1.21.4
+with downloaded/verified Temurin 21 completed three readiness/status/unique command
+and graceful exit sessions, tracked backup/restore and boot of the restored world.
+Startup times were 39,886 / 21,078 / 14,686 ms; the backup was 124,188,011 bytes.
+Restore created a safety backup, preserved level.dat bytes and restored the
+configuration. All exit codes were zero with complete captured output. The test
+passed in 128.02 seconds. Its temporary library was confirmed absent and the
+copy of the existing consent record was removed; no new consent was accepted.
+
+Vanilla, Paper, Fabric with Lithium and NeoForge now each have real isolated
+lifecycle evidence. This does not establish client gameplay, native interface
+behavior, physical router operation or the friend's reported mod/network issues.
+Existing installer and app version are unchanged.
+
+Commit: `fix: validate integer capacity and verify Vanilla lifecycle`
