@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type ScheduledTask,type TaskAction} from './api'

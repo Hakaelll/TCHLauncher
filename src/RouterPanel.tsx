@@ -1,10 +1,9 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NetworkSnapshot,type RouterStatus,type Server} from './api'
 import {Modal} from './Modal'
 
-const errorText=(error:unknown)=>error instanceof Error?error.message:String(error)
 const phaseLabels=localizedStatic({pending:'Comprobando apertura',active:'Apertura confirmada por el router',closing:'Retirada pendiente',attention:'Requiere revisión'})
 const clock=(time:number)=>new Date(time).toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
 

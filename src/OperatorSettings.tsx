@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {translatedMessage,t} from './locale.ts'
 import {useEffect,useId,useRef,useState,type FormEvent} from 'react'
 import {api,type Operator,type Server} from './api'
 import {operatorDraft,reconcileOperator,operatorDirty,operatorConflict} from './operatorDraft'

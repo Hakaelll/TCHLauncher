@@ -1,11 +1,10 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type Server,type StorageUsage} from './api'
 import {SliderField} from './SliderField'
 
 const bytes=(value:number)=>value>=1024**3?`${(value/1024**3).toFixed(2)} GB`:value>=1024**2?`${(value/1024**2).toFixed(1)} MB`:`${Math.round(value/1024)} KB`
-const errorText=(error:unknown)=>error instanceof Error?error.message:String(error)
 export function StoragePanel({server,busy}:{server:Server;busy:boolean}){
   const [usage,setUsage]=useState<StorageUsage|null>(null)
   const [loading,setLoading]=useState(true)

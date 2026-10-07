@@ -81,6 +81,10 @@ fn paper_download_ready_command_stop_restart_backup_restore() {verify_lifecycle(
 #[ignore="Downloads Java/Fabric/Lithium and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
 fn fabric_mod_ready_command_stop_restart_backup_restore() {verify_lifecycle("fabric");}
 
+#[test]
+#[ignore="Downloads Java/NeoForge and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn neoforge_ready_command_stop_restart_backup_restore() {verify_lifecycle("neoforge");}
+
 fn verify_lifecycle(platform:&str) {
     let consent_path=std::env::var("TCH_TEST_CONSENT_RECORD").expect("Provide a copy of an already recorded explicit Minecraft EULA acceptance");
     let bytes=fs::read(consent_path).unwrap();assert!(bytes.len()<=4096);

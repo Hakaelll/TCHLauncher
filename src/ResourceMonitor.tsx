@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t,getLanguage} from './locale.ts'
+import {translatedMessage,t,getLanguage} from './locale.ts'
 import {PixelIcon} from './PixelIndicators'
 import {ServerResponsePanel} from './ServerResponsePanel'
 import {api,type Metrics,type Server} from './api'

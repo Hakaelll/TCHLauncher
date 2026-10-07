@@ -1,7 +1,6 @@
-import {translatedMessage} from './locale.ts'
-import {t,getLanguage} from './locale.ts'
+import {fmtBytes as bytes} from './format'
+import {translatedMessage,t,getLanguage} from './locale.ts'
 import type {Metrics} from './api'
-const bytes=(value:number)=>value>=1024**3?`${(value/1024**3).toFixed(1)} GB`:value>=1024**2?`${(value/1024**2).toFixed(1)} MB`:`${Math.round(value/1024)} KB`
 export function StorageMeter({metrics,targetGb,onSettings}:{metrics:Metrics|null;targetGb:number;onSettings:()=>void}){
   const size=metrics?.sizeBytes
   const known=size!=null

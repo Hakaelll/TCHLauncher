@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {translatedMessage,t} from './locale.ts'
 import {useId,useRef,useState} from 'react'
 import {createPortal} from 'react-dom'
 import type {Progress,Server} from './api'

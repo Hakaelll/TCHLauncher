@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 type SettingField = {key:string;label:string;description:string;kind:'text'|'number'|'toggle'|'choice';min?:number;max?:number;options?:{value:string;label:string}[]}
 const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = localizedStatic([
   {title:'Identidad y conexión',description:'Lo que verán los jugadores y cómo se conectarán.',fields:[

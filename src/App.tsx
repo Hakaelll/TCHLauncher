@@ -1,5 +1,5 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import {acknowledgedAction} from './acknowledgedAction'
 import {useLanguage} from './useLanguage'
 import {createLogBatch} from './logBatch'
@@ -83,7 +83,6 @@ function SectionIcon({name}:{name:View|'library'|'appearance'}) {
 const platformName = (platform:Server['platform']) => ({vanilla:'Vanilla',paper:'Paper',fabric:'Fabric',neoforge:'NeoForge'})[platform]
 const stateText = (state: string) => labels[state as ServerState] || state
 const fmtUptime = (n?: number | null) => n == null ? '—' : `${Math.floor(n / 3600)} h ${Math.floor(n % 3600 / 60)} min`
-const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
 
 function App() {
   useLanguage()

@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useState,type CSSProperties} from 'react'
 import {api} from './api'
 import type { Appearance, ThemeId } from './appearance'

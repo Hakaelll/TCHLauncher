@@ -1,5 +1,5 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import { useEffect, useRef, useState } from 'react'
 import { api, type ContentReview, type ContentVersion, type InstalledContent, type Progress, type LogLine, type Server } from './api'
 import { isTaskActive } from './taskState'
@@ -9,7 +9,6 @@ import {ContentDiscovery} from './ContentDiscovery'
 import {InstalledContentView} from './InstalledContentView'
 import {DisabledContentView} from './DisabledContentView'
 import {useServerRead} from './useServerRead'
-const errorText=(e:unknown)=>e instanceof Error?e.message:String(e)
 const actionLabels=localizedStatic({install:'Añadir',update:'Actualizar',present:'Ya instalado'})
 const environmentLabels:Record<string,string>=localizedStatic({client_and_server:'Cliente y servidor',client_only_server_optional:'Cliente necesario · servidor opcional',server_only:'Solo servidor',server_only_client_optional:'Servidor · cliente opcional',dedicated_server_only:'Servidor dedicado',client_or_server:'Cliente o servidor',client_or_server_prefers_both:'Cliente y servidor recomendados'})
 export function ContentManager({server,progress,logs,onConsole,onInstalled,onDismissProgress,onImportPack}:{server:Server;progress:Progress|null;logs:LogLine[];onConsole:(query:string)=>void;onInstalled:()=>Promise<void>;onDismissProgress:()=>void;onImportPack:()=>void}) {

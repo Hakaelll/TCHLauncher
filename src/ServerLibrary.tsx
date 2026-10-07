@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { useRef, useState } from 'react'
 import type { Server } from './api'
 import { useListMotion } from './motion'

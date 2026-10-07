@@ -1,5 +1,5 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type ApplicationInfo,type Progress,type Server} from './api'
 import type {Appearance} from './appearance'
@@ -19,7 +19,6 @@ import launcherEmblem from './assets/launcher-logo.png'
 const categories=localizedStatic({general:'General',java:'Java',storage:t("Almacenamiento"),network:t("Red"),backups:t("Copias"),advanced:t("Avanzado"),about:t("Información")} as const)
 type Category=keyof typeof categories
 const locations=localizedStatic({library:'Biblioteca',servers:'Servidores guardados',runtimes:'Java administrado',backups:'Copias de seguridad'})
-const errorText=(error:unknown)=>error instanceof Error?error.message:String(error)
 
 type Props={appearance:Appearance;saved:boolean;onAppearance:(value:Appearance)=>void;servers:Server[];selectedId:string|null;onSelect:(id:string)=>void;busy:boolean;progress:Record<string,Progress>;onPrepare:(id:string,reinstall:boolean)=>void;onChanged:()=>Promise<void>;onOpenServer:(server:Server,section:'backups'|'settings')=>void;onDismiss:(progress:Progress)=>void}
 export function ApplicationSettings(props:Props){

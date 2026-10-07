@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t,getLanguage} from './locale.ts'
+import {translatedMessage,t,getLanguage} from './locale.ts'
 import {Component,Suspense,lazy,useState,type ComponentType,type ReactNode} from 'react'
 
 type BoundaryProps={label:string;onRetry:()=>void;children:ReactNode}

@@ -1,18 +1,11 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {fmtBytes as sizeLabel,errorText} from './format'
+import {translatedMessage,t} from './locale.ts'
 import { useEffect, useRef, useState, useId, type FormEvent } from 'react'
 import {useServerRead} from './useServerRead'
 import { useListMotion } from './motion'
 import {ActionMenu,type MenuTarget} from './ActionMenu'
 import { Modal } from './Modal'
 import { api, type Server, type World, type WorldInspection } from './api'
-
-const sizeLabel = (bytes: number) => bytes < 1024 * 1024
-  ? `${Math.round(bytes / 1024)} KB`
-  : bytes < 1024 * 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-const errorText = (error: unknown) => error instanceof Error ? error.message : String(error)
 
 function WorldIcon({world}: {world: World}) {
   return world.iconData

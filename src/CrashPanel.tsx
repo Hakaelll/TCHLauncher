@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t,getLanguage} from './locale.ts'
+import {translatedMessage,t,getLanguage} from './locale.ts'
 import {useEffect,useState} from 'react'
 import {api,type CrashReport,type Server} from './api'
 

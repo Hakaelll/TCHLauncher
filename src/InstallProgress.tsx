@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { useState } from 'react'
 import { api, type Progress } from './api'
 import { AnimatedValue } from './motion'

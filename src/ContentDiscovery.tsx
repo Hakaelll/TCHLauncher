@@ -1,5 +1,5 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import {useEffect,useRef,useState,type FormEvent} from 'react'
 import {api,type ContentAvailability,type ContentKind,type ContentSearch,type InstalledContent,type Server} from './api'
 import {checkPage} from './contentBrowse'
@@ -12,7 +12,6 @@ const kindLabels:Record<ContentKind,string>=localizedStatic({mod:'Mods',plugin:'
 const resourceCategories=localizedStatic([['16x','16×'],['32x','32×'],['64x','64×'],['128x','128×'],['decoration','Decoración'],['realistic','Realista'],['simplistic','Sencillo'],['themed','Temático'],['vanilla-like','Estilo Vanilla']])
 const shaderCategories=localizedStatic([['realistic','Realista'],['fantasy','Fantasía'],['vanilla-like','Estilo Vanilla'],['low','Requisitos bajos'],['medium','Requisitos medios'],['high','Requisitos altos'],['shadows','Sombras'],['reflections','Reflejos'],['colored-lighting','Luz de colores']])
 const packCategories=localizedStatic([['adventure','Aventura'],['challenging','Desafiante'],['quests','Misiones'],['technology','Tecnología'],['magic','Magia'],['lightweight','Ligero'],['multiplayer','Multijugador'],['optimization','Rendimiento']])
-const errorText=(e:unknown)=>e instanceof Error?e.message:String(e)
 type AvailabilityState={value?:ContentAvailability;error?:string}
 
 function ProjectIcon({url,title}:{url:string|null;title:string}) {

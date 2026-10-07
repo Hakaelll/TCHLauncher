@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NatPmpDetection,type NatPmpRecord,type NetworkSnapshot,type Server} from './api'
 import {Modal} from './Modal'

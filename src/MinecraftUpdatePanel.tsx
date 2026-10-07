@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type MinecraftReview,type Progress,type Server,type Version} from './api'

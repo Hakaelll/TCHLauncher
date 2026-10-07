@@ -1,6 +1,6 @@
 import type {Server} from './api'
 
-export const fmtBytes = (n?: number | null) => n == null ? '—' : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : n < 1024 * 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`
+export {fmtBytes} from './format'
 
 export function Icon({name, size = 18}: {name: 'plus' | 'folder' | 'arrow' | 'back' | 'server' | 'check'; size?: number}) {
   const paths = {

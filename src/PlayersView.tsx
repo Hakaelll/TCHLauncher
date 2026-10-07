@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { MovingIndicator, useListMotion } from './motion'
 import {OperatorSettings} from './OperatorSettings'
 import {PlayerHead} from './PlayerHead'

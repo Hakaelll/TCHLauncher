@@ -1,5 +1,5 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { useEffect, useState } from 'react'
 import { api, type NetworkSnapshot, type Server } from './api'
 import {RouterPanel} from './RouterPanel'
@@ -13,7 +13,6 @@ const stateLabels: Record<NetworkSnapshot['portState'], string> = localizedStati
   occupied: 'Ocupado por otro proceso',
   unknown: 'No se pudo comprobar',
 })
-const errorText = (error: unknown) => error instanceof Error ? error.message : String(error)
 
 export function NetworkPanel({server}: {server: Server}) {
   const [network,setNetwork] = useState<NetworkSnapshot|null>(null)

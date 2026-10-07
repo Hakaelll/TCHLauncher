@@ -1,1 +1,1 @@
-feat: refine backup history and defer backup controls
+refactor: share frontend helpers and verify NeoForge lifecycle

@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {translatedMessage,t} from './locale.ts'
 import {useEffect,useState} from 'react'
 import {api,type Server} from './api'
 import {Modal} from './Modal'

@@ -267,3 +267,29 @@ diff validation passed. Native visual/keyboard/reduced-motion/theme checks remai
 manual and are not established by compilation. The existing installer is unchanged.
 
 Commit: `feat: refine backup history and defer backup controls`
+
+## Shared frontend helpers and real NeoForge lifecycle (not packaged)
+
+Consolidated 36 duplicate locale imports and shared equivalent byte formatting
+and error conversion across existing panels. Display formats with different
+precision remain separate. Frontend source is 1,596 bytes smaller with repository
+LF line endings, including the new shared module. Initial static production
+JavaScript is 490,372 bytes, 233 fewer than the preceding build. These are code
+and bundle measurements, not evidence of reduced runtime RAM or network latency.
+TypeScript, all 98 frontend tests and production Vite passed.
+
+The shared opt-in lifecycle harness now includes NeoForge. Using the existing
+persisted consent record without accepting it again, production installation
+selected NeoForge 21.4.158 for Minecraft 1.21.4 and downloaded/verified Temurin 21.
+Three sessions reached real readiness, answered loopback status and unique console
+commands, then stopped gracefully with exit code zero and complete output capture.
+Startup times were 33,372 / 22,701 / 16,904 ms. The tracked backup was 202,933,466
+bytes; restore created a safety backup, preserved level.dat bytes, restored the
+configuration and booted the restored instance. The test passed in 181.90 seconds.
+The owned temporary library was removed and the consent copy was deleted.
+
+No additional NeoForge mod was installed in this test. Actual client gameplay,
+native interface and physical router verification remain pending. Existing
+installer and application version are unchanged.
+
+Commit: `refactor: share frontend helpers and verify NeoForge lifecycle`

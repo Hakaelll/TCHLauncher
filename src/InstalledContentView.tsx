@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import {useEffect,useMemo,useRef,useState,useId} from 'react'
 import {api,type ContentAudit,type InstalledContent,type LogLine,type Server} from './api'
 import {checkPage} from './contentBrowse'

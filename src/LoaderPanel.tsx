@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {translatedMessage,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type Server,type LoaderReview,type Progress} from './api'

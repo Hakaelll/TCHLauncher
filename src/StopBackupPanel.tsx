@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {t} from './locale.ts'
+import {translatedMessage,t} from './locale.ts'
 import {useEffect,useState} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type StopBackupStatus} from './api'

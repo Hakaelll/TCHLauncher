@@ -1,5 +1,4 @@
-import {translatedMessage} from './locale.ts'
-import {localizedStatic,t,getLanguage} from './locale.ts'
+import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, type ServerState } from './api'
 import { motion, reducedMotion } from './motion'
