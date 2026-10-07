@@ -4,6 +4,7 @@ export function createServerRead<T>(read:(id:string)=>Promise<T>,publish:(state:
   let state=emptyServerRead<T>(),revision=0,active=true
   const emit=(next:ServerRead<T>)=>{state=next;publish(state)}
   return {
+    isLoading(){return state.loading},
     select(id:string|null){revision++;emit({...emptyServerRead<T>(),serverId:id})},
     async refresh(id=state.serverId){
       if(!active||!id||id!==state.serverId)return

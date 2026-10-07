@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {contentSignals,contentStatus} from '../src/contentHealth.ts'
+import {contentSignals,contentSignalsFromDiagnostics,prepareContentDiagnostics,contentStatus} from '../src/contentHealth.ts'
 
 const file={filename:'backpack-1.0.jar',title:'Better Backpack',projectId:'real',versionId:'v1',versionNumber:'1.0',sha512:'a',size:42,modified:false}
 const check={filename:file.filename,descriptor:{id:'backpack',name:'Better Backpack'},issues:[],listedInLog:true}
@@ -80,4 +80,32 @@ test('secondary declared NeoForge identities associate errors with their shared 
   assert.equal(contentSignals(file,multi,[error])[0].query,'backpack_api')
   assert.deepEqual(contentSignals(file,check,[error]),[])
   assert.deepEqual(contentSignals(file,multi,[line('Mixin failed from mod backpack_api_extra')]),[])
+})
+
+
+test('shared inventory diagnostics preserve multi-file associations and reject chat and INFO mentions',()=>{
+  const other={...file,filename:'structures.jar',title:'Structures'}
+  const otherCheck={...check,filename:other.filename,descriptor:{id:'structures',name:'Structures'}}
+  const logs=[line('Incompatible mods found!'),line("- Mod 'Backpack' (backpack) requires structures",'info',''),
+    line('Failed to load structures.jar and backpack-1.0.jar','warn','[12:00:01 WARN]: '),
+    line('<player> mod structures failed'),line('Checking mod backpack','info','[12:00:02] [main/INFO]: '),
+    line("- Mod 'Backpack' (backpack) is mentioned",'info','')]
+  const diagnostics=prepareContentDiagnostics(logs)
+  const backpack=contentSignalsFromDiagnostics(file,check,diagnostics)
+  const structures=contentSignalsFromDiagnostics(other,otherCheck,diagnostics)
+  assert.deepEqual(backpack.map(signal=>[signal.level,signal.query]),[['warn',file.filename],['error','backpack']])
+  assert.deepEqual(structures.map(signal=>[signal.level,signal.query]),[['warn',other.filename]])
+  assert.equal(contentStatus(check,backpack),'error')
+  assert.equal(contentStatus(otherCheck,structures),'warning')
+})
+
+test('prepared diagnostics are isolated snapshots reusable across files and new sessions',()=>{
+  const logs=[line("Mod 'backpack' failed")]
+  const diagnostics=prepareContentDiagnostics(logs)
+  const original=contentSignalsFromDiagnostics(file,check,diagnostics)
+  logs[0].message='<player> mod backpack failed';logs[0].line='[12:00:01] [main/INFO]: '+logs[0].message
+  assert.deepEqual(contentSignalsFromDiagnostics(file,check,diagnostics),original)
+  assert.deepEqual(contentSignalsFromDiagnostics(file,check,prepareContentDiagnostics(logs)),[])
+  assert.deepEqual(contentSignalsFromDiagnostics(file,check,prepareContentDiagnostics([])),[])
+  assert.deepEqual(contentSignalsFromDiagnostics(file,check,diagnostics),original)
 })

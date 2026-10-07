@@ -2,6 +2,8 @@ import {translatedMessage} from './locale.ts'
 import {localizedStatic,t,getLanguage} from './locale.ts'
 import {acknowledgedAction} from './acknowledgedAction'
 import {useLanguage} from './useLanguage'
+import {createLogBatch} from './logBatch'
+import {startVisibilityPolling} from './visibilityPolling'
 import { PackImport } from './PackImport'
 import {deferredPanel} from './DeferredPanel'
 import {useServerRead} from './useServerRead'
@@ -161,11 +163,20 @@ function App() {
   const [startupPhases,setStartupPhases]=useState<Record<string,StartupEvent>>({})
   const [metricsError,setMetricsError] = useState<string|null>(null)
   const [metricsHistory,setMetricsHistory] = useState<Record<string,MetricSample[]>>({})
-  const {data:players,loading:playersLoading,error:playersError,refresh:refreshPlayers}=useServerRead(selectedId,api.players,3000)
+  const playerViewVisible=!libraryOpen&&!creating&&!importing&&!appearanceOpen&&['overview','players'].includes(view)
+  const playerProcessActive=servers.some(server=>server.id===selectedId&&['starting','running','stopping'].includes(server.state))
+  const {data:players,loading:playersLoading,error:playersError,refresh:refreshPlayers}=useServerRead(selectedId,api.players,playerViewVisible&&playerProcessActive?3000:0)
   const {data:logHistory,loading:logLoading,error:logError,refresh:refreshLog}=useServerRead(selectedId,api.log)
   const [consoleQuery,setConsoleQuery]=useState('')
   useEffect(()=>{if(view!=='console'||libraryOpen||creating||importing||appearanceOpen)setConsoleQuery('')},[view,libraryOpen,creating,importing,appearanceOpen])
   const [logs, setLogs] = useState<LogLine[]>([])
+  const logBatch=useRef<ReturnType<typeof createLogBatch<LogLine>>|null>(null)
+  useEffect(()=>{
+    const batch=createLogBatch<LogLine>(1000,lines=>setLogs(current=>[...current.slice(Math.max(0,current.length+lines.length-1000)),...lines]))
+    logBatch.current=batch
+    return()=>{batch.dispose();if(logBatch.current===batch)logBatch.current=null}
+  },[])
+  useEffect(()=>{logBatch.current?.reset()},[selectedId])
   const {copies:backups,loaded:backupsLoaded,loading:backupsLoading,error:backupsError,refresh:refreshBackups}=useBackupList(selectedId)
   const [restoreSync,setRestoreSync]=useState<Record<string,{loading:boolean;error:string|null}>>({})
   const restoreSyncRevision=useRef<Record<string,number>>({})
@@ -234,11 +245,12 @@ function App() {
           setMetrics(current=>current?.serverId===event.payload.serverId?null:current)
         }
         setServers(items => items.map(item => item.id === event.payload.serverId ? { ...item, state: event.payload.state } : item))
+        if(event.payload.serverId===selectedRef.current&&['stopped','crashed','error'].includes(event.payload.state))void refreshPlayers(event.payload.serverId)
       }),
       listen<StartupEvent>('server-startup',event=>setStartupPhases(current=>acceptStartupEvent(current,event.payload))),
       listen<Progress>('install-progress', event => {progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
       listen<LogLine>('server-log', event => {
-        if (event.payload.serverId === selectedRef.current) setLogs(lines => [...lines.slice(-999), event.payload])
+        if (event.payload.serverId === selectedRef.current) logBatch.current?.push(event.payload)
       }),
       listen('close-task-active',()=>setError(t("Espera a que termine la operación antes de cerrar. Puedes cancelar la copia desde Tareas."))),
       listen('close-with-servers', () => {setClosing(true);if(!closeOwner.current.working)setCloseError(null)}),
@@ -277,14 +289,8 @@ function App() {
   useEffect(() => {
     if (!selectedId) return
     let active = true
-    const generation=metricsGeneration.current[selectedId]??0
     const restoredRevision=restoreSyncRevision.current[selectedId]??0
     setMetrics(null); setMetricsError(null); setConsoleQuery(''); setLogs([]); setEula(false)
-    api.metrics(selectedId).then(m=>{
-      if(active&&generation===(metricsGeneration.current[selectedId]??0)){
-        setMetrics(current=>!current||m.sampledAt>=current.sampledAt?m:current);setMetricsError(null)
-      }
-    }).catch(e=>{if(active)setMetricsError(t("No se pudo leer el proceso: {0}", errorText(e)))})
     api.eulaAccepted(selectedId).then(accepted=>{
       if(active&&restoredRevision===(restoreSyncRevision.current[selectedId]??0))setEula(accepted)
     }).catch(e=>{if(active)setError(errorText(e))})
@@ -310,7 +316,6 @@ function App() {
   useEffect(() => {
     if (!selectedId) return
     let active = true
-    let timer: number
     const poll = async () => {
       const generation=metricsGeneration.current[selectedId]??0
       const results = await Promise.allSettled([api.metrics(selectedId)])
@@ -320,10 +325,9 @@ function App() {
         if (sample.status === 'fulfilled') { setMetrics(sample.value); setMetricsError(null) }
         else setMetricsError(t("No se pudo leer el proceso: {0}", errorText(sample.reason)))
       }
-      timer = window.setTimeout(poll,3000)
     }
-    timer = window.setTimeout(poll,3000)
-    return () => { active = false; window.clearTimeout(timer) }
+    const stop=startVisibilityPolling(poll,3000,{hiddenMs:15000,immediate:true})
+    return () => { active = false;stop() }
   }, [selectedId])
 
   useEffect(() => { mainRef.current?.scrollTo({top:0,left:0}) },[selectedId,view,creating,importing,libraryOpen,appearanceOpen])

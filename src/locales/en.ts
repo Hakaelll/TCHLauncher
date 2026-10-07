@@ -1528,5 +1528,6 @@ export const english: Record<string,string> = {
   "La operación se completó, pero no se pudo actualizar la lista de mundos: {0}": "The operation completed, but the world list could not be refreshed: {0}",
   "{0} copia": "{0} copy",
   " · Mundo principal": " · Primary world",
-  " Los plugins conservan sus carpetas de configuración.": " Plugins retain their configuration folders."
+  " Los plugins conservan sus carpetas de configuración.": " Plugins retain their configuration folders.",
+  "Ver en Modrinth": "View on Modrinth",
 }

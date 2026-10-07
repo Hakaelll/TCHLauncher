@@ -3,16 +3,12 @@ import type {ContentCheck, InstalledContent, LogLine} from './api'
 export type ContentSignal = {level:'error'|'warn'; message:string; timestamp:string|null; query:string}
 const escape=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
 
-/** An explicit reference associates a diagnostic with a file; it doesn't prove causation. */
-export function contentSignals(file:InstalledContent,check:ContentCheck|undefined,logs:LogLine[]):ContentSignal[] {
-  const signals:ContentSignal[]=[]
+type ContentDiagnostic = Readonly<{message:string;raw:string;level:'error'|'warn';timestamp:string|null}>
+
+/** Parse severity/continuation rules once for the complete inventory, not once per JAR. */
+export function prepareContentDiagnostics(logs:readonly LogLine[]):readonly ContentDiagnostic[] {
+  const diagnostics:ContentDiagnostic[]=[]
   let block:'error'|'warn'|null=null,remaining=0
-  const ids=[...new Set([check?.descriptor.id,...check?.descriptor.ids??[]].filter((id):id is string=>!!id&&id.length<=64))]
-  const names=[...ids,check?.descriptor.name,file.title].filter((name):name is string=>!!name&&name.length<=128&&!name.endsWith('.jar'))
-  // Compile per file, not per line: live logs can contain 1,000 rows per inventory item.
-  const filePattern=new RegExp(`(?<![a-z0-9_.-])${escape(file.filename)}(?![a-z0-9_.-])`,'i')
-  const idPatterns=ids.map(id=>({id,logger:new RegExp(`(?:\\[${escape(id)}(?:/[^\\]]+)?\\]|from mod\\s+['\"]?${escape(id)}(?![a-z0-9_.-])|provided by\\s+['\"]?${escape(id)}(?![a-z0-9_.-]))`,'i'),named:new RegExp(`mod\\s+['\"][^'\"]+['\"]\\s+\\(${escape(id)}\\)`,'i')}))
-  const namePatterns=names.map(name=>({name,pattern:new RegExp(`(?:(?:mod|plugin)\\s+|(?:while|when)\\s+(?:enabling|loading|disabling)\\s+)(?:['\"]${escape(name)}['\"]|${escape(name)}(?![a-z0-9_.-]))`,'i')}))
   for(const log of logs) {
     const message=log.message.slice(0,16384).replace(/\x1b\[[0-9;]*m/g,'')
     const raw=log.line.slice(0,16384).replace(/\x1b\[[0-9;]*m/g,'')
@@ -29,6 +25,21 @@ export function contentSignals(file:InstalledContent,check:ContentCheck|undefine
     if(/^\s*(?:\[Not Secure\]\s*)?</.test(message)||/^\w+ issued server command:/.test(message))continue
     // INFO text containing the word "error" alone must not color an installed mod red.
     if(!severity&&!continuation&&!/^(?:Caused by: |[\w.$]+(?:Exception|Error):|Mixin (?:apply|transformation).*failed)/i.test(message))continue
+    diagnostics.push({message,raw,level:level as 'error'|'warn',timestamp:log.timestamp})
+  }
+  return diagnostics
+}
+
+/** An explicit reference associates a diagnostic with a file; it doesn't prove causation. */
+export function contentSignalsFromDiagnostics(file:InstalledContent,check:ContentCheck|undefined,diagnostics:readonly ContentDiagnostic[]):ContentSignal[] {
+  const signals:ContentSignal[]=[]
+  const ids=[...new Set([check?.descriptor.id,...check?.descriptor.ids??[]].filter((id):id is string=>!!id&&id.length<=64))]
+  const names=[...ids,check?.descriptor.name,file.title].filter((name):name is string=>!!name&&name.length<=128&&!name.endsWith('.jar'))
+  // Compile per file, not per line: live logs can contain 1,000 rows per inventory item.
+  const filePattern=new RegExp(`(?<![a-z0-9_.-])${escape(file.filename)}(?![a-z0-9_.-])`,'i')
+  const idPatterns=ids.map(id=>({id,logger:new RegExp(`(?:\\[${escape(id)}(?:/[^\\]]+)?\\]|from mod\\s+['\"]?${escape(id)}(?![a-z0-9_.-])|provided by\\s+['\"]?${escape(id)}(?![a-z0-9_.-]))`,'i'),named:new RegExp(`mod\\s+['\"][^'\"]+['\"]\\s+\\(${escape(id)}\\)`,'i')}))
+  const namePatterns=names.map(name=>({name,pattern:new RegExp(`(?:(?:mod|plugin)\\s+|(?:while|when)\\s+(?:enabling|loading|disabling)\\s+)(?:['\"]${escape(name)}['\"]|${escape(name)}(?![a-z0-9_.-]))`,'i')}))
+  for(const {message,raw,level,timestamp} of diagnostics) {
     let reference=filePattern.test(message)?file.filename:null
     for(const {id,logger,named} of idPatterns){
       if(!reference&&(logger.test(raw)||named.test(message)))reference=id
@@ -39,12 +50,17 @@ export function contentSignals(file:InstalledContent,check:ContentCheck|undefine
     if(!reference)continue
     const duplicate=signals.findIndex(signal=>signal.message===message.slice(0,2000)&&signal.level===level)
     if(duplicate>=0)signals.splice(duplicate,1)
-    signals.push({level:level as 'error'|'warn',message:message.slice(0,2000),timestamp:log.timestamp,query:reference})
+    signals.push({level:level as 'error'|'warn',message:message.slice(0,2000),timestamp,query:reference})
   }
   const recent=signals.slice(-3)
   const latestError=[...signals].reverse().find(signal=>signal.level==='error')
   if(latestError&&!recent.includes(latestError))recent[0]=latestError
   return recent.reverse()
+}
+
+/** Convenience entry for callers matching a single file. */
+export function contentSignals(file:InstalledContent,check:ContentCheck|undefined,logs:readonly LogLine[]):ContentSignal[] {
+  return contentSignalsFromDiagnostics(file,check,prepareContentDiagnostics(logs))
 }
 
 export function contentStatus(check:ContentCheck|undefined,signals:ContentSignal[]):'error'|'warning'|'observed'|'unknown' {

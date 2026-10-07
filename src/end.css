@@ -1496,3 +1496,15 @@ html[data-motion="reduced"] .content-kind-tabs > button { transition:none; }
 .language-options label:has(input:focus-visible) { outline:2px solid var(--accent-hover); outline-offset:3px; }
 .language-options input { width:18px; height:18px; margin:0; accent-color:var(--accent); }
 .language-options span { font:13px/1.8 var(--font-reading); }
+
+
+/* Compact world actions retain the existing End menu material. */
+.world-row { grid-template-columns:minmax(0,1fr) auto; }
+.world-row-actions { align-items:center; flex-wrap:nowrap; padding-left:0; gap:8px; }
+.world-menu-trigger { display:grid; place-items:center; min-width:44px; min-height:44px; padding:8px; border:1px solid transparent; background:transparent; box-shadow:none; color:var(--secondary); }
+.world-menu-trigger:hover,.world-menu-trigger[aria-expanded=true] { border-color:var(--accent-line); background:var(--accent-wash); color:var(--accent-hover); }
+@media(max-width:750px) { .world-row { grid-template-columns:minmax(0,1fr); }.world-row-actions { justify-content:flex-end; } }
+
+
+.installed-content-card footer .content-menu-trigger { display:grid; place-items:center; width:44px; min-height:44px; padding:8px; margin-left:auto; border-color:transparent; background:transparent; box-shadow:none; color:var(--secondary); }
+.installed-content-card footer .content-menu-trigger:hover,.installed-content-card footer .content-menu-trigger[aria-expanded=true] { border-color:var(--accent-line); background:var(--accent-wash); color:var(--accent-hover); }

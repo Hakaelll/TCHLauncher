@@ -359,3 +359,27 @@ metadata, explicit diagnostic status and a grouped action footer. Compact view,
 filters, read failures and console evidence remain available. The wizard footer
 omits the redundant next-step text; the step navigation above remains authoritative.
 Native appearance and keyboard review remain pending.
+
+
+## World action hierarchy
+
+Keep Export and one labelled overflow trigger visible beside each world. Group
+primary-world selection, duplication, full-server backup, folder opening and deletion
+in the existing End context-menu material, available by right click or the button.
+Hide primary-world deletion/selection; disable file mutations while running or busy.
+Confirm destructive actions with the existing viewport dialog. Arrow/Home/End keys
+navigate enabled actions; Escape restores the trigger, Tab leaves the menu, and
+outside interaction dismisses it. Keep menus inside the viewport, allow internal
+scrolling, and avoid refocusing on ordinary parent data refresh. Inline duplication
+and export focus their first field. Native visual/keyboard validation remains manual.
+
+
+## Installed content action hierarchy
+
+Keep Details/Notice and a related Console action visible. Use the shared End overflow
+menu for compatible-version review, View on Modrinth (managed projects only), and
+removal. Keep the removal confirmation and backup workflow. Context menus belong
+to the observed filename/hash and close on a changed file, filtering it away or
+switching to discovery. Read failures/running state still block file mutations;
+read-only details and publication inspection remain available. New copy is localized.
+No nonfunctional enable/disable action is shown. Native review remains manual.

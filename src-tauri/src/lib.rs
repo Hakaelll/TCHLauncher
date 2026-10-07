@@ -35,6 +35,7 @@ mod network;
 mod server_ping;
 mod heap;
 mod memory_report;
+mod process_metrics;
 mod crash_diagnostics;
 #[cfg(test)]
 mod bore;
@@ -76,8 +77,7 @@ pub struct Engine {
     router_shutdown: Arc<std::sync::atomic::AtomicU8>,
     root: PathBuf,
     processes: ProcessManager,
-    metrics_system: Arc<Mutex<sysinfo::System>>,
-    sampled_pids: Arc<Mutex<HashSet<u32>>>,
+    process_metrics: Arc<Mutex<process_metrics::Collector>>,
     size_cache: Arc<storage_usage::SizeCache>,
     memory_history: Arc<memory_report::History>,
     operations: Arc<Mutex<HashSet<String>>>,
@@ -578,9 +578,10 @@ fn send_command(engine: State<'_, Engine>, id: String, command: String) -> Resul
 }
 
 #[tauri::command]
-fn get_players(engine: State<'_, Engine>, id: String) -> Result<PlayersSnapshot, String> {
+async fn get_players(engine: State<'_, Engine>, id: String) -> Result<PlayersSnapshot, String> {
     let server = storage::get(&engine.root, &id)?;
-    players::snapshot(&server, engine.processes.online(&id))
+    let online=engine.processes.online(&id);
+    tauri::async_runtime::spawn_blocking(move||players::snapshot(&server,online)).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -845,22 +846,18 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
     let session=identity.map(|(_,token)|token);
     let processes=engine.processes.clone();
     let tps=engine.processes.tick_snapshot(&id);
-    let metrics_system = engine.metrics_system.clone();
-    let sampled_pids = engine.sampled_pids.clone();
+    let process_metrics = engine.process_metrics.clone();
     let size_cache = engine.size_cache.clone();
     let memory_history=engine.memory_history.clone();
     tauri::async_runtime::spawn_blocking(move || {
     let sampled_at = chrono::Utc::now().timestamp_millis();
     let (memory_bytes,cpu_percent,disk_read_bytes,disk_written_bytes) = if let Some((pid,_,_,_)) = pid_uptime {
-        let mut system = metrics_system.lock().map_err(|e| e.to_string())?;
-        let sys_pid = sysinfo::Pid::from_u32(pid);
-        system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[sys_pid]),true);
-        let process = system.process(sys_pid);
-        let sampled = sampled_pids.lock().map_err(|e| e.to_string())?.insert(pid);
-        let cores = std::thread::available_parallelism().map(|count| count.get()).unwrap_or(1) as f32;
-        let disk = process.map(|p| p.disk_usage());
-        (process.map(|p| p.memory()),if sampled { None } else { process.map(|p| (p.cpu_usage() / cores).clamp(0.0,100.0)) },disk.map(|d| d.total_read_bytes),disk.map(|d| d.total_written_bytes))
-    } else { (None,None,None,None) };
+        let reading = process_metrics.lock().map_err(|e|e.to_string())?.sample(&id,session.as_deref().ok_or("No process session")?,pid);
+        (reading.memory,reading.cpu,reading.disk_read,reading.disk_written)
+    } else {
+        process_metrics.lock().map_err(|e|e.to_string())?.forget(&id);
+        (None,None,None,None)
+    };
     let (heap,heap_error)=match pid_uptime.map(|process|process.0){Some(pid)=>match crate::heap::inspect(pid){Ok(value)=>(Some(value),None),Err(error)=>(None,Some(error))},None=>(None,None)};
     let (size_bytes,size_error,size_sampled_at,size_skipped_links)=match size_cache.sample(&id,std::path::Path::new(&server.directory)){
         Ok(sample)=>match sample.result{
@@ -877,7 +874,9 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
 }
 
 #[tauri::command]
-fn system_memory() -> u64 { sysinfo::System::new_all().total_memory() }
+fn system_memory() -> u64 {
+    sysinfo::System::new_with_specifics(sysinfo::RefreshKind::nothing().with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram())).total_memory()
+}
 
 #[tauri::command]
 async fn check_server_response(engine:State<'_,Engine>,id:String)->Result<server_ping::Response,String>{
@@ -939,6 +938,11 @@ fn router_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Resul
     Ok((ip,snapshot.port))
 }
 
+fn maintained_router_target(root:&std::path::Path,processes:&ProcessManager,id:&str)->Result<(std::net::Ipv4Addr,u16),String>{
+    if processes.state(id)!="running" {return Err("Inicia el servidor antes de abrir su puerto en el router".into());}
+    network::configured_lan_target(&storage::get(root,id)?)
+}
+
 #[tauri::command]
 async fn get_router_status(engine:State<'_,Engine>,id:String)->Result<upnp::Status,String> {
     storage::get(&engine.root,&id)?;
@@ -991,12 +995,12 @@ fn start_router_maintenance(app:AppHandle) {
         let engine=app.state::<Engine>();
         if engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)!=0 {break;}
         if let Err(error)=engine.natpmp.maintain(&engine.root,|id,ip,port|
-            engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))){
+            engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0&&maintained_router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))){
             app_log::record(&engine.root,app_log::Event::RouterMaintenanceFailed,None);eprintln!("NAT-PMP maintenance: {error}");
         }
         match engine.router.maintain(&engine.root,|id,ip,port|
             engine.router_shutdown.load(std::sync::atomic::Ordering::SeqCst)==0
-            && router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))) {
+            && maintained_router_target(&engine.root,&engine.processes,id).is_ok_and(|target|target==(ip,port))) {
             Ok(changed)=>{for id in changed {let _=app.emit("router-state",id);}},
             Err(error)=>{app_log::record(&engine.root,app_log::Event::RouterMaintenanceFailed,None);eprintln!("Router maintenance: {error}");},
         }
@@ -1320,7 +1324,7 @@ pub fn run() {
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             stop_backup::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
-            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),metrics_system:Arc::new(Mutex::new(sysinfo::System::new())),sampled_pids:Arc::new(Mutex::new(HashSet::new())),size_cache:Arc::new(storage_usage::SizeCache::default()),memory_history:Arc::new(memory_report::History::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
+            app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),process_metrics:Arc::new(Mutex::new(process_metrics::Collector::default())),size_cache:Arc::new(storage_usage::SizeCache::default()),memory_history:Arc::new(memory_report::History::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
             start_router_maintenance(app.handle().clone());
             let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;

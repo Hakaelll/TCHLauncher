@@ -67,6 +67,22 @@ fn probe_port(state: &str, port: u16, binding: Option<IpAddr>) -> PortState {
 }
 
 pub fn inspect(server: &Server, state: &str) -> Result<NetworkSnapshot, String> {
+    let mut snapshot=configuration(server)?;
+    let binding=snapshot.configured_ip.as_deref().and_then(|ip|ip.parse().ok());
+    if snapshot.configured_ip.is_none()||binding.is_some(){snapshot.port_state=probe_port(state,snapshot.port,binding);}
+    Ok(snapshot)
+}
+
+// Mapping maintenance needs routing/configuration, not a new Minecraft connection.
+pub fn configured_lan_target(server:&Server)->Result<(Ipv4Addr,u16),String>{
+    let snapshot=configuration(server)?;
+    if snapshot.lan_address.is_none(){return Err("El servidor debe responder en una dirección LAN antes de abrir su puerto".into());}
+    let ip=snapshot.local_ip.and_then(|ip|ip.parse::<Ipv4Addr>().ok()).filter(|ip|ip.is_private())
+        .ok_or("No se detectó una dirección LAN IPv4 privada compatible")?;
+    Ok((ip,snapshot.port))
+}
+
+fn configuration(server:&Server)->Result<NetworkSnapshot,String>{
     let path = Path::new(&server.directory).join("server.properties");
     let values = properties::read(&path)?;
     let port = configured_port(&values)?;
@@ -82,7 +98,7 @@ pub fn inspect(server: &Server, state: &str) -> Result<NetworkSnapshot, String> 
         (Some(host), None) => format!("{host}:{port}"),
         _ => address(local_target(binding), port),
     };
-    let port_state = if configured_ip.is_some() && binding.is_none() { PortState::Unknown } else { probe_port(state, port, binding) };
+    let port_state = PortState::Unknown;
     Ok(NetworkSnapshot {
         local_ip: local_ip.map(|ip| ip.to_string()),
         configured_ip,
@@ -149,6 +165,15 @@ mod tests {
             memory_min_mb: 1024, memory_max_mb: 2048, storage_target_gb: 20,
             created_at: String::new(), state: "stopped".into(), image_data: None,
         };
+        let listener=TcpListener::bind((Ipv4Addr::UNSPECIFIED,0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        std::fs::write(root.join("server.properties"),format!("server-port={}\nserver-ip=0.0.0.0\n",listener.local_addr().unwrap().port())).unwrap();
+        let configured=configuration(&server).unwrap();
+        assert_eq!(configured.port,listener.local_addr().unwrap().port());
+        for _ in 0..20 {let _=configured_lan_target(&server);}
+        assert_eq!(listener.accept().unwrap_err().kind(),std::io::ErrorKind::WouldBlock);
+        std::fs::write(root.join("server.properties"),"server-port=25565\nserver-ip=127.0.0.1\n").unwrap();
+        assert!(configured_lan_target(&server).is_err());
         let snapshot = inspect(&server, "stopped").unwrap();
         assert!(snapshot.lan_address.is_none());
         assert_eq!(snapshot.local_address, "127.0.0.1:25565");

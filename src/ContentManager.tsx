@@ -42,6 +42,10 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
     if(!owner.current.working){setReview(null);setRemoveTarget(null);setReviewError(null)}
     void inventory.refresh(server.id)
   },[server.id,server.state,inventory.refresh])
+  const openProject=async(projectId:string)=>{
+    const current=owner.current
+    try{await api.openContentProject(projectId)}catch(e){if(owns(current))setError(errorText(e))}
+  }
   const browse=()=>{setHasBrowsed(true);setMode('discover')}
   const refresh=async()=>{await inventory.refresh(server.id)}
   const sync=async(current=owner.current)=>{
@@ -117,7 +121,7 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
     <div hidden={mode!=='installed'}>
       <div className="content-inventory-heading"><div><h3>{t("Inventario del servidor")}</h3><p>{t("Iconos, versiones y avisos de cada archivo.")}</p></div><button disabled={loading||locked} onClick={()=>void refresh()}>{loading?t("Revisando…"):t("Revisar archivos")}</button></div>
       {audit&&files.length>0&&<div className="content-audit-summary"><details><summary>{t("Revisión de carga")}{server.platform==='fabric'?` · ${audit.checks.filter(check=>check.listedInLog===true).length} presentes en el último log`: ''}</summary><p>{translatedMessage(audit.logNote)}{audit.logModifiedAt?` Log actualizado: ${new Date(audit.logModifiedAt).toLocaleString(getLanguage()==='en'?'en-US':'es-ES')}.`:''}</p><p>{t("Revisamos el descriptor, el cargador y los identificadores duplicados. En Fabric se revisan rangos reconocidos entre mods principales; los requisitos del runtime y la selección de archivos incluidos siguen a cargo del loader. Un mod de estructuras puede afectar solo a terreno nuevo; algunos mods también deben instalarse en los clientes.")}</p></details></div>}
-      {!audit?<p role="status">{loading?t("Revisando archivos y log…"):t("Reintenta la lectura para ver los archivos del servidor.")}</p>:<InstalledContentView server={server} files={files} audit={audit} logs={logs} locked={locked||loading||!!inventory.error} stopped={stopped} onBrowse={browse} onConsole={onConsole} onPrepare={id=>{setVersions([]);void prepare(id)}} onRemove={file=>{if(!stopped||locked||loading||inventory.error)return;if(progress&&!isTaskActive(progress))onDismissProgress();setRemoveTarget(file);setReviewError(null)}}/>}
+      {!audit?<p role="status">{loading?t("Revisando archivos y log…"):t("Reintenta la lectura para ver los archivos del servidor.")}</p>:<InstalledContentView active={mode==='installed'} onProject={id=>{void openProject(id)}} server={server} files={files} audit={audit} logs={logs} locked={locked||loading||!!inventory.error} stopped={stopped} onBrowse={browse} onConsole={onConsole} onPrepare={id=>{setVersions([]);void prepare(id)}} onRemove={file=>{if(!stopped||locked||loading||inventory.error)return;if(progress&&!isTaskActive(progress))onDismissProgress();setRemoveTarget(file);setReviewError(null)}}/>}
     </div>
     <div hidden={mode!=='discover'}><ContentDiscovery onImportPack={onImportPack} server={server} active={hasBrowsed} files={files} locked={locked} stopped={stopped} preparing={preparing} onPrepare={(id,version)=>{setVersions([]);void prepare(id,version)}}/></div>
     {preparing&&!review&&<p className="inline-note" role="status">{t("Comprobando versión y dependencias…")}</p>}
