@@ -149,3 +149,39 @@ and installer icons. Native first console access/retry/keyboard remain pending.
 The 0.31 installer has not been rebuilt with these source changes.
 
 Suggested commit: `perf: defer console loading and bound consent file reads`
+
+## Real Paper lifecycle and Windows terminal readiness (not packaged)
+
+A fresh isolated Paper 1.21.4 server exposed a production readiness bug: Windows
+JLine prefixes redirected console lines with `> ` and carriage-return prompt
+clearing. The actual `Done (...)!` line was present, but the parser did not
+recognize its header. Parsing now removes that leading prompt only before a
+console header, preserving original log records and message contents. This also
+restores severity, startup phases and save-event classification on those lines.
+Regression tests preserve the prohibition on chat/plugin readiness spoofing.
+
+An opt-in integration test uses the production install, Java launch, output,
+monitor, command, stop, backup and restore paths. It copies an already recorded
+explicit EULA acceptance into a temporary database; it never calls acceptance.
+The server binds only to loopback on a temporary port. The test cleans its owned
+processes and temporary library, without changing the regular application DB.
+
+Verified with downloaded and checked Temurin 21.0.12.1 and Paper 1.21.4 build 232:
+
+- Three independent ready sessions with real Minecraft status responses.
+- Three nonce command responses and three graceful zero-code stops with complete
+  console capture and persisted exit reports.
+- Start-to-ready times: 36,756 / 13,718 / 11,181 ms, including local preflight.
+  These fixture measurements are not general performance benchmarks.
+- A 256,167,620-byte tracked backup, a safety copy before restore, byte-identical
+  restoration of world/level.dat and successful boot of the restored world.
+- The integration passed in 129.91 seconds. Thirteen related log/catalog/app-log
+  tests and two startup tests passed; two unrelated conditional tests stayed
+  ignored. Production cargo check and git diff --check passed.
+
+The first failed attempt was stopped and cleaned before the corrected rerun.
+This verifies the backend cycle, not native UI/tray handling, real client
+participation, router forwarding or Internet performance. The existing 0.31.0
+installer does not include this source fix and was not rebuilt.
+
+Commit: `fix: recognize Paper terminal prompts and verify real server lifecycle`

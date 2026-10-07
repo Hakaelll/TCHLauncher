@@ -433,6 +433,10 @@ impl ProcessManager {
 }
 
 #[cfg(test)]
+#[path="process_lifecycle_test.rs"]
+mod lifecycle_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]

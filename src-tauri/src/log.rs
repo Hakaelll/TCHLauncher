@@ -127,13 +127,17 @@ pub fn parse(server_id: &str, record: &str) -> LogEvent {
         _ => (minecraft_time(record), record),
     };
     let clean=without_terminal_colors(line);
-    let (level, event) = classify(&clean);
+    // JLine on Windows prefixes redirected Paper output with its cleared prompt.
+    // Strip only a leading prompt before a console header; preserve chat/message text.
+    let clean=clean.strip_prefix("> ").map(str::trim_start)
+        .filter(|rest|rest.starts_with('[')).unwrap_or(&clean);
+    let (level, event) = classify(clean);
     LogEvent {
         server_id: server_id.to_string(),
         level: level.to_string(),
         line: line.to_string(),
-        message: message_text(&clean).to_string(),
-        timestamp:timestamp.or_else(||minecraft_time(&clean)),
+        message: message_text(clean).to_string(),
+        timestamp:timestamp.or_else(||minecraft_time(clean)),
         event: event.map(str::to_string),
     }
 }
@@ -218,6 +222,19 @@ mod tests {
     }
     use uuid::Uuid;
 
+    #[test]
+    fn paper_jline_prompt_preserves_headers_and_cannot_promote_chat() {
+        let raw="> \r  \r\u{1b}[32m[21:14:31 INFO]: Done (18.864s)! For help, type \"help\"\u{1b}[m";
+        let event=parse("server",raw);
+        assert_eq!(event.event.as_deref(),Some("startup"));
+        assert_eq!(event.timestamp.as_deref(),Some("21:14:31"));
+        assert_eq!(event.line,raw);
+        for text in ["<Alex> Done (1.2s)!", "[Plugin] Done (1.2s)!"] {
+            assert_ne!(parse("server",&format!("> \r  \r[21:14:31 INFO]: {text}")).event.as_deref(),Some("startup"));
+        }
+        assert_eq!(parse("server","> \r  \r[21:14:31 ERROR]: Failed to save the game").event.as_deref(),Some("save_failed"));
+        assert_eq!(parse("server","> ordinary text").message,"> ordinary text");
+    }
     #[test]
     fn readiness_requires_a_complete_server_startup_message() {
         for message in ["Done (1.2s)!", "Done (0.013s)! For help, type \"help\"", "Done (23.9s)! For help, type \"help\" or \"?\""] {

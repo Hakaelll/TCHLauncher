@@ -1,1 +1,1 @@
-perf: defer console loading and bound consent file reads
+fix: recognize Paper terminal prompts and verify real server lifecycle
