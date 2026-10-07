@@ -496,7 +496,6 @@ export const english: Record<string,string> = {
   "No hay un fallo guardado para este servidor.": "No saved crash for this server.",
   "No hay un diagnóstico guardado para este arranque. Revisa la consola.": "No saved diagnostics for this startup. Check the console.",
   "Habías solicitado detener el servidor, pero Java no confirmó un cierre correcto.": "You requested a stop, but Java did not confirm a clean shutdown.",
-  "Parte de la salida seguía abierta al registrar el cierre. El diagnóstico puede estar incompleto.": "Some output was still open when shutdown was recorded. Diagnostics may be incomplete.",
   "Revisar configuración": "Review configuration",
   "Revisar conexión": "Review connection",
   "Revisar plugins": "Review plugins",

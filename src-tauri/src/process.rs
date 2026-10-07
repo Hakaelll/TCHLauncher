@@ -443,6 +443,13 @@ mod tests {
     }
     #[derive(Default)]
     struct CapturedEvents{states:Mutex<Vec<String>>,logs:Mutex<Vec<String>>}
+    struct FailsAfter(std::io::Cursor<Vec<u8>>);
+    impl std::io::Read for FailsAfter{
+        fn read(&mut self,buffer:&mut [u8])->std::io::Result<usize>{
+            let length=std::io::Read::read(&mut self.0,buffer)?;
+            if length==0{Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe,"fixture read failure"))}else{Ok(length)}
+        }
+    }
     impl ProcessEvents for CapturedEvents{
         fn closing(&self)->bool{false}
         fn publish_state(&self,_id:&str,state:&str){self.states.lock().unwrap().push(state.into());}
@@ -458,13 +465,17 @@ mod tests {
         let control=Arc::new(ProcessControl::new(child,stdin,false,Instant::now()));
         struct Cleanup(Arc<ProcessControl>);impl Drop for Cleanup{fn drop(&mut self){let mut child=self.0.child.lock().unwrap();let _=child.kill();let _=child.wait();}}
         let _cleanup=Cleanup(control.clone());let manager=ProcessManager::default();manager.processes.lock().unwrap().insert("server".into(),control.clone());
-        let directory=std::env::temp_dir().join(format!("tch-event-pump-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&directory).unwrap();
+        let directory=std::env::temp_dir().join(format!("tch-event-pump-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
         let file=Arc::new(Mutex::new(OpenOptions::new().create_new(true).write(true).open(directory.join("latest.log")).unwrap()));
-        let events=Arc::new(CapturedEvents::default());let output=pump(stdout,events.clone(),"server".into(),file,control.clone(),true);
+        let events=Arc::new(CapturedEvents::default());let output=pump(stdout,events.clone(),"server".into(),file.clone(),control.clone(),true);
         manager.send("server","announce_ready").unwrap();
         let deadline=Instant::now()+Duration::from_secs(5);
         while manager.state("server")!="running"{assert!(Instant::now()<deadline,"Readiness was not observed");std::thread::sleep(Duration::from_millis(10));}
         assert!(control.running_since.lock().unwrap().is_some());
+        let failed_output=pump(FailsAfter(std::io::Cursor::new(Vec::new())),events.clone(),"server".into(),file.clone(),control.clone(),false);
+        failed_output.join().unwrap();
+        assert_eq!(manager.state("server"),"running");
+        assert!(events.logs.lock().unwrap().iter().any(|line|line.contains("No se pudo leer la salida de Java (stderr)")));
         manager.request_stop("server",events.as_ref()).unwrap();
         assert!(control.stop_requested.load(std::sync::atomic::Ordering::SeqCst));
         let status=loop{if let Some(status)=control.child.lock().unwrap().try_wait().unwrap(){break status;}assert!(Instant::now()<deadline,"Stop was not processed");std::thread::sleep(Duration::from_millis(10));};
@@ -473,7 +484,10 @@ mod tests {
         assert_eq!(state,"stopped");assert!(manager.exits()["server"].was_running);assert!(manager.exits()["server"].successful);assert!(!manager.exits()["server"].unexpected);
         assert_eq!(*events.states.lock().unwrap(),vec!["running","stopping"]);
         assert!(events.logs.lock().unwrap().iter().any(|line|line.contains("received:stop")));
-        assert!(fs::read_to_string(directory.join("latest.log")).unwrap().contains("Done (1.2s)"));fs::remove_dir_all(directory).unwrap();
+        save_exit(&directory,"server",&control,status.code(),false,false);
+        let report=crate::crash_diagnostics::load(&directory,"server",&control.session).unwrap().unwrap();
+        assert!(!report.output_complete);assert_eq!(report.exit_code,Some(0));assert!(report.stop_requested);
+        assert!(fs::read_to_string(directory.join("latest.log")).unwrap().contains("Done (1.2s)"));drop(file);fs::remove_dir_all(directory).unwrap();
     }
     #[test]
     fn command_batches_validate_before_writing_and_never_target_a_new_session(){
@@ -509,13 +523,6 @@ mod tests {
     }
     #[test]
     fn output_completion_requires_eof_without_read_failure_or_truncation(){
-        struct FailsAfter(std::io::Cursor<Vec<u8>>);
-        impl std::io::Read for FailsAfter{
-            fn read(&mut self,buffer:&mut [u8])->std::io::Result<usize>{
-                let length=std::io::Read::read(&mut self.0,buffer)?;
-                if length==0{Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe,"fixture read failure"))}else{Ok(length)}
-            }
-        }
         let lines=Arc::new(Mutex::new(Vec::new()));let captured=lines.clone();
         let errors=Arc::new(Mutex::new(Vec::new()));let failures=errors.clone();
         let failed=read_output_observed(FailsAfter(std::io::Cursor::new(b"complete line\nDone (1.2s)! For help, type".to_vec())),move|line|captured.lock().unwrap().push(line),move|error|failures.lock().unwrap().push(error.kind()));

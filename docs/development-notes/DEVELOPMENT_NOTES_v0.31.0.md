@@ -79,3 +79,36 @@ TypeScript and the production Vite build passed; ten locale/startup frontend tes
 passed. The existing main-bundle size warning remains. Native appearance,
 keyboard operation and full Minecraft lifecycle remain unverified. These source
 changes are not included in the existing 0.31.0 installer.
+
+## Console capture and initial-load efficiency (not packaged)
+
+The output reader records complete capture only after normal EOF without line
+truncation. Read errors, unfinished threads and panics cannot be reported as
+complete merely because a reader ended. Interrupted reads still retry. Read
+errors emit an explicit console error through the production event sink without
+changing the process state or claiming that Minecraft crashed. Exit reports
+retain incomplete-capture information; the localized crash-panel explanation
+now covers read errors as well as open pipes.
+
+Ten process tests passed with three conditional entries ignored. The owned-child
+integration checks the live notice, unchanged running state, graceful stop and
+persisted incomplete report. Its fixture now creates launcher-logs, as required
+by the production writer. Production cargo check, TypeScript and Vite passed;
+four locale tests passed.
+
+ServerSettings is a deferred section using the existing loading/error/retry
+boundary. Runtime, JVM, loader/Minecraft updates, properties and tasks are outside
+the initial import graph. ServerArtwork, Icon and byte formatting are shared in
+ServerPresentation; two unused collapse/expand icon paths were removed. The
+extracted settings component body was compared with HEAD and is unchanged.
+
+The production manifest confirms 508,159 bytes in the initial static JavaScript
+graph, down from approximately 557.80 KB in the preceding build (about 8.9%). The
+settings entry is 25,876 bytes plus its deferred shared TasksPanel dependency.
+This reduces initial code loading, not total functionality or measured RAM.
+The existing >500 KB main-chunk warning remains. Twelve properties/runtime/read/
+acknowledgement frontend tests passed. Native first access/retry/keyboard remain
+pending. Installer 0.31.0 is unchanged. Real Minecraft lifecycle, RAM and network
+performance remain unverified.
+
+Suggested commit: `perf: defer server settings and verify console capture failures`

@@ -7,8 +7,8 @@ import {appendConsoleLines,mergeConsoleHistory,type ConsoleLine} from './console
 import {startVisibilityPolling} from './visibilityPolling'
 import { PackImport } from './PackImport'
 import {deferredPanel} from './DeferredPanel'
+import {Icon,ServerArtwork,fmtBytes} from './ServerPresentation'
 import {useServerRead} from './useServerRead'
-import {SettingsPropertyGroups,knownSettings} from './SettingsProperties'
 import {useBackupList} from './useBackupList'
 import {useServerProperties} from './useServerProperties'
 import {saveState} from './saveState'
@@ -26,19 +26,13 @@ import {acceptStartupEvent,type StartupEvent} from './startupEvents'
 import { SliderField } from './SliderField'
 import { ConsoleView } from './ConsoleView'
 
-
 import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
 import {ForceStopDialog} from './ForceStopDialog'
 
 import { InstallProgress } from './InstallProgress'
-import { RuntimePanel } from './RuntimePanel'
-import { JvmPanel } from './JvmPanel'
 import { BackupPolicyPanel } from './BackupPolicyPanel'
-import { TasksPanel } from './TasksPanel'
 import { StartupPanel } from './StartupPanel'
-import { LoaderPanel } from './LoaderPanel'
-import { MinecraftUpdatePanel } from './MinecraftUpdatePanel'
 
 import { ServerLibrary } from './ServerLibrary'
 
@@ -54,12 +48,12 @@ import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
+const ServerSettings=deferredPanel<ComponentProps<typeof import('./ServerSettings').ServerSettings>>(t("Configuración"),()=>import('./ServerSettings').then(module=>({default:module.ServerSettings})))
 const PlayersView=deferredPanel<ComponentProps<typeof import('./PlayersView').PlayersView>>(t("Jugadores"),()=>import('./PlayersView').then(module=>({default:module.PlayersView})))
 const WorldView=deferredPanel<ComponentProps<typeof import('./WorldView').WorldView>>(t("Mundos"),()=>import('./WorldView').then(module=>({default:module.WorldView})))
 const ContentManager=deferredPanel<ComponentProps<typeof import('./ContentManager').ContentManager>>(t("Mods y plugins"),()=>import('./ContentManager').then(module=>({default:module.ContentManager})))
 const ResourceMonitor=deferredPanel<ComponentProps<typeof import('./ResourceMonitor').ResourceMonitor>>(t("Rendimiento"),()=>import('./ResourceMonitor').then(module=>({default:module.ResourceMonitor})))
 const ApplicationSettings=deferredPanel<ComponentProps<typeof import('./ApplicationSettings').ApplicationSettings>>(t("Ajustes"),()=>import('./ApplicationSettings').then(module=>({default:module.ApplicationSettings})))
-
 
 type View = 'overview' | 'performance' | 'players' | 'worlds' | 'content' | 'console' | 'backups' | 'settings'
 const backupReason:Record<string,string>=localizedStatic({manual:'Manual',scheduled:'Programada',server_stop:'Tras detener el servidor',before_restore:'Antes de restaurar',before_minecraft_update:'Antes de actualizar Minecraft',before_loader_update:'Antes de actualizar el loader',before_content_update:'Antes de actualizar contenido',before_content_removal:'Antes de quitar contenido',before_world_change:'Antes de cambiar mundo',before_world_deletion:'Antes de borrar mundo'})
@@ -86,29 +80,8 @@ function SectionIcon({name}:{name:View|'library'|'appearance'}) {
 }
 const platformName = (platform:Server['platform']) => ({vanilla:'Vanilla',paper:'Paper',fabric:'Fabric',neoforge:'NeoForge'})[platform]
 const stateText = (state: string) => labels[state as ServerState] || state
-const fmtBytes = (n?: number | null) => n == null ? '—' : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : n < 1024 * 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`
 const fmtUptime = (n?: number | null) => n == null ? '—' : `${Math.floor(n / 3600)} h ${Math.floor(n % 3600 / 60)} min`
 const errorText = (e: unknown) => e instanceof Error ? e.message : String(e)
-
-function Icon({name, size = 18}: {name: 'plus' | 'folder' | 'arrow' | 'back' | 'server' | 'check' | 'collapse' | 'expand'; size?: number}) {
-  const paths = {
-    plus: <path d="M12 5v14M5 12h14"/>,
-    folder: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>,
-    arrow: <><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></>,
-    back: <><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></>,
-    server: <><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></>,
-    check: <path d="m5 12 4.5 4.5L19 7"/>,
-    collapse: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m8-11-3 3 3 3"/></>,
-    expand: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m5-11 3 3-3 3"/></>,
-  }
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
-}
-
-function ServerArtwork({server}: {server: Server}) {
-  return server.imageData
-    ? <img className="server-artwork" src={server.imageData} alt=""/>
-    : <span className="server-artwork default" aria-hidden="true">{server.name.trim().slice(0,2).toLocaleUpperCase()}</span>
-}
 
 function App() {
   useLanguage()
@@ -212,7 +185,6 @@ function App() {
     finally{if(!exitRequested){current.working=false;if(current.active)setClosingBusy(false)}}
   }
   const selected = servers.find(server => server.id === selectedId) ?? null
-
 
   useEffect(() => {
     hideSidebarTooltip()
@@ -515,7 +487,7 @@ function App() {
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
           {view === 'backups' && <section className="backup-view"><div className="section-heading"><div><h2>{t("Copias de seguridad")}</h2><p>{t("Se guardan en el almacenamiento local de la aplicación.")}</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>void createCopy(selected.id)}>{t("Crear copia")}</button><button disabled={backupsLoading} onClick={()=>void refreshBackups(selected.id).catch(()=>{})}>{backupsLoading?t("Consultando…"):t("Actualizar lista")}</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={()=>refreshBackups(selected.id)}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">{t("Detén el servidor para crear una copia consistente.")}</p>}{backupsError&&<p className="form-error" role="alert">{t("No se pudo consultar la lista:")} {translatedMessage(backupsError)}{backupsLoaded?' Se muestran las últimas copias conocidas.':''}</p>}{!backupsLoaded&&!backupsError&&<p className="empty-inline" role="status">{t("Cargando copias…")}</p>}{backups.length ? <div className="table backup-table" ref={backupListRef}><div className="table-head"><span>{t("Fecha y motivo")}</span><span>{t("Tamaño")}</span><span>{t("Acción")}</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><div className="backup-description"><span>{new Date(backup.createdAt).toLocaleString()}</span><strong>{backup.reason?backupReason[backup.reason]??t("Motivo no disponible"):t("Motivo no registrado")}</strong><small>{backup.minecraftVersion?`${backup.platform??t("Motor no registrado")} · Minecraft ${backup.minecraftVersion}`:t("Versión no registrada")}</small>{backup.metadataError&&<small className="form-error">{translatedMessage(backup.metadataError)}</small>}</div><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || backupsLoading || !!backupsError || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>{t("Restaurar")}</button></div>)}</div> : backupsLoaded&&!backupsError?<div className="empty-inline">{t("Aún no hay copias de este servidor.")}</div>:null}</section>}
-          {view === 'settings' && <Settings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
+          {view === 'settings' && <ServerSettings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}
     </main>
@@ -739,31 +711,4 @@ function ImportView({onCancel,onImport,busy}: {onCancel:()=>void;onImport:(input
   return <div className="form-page import-page"><div className="form-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/>  {t("Servidores")}</button><h1>{t("Importar servidor")}</h1><p>{t("Trae un servidor existente a tu biblioteca sin perder sus archivos.")}</p></div><div className="import-source"><div className="import-source-icon"><Icon name="folder" size={22}/></div><div><strong>{inspection ? t("Carpeta seleccionada") : t("Selecciona la carpeta del servidor")}</strong><p>{inspection ? inspection.path : t("Debe contener server.properties y un archivo de arranque compatible")}</p></div><button onClick={choose} disabled={picking || busy}>{picking ? t("Inspeccionando…") : inspection ? t("Cambiar carpeta") : t("Elegir carpeta")}</button></div>{formError && <p className="form-error" role="alert">{translatedMessage(formError)}</p>}{inspection && <form className="create-form import-form" onSubmit={e => { e.preventDefault(); onImport(input) }}><div className="form-section-title"><span>01</span><div><h2>{t("Identidad")}</h2><p>{t("Así aparecerá en tu biblioteca.")}</p></div></div><div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt={t("Vista previa de la imagen")}/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage}>{t("Elegir imagen")}</button><p>{t("PNG, JPG o WebP · hasta 2 MB")}</p></div><div className="form-row"><label htmlFor="import-name">{t("Nombre del servidor")}</label><input id="import-name" required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})}/></div></div><div className="form-section-title"><span>02</span><div><h2>{t("Datos del servidor")}</h2><p>{t("Revisa los valores detectados.")}</p></div></div><div className="form-pair"><div className="form-row"><label htmlFor="import-version">{t("Versión de Minecraft")}</label><input id="import-version" list="import-versions" required value={input.version} onChange={e => setInput({...input,version:e.target.value})}/><datalist id="import-versions">{versions.map(v => <option key={v.id} value={v.id}/>)}</datalist></div><div className="form-row"><label htmlFor="import-platform">{t("Tipo")}</label><select id="import-platform" value={input.platform} onChange={e => setInput({...input,platform:e.target.value as ImportInput['platform']})}><option value="vanilla">Vanilla</option><option value="paper">Paper</option><option value="fabric">Fabric</option><option value="neoforge">NeoForge</option></select></div></div><p className="field-help">{t("Comprueba la versión del servidor original. La usaremos para elegir Java compatible.")}</p><div className="form-row"><label htmlFor="import-jar">{t("Archivo del servidor")}</label><select id="import-jar" required value={input.jarFile} onChange={e=>{const filename=e.target.value;const launcher=inspection.launchers.find(launcher=>launcher.filename===filename);setInput(old=>({...old,jarFile:filename,platform:launcher?.platform??'vanilla',version:launcher?.version??''}))}}><option value="">{t("Selecciona el archivo de arranque")}</option>{inspection.launchers.map(launcher=><option key={launcher.filename} value={launcher.filename}>{launcher.filename}{launcher.platform?` · ${platformName(launcher.platform)}`:''}{launcher.version?` · ${launcher.version}`:''}</option>)}</select>{inspection.launchers.find(launcher=>launcher.filename===input.jarFile)?.note&&<p className="field-help">{translatedMessage(inspection.launchers.find(launcher=>launcher.filename===input.jarFile)?.note)}</p>}</div><div className="import-storage"><SliderField id="import-storage" label={t("Objetivo de espacio")} value={input.storageTargetGb} min={1} max={Math.max(200,input.storageTargetGb)} maxInput={2048} step={1} unit="GB" onChange={value => setInput({...input,storageTargetGb:value})}/><p className="field-help">{t("Se usa para avisar cuando el servidor ocupa más espacio. No limita el disco.")}</p></div><fieldset className="import-mode"><legend>{t("Ubicación de los archivos")}</legend><label><input type="radio" checked={input.copy} onChange={() => setInput({...input,copy:true})}/>  {t("Copiar a la biblioteca de TCHLauncher")}</label><label><input type="radio" checked={!input.copy} onChange={() => setInput({...input,copy:false})}/>  {t("Administrar la carpeta actual")}</label><p className="field-help">{t("Si administras la carpeta actual, los cambios y las restauraciones afectarán a los archivos originales.")}</p></fieldset><div className="form-actions"><button type="button" onClick={onCancel}>{t("Cancelar")}</button><button className="primary-button" disabled={busy || !input.version || !input.jarFile || input.storageTargetGb < 1 || input.storageTargetGb > 2048}>{busy ? t("Importando…") : t("Importar servidor")}<Icon name="arrow" size={16}/></button></div></form>}</div>
 }
 
-function Settings({onConsole,onRuntimeChanged,onPrepareRuntime,server,props,setProps,propertiesLoaded,propertiesLoading,propertiesError,propertiesDirty,onReloadProperties,memory,setMemory,storageTarget,setStorageTarget,systemMemory,busy,progress,onSave,onPickImage,onClearImage,onDelete}: {onConsole:()=>void;onRuntimeChanged:()=>Promise<void>;onPrepareRuntime:(reinstall:boolean)=>void;server:Server;props:Record<string,string>;setProps:(p:Record<string,string>)=>void;propertiesLoaded:boolean;propertiesLoading:boolean;propertiesError:string|null;propertiesDirty:boolean;onReloadProperties:()=>void;memory:{min:number;max:number};setMemory:(v:{min:number;max:number})=>void;storageTarget:number;setStorageTarget:(value:number)=>void;systemMemory:number;busy:boolean;progress:Progress|null;onSave:()=>void;onPickImage:()=>void;onClearImage:()=>void;onDelete:()=>void}) {
-  const [newKey,setNewKey] = useState('')
-  const [newValue,setNewValue] = useState('')
-  const systemMemoryMb = Math.floor(systemMemory / (1024 * 1024))
-  const memorySliderMax = Math.min(65536,Math.max(memory.max,systemMemoryMb || 16384))
-  const maxPlayers = Number(props['max-players'] || 20)
-  const invalidCapacity = memory.min < 512 || memory.max < memory.min || memory.max > 65536 || storageTarget < 1 || storageTarget > 2048 || maxPlayers < 1 || maxPlayers > 1000 || ![memory.min,memory.max,maxPlayers,storageTarget].every(Number.isFinite)
-  return <section className="settings-view"><div className="section-heading"><div><h2>{t("Configuración")}</h2><p>{t("Personaliza la apariencia y los ajustes del servidor.")}</p></div><button className="primary-button" disabled={busy || !propertiesLoaded || propertiesLoading || !!propertiesError || invalidCapacity || !['stopped','crashed','error'].includes(server.state)} onClick={onSave}>{t("Guardar cambios")} <Icon name="check" size={16}/></button></div>
-    <h3>{t("Imagen del servidor")}</h3><div className="settings-image"><ServerArtwork server={server}/><div><strong>{server.name}</strong><p>{t("La misma imagen en el launcher y en la lista de Minecraft. Se adapta a 64 × 64. PNG, JPG o WebP, hasta 2 MB.")}</p><div className="settings-image-actions"><button disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onPickImage}>{server.imageData ? t("Cambiar imagen") : t("Elegir imagen")}</button>{server.imageData && <button className="text-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onClearImage}>{t("Quitar imagen")}</button>}</div></div></div>
-    {!['stopped','crashed','error'].includes(server.state) && <p className="inline-note">{t("Detén el servidor para editar su configuración.")}</p>}
-    <RuntimePanel key={server.id} onChanged={onRuntimeChanged} server={server} busy={busy} onPrepare={onPrepareRuntime}/>
-    <JvmPanel key={`jvm-${server.id}`} server={server} busy={busy}/>
-    <MinecraftUpdatePanel key={`minecraft-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged} currentProgress={progress} onConsole={onConsole}/>
-    <LoaderPanel key={`loader-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged}/>
-    <TasksPanel key={`tasks-${server.id}`} id={server.id}/>
-    <div className={`properties-load-state ${propertiesError?'error':''}`} role={propertiesError?'alert':'status'}><div><strong>{propertiesLoading?t("Consultando propiedades…"):propertiesError?t("Propiedades no disponibles"):!propertiesLoaded?t("Cargando propiedades…"):propertiesDirty?t("Cambios sin guardar"):t("Propiedades cargadas")}</strong><p>{propertiesError?`${propertiesError}${propertiesLoaded?' Se conservan los últimos valores leídos.':''}`:propertiesDirty?t("Las actualizaciones automáticas conservarán tus cambios."):t("Los cambios se aplican en el próximo inicio del servidor.")}</p></div><button disabled={busy||propertiesLoading||propertiesDirty} onClick={onReloadProperties}>{t("Recargar propiedades")}</button></div>
-    {propertiesLoaded&&<fieldset className="settings-edit-fields" aria-label={t("Propiedades y capacidad")} disabled={busy || propertiesLoading || !!propertiesError || !['stopped','crashed','error'].includes(server.state)}><h3>{t("Capacidad")}</h3><div className="capacity-grid settings-capacity"><SliderField id="settings-memory-min" label="RAM inicial" value={memory.min} min={512} max={Math.max(memory.min,memory.max)} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,min:value,max:value >= 512 && value <= 65536 ? Math.max(memory.max,value) : memory.max})}/><SliderField id="settings-memory-max" label={t("RAM máxima")} value={memory.max} min={512} max={memorySliderMax} maxInput={65536} step={256} unit="MB" onChange={value => setMemory({...memory,max:value,min:value >= 512 && value <= 65536 ? Math.min(memory.min,value) : memory.min})}/><SliderField id="settings-players" label={t("Jugadores máximos")} value={maxPlayers} min={1} max={Math.max(100,maxPlayers)} maxInput={1000} step={1} onChange={value => setProps({...props,'max-players':String(value)})}/><SliderField id="settings-storage" label={t("Objetivo de espacio")} value={storageTarget} min={1} max={Math.max(200,storageTarget)} maxInput={2048} step={1} unit="GB" onChange={setStorageTarget}/></div><p className="field-help">{systemMemory ? t("Memoria física: {0}.", fmtBytes(systemMemory)) : ''}  {t("El objetivo de espacio solo activa avisos; no impone una cuota al disco.")}</p>{systemMemoryMb > 0 && memory.max > systemMemoryMb * .75 && <p className="inline-note" role="status">{t("La RAM máxima supera el 75 % de la memoria física.")}</p>}{invalidCapacity && <p className="form-error" role="alert">{t("Revisa los límites de RAM, jugadores y espacio antes de guardar.")}</p>}
-    <h3>{t("Propiedades del servidor")}</h3><p className="field-help">{t("Configura el juego antes del primer arranque. Los valores guardados se conservan; las opciones ausentes usan valores iniciales al guardar.")}</p><SettingsPropertyGroups values={props} onChange={setProps} version={server.version}/>
-    <details className="advanced-properties"><summary>{t("Otras propiedades")}</summary><div className="settings-fields">{Object.entries(props).filter(([key]) => key !== 'max-players' && !knownSettings.has(key)).map(([key,value]) => <label className="setting-line" key={key}><span>{key}</span><input value={value} onChange={e => setProps({...props,[key]:e.target.value})}/></label>)}</div><div className="add-property"><input aria-label={t("Nombre de propiedad")} placeholder={t("Nombre de propiedad")} value={newKey} onChange={e => setNewKey(e.target.value)}/><input aria-label={t("Valor")} placeholder={t("Valor")} value={newValue} onChange={e => setNewValue(e.target.value)}/><button onClick={() => { if (newKey.trim()) { setProps({...props,[newKey.trim()]:newValue}); setNewKey(''); setNewValue('') } }}>{t("Añadir")}</button></div></details>
-    </fieldset>}<div className="delete-server-section"><div><h3>{t("Eliminar servidor")}</h3><p>{t("Quita este servidor de la biblioteca. Si sus archivos están guardados aquí, también se eliminarán junto con sus copias de seguridad.")}</p></div><button className="danger-outline-button" disabled={busy || !['stopped','crashed','error'].includes(server.state)} onClick={onDelete}>{t("Eliminar servidor")}</button></div>
-  </section>
-}
-
 export default App
-
-
-
-

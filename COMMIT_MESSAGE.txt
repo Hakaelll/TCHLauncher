@@ -1,1 +1,1 @@
-feat: refine operation states and remove obsolete research artifacts
+perf: defer server settings and verify console capture failures
