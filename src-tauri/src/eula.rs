@@ -1,6 +1,6 @@
 use crate::{model::Server, storage};
 use rusqlite::OptionalExtension;
-use std::{fs, path::Path};
+use std::{fs, io::Read, path::Path};
 
 const KEY: &str = "minecraft_eula_acceptance";
 const URL: &str = "https://www.minecraft.net/en-us/eula";
@@ -14,7 +14,10 @@ pub fn recorded(root: &Path) -> Result<bool,String> {
 pub fn file_accepted(server: &Server) -> bool {
     let path=Path::new(&server.directory).join("eula.txt");
     if !fs::metadata(&path).is_ok_and(|meta|meta.is_file() && meta.len()<=65536) {return false;}
-    fs::read_to_string(path).unwrap_or_default().lines().any(|line|line.trim()=="eula=true")
+    let Ok(file)=fs::File::open(path) else{return false;};
+    let mut text=String::new();
+    // Bound the actual read too: the file may grow after the metadata check.
+    file.take(65537).read_to_string(&mut text).is_ok()&&text.len()<=65536&&text.lines().any(|line|line.trim()=="eula=true")
 }
 
 fn write(server: &Server) -> Result<(),String> {

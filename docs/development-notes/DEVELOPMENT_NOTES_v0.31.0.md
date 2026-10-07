@@ -112,3 +112,40 @@ pending. Installer 0.31.0 is unchanged. Real Minecraft lifecycle, RAM and networ
 performance remain unverified.
 
 Suggested commit: `perf: defer server settings and verify console capture failures`
+
+## Deferred console and production Java launch verification (not packaged)
+
+ConsoleView uses the existing deferred-panel loading/error/retry boundary. Log
+collection and the bounded console timeline remain in App and continue while
+that module loads. The production manifest confirms the console entry is outside
+the initial static import graph: 7,706 deferred bytes, 500,595 initial static JS
+bytes (previously 508,159). This is initial bundle loading, not a measured RAM or
+startup-time result; the existing >500 KB chunk warning remains.
+
+Production launch now uses the shared acceptance-file predicate rather than its
+own unbounded read. The shared predicate also bounds the actual file read to
+65,537 bytes, rejecting contents beyond 65,536 even if the file grows after the
+metadata check. Missing, false, invalid UTF-8 and oversized files are rejected
+before a child or launcher log is created. The exact accepted-size boundary and
+explicit consent persistence across servers are verified. Acceptance behavior
+for normal files is unchanged.
+
+An isolated integration test launches a real Temurin 21 process through the
+production launch, output and monitor paths. Its non-Minecraft JAR contains only
+a deliberately unsupported class header, rejected before execution. It verifies
+starting/crashed events, complete captured output, persisted version diagnosis,
+released ownership and a second independent session. The EULA marker belongs
+only to that non-Minecraft fixture; no real game terms, world or server is changed.
+Eleven process tests passed / four conditional entries ignored; this conditional
+Java integration passed separately, as did the existing consent persistence test.
+Eight console frontend tests, TypeScript, Vite and production cargo check passed.
+These tests do not prove the full Minecraft ready/command/stop/restart/backup/
+restore flow, which remains pending.
+
+The Windows icon verifier no longer hardcodes the obsolete 0.21 installer. Its
+default resolves the product name/version from tauri.conf.json; explicit installer
+arguments remain supported. The default verified the existing 0.31 executable
+and installer icons. Native first console access/retry/keyboard remain pending.
+The 0.31 installer has not been rebuilt with these source changes.
+
+Suggested commit: `perf: defer console loading and bound consent file reads`

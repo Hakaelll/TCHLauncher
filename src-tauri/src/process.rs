@@ -276,7 +276,7 @@ impl ProcessManager {
         if !std::path::Path::new(jar).is_file() || !std::path::Path::new(java).is_file() {
             return Err("Falta el archivo del servidor o el runtime Java. Reinstala el servidor.".into());
         }
-        if !fs::read_to_string(std::path::Path::new(&server.directory).join("eula.txt")).unwrap_or_default().lines().any(|line| line.trim() == "eula=true") {
+        if !crate::eula::file_accepted(server) {
             return Err("Debes aceptar explícitamente la EULA de Minecraft antes de iniciar".into());
         }
         let properties = crate::properties::read(&std::path::Path::new(&server.directory).join("server.properties"))?;
@@ -455,6 +455,70 @@ mod tests {
         fn publish_state(&self,_id:&str,state:&str){self.states.lock().unwrap().push(state.into());}
         fn startup(&self,_event:crate::startup::Event){}
         fn log(&self,event:crate::model::LogEvent){self.logs.lock().unwrap().push(event.line);}
+    }
+    fn launch_fixture(directory:&std::path::Path,java:&str)->Server{
+        Server{id:uuid::Uuid::new_v4().to_string(),name:"Owned Java fixture".into(),version:"1.21.4".into(),platform:"vanilla".into(),directory:directory.to_string_lossy().into_owned(),jar_path:Some(directory.join("fixture.jar").to_string_lossy().into_owned()),java_path:Some(java.into()),memory_min_mb:512,memory_max_mb:512,storage_target_gb:1,created_at:chrono::Utc::now().to_rfc3339(),state:"stopped".into(),image_data:None,pinned:false}
+    }
+    #[test]
+    fn production_launch_rejects_missing_invalid_or_oversized_consent_before_spawning(){
+        let directory=std::env::temp_dir().join(format!("tch-launch-preflight-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&directory).unwrap();
+        let server=launch_fixture(&directory,&std::env::current_exe().unwrap().to_string_lossy());fs::write(server.jar_path.as_ref().unwrap(),b"not a Minecraft archive").unwrap();
+        let manager=ProcessManager::default();let events=Arc::new(CapturedEvents::default());
+        let denied=||{
+            assert!(manager.launch(&server,events.clone(),&crate::jvm::Settings::default()).unwrap_err().contains("EULA"));
+            assert!(!manager.any_active());assert!(events.states.lock().unwrap().is_empty());assert!(!directory.join("launcher-logs").exists());
+        };
+        denied();
+        for content in [b"eula=false\n".to_vec(),vec![0xff],{let mut bytes=vec![b'x';65537];bytes.extend_from_slice(b"\neula=true\n");bytes}]{
+            fs::write(directory.join("eula.txt"),content).unwrap();denied();
+        }
+        let mut maximum=vec![b'#';65525];maximum.extend_from_slice(b"\neula=true\n");assert_eq!(maximum.len(),65536);
+        fs::write(directory.join("eula.txt"),&maximum).unwrap();assert!(crate::eula::file_accepted(&server));
+        maximum.push(b'\n');fs::write(directory.join("eula.txt"),maximum).unwrap();denied();
+        fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    #[ignore="Requires TCH_TEST_JAVA; launches an owned non-Minecraft JAR through the production supervisor"]
+    fn production_launch_supervises_real_java_failure_and_allows_a_new_session(){
+        let java=std::env::var("TCH_TEST_JAVA").expect("Set TCH_TEST_JAVA to an installed runtime");
+        let directory=std::env::temp_dir().join(format!("tch-java-launch-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&directory).unwrap();
+        let server=launch_fixture(&directory,&java);let manager=ProcessManager::default();
+        struct Cleanup{manager:ProcessManager,directory:std::path::PathBuf}
+        impl Drop for Cleanup{fn drop(&mut self){
+            let controls:Vec<_>=self.manager.processes.lock().unwrap().values().cloned().collect();
+            for control in controls{let _=terminate_and_reap(&mut control.child.lock().unwrap());}
+            let deadline=Instant::now()+Duration::from_secs(3);
+            while self.manager.any_active()&&Instant::now()<deadline{std::thread::sleep(Duration::from_millis(10));}
+            let _=fs::remove_dir_all(&self.directory);
+        }}
+        let _cleanup=Cleanup{manager:manager.clone(),directory:directory.clone()};
+        // No Minecraft code or assets: Java rejects this deliberately unsupported
+        // class before execution. The marker is a test fixture, not real consent.
+        let mut jar=zip::ZipWriter::new(File::create(server.jar_path.as_ref().unwrap()).unwrap());
+        jar.start_file("META-INF/MANIFEST.MF",zip::write::SimpleFileOptions::default()).unwrap();jar.write_all(b"Manifest-Version: 1.0\r\nMain-Class: Unsupported\r\n\r\n").unwrap();
+        jar.start_file("Unsupported.class",zip::write::SimpleFileOptions::default()).unwrap();jar.write_all(&[0xca,0xfe,0xba,0xbe,0,0,0x7f,0xff]).unwrap();jar.finish().unwrap();
+        fs::write(directory.join("eula.txt"),"# Non-Minecraft test fixture\neula=true\n").unwrap();
+        let port=std::net::TcpListener::bind(("0.0.0.0",0)).unwrap().local_addr().unwrap().port();
+        fs::write(directory.join("server.properties"),format!("server-port={port}\n")).unwrap();
+        let mut previous_session=None;
+        for _ in 0..2{
+            let events=Arc::new(CapturedEvents::default());
+            manager.launch(&server,events.clone(),&crate::jvm::Settings::default()).unwrap();
+            let session=manager.session_token(&server.id).unwrap();assert_ne!(previous_session.as_ref(),Some(&session));
+            let deadline=Instant::now()+Duration::from_secs(10);
+            while manager.any_active()||!events.logs.lock().unwrap().iter().any(|line|line.contains("Proceso finalizado")){
+                assert!(Instant::now()<deadline,"Production Java supervisor did not finish");std::thread::sleep(Duration::from_millis(10));
+            }
+            assert_eq!(manager.state(&server.id),"crashed");assert_eq!(*events.states.lock().unwrap(),vec!["starting","crashed"]);
+            let report=crate::crash_diagnostics::load(&directory,&server.id,&session).unwrap().unwrap();
+            assert_ne!(report.exit_code,Some(0));assert!(report.output_complete);assert!(!report.stop_requested);
+            assert!(report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));
+            let exit=manager.exits()[&server.id].clone();assert!(exit.unexpected);assert!(!exit.successful);assert!(!exit.was_running);
+            assert!(events.logs.lock().unwrap().iter().any(|line|line.contains("UnsupportedClassVersionError")));
+            if let Some(old)=previous_session.as_ref(){assert!(crate::crash_diagnostics::load(&directory,&server.id,old).unwrap().is_none());}
+            previous_session=Some(session);
+        }
+        assert!(!directory.join("world").exists());fs::remove_dir_all(&directory).unwrap();
     }
     #[test]
     fn production_pump_observes_readiness_and_shared_stop_writes_to_owned_child(){

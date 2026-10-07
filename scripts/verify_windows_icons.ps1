@@ -1,9 +1,14 @@
 param(
   [string]$Executable = 'src-tauri/target/release/tchlauncher.exe',
-  [string]$Installer = 'src-tauri/target/release/bundle/nsis/TCHLauncher_0.21.0_x64-setup.exe',
+  [string]$Installer = '',
   [string]$ExpectedIcon = 'src-tauri/icons/icon.ico'
 )
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($Installer)) {
+  $projectRoot = Split-Path -Parent $PSScriptRoot
+  $bundleConfig = Get-Content -LiteralPath (Join-Path $projectRoot 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
+  $Installer = Join-Path $projectRoot "src-tauri/target/release/bundle/nsis/$($bundleConfig.productName)_$($bundleConfig.version)_x64-setup.exe"
+}
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
 using System;

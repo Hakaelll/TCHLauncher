@@ -24,7 +24,6 @@ import {StartupProgress} from './StartupProgress'
 import {StorageMeter} from './StorageMeter'
 import {acceptStartupEvent,type StartupEvent} from './startupEvents'
 import { SliderField } from './SliderField'
-import { ConsoleView } from './ConsoleView'
 
 import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
@@ -54,6 +53,8 @@ const WorldView=deferredPanel<ComponentProps<typeof import('./WorldView').WorldV
 const ContentManager=deferredPanel<ComponentProps<typeof import('./ContentManager').ContentManager>>(t("Mods y plugins"),()=>import('./ContentManager').then(module=>({default:module.ContentManager})))
 const ResourceMonitor=deferredPanel<ComponentProps<typeof import('./ResourceMonitor').ResourceMonitor>>(t("Rendimiento"),()=>import('./ResourceMonitor').then(module=>({default:module.ResourceMonitor})))
 const ApplicationSettings=deferredPanel<ComponentProps<typeof import('./ApplicationSettings').ApplicationSettings>>(t("Ajustes"),()=>import('./ApplicationSettings').then(module=>({default:module.ApplicationSettings})))
+
+const ConsoleView=deferredPanel<ComponentProps<typeof import('./ConsoleView').ConsoleView>>(t("Consola"),()=>import('./ConsoleView').then(module=>({default:module.ConsoleView})))
 
 type View = 'overview' | 'performance' | 'players' | 'worlds' | 'content' | 'console' | 'backups' | 'settings'
 const backupReason:Record<string,string>=localizedStatic({manual:'Manual',scheduled:'Programada',server_stop:'Tras detener el servidor',before_restore:'Antes de restaurar',before_minecraft_update:'Antes de actualizar Minecraft',before_loader_update:'Antes de actualizar el loader',before_content_update:'Antes de actualizar contenido',before_content_removal:'Antes de quitar contenido',before_world_change:'Antes de cambiar mundo',before_world_deletion:'Antes de borrar mundo'})
