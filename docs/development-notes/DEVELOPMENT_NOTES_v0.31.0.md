@@ -1,0 +1,81 @@
+# Development notes - 0.31.0
+
+This Windows milestone packages the source follow-ups recorded in
+[operations evidence](OPERATIONS_AFTER_0.29.0.md): supervision history, bounded
+output, whitelist review and session-bound dispatch.
+
+The new player composition uses existing theme tokens, native counts and
+conservative connected identities. Up to four current heads accompany the summary;
+row heads remain visible at 40 px. Search, pagination, permission editing and
+native player commands are retained. The review's scrolling list is keyboard
+focusable. Hover color transitions respect reduced motion. No synthetic statistics,
+new polling or external service was added.
+
+Unused .player-avatar and .whitelist-import-preview selectors were removed after
+checking their references. The obsolete player-row selection stripe was removed.
+Old generated installer cleanup is limited to verified files inside the local
+NSIS output directory, after the new installer passes resource checks.
+
+Verification: 251 offline native tests passed with 29 conditional entries ignored;
+98 frontend tests and TypeScript passed. A real Java 21 diagnostic test passed
+separately. The final production frontend and Windows NSIS build completed
+successfully. The installer is 6,693,727 bytes; executable/installer versions,
+embedded icons and four license destinations were verified. The checksum is in
+the release notes and an adjacent file. After verification, 61 obsolete generated
+installer/checksum files were removed, freeing 204,793,436 bytes (195.31 MiB).
+Only 0.30.0 and 0.31.0 packages and their checksums remain in the NSIS output.
+Native UI and gameplay remain pending; package verification does not prove them.
+
+Suggested commit: `feat: release 0.31 with player polish and Java reliability fixes`
+
+## Source cleanup after packaging
+
+The existing 0.31.0 installer is unchanged by this follow-up. Remove bore.rs and
+tunnel.rs plus their test-only module declarations: the retired relay protocol
+and provider lifecycle had no production or remaining source consumers. Their
+eight obsolete test entries are retired as well; active LAN, UPnP and NAT-PMP
+implementations are retained. Historical release evidence is not rewritten.
+
+Four unused production helpers are now cfg(test): untracked backup creation and
+restore wrappers, the default storage creation fixture and process_snapshot.
+Production uses tracked operations, seed-aware creation and session-aware metric
+identity. These helpers remain available to their existing tests.
+
+PlayersView now uses the same deferred-panel boundary as other secondary sections,
+including loading, local failure and retry states. TypeScript and production Vite
+passed. The generated manifest confirms PlayersView is a dynamic entry outside
+the initial static import graph: initial JS 557,292 bytes, player entry 22,255
+bytes. These are bundle sizes, not measured launch time or resident memory.
+
+Verification: cargo check --offline --lib passed without the previous dead-code
+warnings, and cargo test --offline --lib --no-run compiled the remaining tests.
+The previously recorded 251/29 run belongs to the packaged source; this follow-up
+did not rerun the entire suite. Native first access/retry/keyboard remain pending.
+
+Suggested commit: `refactor: remove retired tunnel code and defer the players panel`
+
+## Further source refinement (not packaged)
+
+Startup now presents the same observed Java/world/ready phases as a connected
+track, with pixel check marks and a fully completed ready state. Download/task
+headings have semantic status marks, wrapped actions and quieter inset framing.
+All states retain their explicit text. Retry attempts and screen-reader phase
+descriptions are localized; reduced motion disables phase color transitions.
+Duplicate startup CSS moved out of end.css into operations.css.
+
+Removed ten tracked NeoForge research files, including two historical installer
+archives and copied Java source, totalling 11,535,194 bytes (11.00 MiB). A repository
+reference search found no consumers. Production installation code, regression
+fixtures and historical release documentation are retained. Removing tracked
+files reduces the current checkout; existing Git history still contains them.
+
+The process event adapter is separated from the shared process engine to allow
+headless verification. A real owned test child exercises the production output
+pump, observed readiness, shared stop request and terminal release. Nine focused
+process tests passed; three conditional fixture entries were ignored. This is
+not a real Minecraft lifecycle or gameplay check.
+
+TypeScript and the production Vite build passed; ten locale/startup frontend tests
+passed. The existing main-bundle size warning remains. Native appearance,
+keyboard operation and full Minecraft lifecycle remain unverified. These source
+changes are not included in the existing 0.31.0 installer.

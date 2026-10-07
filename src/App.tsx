@@ -20,7 +20,6 @@ import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
 import { api, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type ImportInspection, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type Version, type WorldInspection } from './api'
-import { PlayersView } from './PlayersView'
 import {StartupProgress} from './StartupProgress'
 import {StorageMeter} from './StorageMeter'
 import {acceptStartupEvent,type StartupEvent} from './startupEvents'
@@ -55,6 +54,7 @@ import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
+const PlayersView=deferredPanel<ComponentProps<typeof import('./PlayersView').PlayersView>>(t("Jugadores"),()=>import('./PlayersView').then(module=>({default:module.PlayersView})))
 const WorldView=deferredPanel<ComponentProps<typeof import('./WorldView').WorldView>>(t("Mundos"),()=>import('./WorldView').then(module=>({default:module.WorldView})))
 const ContentManager=deferredPanel<ComponentProps<typeof import('./ContentManager').ContentManager>>(t("Mods y plugins"),()=>import('./ContentManager').then(module=>({default:module.ContentManager})))
 const ResourceMonitor=deferredPanel<ComponentProps<typeof import('./ResourceMonitor').ResourceMonitor>>(t("Rendimiento"),()=>import('./ResourceMonitor').then(module=>({default:module.ResourceMonitor})))

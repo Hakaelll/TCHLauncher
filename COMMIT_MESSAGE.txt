@@ -1,1 +1,1 @@
-fix: dispatch whitelist commands off the UI thread and bind them to a session
+feat: refine operation states and remove obsolete research artifacts

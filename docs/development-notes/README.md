@@ -6,6 +6,7 @@ Engineering records, test evidence and pending native checks.
 - [World and installed-content action refinement after 0.26.0](WORLD_ACTIONS_AFTER_0.26.0.md)
 - [Performance work after 0.26.0](PERFORMANCE_AFTER_0.26.0.md)
 
+- [0.31.0](DEVELOPMENT_NOTES_v0.31.0.md)
 - [0.30.0](DEVELOPMENT_NOTES_v0.30.0.md)
 - [0.29.0](DEVELOPMENT_NOTES_v0.29.0.md)
 - [0.28.0](DEVELOPMENT_NOTES_v0.28.0.md)

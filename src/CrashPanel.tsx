@@ -42,7 +42,7 @@ function CrashReview({server,onConsole,onSettings,onContent,historical,initial}:
     {historical&&<p className="field-help">{t("Este informe pertenece a una ejecución anterior. No describe el estado actual del servidor.")}</p>}
     {loading?<p className="field-help" role="status">{historical?t("Leyendo el último fallo guardado…"):t("Leyendo el diagnóstico de este arranque…")}</p>:error?<p role="alert">{t("No se pudo leer el diagnóstico:")} {translatedMessage(error)}</p>:!report?<p className="field-help">{historical?t("No hay un fallo guardado para este servidor."):t("No hay un diagnóstico guardado para este arranque. Revisa la consola.")}</p>:<>
       {report.stopRequested&&!report.forced&&<p className="inline-note">{t("Habías solicitado detener el servidor, pero Java no confirmó un cierre correcto.")}</p>}
-      {!report.outputComplete&&<p className="inline-note">{t("Parte de la salida seguía abierta al registrar el cierre. El diagnóstico puede estar incompleto.")}</p>}
+      {!report.outputComplete&&<p className="inline-note">{t("No se pudo recoger toda la salida de Java. El diagnóstico puede estar incompleto.")}</p>}
       <div className="crash-findings">{report.diagnoses.map(diagnosis=><div className="crash-finding" key={diagnosis.kind}>
         <h3>{diagnosis.title}</h3><p>{diagnosis.explanation}</p><p className="crash-recommendation">{diagnosis.recommendation}</p>
         {diagnosis.action!=='console'&&<button onClick={()=>review(diagnosis.action)}>{diagnosis.action==='settings'?t("Revisar configuración"):diagnosis.action==='network'?t("Revisar conexión"):server.platform==='vanilla'?t("Ver consola"):server.platform==='paper'?t("Revisar plugins"):t("Revisar mods")}</button>}

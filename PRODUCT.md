@@ -20,7 +20,7 @@ Crear y administrar varios servidores locales y permitir que otros jugadores se 
 
 ## Operating Context
 
-Aplicación de escritorio para Windows y Linux. Los servidores Minecraft y sus archivos permanecen en el equipo. La conexión a internet se utiliza para catálogos y descargas.
+Aplicación de escritorio para Windows 10/11. Linux está aplazado por petición del usuario; el trabajo futuro se registra en `LINUX_LATER.md`. Los servidores Minecraft y sus archivos permanecen en el equipo. La conexión a internet se utiliza para catálogos y descargas.
 
 ## Capabilities and Constraints
 

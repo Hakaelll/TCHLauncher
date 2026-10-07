@@ -146,6 +146,7 @@ pub(crate) fn copy_tree_tracked(from:&Path,to:&Path,task:&crate::download::Downl
     Ok(())
 }
 
+#[cfg(test)]
 pub fn create(root: &Path, server_id: &str) -> Result<Backup, String> {
     create_preserving(root,server_id,&[],None,Reason::Manual)
 }
@@ -189,6 +190,7 @@ fn create_preserving(root:&Path,server_id:&str,protected:&[String],task:Option<&
     Ok(backup)
 }
 
+#[cfg(test)]
 pub fn restore(root: &Path, server_id: &str, backup_id: &str) -> Result<(), String> {
     restore_inner(root,server_id,backup_id,None)
 }

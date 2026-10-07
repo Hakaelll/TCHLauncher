@@ -1652,4 +1652,8 @@ export const english: Record<string,string> = {
   "El archivo apunta fuera del servidor": "The file points outside the server directory",
   "El archivo supera el límite de 512 KB": "The file exceeds the 512 KB limit",
   "El archivo no contiene UTF-8 válido": "The file does not contain valid UTF-8",
+  "No se pudo recoger toda la salida de Java. El diagnóstico puede estar incompleto.": "Not all Java output could be collected. The diagnosis may be incomplete.",
+  " · Completado": " · Completed",
+  " · En curso": " · In progress",
+  " · Pendiente": " · Pending",
 }

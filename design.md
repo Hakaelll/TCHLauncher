@@ -2,6 +2,18 @@
 
 ## Authority and use
 
+### Operation and startup refinement
+
+Startup uses a connected three-phase track for Java, world and ready. Only real
+observed phases advance the track; no estimated percentage is shown. Completed
+phases use a crisp check mark and success color; current phases use the theme
+accent. Phase changes have short color transitions with reduced-motion support.
+Downloads use inset continuous rails with actual bytes, speed and percentage.
+Task headings separate their title from a small semantic status mark; completion,
+cancellation and errors keep explicit text. Controls wrap on narrow windows.
+Operations own these styles in operations.css rather than duplicate overrides.
+Native visual review remains manual.
+
 ### Performance instruments
 
 RAM and CPU remain simultaneous sampled plots in standard desktop windows, with

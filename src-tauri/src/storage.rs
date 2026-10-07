@@ -292,6 +292,7 @@ pub fn clear_image(root: &Path, id: &str) -> Result<Server, String> {
     get(root, id)
 }
 
+#[cfg(test)]
 pub fn create(root: &Path, input: CreateServer) -> Result<Server, String> {
     create_with_seed(root,input,None)
 }

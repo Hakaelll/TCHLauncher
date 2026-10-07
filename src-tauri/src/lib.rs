@@ -37,12 +37,8 @@ mod heap;
 mod memory_report;
 mod process_metrics;
 mod crash_diagnostics;
-#[cfg(test)]
-mod bore;
 mod natpmp;
 mod natpmp_manager;
-#[cfg(test)]
-pub mod tunnel;
 mod upnp;
 mod players;
 mod authentication;

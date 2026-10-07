@@ -43,7 +43,37 @@ progress::-moz-progress-bar { background:var(--accent); box-shadow:inset 0 2px 0
 .install-meter.unmeasured progress::-moz-progress-bar { background:transparent; box-shadow:none; }
 .install-percentage { min-width:5ch; text-align:right; font-family:var(--font-display); font-size:18px; font-variant-numeric:tabular-nums; color:var(--ink); }
 .install-percentage small { font-family:var(--font-reading); font-size:12px; color:var(--secondary); }
-.install-progress { border-width:1px; }
+.install-progress { border:1px solid var(--line); border-radius:0; background:var(--surface); padding:22px 24px; box-shadow:inset 0 2px 0 var(--control-edge); }
+.install-progress-heading { align-items:flex-start; flex-wrap:wrap; }
+.install-progress-heading>div:first-child { flex:1 1 240px; gap:8px; }
+.install-progress-heading strong { font:13px/1.8 var(--font-display); overflow-wrap:anywhere; }
+.install-stage { display:flex; align-items:center; gap:8px; }
+.install-stage::before { content:''; flex:none; width:6px; height:6px; background:var(--accent); }
+.install-progress[data-stage="completed"] .install-stage::before { background:var(--success); }
+.install-progress[data-stage="failed"] .install-stage::before { background:var(--danger); }
+.install-progress[data-stage="failed"] .install-stage { color:var(--danger); }
+.install-progress[data-stage="cancelled"] .install-stage::before { background:var(--muted); }
+.install-progress-actions { flex-wrap:wrap; }
+.background-task .install-progress { box-shadow:none; }
+.install-progress .form-error { padding-top:12px; border-top:1px solid var(--danger-line); }
+
+/* Three real startup phases: a connected track, never a simulated percentage. */
+.startup-progress { margin:0 0 24px; padding:20px 0; border-bottom:1px solid var(--line); }
+.startup-progress ol { list-style:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); max-width:720px; margin:0; padding:0; }
+.startup-progress li { position:relative; display:flex; align-items:center; gap:12px; padding:0 16px 16px 0; color:var(--secondary); font:12px/1.8 var(--font-display); transition:color 180ms ease-out; }
+.startup-progress li::after { content:''; position:absolute; bottom:0; left:0; right:4px; height:3px; background:var(--line); transition:background-color 180ms ease-out; }
+.startup-step-number { display:grid; place-items:center; flex:none; width:32px; height:32px; border:1px solid var(--line); background:var(--surface-deep); font:12px/1 var(--font-display); transition:background-color 180ms ease-out,border-color 180ms ease-out; }
+.startup-step-number svg { width:16px; height:16px; }
+.startup-progress li[data-state="current"] { color:var(--accent-hover); }
+.startup-progress li[data-state="current"]::after { background:var(--accent); }
+.startup-progress li[data-state="current"] .startup-step-number { border-color:var(--accent-line); background:var(--accent-wash); box-shadow:inset 0 2px 0 var(--control-edge); }
+.startup-progress li[data-state="complete"] .startup-step-number { color:var(--success); }
+.startup-progress li[data-state="complete"]::after { background:var(--success); }
+.startup-progress p { margin:14px 0 0; color:var(--secondary); font:13px/1.7 var(--font-reading); }
+.startup-progress[data-ready="true"] p { color:var(--success); }
+html[data-motion="reduced"] .startup-progress * { transition:none; }
+@media(prefers-reduced-motion:reduce) { .startup-progress * { transition:none; } }
+@media(max-width:650px) { .install-progress { padding:16px; }.startup-progress li { flex-direction:column; align-items:flex-start; gap:8px; font-size:11px; }.startup-progress ol { max-width:none; } }
 .whitelist-review { width:100%; min-width:0; margin-top:8px; padding:20px; background:var(--surface); border:1px solid var(--line); }
 .whitelist-review header { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 20px; margin-bottom:20px; }
 .whitelist-review header strong { overflow-wrap:anywhere; font-family:var(--font-display); font-size:12px; line-height:1.8; }
@@ -60,6 +90,25 @@ progress::-moz-progress-bar { background:var(--accent); box-shadow:inset 0 2px 0
 .whitelist-review footer>div { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-left:auto; }
 .whitelist-import>.player-notice,.whitelist-import>.form-error { width:100%; }
 .whitelist-import>.form-error { color:var(--danger); }
+.players-overview { grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr)); box-shadow:inset 0 2px 0 var(--control-edge); }
+.players-overview .player-summary-connections { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.player-summary-connections small { display:flex; align-items:center; gap:8px; }
+.player-summary-heads { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:4px; max-width:160px; }
+.player-summary-heads .player-head { width:28px; height:28px; }
+.player-summary-heads>span { color:var(--secondary); font-size:12px; }
+.players-view .player-row { padding:16px 12px; box-shadow:none; transition:background-color 140ms ease-out; }
+.players-view .player-row:hover,.players-view .player-row:focus-within { background:var(--accent-wash); }
+.players-view .player-row .player-head { width:40px; height:40px; border-radius:0; flex-shrink:0; }
+.players-view .player-row-info strong { font:13px/1.8 var(--font-display); }
+.players-view .player-row-info small { line-height:1.7; }
+.players-view .player-row button { min-height:36px; }
+.players-view .player-tabs { gap:4px; padding:4px 4px 0; background:var(--surface); border:1px solid var(--line); }
+.players-view .player-tabs button { margin:0; padding:12px 14px; border-bottom-color:transparent; font:11px/1.7 var(--font-display); }
+.players-view .player-tabs button.active { background:var(--accent-wash); color:var(--ink); box-shadow:inset 0 2px 0 var(--control-edge); }
+.players-view .player-tabs button:hover { background:var(--accent-wash); }
+.players-view .player-tabs button span { color:var(--secondary); font:12px/1.7 var(--font-reading); }
+@media(max-width:950px) { .player-summary-heads { display:none; } }
+@media(prefers-reduced-motion:reduce) { .players-view .player-row { transition:none; } }
 @media(max-width:650px) { .whitelist-review { padding:14px; }.whitelist-review footer>div { width:100%; }.whitelist-review footer button { flex:1; white-space:normal; } }
 .install-transfer { margin-top:10px; flex-wrap:wrap; font-size:12px; }
 @media(max-width:650px) { .console-tools .search-label { max-width:none; }.console-follow button { margin-left:0; }.install-meter { gap:12px; }.install-percentage { font-size:16px; } }
