@@ -1,9 +1,1 @@
-feat: add temporary UPnP mappings and fix Paper startup detection
-
-- Detect IPv4 IGD routers and require destination-checked confirmation before opening TCP ports.
-- Persist mapping ownership, verify and renew temporary leases, and queue cleanup after stop or exit.
-- Expose router status, expiry, removal and manual fallback guidance in the Connection panel.
-- Recognize Paper readiness with ANSI colors and keep console commands available during startup.
-- Replace the populated library's legacy cube with End artwork in grid and list layouts.
-- Embed the gold emblem in executable/installer resources and prevent the legacy icon generator from restoring the letter-T mark.
-- Cover router lifecycle and transport regressions and package the Windows 0.12.0 preview.
+style: rebuild Minecraft content discovery layout

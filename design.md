@@ -2,6 +2,20 @@
 
 ## Authority and use
 
+### Catalog composition refinement
+
+Modrinth discovery uses four raised category selectors with flat pixel SVG marks,
+concise role labels and a persistent selected state. The search and native filters
+share one workbench. Project artwork occupies a larger inset slot; names, authors,
+descriptions and tags precede a separate compatibility/action footer. Status uses
+a small square and explicit text rather than a thick colored stripe. Download
+counts remain actual catalog values. Search loading shows static, decorative
+placeholders alongside the existing announced status, with no simulated progress
+or continuous shimmer. Category icons move two pixels on hover/focus and respect
+reduced motion. Two/three-column results reflow to one column on small windows;
+all catalog controls and installation reviews retain their existing behavior.
+Native appearance and keyboard verification remain manual.
+
 The user's latest references replace the green Tableland structure with black and
 dark gray surfaces, End-like violet accents, Minecraft lettering and Minehut-like
 rectangular controls. This is an operating desktop application for real local
