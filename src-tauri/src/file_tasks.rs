@@ -75,6 +75,10 @@ pub fn remove_content(root:&Path,server:&crate::model::Server,filename:&str,sha5
     registered_kind(&server.id,"content_remove",jobs,emit,|task|crate::content_storage::remove_tracked(root,server,filename,sha512,task))
 }
 
+pub fn set_content_enabled(root:&Path,server:&crate::model::Server,filename:&str,sha512:&str,enabled:bool,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<(),String>{
+    registered_kind(&server.id,"content_toggle",jobs,emit,|task|crate::content_storage::set_enabled_tracked(root,server,filename,sha512,enabled,task))
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;

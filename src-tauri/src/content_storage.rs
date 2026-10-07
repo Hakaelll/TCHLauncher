@@ -89,6 +89,15 @@ fn manifest(path:&Path)->Result<Vec<InstalledContent>,String> {
 }
 
 pub fn list(server:&Server)->Result<Vec<InstalledContent>,String> {
+    list_kind(server,false)
+}
+
+/// Logical filenames remain .jar; only the on-disk suffix changes while disabled.
+pub fn list_disabled(server:&Server)->Result<Vec<InstalledContent>,String> {
+    list_kind(server,true)
+}
+
+fn list_kind(server:&Server,disabled:bool)->Result<Vec<InstalledContent>,String> {
     let path=folder(server)?;
     if !path.exists() {return Ok(vec![]);}
     let records=manifest(&path)?;
@@ -96,7 +105,8 @@ pub fn list(server:&Server)->Result<Vec<InstalledContent>,String> {
     let mut result=vec![];
     for entry in fs::read_dir(path).map_err(|e|e.to_string())? {
         let entry=entry.map_err(|e|e.to_string())?;
-        let name=entry.file_name().into_string().map_err(|_|"Nombre de archivo no válido")?;
+        let disk_name=entry.file_name().into_string().map_err(|_|"Nombre de archivo no válido")?;
+        let name=if disabled {let Some(name)=disk_name.strip_suffix(".disabled") else{continue};name.to_string()}else{disk_name};
         if !name.ends_with(".jar") {continue;}
         if !safe_name(&name) || result.len()>=512 {return Err("El directorio tiene archivos de contenido no válidos o demasiados archivos".into());}
         let digest=hash(&entry.path())?;let size=entry.metadata().map_err(|e|e.to_string())?.len();
@@ -111,6 +121,8 @@ pub fn list(server:&Server)->Result<Vec<InstalledContent>,String> {
 fn snapshot(server:&Server, files:&[InstalledContent])->Result<String,String> {
     let mut digest=Sha512::new();
     for file in files {digest.update(file.filename.as_bytes());digest.update([0]);digest.update(file.sha512.as_bytes());digest.update([0]);}
+    digest.update(b"disabled\0");
+    for file in list_disabled(server)? {digest.update(file.filename.as_bytes());digest.update([0]);digest.update(file.sha512.as_bytes());digest.update([0]);}
     let path=folder(server)?.join(MANIFEST);
     if path.exists() {digest.update(fs::read(path).map_err(|e|e.to_string())?);}
     Ok(format!("{:x}",digest.finalize()))
@@ -118,6 +130,12 @@ fn snapshot(server:&Server, files:&[InstalledContent])->Result<String,String> {
 
 pub fn review(server:&Server,plan:ContentPlan)->Result<PreparedPlan,String> {
     let files=list(server)?;let fingerprint=snapshot(server,&files)?;
+    let disabled=list_disabled(server)?;
+    for entry in &plan.entries {
+        if disabled.iter().any(|file|file.filename.eq_ignore_ascii_case(&entry.file.filename)||file.project_id.as_deref()==Some(&entry.project.id)) {
+            return Err(format!("{} está desactivado. Reactiva el archivo antes de instalar o actualizar este proyecto.",entry.project.title));
+        }
+    }
     let mut versions:HashMap<String,String>=files.iter().filter_map(|file|Some((file.project_id.clone()?,file.version_id.clone()?))).collect();
     for entry in &plan.entries {versions.insert(entry.project.id.clone(),entry.version.id.clone());}
     for dependency in &plan.incompatible {
@@ -225,6 +243,59 @@ pub fn install(root:&Path,server:&Server,prepared:&PreparedPlan,task:&DownloadTa
     install_internal(Some(root),server,prepared,task)
 }
 
+pub fn set_enabled_tracked(root:&Path,server:&Server,filename:&str,expected_hash:&str,enabled:bool,task:&DownloadTask)->Result<(),String> {
+    task.cancellation.check()?;task.report("Comprobando el cambio de contenido","preparing");
+    if !safe_name(filename) {return Err("Nombre de contenido no válido".into());}
+    recover(server)?;
+    let files=list(server)?;let disabled=list_disabled(server)?;
+    let source_files=if enabled {&disabled}else{&files};
+    let file=source_files.iter().find(|file|file.filename==filename).ok_or("El archivo ya no existe en el estado seleccionado")?;
+    if file.sha512!=expected_hash {return Err("El archivo ha cambiado desde la confirmación. Revisa el contenido de nuevo.".into());}
+    let target=folder(server)?;
+    let (source,destination)=if enabled {(format!("{filename}.disabled"),filename.to_string())}else{(filename.to_string(),format!("{filename}.disabled"))};
+    if fs::symlink_metadata(target.join(&destination)).is_ok() {return Err("Ya existe un archivo en el destino. No se sobrescribirá.".into());}
+    let snapshot_before=snapshot(server,&files)?;
+    let mut remaining:Vec<_>=files.iter().filter(|file|file.filename!=filename).cloned().collect();
+    if enabled {
+        let descriptor=crate::content_diagnostics::inspect(&target.join(&source),&server.platform)?;
+        if descriptor.environment.as_deref()==Some("client") {return Err("El JAR es solo de cliente y no se cargará en el servidor".into());}
+        for active in &files {
+            if active.project_id.is_some()&&active.project_id==file.project_id {return Err("El proyecto ya tiene un archivo activo".into());}
+            if let Ok(other)=crate::content_diagnostics::inspect(&target.join(&active.filename),&server.platform) {
+                if descriptor.ids.iter().any(|id|other.ids.contains(id)) {return Err("El archivo declara un identificador que ya está activo".into());}
+            }
+        }
+        remaining.push(file.clone());remaining.sort_by(|a,b|a.filename.cmp(&b.filename));
+    }
+    let empty=ContentPlan {minecraft_version:server.version.clone(),loader:crate::content::loader(server)?.into(),entries:vec![],optional:vec![],incompatible:vec![]};
+    crate::content::check_existing(task,&remaining,&empty)?;
+    let before=if server.platform=="fabric" {Some(crate::fabric_presence::review(Path::new(&server.directory),&files))}else{None};
+    backup::create_tracked(root,&server.id,task)?;
+    task.report("Preparando el cambio de contenido","preparing");task.cancellation.check()?;
+    let base=target.parent().ok_or("Carpeta no válida")?;let id=uuid::Uuid::new_v4().to_string();
+    let stage=base.join(format!(".tch-content-{id}"));let old=base.join(format!(".tch-content-old-{id}"));
+    let result=(|| {
+        backup::copy_tree_tracked(&target,&stage,task,"Preparando los archivos de contenido")?;
+        task.cancellation.check()?;
+        if hash(&stage.join(&source))?!=expected_hash {return Err("El archivo ha cambiado durante la copia. No se ha aplicado el cambio.".into());}
+        if fs::symlink_metadata(stage.join(&destination)).is_ok() {return Err("Ya existe un archivo en el destino. No se sobrescribirá.".into());}
+        fs::rename(stage.join(&source),stage.join(&destination)).map_err(|e|e.to_string())?;
+        if let Some(before)=&before {
+            let after=crate::fabric_presence::review_at(base,&stage,&remaining);
+            for (name,issues) in after.blocking {
+                for issue in issues {
+                    if !before.blocking.get(&name).is_some_and(|old|old.contains(&issue)) {return Err(format!("{name}: {issue}"));}
+                }
+            }
+        }
+        if snapshot(server,&list(server)?)?!=snapshot_before {return Err("Los archivos han cambiado. No se ha aplicado el cambio de contenido.".into());}
+        task.begin_publication("Guardando el cambio de contenido")?;
+        publish(server,&target,&stage,&old,&id)
+    })();
+    if result.is_err()&&!base.join(JOURNAL).exists() {let _=fs::remove_dir_all(stage);}
+    result
+}
+
 // The caller owns the isolated instance directory and has already saved the
 // original server's safety backup. This never publishes the active instance.
 pub(crate) fn install_staged(server:&Server,plan:ContentPlan,task:&DownloadTask)->Result<(),String> {
@@ -286,6 +357,105 @@ mod tests {
     }
     impl Drop for Fixture {fn drop(&mut self) {let _=fs::remove_dir_all(&self.root);}}
     fn empty_plan()->ContentPlan {ContentPlan {minecraft_version:"1.21.4".into(),loader:"fabric".into(),entries:vec![],optional:vec![],incompatible:vec![]}}
+    fn test_jar(path:&Path,descriptor:&str,content:&str){
+        use std::io::Write;
+        let mut archive=zip::ZipWriter::new(fs::File::create(path).unwrap());
+        archive.start_file(descriptor,zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(content.as_bytes()).unwrap();archive.finish().unwrap();
+    }
+    #[test]
+    fn content_toggle_roundtrip_preserves_artifact_configuration_and_inventory_record(){
+        let fixture=Fixture::platform("paper");let dir=folder(&fixture.server).unwrap();fs::create_dir_all(dir.join("plugin-config")).unwrap();
+        test_jar(&dir.join("sample.jar"),"plugin.yml","name: Sample\nversion: '1.0'\nmain: test.Sample\n");
+        fs::write(dir.join("plugin-config/settings.yml"),b"keep: true").unwrap();
+        let original=fs::read(dir.join("sample.jar")).unwrap();let mut record=list(&fixture.server).unwrap()[0].clone();
+        record.version_number=Some("1.0".into());let manifest_bytes=serde_json::to_vec(&vec![record.clone()]).unwrap();fs::write(dir.join(MANIFEST),&manifest_bytes).unwrap();
+        for enabled in [false,true]{
+            let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+            set_enabled_tracked(&fixture.root,&fixture.server,"sample.jar",&record.sha512,enabled,&task).unwrap();
+            assert_eq!(list(&fixture.server).unwrap().len(),usize::from(enabled));
+            assert_eq!(list_disabled(&fixture.server).unwrap().len(),usize::from(!enabled));
+            let inventory=if enabled{list(&fixture.server).unwrap()}else{list_disabled(&fixture.server).unwrap()};
+            assert_eq!(inventory[0].filename,"sample.jar");assert_eq!(inventory[0].version_number,Some("1.0".into()));assert!(!inventory[0].modified);
+            assert_eq!(fs::read(dir.join(if enabled{"sample.jar"}else{"sample.jar.disabled"})).unwrap(),original);
+            assert_eq!(fs::read(dir.join(MANIFEST)).unwrap(),manifest_bytes);
+            assert_eq!(fs::read(dir.join("plugin-config/settings.yml")).unwrap(),b"keep: true");
+        }
+        assert_eq!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().len(),2);
+    }
+    #[test]
+    fn content_toggle_rejects_stale_hash_collision_and_unsafe_filename_before_backup(){
+        let fixture=Fixture::platform("paper");let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();fs::write(dir.join("sample.jar"),b"original").unwrap();
+        let digest=hash(&dir.join("sample.jar")).unwrap();let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"../sample.jar",&digest,false,&task).is_err());
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"sample.jar","stale",false,&task).unwrap_err().contains("cambiado"));
+        fs::write(dir.join("sample.jar.disabled"),b"collision").unwrap();
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"sample.jar",&digest,false,&task).unwrap_err().contains("sobrescribirá"));
+        assert_eq!(fs::read(dir.join("sample.jar")).unwrap(),b"original");assert_eq!(fs::read(dir.join("sample.jar.disabled")).unwrap(),b"collision");
+        assert!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().is_empty());
+    }
+    #[test]
+    fn disabling_managed_content_keeps_project_identity_and_blocks_parallel_reinstallation(){
+        let fixture=Fixture::platform("paper");let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();
+        test_jar(&dir.join("sample.jar"),"plugin.yml","name: Sample\nversion: '1.0'\nmain: test.Sample\n");
+        let mut record=list(&fixture.server).unwrap()[0].clone();record.project_id=Some("managed-project".into());record.version_id=Some("managed-release".into());record.version_number=Some("1.0".into());
+        fs::write(dir.join(MANIFEST),serde_json::to_vec(&vec![record.clone()]).unwrap()).unwrap();
+        let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+        set_enabled_tracked(&fixture.root,&fixture.server,"sample.jar",&record.sha512,false,&task).unwrap();
+        let disabled=list_disabled(&fixture.server).unwrap();assert_eq!(disabled[0].project_id,record.project_id);assert_eq!(disabled[0].version_id,record.version_id);
+        let version:crate::content::ContentVersion=serde_json::from_value(serde_json::json!({"id":"new-release","project_id":"managed-project","name":"Release","version_number":"2.0","version_type":"release","date_published":"","game_versions":["1.21.4"],"loaders":["paper"],"dependencies":[],"files":[]})).unwrap();
+        let file=crate::content::ContentFile {filename:"different.jar".into(),url:"https://cdn.modrinth.com/different.jar".into(),hashes:Default::default(),size:1,primary:true};
+        let entry=PlannedContent {project:crate::content::Project {id:"managed-project".into(),title:"Managed project".into(),description:"".into(),icon_url:None,environment:vec![],server_side:None},version,file,required:false};
+        let mut plan=empty_plan();plan.loader="paper".into();plan.entries.push(entry);
+        assert!(review(&fixture.server,plan).err().unwrap().contains("desactivado"));
+        assert!(!dir.join("different.jar").exists());
+    }
+    #[test]
+    fn enabling_client_only_fabric_content_is_rejected_before_backup(){
+        let fixture=Fixture::new();let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();
+        test_jar(&dir.join("client.jar.disabled"),"fabric.mod.json",r#"{"schemaVersion":1,"id":"clientmod","version":"1","environment":"client"}"#);
+        let digest=hash(&dir.join("client.jar.disabled")).unwrap();let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"client.jar",&digest,true,&task).unwrap_err().contains("cliente"));
+        assert!(dir.join("client.jar.disabled").exists());assert!(!dir.join("client.jar").exists());assert!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().is_empty());
+    }
+    #[test]
+    fn content_toggle_blocks_new_missing_fabric_dependency_and_duplicate_identity(){
+        let fixture=Fixture::new();let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();
+        test_jar(&dir.join("provider.jar"),"fabric.mod.json",r#"{"schemaVersion":1,"id":"library","version":"1"}"#);
+        test_jar(&dir.join("consumer.jar"),"fabric.mod.json",r#"{"schemaVersion":1,"id":"consumer","version":"1","depends":{"library":"*"}}"#);
+        let digest=hash(&dir.join("provider.jar")).unwrap();let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"provider.jar",&digest,false,&task).unwrap_err().contains("obligatoria"));
+        assert!(dir.join("provider.jar").exists());assert!(!dir.join("provider.jar.disabled").exists());
+        test_jar(&dir.join("duplicate.jar.disabled"),"fabric.mod.json",r#"{"schemaVersion":1,"id":"library","version":"2"}"#);
+        let digest=hash(&dir.join("duplicate.jar.disabled")).unwrap();
+        assert!(set_enabled_tracked(&fixture.root,&fixture.server,"duplicate.jar",&digest,true,&task).unwrap_err().contains("identificador"));
+        assert!(dir.join("duplicate.jar.disabled").exists());
+        assert!(!Path::new(&fixture.server.directory).join(JOURNAL).exists());
+        assert!(fs::read_dir(&fixture.server.directory).unwrap().all(|entry|!entry.unwrap().file_name().to_string_lossy().starts_with(".tch-content-")));
+    }
+    #[test]
+    fn disabled_artifacts_are_part_of_review_fingerprint(){
+        let fixture=Fixture::new();let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();fs::write(dir.join("sample.jar.disabled"),b"disabled").unwrap();
+        let prepared=review(&fixture.server,empty_plan()).unwrap();fs::write(dir.join("sample.jar.disabled"),b"external change").unwrap();
+        let task=DownloadTask::new(&fixture.server.id,"content_install",|_|{}).unwrap();
+        assert!(install(&fixture.root,&fixture.server,&prepared,&task).unwrap_err().contains("cambiado"));
+    }
+    #[test]
+    fn content_toggle_cancellation_preserves_state_and_registers_terminal_progress(){
+        use std::sync::{Arc,Mutex};
+        for mode in ["backup","after_backup","copy"]{
+            let fixture=Fixture::platform("paper");let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();fs::write(dir.join("sample.jar"),vec![8;300_000]).unwrap();
+            let digest=hash(&dir.join("sample.jar")).unwrap();let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(HashMap::new()));let observed=jobs.clone();let events=Arc::new(Mutex::new(vec![]));let capture=events.clone();
+            let result=crate::file_tasks::set_content_enabled(&fixture.root,&fixture.server,"sample.jar",&digest,false,&jobs,move|event|{
+                let task=observed.lock().unwrap()[&event.server_id].clone();assert!(task.is_file_operation());
+                if mode=="backup"&&event.label=="Copiando archivos del servidor"&&event.received>0||mode=="after_backup"&&event.label=="Preparando el cambio de contenido"||mode=="copy"&&event.label=="Preparando los archivos de contenido"&&event.received>0{assert!(task.request_cancel());}
+                capture.lock().unwrap().push(event);
+            });
+            assert_eq!(result.unwrap_err(),crate::download::CANCELLED);assert!(jobs.lock().unwrap().is_empty());
+            assert_eq!(events.lock().unwrap().last().unwrap().stage,"cancelled");assert_eq!(fs::read(dir.join("sample.jar")).unwrap(),vec![8;300_000]);assert!(!dir.join("sample.jar.disabled").exists());
+            assert_eq!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().len(),usize::from(mode!="backup"));
+        }
+    }
     #[test]
     fn tracked_removal_preserves_content_on_cancellation_and_keeps_a_safety_copy(){
         use std::sync::{Arc,Mutex};

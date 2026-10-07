@@ -1092,8 +1092,8 @@ html[data-motion="reduced"] .pixel-meter-slot i { transition:none; }
 .installed-mod-facts dd { margin:0; overflow-wrap:anywhere; }
 .installed-mod-evidence > h3 { margin-top:24px; font:13px/1.7 var(--font-display); }
 .installed-mod-evidence > p { color:var(--secondary); font-size:12px; line-height:1.7; }
-.installed-mod-evidence > div { margin:14px 0; padding:14px; border-left:3px solid var(--warning); background:var(--surface-deep); min-width:0; }
-.installed-mod-evidence > .error { border-color:var(--danger); }
+.installed-mod-evidence > div { margin:14px 0; padding:16px; border:1px solid var(--line); background:var(--surface-deep); min-width:0; }
+.installed-mod-evidence > .error { border-color:var(--danger-line); }
 .installed-mod-evidence header { display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:space-between; color:var(--warning); font-size:11px; }
 .installed-mod-evidence .error header { color:var(--danger); }
 .installed-mod-evidence time { color:var(--secondary); }
@@ -1377,7 +1377,7 @@ select.minecraft-version-list option:checked { background:var(--surface-selected
 .installed-workbench .installed-content-tools > label:first-child { flex:1 1 240px; }
 .installed-workbench .installed-content-tools input,.installed-workbench .installed-content-tools select { min-height:44px; }
 .installed-layout-control { display:flex; gap:4px; padding:3px; background:var(--surface-deep); border:1px solid var(--line); }
-.installed-layout-control button { min-height:36px; padding:8px 10px; font-size:10px; border:1px solid transparent; background:transparent; box-shadow:none; color:var(--secondary); }
+.installed-layout-control button { display:flex; align-items:center; gap:8px; min-height:40px; padding:8px 10px; font-size:10px; border:1px solid transparent; background:transparent; box-shadow:none; color:var(--secondary); }
 .installed-layout-control button[aria-pressed=true] { color:var(--accent-hover); background:var(--surface-selected); border-color:var(--accent-line); box-shadow:var(--control-relief); }
 .installed-results { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; margin-top:14px; min-height:36px; color:var(--secondary); font:12px/1.6 var(--font-reading); font-variant-numeric:tabular-nums; }
 .installed-results button { font-size:10px; min-height:36px; }
@@ -1508,3 +1508,45 @@ html[data-motion="reduced"] .content-kind-tabs > button { transition:none; }
 
 .installed-content-card footer .content-menu-trigger { display:grid; place-items:center; width:44px; min-height:44px; padding:8px; margin-left:auto; border-color:transparent; background:transparent; box-shadow:none; color:var(--secondary); }
 .installed-content-card footer .content-menu-trigger:hover,.installed-content-card footer .content-menu-trigger[aria-expanded=true] { border-color:var(--accent-line); background:var(--accent-wash); color:var(--accent-hover); }
+
+/* A mod inspector separates metadata from evidence without hiding recovery actions. */
+.installed-mod-dialog { width:min(760px,calc(100vw - 32px)); }
+.installed-detail-navigation { display:flex; flex-wrap:wrap; gap:4px; margin:12px 0 0; padding:4px; border:1px solid var(--line); background:var(--surface-deep); }
+.installed-detail-navigation button { display:flex; align-items:center; gap:10px; min-height:44px; padding:10px 12px; border:1px solid transparent; background:transparent; box-shadow:none; color:var(--secondary); font:11px/1.7 var(--font-display); }
+.installed-detail-navigation button span { padding:2px 6px; background:var(--surface-deep); color:var(--ink); font:12px/1.6 var(--font-reading); font-variant-numeric:tabular-nums; }
+.installed-detail-navigation button[aria-pressed=true] { color:var(--accent-hover); border-color:var(--accent-line); background:var(--surface-selected); box-shadow:var(--control-relief); }
+.installed-detail-navigation button.error span { color:var(--danger); }
+.installed-detail-navigation button.warning span { color:var(--warning); }
+.installed-detail-body { min-width:0; padding-top:12px; }
+.installed-detail-body .installed-dependencies { margin:0; border:0; padding:0; }
+.installed-detail-body h3 { font:13px/1.8 var(--font-display); margin:12px 0; }
+.installed-detail-body .installed-mod-facts { margin-top:0; }
+.installed-detail-body .installed-mod-evidence > p { max-width:65ch; }
+.installed-mod-evidence header strong { padding:2px 6px; background:var(--warning-wash); }
+.installed-mod-evidence .error header strong { background:var(--danger-wash); }
+.installed-mod-status > svg { flex:none; }
+.disabled-content-search { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:16px; margin:24px 0; }
+.disabled-content-search label { display:grid; gap:8px; width:min(100%,420px); color:var(--secondary); font:12px/1.7 var(--font-reading); }
+.disabled-content-search > span { color:var(--secondary); font:12px/1.7 var(--font-reading); font-variant-numeric:tabular-nums; padding-bottom:12px; }
+.disabled-content-list { list-style:none; padding:0; margin:0 0 24px; border-top:1px solid var(--line); }
+.disabled-content-list li { display:flex; align-items:center; gap:20px; padding:20px 4px; border-bottom:1px solid var(--line); }
+.disabled-file-mark { display:grid; place-items:center; width:48px; height:48px; flex:none; background:var(--surface-deep); border:1px solid var(--field-edge); color:var(--secondary); }
+.disabled-content-list li > div { flex:1; min-width:0; }
+.disabled-content-list h4 { margin:0; color:var(--ink); font:12px/1.8 var(--font-display); overflow-wrap:anywhere; }
+.disabled-content-list p { margin:6px 0; color:var(--secondary); font:12px/1.7 var(--font-reading); }
+.disabled-content-list code { display:block; color:var(--muted); font:11px/1.7 ui-monospace,Consolas,monospace; overflow-wrap:anywhere; }
+.disabled-content-list button { flex:none; min-height:44px; font-size:11px; }
+@media(max-width:560px) {
+  .disabled-content-list li { flex-wrap:wrap; gap:12px; }
+  .disabled-content-list li > div { flex-basis:calc(100% - 60px); }
+  .disabled-content-list button { margin-left:60px; }
+}
+@media(hover:hover) and (pointer:fine) {
+  .installed-detail-navigation button:hover { background:var(--surface-raised); color:var(--ink); }
+}
+@media(max-width:560px) {
+  .installed-detail-navigation button { flex:1 1 auto; justify-content:center; }
+  .installed-detail-body .installed-dependencies li { grid-template-columns:minmax(0,1fr); gap:6px; }
+}
+
+.world-heading-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }

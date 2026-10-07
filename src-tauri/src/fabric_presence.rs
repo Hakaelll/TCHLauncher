@@ -2,7 +2,7 @@
 use crate::{content_diagnostics::{inspect_fabric,Dependency},content_storage::InstalledContent};
 use std::{collections::{HashMap,HashSet},fs,io::{Read,Seek,Cursor},path::Path};
 
-pub struct Review {pub issues:HashMap<String,Vec<String>>,pub note:String}
+pub struct Review {pub issues:HashMap<String,Vec<String>>,pub blocking:HashMap<String,Vec<String>>,pub note:String}
 struct Candidate {owner:String,id:String,version:String,top_level:bool,provides:Vec<String>,dependencies:Vec<Dependency>}
 struct Budget {nodes:usize,bytes:u64}
 impl Budget {
@@ -50,10 +50,15 @@ fn scan<R:Read+Seek>(archive:&mut zip::ZipArchive<R>,owner:&str,depth:usize,budg
 }
 
 pub fn review(base:&Path,files:&[InstalledContent])->Review{
+    review_at(base,&base.join("mods"),files)
+}
+
+pub(crate) fn review_at(base:&Path,content:&Path,files:&[InstalledContent])->Review{
     let mut nodes=Vec::new();let mut budget=Budget{nodes:0,bytes:0};let mut complete=true;
     let mut issues:HashMap<String,Vec<String>>=HashMap::new();
+    let mut blocking:HashMap<String,Vec<String>>=HashMap::new();
     for file in files {
-        let path=base.join("mods").join(&file.filename);
+        let path=content.join(&file.filename);
         let result=(||{
             let meta=fs::symlink_metadata(&path).map_err(|e|e.to_string())?;
             if !meta.is_file()||meta.file_type().is_symlink()||meta.len()>512_000_000{return Err("JAR no regular".into());}
@@ -72,6 +77,7 @@ pub fn review(base:&Path,files:&[InstalledContent])->Review{
             for dependency in &node.dependencies {
                 if dependency.kind=="depends"&&!available.contains(dependency.id.as_str()) {
                     let message=format!("Dependencia obligatoria sin proveedor encontrado: {} (requerida por {}). Rango declarado: {}",dependency.id,node.id,dependency.alternatives.join(" o "));
+                    blocking.entry(node.owner.clone()).or_default().push(message.clone());
                     let row=issues.entry(node.owner.clone()).or_default();if !row.contains(&message){row.push(message);}
                 }
                 if node.top_level&&matches!(dependency.kind.as_str(),"depends"|"breaks"|"conflicts"){
@@ -82,13 +88,14 @@ pub fn review(base:&Path,files:&[InstalledContent])->Review{
                     let incompatible=dependency.kind!="depends"&&providers.iter().zip(&outcomes).any(|(candidate,result)|candidate.top_level&&*result==Some(true));
                     if mismatch||incompatible{
                         let message=if mismatch{format!("Ninguna versión encontrada de {} cumple el requisito de {}: {}. Encontradas: {}",dependency.id,node.id,dependency.alternatives.join(" o "),providers.iter().map(|candidate|candidate.version.as_str()).collect::<Vec<_>>().join(", "))}else{format!("{} declara {} con {} en el rango {}",node.id,if dependency.kind=="breaks"{"incompatibilidad"}else{"conflicto"},dependency.id,dependency.alternatives.join(" o "))};
+                        if mismatch||dependency.kind=="breaks" {blocking.entry(node.owner.clone()).or_default().push(message.clone());}
                         let row=issues.entry(node.owner.clone()).or_default();if !row.contains(&message){row.push(message);}
                     }
                 }
             }
         }
     }
-    Review{issues,note:if complete{"Dependencias Fabric: presencia revisada y rangos reconocidos de mods principales comprobados; incompatibilidades declaradas entre mods principales revisadas. Java, Minecraft, versión del loader y selección de archivos incluidos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
+    Review{issues,blocking,note:if complete{"Dependencias Fabric: presencia revisada y rangos reconocidos de mods principales comprobados; incompatibilidades declaradas entre mods principales revisadas. Java, Minecraft, versión del loader y selección de archivos incluidos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
 }
 
 #[cfg(test)]

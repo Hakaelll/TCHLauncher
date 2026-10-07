@@ -40,3 +40,11 @@ Two native collector regressions use a real current-process sample to verify bas
 Measure the real native launcher and server together during a representative session, verify console/player interactions manually, and capture evidence during an internet stutter. Direct Minecraft traffic does not pass through TCHLauncher. Physical router, upload congestion, Wi-Fi/link behavior and Java pauses have not been ruled out by slow CPU/RAM samples.
 
 These changes are source-only. The existing 0.26.0 installer does not include them. No new release, installer, commit, push or publication was produced in this iteration.
+
+
+## Packaging follow-up
+
+The source-only statements above describe their original iterations. This work is
+now included in the locally generated Windows 0.27.0 milestone; see its
+[development record](DEVELOPMENT_NOTES_v0.27.0.md). Native/gameplay verification
+limits remain. The older 0.26.0 installer remains unchanged.

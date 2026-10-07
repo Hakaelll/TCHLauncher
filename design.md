@@ -129,6 +129,14 @@ RAM and CPU remain simultaneous orthogonal plots, with lightly shaded measured a
 
 ## Installed mod inventory
 
+The file inspector uses three ordinary view controls: Details, declared
+Dependencies and related Messages. Only views with actual data are offered.
+The warning action opens related messages directly; refreshed diagnostics fall
+back to Details if the selected view becomes empty. Metadata, dependency ranges,
+warnings and console recovery actions remain available. Square SVG status marks
+and view icons use the existing theme. Error evidence uses a one-pixel frame and
+a semantic label instead of a thick side stripe.
+
 Use responsive square item cards with 64-pixel icon slots, readable version/origin metadata, compact semantic status and separate detail/version/remove actions. Red and amber always include a text label and evidence. Put long filenames, declared requirements and related console messages in the detail dialog; keep search and attention/source filters visible. Never imply a JAR in the inventory proves world behavior or blame a mod from a generic log mention. Keep item order stable while diagnostics update. Use short opacity entrance and a two-pixel hover lift on the icon only; respect system/application reduced motion. Preserve filters during audit refreshes.
 # Installed content refinements
 
@@ -383,3 +391,12 @@ to the observed filename/hash and close on a changed file, filtering it away or
 switching to discovery. Read failures/running state still block file mutations;
 read-only details and publication inspection remain available. New copy is localized.
 No nonfunctional enable/disable action is shown. Native review remains manual.
+
+
+## World inventory feedback
+
+Keep read failures distinct from a genuine empty world list. Retain last-known
+rows with an unavailable label and retry, and block file mutations while reads
+are pending or failed. Manual Refresh worlds remains beside Import world; retain
+readable feedback and no fictitious progress. Post-operation read failure does
+not revoke the native acknowledgement. Native validation remains manual.

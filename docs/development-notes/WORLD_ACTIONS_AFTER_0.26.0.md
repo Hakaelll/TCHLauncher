@@ -42,3 +42,11 @@ TypeScript, all 84 frontend regressions and production Vite build passed after t
 extension. Native keyboard/context-menu/browser dispatch and visual assessment
 remain unverified. Enable/disable content is still a separate unfinished operation;
 this menu does not expose an inactive placeholder for it.
+
+
+## Packaging follow-up
+
+The source-only statements above describe their original iterations. This work is
+now included in the locally generated Windows 0.27.0 milestone; see its
+[development record](DEVELOPMENT_NOTES_v0.27.0.md). Native/gameplay verification
+limits remain. The older 0.26.0 installer remains unchanged.

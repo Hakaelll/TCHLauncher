@@ -53,7 +53,7 @@ pub struct Check {
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct Audit {
-    pub files:Vec<InstalledContent>,pub checks:Vec<Check>,
+    pub files:Vec<InstalledContent>,pub disabled:Vec<InstalledContent>,pub checks:Vec<Check>,
     pub log_modified_at:Option<u64>,pub log_note:String,
 }
 
@@ -277,7 +277,7 @@ pub fn audit(server:&Server)->Result<Audit,String> {
         }
         log_note.push_str(" ");log_note.push_str(&presence.note);
     }
-    Ok(Audit {files,checks,log_modified_at,log_note})
+    Ok(Audit {files,disabled:content_storage::list_disabled(server)?,checks,log_modified_at,log_note})
 }
 
 #[cfg(test)]

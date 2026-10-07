@@ -70,7 +70,7 @@ impl DownloadTask {
 
     pub fn snapshot(&self)->Result<Progress,String>{self.latest.lock().map(|value|value.clone()).map_err(|_|"No se pudo leer el estado de la tarea".into())}
     pub(crate) fn kind(&self)->&str{&self.kind}
-    pub fn is_file_operation(&self)->bool{matches!(self.kind.as_str(),"backup"|"restore"|"world_import"|"world_duplicate"|"world_export"|"world_activate"|"world_delete"|"server_import"|"content_remove")}
+    pub fn is_file_operation(&self)->bool{matches!(self.kind.as_str(),"backup"|"restore"|"world_import"|"world_duplicate"|"world_export"|"world_activate"|"world_delete"|"server_import"|"content_remove"|"content_toggle")}
     pub fn is_restore(&self)->bool{self.kind=="restore"}
     pub fn request_cancel(&self)->bool{
         let Ok(latest)=self.latest.lock()else{return false;};
@@ -108,6 +108,14 @@ impl DownloadTask {
                 Ok(())=>self.report("Contenido retirado","completed"),
                 Err(error) if error==CANCELLED=>self.report("Retirada cancelada","cancelled"),
                 Err(error)=>self.progress("No se pudo retirar el contenido","failed",0,None,None,1,Some(error.clone())),
+            }
+            return;
+        }
+        if self.kind=="content_toggle"{
+            match result{
+                Ok(())=>self.report("Estado del contenido actualizado","completed"),
+                Err(error) if error==CANCELLED=>self.report("Cambio de contenido cancelado","cancelled"),
+                Err(error)=>self.progress("No se pudo cambiar el estado del contenido","failed",0,None,None,1,Some(error.clone())),
             }
             return;
         }
@@ -383,7 +391,7 @@ mod tests {
 
     #[test]
     fn file_publication_and_cancellation_have_an_exclusive_boundary(){
-      for kind in ["backup","restore","minecraft_update","loader_update","content_install","world_import","world_duplicate","world_export","world_activate","world_delete","server_import","content_remove"]{
+      for kind in ["backup","restore","minecraft_update","loader_update","content_install","world_import","world_duplicate","world_export","world_activate","world_delete","server_import","content_remove","content_toggle"]{
         let cancelled=DownloadTask::new("test",kind,|_|{}).unwrap();
         assert!(cancelled.request_cancel());assert_eq!(cancelled.begin_publication("Guardando").unwrap_err(),CANCELLED);
         let published=DownloadTask::new("test",kind,|_|{}).unwrap();
