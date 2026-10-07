@@ -30,7 +30,6 @@ import { Modal } from './Modal'
 import {ForceStopDialog} from './ForceStopDialog'
 
 import { InstallProgress } from './InstallProgress'
-import { BackupPolicyPanel } from './BackupPolicyPanel'
 import { StartupPanel } from './StartupPanel'
 
 import { ServerLibrary } from './ServerLibrary'
@@ -53,6 +52,8 @@ const WorldView=deferredPanel<ComponentProps<typeof import('./WorldView').WorldV
 const ContentManager=deferredPanel<ComponentProps<typeof import('./ContentManager').ContentManager>>(t("Mods y plugins"),()=>import('./ContentManager').then(module=>({default:module.ContentManager})))
 const ResourceMonitor=deferredPanel<ComponentProps<typeof import('./ResourceMonitor').ResourceMonitor>>(t("Rendimiento"),()=>import('./ResourceMonitor').then(module=>({default:module.ResourceMonitor})))
 const ApplicationSettings=deferredPanel<ComponentProps<typeof import('./ApplicationSettings').ApplicationSettings>>(t("Ajustes"),()=>import('./ApplicationSettings').then(module=>({default:module.ApplicationSettings})))
+
+const BackupsView=deferredPanel<ComponentProps<typeof import('./BackupsView').BackupsView>>(t("Copias"),()=>import('./BackupsView').then(module=>({default:module.BackupsView})))
 
 const ConsoleView=deferredPanel<ComponentProps<typeof import('./ConsoleView').ConsoleView>>(t("Consola"),()=>import('./ConsoleView').then(module=>({default:module.ConsoleView})))
 
@@ -114,7 +115,6 @@ function App() {
   const [appearanceSaved,setAppearanceSaved]=useState(true)
   const changeAppearance=(next:Appearance)=>{applyAppearance(next);setAppearance(next);setAppearanceSaved(saveAppearance(browserPreferenceStorage(),next))}
   const railRef=useRef<HTMLElement>(null)
-  const backupListRef=useRef<HTMLDivElement>(null)
   const contentRef=useRef<HTMLDivElement>(null)
   const [navigationDirection,setNavigationDirection]=useState(1)
   const navigate=(next:View)=>{setConsoleQuery('');setNavigationDirection(viewOrder.indexOf(next)>viewOrder.indexOf(view)?1:-1);setView(next)}
@@ -409,7 +409,6 @@ function App() {
     } finally { setBusy(false) }
   }
 
-  useListMotion(backupListRef,`${view}:${backups.map(backup=>backup.id).join()}`)
   useListMotion(railRef,servers.map(server=>server.id).join(','))
   useNavigationMotion(contentRef,`${selectedId}:${view}:${appearanceOpen}:${creating}:${importing}:${libraryOpen}`,navigationDirection)
   const selectedName = selected?.name ?? t("Servidores")
@@ -487,7 +486,7 @@ function App() {
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={()=>refreshBackups(selected.id)}/>}
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
-          {view === 'backups' && <section className="backup-view"><div className="section-heading"><div><h2>{t("Copias de seguridad")}</h2><p>{t("Se guardan en el almacenamiento local de la aplicación.")}</p></div><button disabled={busy || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>void createCopy(selected.id)}>{t("Crear copia")}</button><button disabled={backupsLoading} onClick={()=>void refreshBackups(selected.id).catch(()=>{})}>{backupsLoading?t("Consultando…"):t("Actualizar lista")}</button></div><BackupPolicyPanel key={selected.id} id={selected.id} disabled={busy||!['stopped','crashed','error'].includes(selected.state)} onChanged={()=>refreshBackups(selected.id)}/>{!['stopped','crashed','error'].includes(selected.state) && <p className="inline-note">{t("Detén el servidor para crear una copia consistente.")}</p>}{backupsError&&<p className="form-error" role="alert">{t("No se pudo consultar la lista:")} {translatedMessage(backupsError)}{backupsLoaded?' Se muestran las últimas copias conocidas.':''}</p>}{!backupsLoaded&&!backupsError&&<p className="empty-inline" role="status">{t("Cargando copias…")}</p>}{backups.length ? <div className="table backup-table" ref={backupListRef}><div className="table-head"><span>{t("Fecha y motivo")}</span><span>{t("Tamaño")}</span><span>{t("Acción")}</span></div>{backups.map(backup => <div className="table-row" data-layout-id={backup.id} key={backup.id}><div className="backup-description"><span>{new Date(backup.createdAt).toLocaleString()}</span><strong>{backup.reason?backupReason[backup.reason]??t("Motivo no disponible"):t("Motivo no registrado")}</strong><small>{backup.minecraftVersion?`${backup.platform??t("Motor no registrado")} · Minecraft ${backup.minecraftVersion}`:t("Versión no registrada")}</small>{backup.metadataError&&<small className="form-error">{translatedMessage(backup.metadataError)}</small>}</div><span>{fmtBytes(backup.sizeBytes)}</span><button className="text-button" disabled={busy || backupsLoading || !!backupsError || !['stopped','crashed','error'].includes(selected.state)} onClick={()=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}>{t("Restaurar")}</button></div>)}</div> : backupsLoaded&&!backupsError?<div className="empty-inline">{t("Aún no hay copias de este servidor.")}</div>:null}</section>}
+          {view === 'backups' && <BackupsView key={selected.id} server={selected} copies={backups} loaded={backupsLoaded} loading={backupsLoading} error={backupsError} busy={busy} reasons={backupReason} onCreate={()=>void createCopy(selected.id)} onRefresh={()=>refreshBackups(selected.id)} onRestore={backup=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}/>}
           {view === 'settings' && <ServerSettings onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}

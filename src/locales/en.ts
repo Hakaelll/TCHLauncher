@@ -1655,4 +1655,12 @@ export const english: Record<string,string> = {
   " · Completado": " · Completed",
   " · En curso": " · In progress",
   " · Pendiente": " · Pending",
+  "Buscar copias": "Search backups",
+  "Buscar por fecha, motivo o versión…": "Search by date, reason or version…",
+  "Todos los motivos": "All reasons",
+  "{0} de {1} copias": "{0} of {1} backups",
+  "Más reciente": "Latest",
+  "Restaurar copia del {0}": "Restore backup from {0}",
+  "No hay copias que coincidan con los filtros.": "No backups match these filters.",
+
 }

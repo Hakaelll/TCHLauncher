@@ -809,10 +809,6 @@ summary { font-size:11px; line-height:1.8; }
 .crash-history > summary { cursor: pointer; color: var(--muted); padding-block: 8px; }
 .crash-history[open] > summary { margin-bottom: 12px; }
 
-.backup-description { display:grid; gap:6px; min-width:0; overflow-wrap:anywhere; }
-.backup-description strong { font-size:13px; font-weight:500; }
-.backup-description small { color:var(--secondary); font-size:12px; line-height:1.6; }
-.backup-description small.form-error { color:var(--danger); }
 .backup-policy { border-radius:0; padding:20px; background:var(--surface); box-shadow:inset 0 2px 0 var(--control-edge); }
 .backup-policy summary { flex-wrap:wrap; gap:12px; font:13px/1.8 var(--font-display); }
 .backup-policy summary small { font:12px/1.7 var(--font-reading); }
@@ -837,13 +833,6 @@ summary { font-size:11px; line-height:1.8; }
 .restore-sync-notice { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:16px 20px; margin-bottom:20px; border-left:3px solid var(--warning); background:var(--warning-wash); }
 .restore-sync-notice p { flex:1; min-width:min(240px,100%); margin:0; font:13px/1.8 var(--font-reading); overflow-wrap:anywhere; }
 .restore-sync-notice button { flex:none; font-size:11px; }
-.backup-view > .section-heading { flex-wrap:wrap; gap:12px; }
-.backup-view > .section-heading > div { flex:1; min-width:min(280px,100%); }
-.backup-table .table-head { background:var(--surface-deep); padding:14px 16px; font:11px/1.8 var(--font-display); }
-.backup-table .table-row { padding:18px 16px; align-items:center; }
-.backup-table .backup-description > span { color:var(--accent); font-variant-numeric:tabular-nums; }
-.backup-table .table-row > span { font-variant-numeric:tabular-nums; }
-.backup-table .table-row:hover { background:var(--hover); }
 .properties-load-state { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:18px 20px; margin:24px 0; border-left:3px solid var(--accent); background:var(--surface-deep); }
 .properties-load-state > div { min-width:min(240px,100%); flex:1; }
 .properties-load-state strong { color:var(--ink); font:12px/1.8 var(--font-display); }

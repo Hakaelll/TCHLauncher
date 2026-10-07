@@ -14,6 +14,20 @@ cancellation and errors keep explicit text. Controls wrap on narrow windows.
 Operations own these styles in operations.css rather than duplicate overrides.
 Native visual review remains manual.
 
+### Backup history refinement
+
+Backup history precedes stop-copy and retention preferences. The primary create
+control shares a wrapping header with refresh. Search and reason filtering form
+one compact toolbar; visible totals come from the current list. Backup rows use
+an authored square file mark, readable date, reason, saved engine/version and a
+separate size/action column. The newest recorded date receives a small labeled
+accent mark; it does not claim integrity or freshness of a failed refresh.
+Narrow layouts place the description above size and restore. Restore keeps the
+existing confirmation, stale-read and stopped-server guards. List movement uses
+the shared interrupted/reduced-motion handling; restore arrows move two pixels
+on hover. Empty and no-match states offer clear recovery. Native visual review
+remains manual. Backup-only styles live in the deferred backups.css entry.
+
 ### Performance instruments
 
 RAM and CPU remain simultaneous sampled plots in standard desktop windows, with

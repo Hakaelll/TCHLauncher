@@ -241,3 +241,29 @@ production cargo check and diff validation passed. No native visual review,
 new gameplay diagnosis or installer generation is claimed.
 
 Commit: `fix: avoid false Fabric dependency blocks for optional bundled mods`
+
+## Backup history refinement and deferred loading (not packaged)
+
+Backup history now comes before automation/retention preferences, with one
+primary create action, refresh, date/reason/version search and a reason filter.
+Rows emphasize readable dates, reasons and saved engine/version, then align sizes
+and restore controls. An authored file mark and labeled latest-date accent follow
+the End system. Narrow layouts reflow without hiding metadata or restore. Loading,
+last-known read errors, empty history and no filter matches retain distinct states;
+filters can be cleared. English/Spanish copy and dated restore accessible names
+are provided. Existing restore confirmation, busy/read-error/read-loading/stopped
+server guards and mutation acknowledgements remain owned by App/backend.
+
+BackupsView uses the shared deferred loading/error/retry boundary and owns its
+list-motion hook, so its list still animates after the module mounts. Policy code
+is shared with WorldView and deferred from the initial static import graph.
+Removed obsolete backup-table/description styles and the former App list ref.
+Final production manifest: 490,605 bytes initial static JavaScript, 9,990 fewer
+than the previous measured entry; BackupsView and BackupPolicyPanel are outside
+that graph. This is bundle evidence, not a RAM or launch-time measurement.
+
+TypeScript, production Vite, three backup read-state tests, four locale tests and
+diff validation passed. Native visual/keyboard/reduced-motion/theme checks remain
+manual and are not established by compilation. The existing installer is unchanged.
+
+Commit: `feat: refine backup history and defer backup controls`
