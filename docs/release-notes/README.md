@@ -4,6 +4,7 @@ User-facing changes and verification limits for Windows previews.
 
 [Unreleased changes](RELEASE_NOTES_UNRELEASED.md)
 
+- [0.28.0](RELEASE_NOTES_v0.28.0.md)
 - [0.27.0](RELEASE_NOTES_v0.27.0.md)
 - [0.26.0](RELEASE_NOTES_v0.26.0.md)
 - [0.25.0](RELEASE_NOTES_v0.25.0.md)

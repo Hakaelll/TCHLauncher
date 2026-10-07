@@ -12,7 +12,7 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 ## Project status
 
-Latest development milestone: **0.27.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.27.0.md).
+Latest development milestone: **0.28.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.28.0.md).
 
 TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. Native visual and keyboard review, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
 
@@ -26,7 +26,7 @@ Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launchin
 | Setup | Version selection, world seed, game settings and resources before first launch; managed Eclipse Temurin runtimes |
 | Process control | Startup tracking, console commands, graceful shutdown and a separately confirmed forced stop |
 | Worlds | Import, duplicate, select, delete and export; share a world and its mods or plugins in one ZIP |
-| Content | Modrinth discovery for mods/plugins, modpacks, resource packs and shaders; compatibility labels, installed inventory and log-related warnings |
+| Content | Modrinth discovery for mods/plugins, modpacks, resource packs and shaders; compatibility labels, installed and disabled inventories, reversible enable/disable actions and log-related warnings |
 | Players | Skin heads when a verified profile is available; whitelist, operator and ban management |
 | Console | Searchable, colored log labels, commands and log export |
 | Performance | Simultaneous process RAM and CPU charts; supported JVM heap data and Paper metrics where available |

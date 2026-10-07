@@ -1,8 +1,8 @@
 # Unreleased
 
-Accumulated work through Windows 0.27.0 is packaged locally and recorded in
-[release notes](RELEASE_NOTES_v0.27.0.md) and
-[development notes](../development-notes/DEVELOPMENT_NOTES_v0.27.0.md).
+Accumulated work through Windows 0.28.0 is packaged locally and recorded in
+[release notes](RELEASE_NOTES_v0.28.0.md) and
+[development notes](../development-notes/DEVELOPMENT_NOTES_v0.28.0.md).
 
 ## Interface refinements after 0.27.0
 
@@ -14,8 +14,11 @@ Accumulated work through Windows 0.27.0 is packaged locally and recorded in
   preserve the End, Obsidian and Nether palettes and reduced-motion preferences.
 - Skip redundant icon state updates when a cached icon has not changed.
 
-These source changes are not included in the existing 0.27.0 installer.
+These source changes and reversible content state management are recorded in
+[0.28.0](RELEASE_NOTES_v0.28.0.md), whose installer has been generated and verified.
+They are not included in the older 0.27.0 installer.
 Native visual/keyboard review,
 complete gameplay, physical router checks and measured real-session RAM/internet
-latency improvements remain pending. Content enable/disable is not implemented.
+latency improvements remain pending. Native enable/disable interaction and actual
+Minecraft loading still require review.
 Linux is deferred; see [the later-work plan](../../LINUX_LATER.md).

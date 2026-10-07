@@ -129,6 +129,14 @@ RAM and CPU remain simultaneous orthogonal plots, with lightly shaded measured a
 
 ## Installed mod inventory
 
+Active and disabled content have distinct inventory views. Disable is a direct,
+reversible file operation from the context menu; Enable is visible in the disabled
+list. No extra confirmation interrupts this reversible action. Native stopped-
+server guards, safety copies, staged publication and known dependency checks own
+the change. Disabled files retain their original project metadata and use the
+normal `.jar.disabled` suffix. Loading/read errors never become an empty list;
+completed changes remain acknowledged if a subsequent inventory refresh fails.
+
 The file inspector uses three ordinary view controls: Details, declared
 Dependencies and related Messages. Only views with actual data are offered.
 The warning action opens related messages directly; refreshed diagnostics fall
@@ -144,7 +152,7 @@ Installed mods/plugins offer inventory cards and a compact presentation. Keep fi
 
 ## Creation version controls
 
-Show Minecraft versions in a bounded native list with scrolling and a catalog count. Keep keyboard selection and genuine catalog boundaries explicit, including historical NeoForge 1.20.1 and the modern catalog from 1.20.2. Platform choices use a four-option native radio group with raised theme surfaces, checked text/radio state and visible keyboard focus. No ambient animation or new accent palette is introduced. File details expose dependency declarations as a readable native disclosure with text-backed kinds and preserved range alternatives.
+Show Minecraft versions in a bounded native list with scrolling and a catalog count. Keep keyboard selection and genuine catalog boundaries explicit, including historical NeoForge 1.20.1 and the modern catalog from 1.20.2. Platform choices use a four-option native radio group with raised theme surfaces, checked text/radio state and visible keyboard focus. No ambient animation or new accent palette is introduced. File details expose dependency declarations in a named inspector view with text-backed kinds and preserved range alternatives.
 
 ## Creation and import finish
 
@@ -385,12 +393,12 @@ and export focus their first field. Native visual/keyboard validation remains ma
 ## Installed content action hierarchy
 
 Keep Details/Notice and a related Console action visible. Use the shared End overflow
-menu for compatible-version review, View on Modrinth (managed projects only), and
-removal. Keep the removal confirmation and backup workflow. Context menus belong
+menu for compatible-version review, View on Modrinth (managed projects only),
+disabling and removal. Keep the removal confirmation and backup workflow. Context menus belong
 to the observed filename/hash and close on a changed file, filtering it away or
 switching to discovery. Read failures/running state still block file mutations;
 read-only details and publication inspection remain available. New copy is localized.
-No nonfunctional enable/disable action is shown. Native review remains manual.
+Native review remains manual.
 
 
 ## World inventory feedback
