@@ -1618,7 +1618,6 @@ export const english: Record<string,string> = {
   "Lista blanca activa · acceso estricto": "Whitelist enabled · enforced access",
   "Eligiendo archivo…": "Choosing file…",
   "Expulsar": "Kick",
-  "Quitar": "Remove",
   "Retirar OP": "Revoke OP",
   "Perdonar": "Unban",
   "Perdonar IP": "Unban IP",

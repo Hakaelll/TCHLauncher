@@ -111,3 +111,29 @@ process. It did not run Minecraft, accept EULA or create a world. The reported
 server's startup issue still needs a real reproduction to identify its cause.
 
 Suggested commit: `fix: keep Java output readable after malformed or oversized lines`
+
+## Whitelist import review after 0.30.0
+
+Source follow-up; the current installer is unchanged. The former eight-name
+preview is now a searchable, paged review of every validated imported name,
+with explicit new/already-allowed labels and counts. Each page contains at most
+50 rows; the inset scrolling list is keyboard focusable with a visible End
+accent focus outline. The review keeps its file, query and page when switching
+player categories. Switching away from the server/view discards the local review.
+
+File selection and submission use one local synchronous operation guard and
+ignore late completions after disposal. Submission captures the pending names,
+clears the review only after native acknowledgement, and distinguishes a later
+player-list refresh failure from command-send failure. Names already present
+are excluded using the existing case-insensitive rule. Missing/stale player
+snapshots block submission; Minecraft still handles account/name resolution
+through live whitelist commands. This does not import offline UUID mappings or
+prove Minecraft accepted each queued command. Spanish/English copy and row
+action translations are included; names and filenames remain verbatim.
+
+Verification: TypeScript and production Vite compilation passed; eleven related
+locale/player identity/input/paging tests passed. Final copy/focus adjustments
+passed TypeScript and the four locale tests. Native file-picker, keyboard,
+appearance and live whitelist acceptance remain pending manual review.
+
+Suggested commit: `feat: improve whitelist import review and harden Java output`
