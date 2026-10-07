@@ -67,7 +67,7 @@ fn server_root(server: &Server) -> Result<PathBuf, String> {
     Path::new(&server.directory).canonicalize().map_err(|e| format!("No se encontró la carpeta del servidor: {e}"))
 }
 
-fn checked_world(server: &Server, name: &str) -> Result<PathBuf, String> {
+pub(crate) fn checked_world(server: &Server, name: &str) -> Result<PathBuf, String> {
     valid_name(name)?;
     let root = server_root(server)?;
     let path = root.join(name);

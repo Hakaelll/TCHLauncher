@@ -46,7 +46,7 @@
 - Add manual refresh and a recoverable initial read failure. Ignore superseded list replies and replies from a previous server; prevent an old mutation from closing the new server's form.
 - Two presentation regressions, TypeScript, production Vite build and whitespace checks pass. Native visual/keyboard review and real scheduled Minecraft execution remain pending. Source-only changes after 0.21.0; no new installer generated.
 
-The latest Windows preview is documented in [0.21.0](RELEASE_NOTES_v0.21.0.md). The development history below is retained for context.
+The latest Windows preview is documented in [0.21.0](../release-notes/RELEASE_NOTES_v0.21.0.md). The development history below is retained for context.
 
 ## Included in 0.21.0
 
@@ -194,7 +194,7 @@ These changes are not included in the 0.8.0 installer. Native visual/gameplay an
 - Public-network automation and reliable TPS telemetry.
 - Remaining distribution/signing and full requirement audit.
 
-These items are not claimed as completed by the preview. See [NEXT_TODOS.md](NEXT_TODOS.md) for the implementation and verification status.
+These items are not claimed as completed by the preview. See [NEXT_TODOS.md](../../NEXT_TODOS.md) for the implementation and verification status.
 
 ## Minecraft version upgrade review foundation (in progress)
 

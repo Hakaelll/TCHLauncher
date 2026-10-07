@@ -1,3 +1,5 @@
+import {translatedMessage} from './locale.ts'
+import {t} from './locale.ts'
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { api, type RuntimeInfo, type Server } from './api'
@@ -42,9 +44,9 @@ export function RuntimePanel({server,busy,onPrepare,onChanged}: {server:Server;b
     try {
       await api.setCustomRuntime(current.id,candidate.path)
       if(!currentScope(current))return
-      setCandidate(null);setNotice('Java seleccionado. Se usará en el próximo inicio.')
+      setCandidate(null);setNotice(t("Java seleccionado. Se usará en el próximo inicio."))
       const results=await Promise.allSettled([refresh(current.id),onChanged()])
-      if(currentScope(current)&&results[1].status==='rejected')setActionError(`Java se guardó, pero no se pudieron actualizar los datos del servidor: ${String(results[1].reason)}`)
+      if(currentScope(current)&&results[1].status==='rejected')setActionError(t("Java se guardó, pero no se pudieron actualizar los datos del servidor: {0}", String(results[1].reason)))
     }catch(cause){if(currentScope(current))setActionError(String(cause))}
     finally{current.working=false;if(currentScope(current))setSaving(false)}
   }
@@ -52,19 +54,19 @@ export function RuntimePanel({server,busy,onPrepare,onChanged}: {server:Server;b
   return <section className="runtime-panel" aria-labelledby="runtime-heading" aria-busy={loading||choosing||saving}>
     <div className="runtime-heading">
       <div className="runtime-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M7 16h16v9H7zM23 17h4v6h-4M5 28h22M12 4v4h3v4M19 2v4h3v5"/></svg></div>
-      <div className="runtime-identity"><h3 id="runtime-heading">Java · {info?.distribution??'Eclipse Temurin'}</h3><p>{status.description}</p></div>
-      <span className={`runtime-state ${status.kind}`} role="status">{status.label}</span>
+      <div className="runtime-identity"><h3 id="runtime-heading">Java · {info?.distribution??'Eclipse Temurin'}</h3><p>{translatedMessage(status.description)}</p></div>
+      <span className={`runtime-state ${status.kind}`} role="status">{translatedMessage(status.label)}</span>
     </div>
-    {info?.requiredMajor&&<p className="runtime-requirement">Minecraft {server.version}<span aria-hidden="true">·</span>Requiere Java {info.requiredMajor}{readError&&<span>Última lectura</span>}</p>}
+    {info?.requiredMajor&&<p className="runtime-requirement">Minecraft {server.version}<span aria-hidden="true">·</span>{t("Requiere Java")} {info.requiredMajor}{readError&&<span>{t("Última lectura")}</span>}</p>}
     {(readError||info?.error)&&<p className="form-error" role="alert">{readError||info?.error}</p>}
-    {actionError&&!candidate&&<p className="form-error" role="alert">{actionError}</p>}
-    {notice&&<p className="runtime-notice" role="status">{notice}</p>}
-    <div className="runtime-actions"><button className="primary-button" disabled={blocked} onClick={()=>onPrepare(!readError&&info?.status==='ready'&&info.managed===true)}>{!readError&&info?.status==='ready'?info.managed?'Reinstalar Temurin':'Usar Temurin gestionado':'Instalar Temurin'}</button><button disabled={busy||loading||choosing||saving} onClick={()=>void refresh(server.id)}>{loading?'Comprobando…':'Comprobar de nuevo'}</button></div>
+    {actionError&&!candidate&&<p className="form-error" role="alert">{translatedMessage(actionError)}</p>}
+    {notice&&<p className="runtime-notice" role="status">{translatedMessage(notice)}</p>}
+    <div className="runtime-actions"><button className="primary-button" disabled={blocked} onClick={()=>onPrepare(!readError&&info?.status==='ready'&&info.managed===true)}>{!readError&&info?.status==='ready'?info.managed?t("Reinstalar Temurin"):t("Usar Temurin gestionado"):t("Instalar Temurin")}</button><button disabled={busy||loading||choosing||saving} onClick={()=>void refresh(server.id)}>{loading?t("Comprobando…"):t("Comprobar de nuevo")}</button></div>
     <div className="runtime-details">
-      {info?.path&&<details className="runtime-location"><summary>Ubicación del runtime{readError?' · última lectura':''}</summary><div className="runtime-path"><code>{info.path}</code></div></details>}
-      <details className="runtime-advanced"><summary>Java personalizado</summary><p className="field-help">Elige un runtime instalado. Comprobaremos su versión antes de cambiarlo.</p><button disabled={blocked} onClick={choose}>{choosing?'Comprobando Java…':'Elegir ejecutable Java'}</button></details>
+      {info?.path&&<details className="runtime-location"><summary>{t("Ubicación del runtime")}{readError?' · última lectura':''}</summary><div className="runtime-path"><code>{info.path}</code></div></details>}
+      <details className="runtime-advanced"><summary>{t("Java personalizado")}</summary><p className="field-help">{t("Elige un runtime instalado. Comprobaremos su versión antes de cambiarlo.")}</p><button disabled={blocked} onClick={choose}>{choosing?t("Comprobando Java…"):t("Elegir ejecutable Java")}</button></details>
     </div>
-    {candidate&&<Modal labelledBy="custom-java-title" describedBy="custom-java-description" busy={saving} initialFocusRef={cancelRef} onClose={()=>setCandidate(null)}><h2 id="custom-java-title">Usar Java {candidate.version}</h2><p id="custom-java-description">Compatible con este servidor. El cambio solo afecta a su configuración en TCHLauncher.</p><div className="runtime-path"><span>Ejecutable</span><code>{candidate.path}</code></div>{actionError&&<p className="form-error" role="alert">{actionError}</p>}<div className="world-confirm-actions"><button data-modal-close ref={cancelRef} disabled={saving} onClick={()=>setCandidate(null)}>Cancelar</button><button className="primary-button" disabled={blocked} onClick={apply}>{saving?'Guardando…':'Usar este Java'}</button></div></Modal>}
-    <p className="runtime-footnote">El runtime gestionado se guarda y verifica en la biblioteca del launcher.</p>
+    {candidate&&<Modal labelledBy="custom-java-title" describedBy="custom-java-description" busy={saving} initialFocusRef={cancelRef} onClose={()=>setCandidate(null)}><h2 id="custom-java-title">{t("Usar Java")} {candidate.version}</h2><p id="custom-java-description">{t("Compatible con este servidor. El cambio solo afecta a su configuración en TCHLauncher.")}</p><div className="runtime-path"><span>{t("Ejecutable")}</span><code>{candidate.path}</code></div>{actionError&&<p className="form-error" role="alert">{translatedMessage(actionError)}</p>}<div className="world-confirm-actions"><button data-modal-close ref={cancelRef} disabled={saving} onClick={()=>setCandidate(null)}>{t("Cancelar")}</button><button className="primary-button" disabled={blocked} onClick={apply}>{saving?t("Guardando…"):t("Usar este Java")}</button></div></Modal>}
+    <p className="runtime-footnote">{t("El runtime gestionado se guarda y verifica en la biblioteca del launcher.")}</p>
   </section>
 }

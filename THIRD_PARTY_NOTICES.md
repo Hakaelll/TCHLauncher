@@ -1,4 +1,34 @@
-# Third-party assets
+# Third-party notices
+
+
+TCHLauncher's own source code is licensed under the [MIT License](LICENSE).
+Third-party code and assets retain their respective licenses and copyright notices.
+
+## Software dependencies and installer
+
+The [license inventory](docs/legal/dependency-licenses.json) records locked Windows
+Cargo dependencies, including build and transitive packages, frontend runtime
+packages, Monocraft and NSIS. Full upstream notices are collected in
+[THIRD_PARTY_LICENSES.txt](docs/legal/THIRD_PARTY_LICENSES.txt) and bundled with the
+Windows application under `licenses/`. The inventory can include packages that are
+not embedded in the final executable.
+
+Unmodified dependencies under MPL-2.0 retain their source and notices. Exact package
+source archive links are provided in the inventory. Missing package-local texts are
+supplemented with documented upstream or canonical SPDX copies; see
+[the inventory methodology](docs/legal/README.md). This is not an independent
+license compatibility or security audit.
+
+NSIS installer notices are preserved from its upstream `COPYING` file. Windows,
+WebView2 and toolchain components retain their own terms.
+
+## Downloaded software and content
+
+Eclipse Temurin runtimes, Minecraft servers, loaders, mods, plugins, resource packs
+and shaders are downloaded separately when requested. Their own licenses and terms
+apply. TCHLauncher does not relicense them. Minecraft server downloads require the
+user's explicit EULA acceptance. Review each content project's redistribution
+terms before sharing a world/content export, and review configurations for secrets.
 
 ## Monocraft
 

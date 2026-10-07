@@ -1,3 +1,5 @@
+import {translatedMessage} from './locale.ts'
+import {t} from './locale.ts'
 import { useEffect, useRef, useState } from 'react'
 import { api, type JvmPreview, type JvmSettings, type Server } from './api'
 import {useServerRead} from './useServerRead'
@@ -42,29 +44,29 @@ export function JvmPanel({server,busy}:{server:Server;busy:boolean}) {
     current.saving=true;setSaving(true);setError(null);setNotice('')
     try{
       await api.saveJvm(server.id,value)
-      if(current.active&&scope.current===current){setDraft(value);setSaved(value);setNotice('Perfil JVM guardado. Se aplicará en el próximo inicio.')}
+      if(current.active&&scope.current===current){setDraft(value);setSaved(value);setNotice(t("Perfil JVM guardado. Se aplicará en el próximo inicio."))}
     }catch(cause){if(current.active&&scope.current===current)setError(String(cause))}
     finally{current.saving=false;if(current.active&&scope.current===current)setSaving(false)}
   }
   return <details className="jvm-panel">
-    <summary><span>Argumentos JVM</span><span className="jvm-profile-label">{loading?'Consultando':readError?'Sin actualizar':!loaded?'No disponible':saved.mode==='recommended'?'Recomendado':'Personalizado'}</span></summary>
+    <summary><span>{t("Argumentos JVM")}</span><span className="jvm-profile-label">{loading?t("Consultando"):readError?t("Sin actualizar"):!loaded?t("No disponible"):saved.mode==='recommended'?t("Recomendado"):t("Personalizado")}</span></summary>
     <div className="jvm-panel-body">
-      <div className="jvm-read-heading"><p className="field-help" role="status">{loading?'Consultando el perfil guardado…':readError?'No se pudo actualizar el perfil.':!loaded?'Perfil pendiente de consulta.':dirty?'Cambios sin guardar':'Perfil guardado para este servidor.'}</p><button disabled={loading||saving||busy||dirty} onClick={()=>void refresh(server.id)}>{loading?'Consultando…':'Actualizar perfil'}</button></div>
-      {readError&&<p className="form-error" role="alert">{readError}</p>}
+      <div className="jvm-read-heading"><p className="field-help" role="status">{loading?t("Consultando el perfil guardado…"):readError?t("No se pudo actualizar el perfil."):!loaded?t("Perfil pendiente de consulta."):dirty?t("Cambios sin guardar"):t("Perfil guardado para este servidor.")}</p><button disabled={loading||saving||busy||dirty} onClick={()=>void refresh(server.id)}>{loading?t("Consultando…"):t("Actualizar perfil")}</button></div>
+      {readError&&<p className="form-error" role="alert">{translatedMessage(readError)}</p>}
       {loaded && <>
         <fieldset className="jvm-profiles" disabled={disabled}>
-          <legend>Perfil de arranque</legend>
-          <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='recommended'} onChange={()=>update({...draft,mode:'recommended'})}/><span><strong>Recomendado</strong><small>G1 con procesamiento paralelo de referencias.</small></span></label>
-          <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='custom'} onChange={()=>update({...draft,mode:'custom'})}/><span><strong>Personalizado</strong><small>Usa tus propias opciones de Java.</small></span></label>
+          <legend>{t("Perfil de arranque")}</legend>
+          <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='recommended'} onChange={()=>update({...draft,mode:'recommended'})}/><span><strong>{t("Recomendado")}</strong><small>{t("G1 con procesamiento paralelo de referencias.")}</small></span></label>
+          <label><input type="radio" name={`jvm-mode-${server.id}`} checked={draft.mode==='custom'} onChange={()=>update({...draft,mode:'custom'})}/><span><strong>{t("Personalizado")}</strong><small>{t("Usa tus propias opciones de Java.")}</small></span></label>
         </fieldset>
-        {draft.mode==='custom' && <div className="form-row"><label htmlFor="jvm-arguments">Opciones de Java</label><textarea id="jvm-arguments" rows={5} value={draft.arguments} disabled={disabled} maxLength={8192} spellCheck={false} autoComplete="off" placeholder={'-XX:+UseG1GC\n-XX:+ParallelRefProcEnabled'} aria-describedby={`jvm-help${previewError?' jvm-validation':''}`} aria-invalid={previewError?true:undefined} onChange={event=>update({...draft,arguments:event.target.value})}/><p id="jvm-help" className="field-help">Una opción por línea, sin comillas exteriores. Configura la RAM en Capacidad. Deja el campo vacío para usar los valores del runtime.</p></div>}
-        <div className="jvm-preview"><span>{loading||readError?'Vista previa pendiente de consultar':checking||!preview?'Preparando vista previa…':'Argumentos del próximo inicio'}</span>{!loading&&!readError&&preview && <code>{preview.arguments.map(argument=>/\s/.test(argument)?JSON.stringify(argument):argument).join(' ')}</code>}<p>Usa los límites de RAM guardados.{preview && !preview.installed?' El archivo de arranque se añadirá al instalar el servidor.':''}</p></div>
-        {previewError && <p id="jvm-validation" className="form-error" role="alert">{previewError}</p>}
-        <div className="jvm-actions"><button className="primary-button" disabled={disabled || !dirty || checking || !!previewError || !preview} onClick={save}>{saving?'Comprobando y guardando…':draft.mode==='custom'?'Comprobar y guardar perfil':'Guardar perfil'}</button><button disabled={disabled || (draft.mode==='recommended' && !draft.arguments)} onClick={()=>update(defaults)}>Restaurar valores predeterminados</button></div>
-        {draft.mode==='custom' && <p className="field-help">Antes de guardar se comprobará el perfil con Java instalado, sin iniciar Minecraft. Los agentes Java ejecutan código: usa archivos de confianza.</p>}
-        {notice && <p className="jvm-notice" role="status">{notice}</p>}
+        {draft.mode==='custom' && <div className="form-row"><label htmlFor="jvm-arguments">{t("Opciones de Java")}</label><textarea id="jvm-arguments" rows={5} value={draft.arguments} disabled={disabled} maxLength={8192} spellCheck={false} autoComplete="off" placeholder={'-XX:+UseG1GC\n-XX:+ParallelRefProcEnabled'} aria-describedby={`jvm-help${previewError?' jvm-validation':''}`} aria-invalid={previewError?true:undefined} onChange={event=>update({...draft,arguments:event.target.value})}/><p id="jvm-help" className="field-help">{t("Una opción por línea, sin comillas exteriores. Configura la RAM en Capacidad. Deja el campo vacío para usar los valores del runtime.")}</p></div>}
+        <div className="jvm-preview"><span>{loading||readError?t("Vista previa pendiente de consultar"):checking||!preview?t("Preparando vista previa…"):t("Argumentos del próximo inicio")}</span>{!loading&&!readError&&preview && <code>{preview.arguments.map(argument=>/\s/.test(argument)?JSON.stringify(argument):argument).join(' ')}</code>}<p>{t("Usa los límites de RAM guardados.")}{preview && !preview.installed?' El archivo de arranque se añadirá al instalar el servidor.':''}</p></div>
+        {previewError && <p id="jvm-validation" className="form-error" role="alert">{translatedMessage(previewError)}</p>}
+        <div className="jvm-actions"><button className="primary-button" disabled={disabled || !dirty || checking || !!previewError || !preview} onClick={save}>{saving?t("Comprobando y guardando…"):draft.mode==='custom'?t("Comprobar y guardar perfil"):t("Guardar perfil")}</button><button disabled={disabled || (draft.mode==='recommended' && !draft.arguments)} onClick={()=>update(defaults)}>{t("Restaurar valores predeterminados")}</button></div>
+        {draft.mode==='custom' && <p className="field-help">{t("Antes de guardar se comprobará el perfil con Java instalado, sin iniciar Minecraft. Los agentes Java ejecutan código: usa archivos de confianza.")}</p>}
+        {notice && <p className="jvm-notice" role="status">{translatedMessage(notice)}</p>}
       </>}
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {error && <p className="form-error" role="alert">{translatedMessage(error)}</p>}
     </div>
   </details>
 }

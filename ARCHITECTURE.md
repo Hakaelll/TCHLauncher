@@ -326,3 +326,19 @@ inherit the server-loader facet. Real public Modrinth searches passed for all th
 new divisions, with no archive downloads. A native command opens only validated
 project publication URLs under modrinth.com; arbitrary external URLs cannot be
 supplied through it. The actual desktop browser dispatch still needs native review.
+
+
+## World/content export and localization — 0.26.0
+
+`world_bundle` creates a stopped-server ZIP of the selected world, matching Paper
+Nether/End folders, mods or plugins, and optional shared configurations. It streams
+files with progress/cancellation and SHA-256 records, rejects escaping/link/reparse
+paths and detected external edits, and stages publication while preserving an
+existing destination. It is a sharing archive, distinct from complete backups.
+See [development notes](docs/development-notes/DEVELOPMENT_NOTES_v0.26.0.md).
+
+`locale.ts` stores a per-computer Spanish/English preference and notifies the UI.
+Application copy uses stable Spanish catalogue keys with indexed placeholders;
+static labels read lazily and API/user objects remain unchanged. Known native
+messages translate at display time; unknown diagnostics and Minecraft logs retain
+their original text. Tauri resources now include project and third-party notices.

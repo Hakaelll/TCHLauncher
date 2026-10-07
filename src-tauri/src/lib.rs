@@ -53,6 +53,7 @@ mod skin;
 mod storage;
 mod storage_usage;
 mod world;
+mod world_bundle;
 
 use model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
 use players::{PlayersSnapshot, WhitelistImport};
@@ -780,8 +781,12 @@ async fn duplicate_world(app: AppHandle, engine: State<'_, Engine>, id: String, 
 }
 
 #[tauri::command]
-async fn export_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String) -> Result<Option<String>, String> {
-    let destination = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
+async fn export_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String, include_content: Option<bool>, include_config: Option<bool>) -> Result<Option<String>, String> {
+    let bundle = include_content.unwrap_or(false);
+    let suggested = format!("{name}-{}.zip",chrono::Local::now().format("%Y%m%d-%H%M%S"));
+    let destination = tauri::async_runtime::spawn_blocking(move || if bundle {
+        rfd::FileDialog::new().add_filter("ZIP", &["zip"]).set_file_name(suggested).save_file()
+    } else { rfd::FileDialog::new().pick_folder() })
         .await.map_err(|e| e.to_string())?;
     let Some(destination) = destination else { return Ok(None); };
     let guard = engine.reserve_stopped(&id)?;
@@ -789,7 +794,10 @@ async fn export_world(app: AppHandle, engine: State<'_, Engine>, id: String, nam
     let jobs=engine.installations.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        file_tasks::export_world(&server,&name,&destination,&jobs,move|progress|{let _=app.emit("install-progress",progress);}).map(|path|Some(path.to_string_lossy().into_owned()))
+        let emit=move|progress|{let _=app.emit("install-progress",progress);};
+        let result=if bundle {file_tasks::export_world_bundle(&server,&name,&destination,include_config.unwrap_or(true),&jobs,emit)}
+            else {file_tasks::export_world(&server,&name,&destination,&jobs,emit)};
+        result.map(|path|Some(path.to_string_lossy().into_owned()))
     }).await.map_err(|e| e.to_string())?
 }
 

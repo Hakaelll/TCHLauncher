@@ -1,3 +1,5 @@
+import {translatedMessage} from './locale.ts'
+import {t,getLanguage} from './locale.ts'
 import type {Metrics} from './api'
 const bytes=(value:number)=>value>=1024**3?`${(value/1024**3).toFixed(1)} GB`:value>=1024**2?`${(value/1024**2).toFixed(1)} MB`:`${Math.round(value/1024)} KB`
 export function StorageMeter({metrics,targetGb,onSettings}:{metrics:Metrics|null;targetGb:number;onSettings:()=>void}){
@@ -6,11 +8,11 @@ export function StorageMeter({metrics,targetGb,onSettings}:{metrics:Metrics|null
   const percent=known?Math.round(size/(targetGb*1024**3)*100):null
   const warning=known&&size>=targetGb*1024**3*(metrics?.storageWarningPercent??90)/100
   return <div className="resource-meter">
-    <div><span>Espacio del servidor</span><strong>{known?`${bytes(size)} / ${targetGb} GB`:metrics?'Medición no disponible':'Calculando…'}</strong></div>
-    {percent!=null&&<progress aria-label="Espacio ocupado respecto al objetivo" value={Math.min(percent,100)} max={100}/>}
-    <p>{warning?`Ha alcanzado el ${metrics?.storageWarningPercent??90} % del objetivo. Revisa mundos y logs.`:known?'Objetivo de aviso; no limita el disco.':metrics?'Revisa que la carpeta del servidor siga disponible. Volveremos a medirla automáticamente.':'Esperando la lectura del almacenamiento.'}</p>
-    {known&&metrics?.sizeSampledAt!=null&&<p className="field-help">Medido a las {new Date(metrics.sizeSampledAt).toLocaleTimeString('es-ES')} · se actualiza cada minuto.</p>}
-    {known&&!!metrics?.sizeSkippedLinks&&<p className="field-help">{metrics.sizeSkippedLinks} enlaces simbólicos no incluidos.</p>}
-    {metrics?.sizeError&&<><details className="storage-measure-error"><summary>No se pudo medir el almacenamiento</summary><p className="form-error">{metrics.sizeError}</p></details><button className="text-button" onClick={onSettings}>Revisar almacenamiento</button></>}
+    <div><span>{t("Espacio del servidor")}</span><strong>{known?`${bytes(size)} / ${targetGb} GB`:metrics?t("Medición no disponible"):t("Calculando…")}</strong></div>
+    {percent!=null&&<progress aria-label={t("Espacio ocupado respecto al objetivo")} value={Math.min(percent,100)} max={100}/>}
+    <p>{warning?t("Ha alcanzado el {0} % del objetivo. Revisa mundos y logs.", metrics?.storageWarningPercent??90):known?t("Objetivo de aviso; no limita el disco."):metrics?t("Revisa que la carpeta del servidor siga disponible. Volveremos a medirla automáticamente."):t("Esperando la lectura del almacenamiento.")}</p>
+    {known&&metrics?.sizeSampledAt!=null&&<p className="field-help">{t("Medido a las")} {new Date(metrics.sizeSampledAt).toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES')}  {t("· se actualiza cada minuto.")}</p>}
+    {known&&!!metrics?.sizeSkippedLinks&&<p className="field-help">{metrics.sizeSkippedLinks}  {t("enlaces simbólicos no incluidos.")}</p>}
+    {metrics?.sizeError&&<><details className="storage-measure-error"><summary>{t("No se pudo medir el almacenamiento")}</summary><p className="form-error">{translatedMessage(metrics.sizeError)}</p></details><button className="text-button" onClick={onSettings}>{t("Revisar almacenamiento")}</button></>}
   </div>
 }

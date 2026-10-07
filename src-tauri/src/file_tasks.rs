@@ -59,6 +59,10 @@ pub fn export_world(server:&crate::model::Server,name:&str,parent:&Path,jobs:&Re
     registered_kind(&server.id,"world_export",jobs,emit,|task|crate::world::export_tracked(server,name,parent,task))
 }
 
+pub fn export_world_bundle(server:&crate::model::Server,name:&str,destination:&Path,include_config:bool,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<std::path::PathBuf,String>{
+    registered_kind(&server.id,"world_export",jobs,emit,|task|crate::world_bundle::export(server,name,destination,include_config,task))
+}
+
 pub fn set_active_world(root:&Path,server:&crate::model::Server,name:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<Option<Backup>,String>{
     registered_kind(&server.id,"world_activate",jobs,emit,|task|crate::world::set_active_tracked(root,server,name,task))
 }

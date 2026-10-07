@@ -40,7 +40,7 @@
 - Production logo and inventory illustrations verified as 256px PNGs with transparency.
 - Existing reduced-motion behavior, native radio keyboard semantics and focus outlines
   are retained. Asset sources, exact prompts and generation mode are documented in
-  [the asset README](src/assets/README.md).
+  [the asset README](../../src/assets/README.md).
 - Windows NSIS x64 installer generated from this worktree; SHA-256 stored beside it.
 
 ## Remaining checks
@@ -49,7 +49,7 @@ Native appearance and keyboard review remain manual by the user's request. No
 computer-use tools, browser automation or subagents were used. Minecraft client
 gameplay, Linux packaging, public-network automation and reliable TPS telemetry
 remain outside this preview's verification. The broader original specification is
-still in development; see [NEXT_TODOS.md](NEXT_TODOS.md).
+still in development; see [NEXT_TODOS.md](../../NEXT_TODOS.md).
 
 ## Windows package
 

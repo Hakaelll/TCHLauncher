@@ -1,9 +1,10 @@
 [package]
 name = "tchlauncher"
-version = "0.25.0"
+version = "0.26.0"
 description = "Local Minecraft server manager"
 authors = ["TCHLauncher contributors"]
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "tchlauncher_lib"

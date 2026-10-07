@@ -1,5 +1,7 @@
+import {translatedMessage} from './locale.ts'
+import {localizedStatic,t} from './locale.ts'
 type SettingField = {key:string;label:string;description:string;kind:'text'|'number'|'toggle'|'choice';min?:number;max?:number;options?:{value:string;label:string}[]}
-const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = [
+const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = localizedStatic([
   {title:'Identidad y conexión',description:'Lo que verán los jugadores y cómo se conectarán.',fields:[
     {key:'motd',label:'Mensaje del servidor',description:'Aparece en la lista de servidores de Minecraft.',kind:'text'},
     {key:'server-port',label:'Puerto',description:'Puerto TCP usado para las conexiones.',kind:'number',min:1,max:65535},
@@ -34,22 +36,22 @@ const settingsGroups: {title:string;description:string;fields:SettingField[]}[] 
     {key:'white-list',label:'Lista blanca',description:'Solo permite jugadores añadidos a la lista.',kind:'toggle'},
     {key:'enforce-whitelist',label:'Expulsar a no autorizados',description:'Saca a quien deje de estar autorizado.',kind:'toggle'},
   ]},
-]
+])
 export const knownSettings = new Set(settingsGroups.flatMap(group => group.fields.map(field => field.key)))
 
 export function SettingsPropertyGroups({values,onChange,version}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void;version:string}) {
   const update = (key: string, value: string) => onChange({...values,[key]:value})
   const groups=settingsGroups.map(group=>({...group,fields:group.fields.filter(field=>Object.hasOwn(values,field.key))})).filter(group=>group.fields.length)
   return <div className="settings-groups">{groups.map(group=><section className="settings-group" key={group.title} aria-label={group.title}>
-    <div className="settings-group-heading"><h4>{group.title}</h4><p>{group.description}</p><span className="settings-field-count">{group.fields.length} opciones disponibles</span></div>
+    <div className="settings-group-heading"><h4>{group.title}</h4><p>{translatedMessage(group.description)}</p><span className="settings-field-count">{group.fields.length}  {t("opciones disponibles")}</span></div>
     <div className="settings-fields">{group.fields.map(field=>{
       const value=values[field.key]
       const legacyMinor=version.startsWith('1.')?Number(version.split('.')[1]):null
       const options=field.options?.filter(option=>field.key!=='gamemode'||option.value!=='spectator'||legacyMinor===null||legacyMinor>=8)
       const boolean=field.kind==='toggle'&&['true','false'].includes(value)
       const unmatched=field.kind==='choice'&&!options?.some((option,index)=>option.value===value||['gamemode','difficulty'].includes(field.key)&&String(index)===value)
-      return <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{field.label}</strong><small>{field.description}</small></span>
-        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || '(vacío)'} · Valor actual</option>}{options?.map((option,index)=><option key={option.value} value={['gamemode','difficulty'].includes(field.key)&&/^[0-3]$/.test(value)?String(index):option.value}>{option.label}</option>)}</select>:<input type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>update(field.key,event.target.value)}/>}
+      return <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{translatedMessage(field.label)}</strong><small>{translatedMessage(field.description)}</small></span>
+        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || t("(vacío)")}  {t("· Valor actual")}</option>}{options?.map((option,index)=><option key={option.value} value={['gamemode','difficulty'].includes(field.key)&&/^[0-3]$/.test(value)?String(index):option.value}>{translatedMessage(option.label)}</option>)}</select>:<input type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>update(field.key,event.target.value)}/>}
       </label>
     })}</div>
   </section>)}</div>

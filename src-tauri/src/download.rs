@@ -95,7 +95,7 @@ impl DownloadTask {
             return;
         }
         if matches!(self.kind.as_str(),"world_duplicate"|"world_export"){
-            let (success,cancelled,failed)=if self.kind=="world_export"{("Mundo exportado","Exportación cancelada","No se pudo exportar el mundo")}else{("Mundo duplicado","Duplicado cancelado","No se pudo duplicar el mundo")};
+            let (success,cancelled,failed)=if self.kind=="world_export"{("Exportación completada","Exportación cancelada","No se pudo exportar el mundo")}else{("Mundo duplicado","Duplicado cancelado","No se pudo duplicar el mundo")};
             match result{
                 Ok(())=>self.report(success,"completed"),
                 Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),

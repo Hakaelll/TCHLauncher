@@ -1456,3 +1456,43 @@ select.minecraft-version-list option:checked { background:var(--surface-selected
 }
 html[data-motion="reduced"] .content-kind-tabs > button { transition:none; }
 @media(prefers-reduced-motion:reduce) { .content-kind-tabs > button { transition:none; } }
+
+/* World inventory: recognisable artwork, quiet actions, one inline export workflow. */
+.world-list { display:grid; gap:12px; margin-top:16px; }
+.world-row { padding:20px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); transition:border-color var(--motion-interaction) var(--motion-ease); }
+.world-row.active { border-color:var(--accent-line); }
+.world-icon { width:60px; height:60px; image-rendering:pixelated; border-radius:2px; background:var(--surface-deep); }
+.world-row-copy strong { font:14px/1.9 var(--font-display); }
+.world-active-mark { color:var(--accent-hover); font:10px/1.8 var(--font-display); padding:5px 9px; background:var(--accent-wash); }
+.world-row-actions { gap:4px; }
+.world-row-actions .world-export-button { color:var(--accent-hover); }
+.world-row-actions .world-export-button[aria-expanded=true] { background:var(--surface-selected); }
+.world-export-options { grid-column:1/-1; min-width:0; margin-top:6px; padding-top:22px; border-top:1px solid var(--line); }
+.world-export-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.world-export-heading h3 { margin:0; font:13px/1.8 var(--font-display); }
+.world-export-heading>span { color:var(--secondary); font:12px/1.8 var(--font-reading); }
+.world-export-options fieldset { border:0; padding:0; margin:0; min-width:0; }
+.world-export-options legend { font-size:12px; color:var(--secondary); margin-bottom:12px; }
+.world-export-modes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.world-export-modes label { display:flex; align-items:flex-start; gap:12px; padding:16px; min-width:0; border:1px solid var(--field-edge); background:var(--surface-deep); cursor:pointer; transition:background-color var(--motion-interaction) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease); }
+.world-export-modes label:has(input:checked) { border-color:var(--accent); background:var(--surface-selected); }
+.world-export-modes label:has(input:focus-visible) { outline:2px solid var(--accent-hover); outline-offset:3px; }
+.world-export-modes input,.world-export-config input { flex:none; width:18px; height:18px; accent-color:var(--accent); margin:3px 0 0; }
+.world-export-modes strong { display:block; color:var(--ink); font:12px/1.8 var(--font-display); }
+.world-export-modes small { display:block; color:var(--secondary); font:12px/1.8 var(--font-reading); margin-top:7px; }
+.world-export-config { display:flex; align-items:center; gap:12px; margin-top:18px; min-height:44px; width:fit-content; cursor:pointer; font-size:13px; }
+.world-export-options>p { max-width:70ch; color:var(--secondary); font-size:12px; line-height:1.8; margin:8px 0 0; }
+.world-export-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; margin-top:18px; }
+.world-export-options fieldset:disabled label { cursor:default; }
+@media(hover:hover) { .world-row:hover { border-color:var(--accent-line); } }
+@media(max-width:750px) { .world-export-modes { grid-template-columns:minmax(0,1fr); }.world-row-actions { padding-left:0; }.world-row { padding:16px; }.world-active-mark { margin-left:0; }.world-row-main { flex-wrap:wrap; } }
+
+.language-picker { margin-top:30px; padding-top:26px; border-top:1px solid var(--line); }
+.language-picker legend { float:left; width:100%; margin-bottom:9px; }
+.language-picker .preference-help { clear:both; }
+.language-options { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.language-options label { display:flex; align-items:center; gap:12px; min-height:48px; min-width:170px; padding:12px 18px; border:1px solid var(--field-edge); background:var(--surface); cursor:pointer; transition:background-color var(--motion-interaction) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease); }
+.language-options label:has(input:checked) { background:var(--surface-selected); border-color:var(--accent); }
+.language-options label:has(input:focus-visible) { outline:2px solid var(--accent-hover); outline-offset:3px; }
+.language-options input { width:18px; height:18px; margin:0; accent-color:var(--accent); }
+.language-options span { font:13px/1.8 var(--font-reading); }

@@ -1,3 +1,4 @@
+import {t} from './locale.ts'
 import type {CSSProperties} from 'react'
 
 type Kind='players'|'clock'|'memory'|'cpu'
@@ -12,7 +13,7 @@ export function PixelIcon({kind}:{kind:Kind}){
 }
 export function PixelMeter({ratio,label,valueText}:{ratio:number|null|undefined;label:string;valueText?:string}){
   const value=ratio!=null&&Number.isFinite(ratio)?Math.max(0,Math.min(1,ratio)):null
-  return <div className={`pixel-meter ${value===null?'unavailable':''}`} role={value===null?'img':'meter'} aria-label={value===null?`${label}: no disponible`:label} aria-valuemin={value===null?undefined:0} aria-valuemax={value===null?undefined:100} aria-valuenow={value===null?undefined:value*100} aria-valuetext={valueText}>
+  return <div className={`pixel-meter ${value===null?'unavailable':''}`} role={value===null?'img':'meter'} aria-label={value===null?t("{0}: no disponible", label):label} aria-valuemin={value===null?undefined:0} aria-valuemax={value===null?undefined:100} aria-valuenow={value===null?undefined:value*100} aria-valuetext={valueText}>
     {Array.from({length:20},(_,index)=><span className="pixel-meter-slot" key={index} aria-hidden="true"><i style={{'--slot-fill':`${value===null?0:Math.max(0,Math.min(1,value*20-index))*100}%`} as CSSProperties}/></span>)}
   </div>
 }

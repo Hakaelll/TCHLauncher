@@ -1,0 +1,10 @@
+{
+  "name": "selectors",
+  "version": "0.38.0",
+  "repo": "servo/stylo",
+  "commit": "572ecba2d1600e7c3d490586692a209faf703baa",
+  "license": "MPL-2.0",
+  "files": [],
+  "canonicalLicenseSource": "https://github.com/spdx/license-list-data/tree/v3.26.0/text",
+  "note": "No standalone license file in this upstream snapshot; canonical texts accompany the package license declaration and exact source archive."
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TCHLauncher",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "identifier": "com.tchlauncher.desktop",
   "build": {
     "beforeDevCommand": "node ./node_modules/vite/bin/vite.js --configLoader runner",
@@ -40,6 +40,12 @@
       "icons/128x128@2x.png",
       "icons/icon.ico",
       "icons/icon.icns"
-    ]
+    ],
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../docs/legal/THIRD_PARTY_LICENSES.txt": "licenses/THIRD_PARTY_LICENSES.txt",
+      "../docs/legal/dependency-licenses.json": "licenses/dependency-licenses.json"
+    }
   }
 }

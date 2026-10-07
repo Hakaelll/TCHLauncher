@@ -1,0 +1,10 @@
+{
+  "name": "webview2-com-macros",
+  "version": "0.8.1",
+  "repo": "wravery/webview2-rs",
+  "commit": "dffa41a8a46d3f5565eefbff2de57d38d399f158",
+  "license": "MIT",
+  "files": [
+    "LICENSE"
+  ]
+}

@@ -1,3 +1,4 @@
+import {t} from './locale.ts'
 import type {ServerState} from './api'
 
 export type StartupCheck = {kind:'ready'|'halted'|'unverified';state?:ServerState;error?:string}
@@ -19,7 +20,7 @@ export async function verifyStartup({readState,wait,now,timeoutMs,signal}:Option
     if(signal?.aborted)return {kind:'unverified'}
     if(state==='running')return {kind:'ready',state}
     if(state==='stopped'||state==='stopping'||state==='crashed'||state==='error')return {kind:'halted',state}
-    if(state===null)return {kind:'unverified',error:'El servidor ya no está registrado.'}
+    if(state===null)return {kind:'unverified',error:t("El servidor ya no está registrado.")}
     await wait()
   }
   return {kind:'unverified'}

@@ -188,7 +188,7 @@ export const api = {
   pickWorldFolder: () => invoke<WorldInspection | null>('pick_world_folder'),
   importWorld: (id: string, path: string, name: string) => invoke<World>('import_world', { id, path, name }),
   duplicateWorld: (id: string, name: string, newName: string) => invoke<World>('duplicate_world', { id, name, newName }),
-  exportWorld: (id: string, name: string) => invoke<string | null>('export_world', { id, name }),
+  exportWorld: (id: string, name: string, includeContent=false, includeConfig=true) => invoke<string | null>('export_world', { id, name, includeContent, includeConfig }),
   setActiveWorld: (id: string, name: string) => invoke<Backup | null>('set_active_world', { id, name }),
   deleteWorld: (id: string, name: string) => invoke<Backup>('delete_world', { id, name }),
   openWorldFolder: (id: string, name: string) => invoke<void>('open_world_folder', { id, name }),

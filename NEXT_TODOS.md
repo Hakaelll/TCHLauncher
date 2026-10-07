@@ -1,3 +1,5 @@
+EXPORT-LOCALE-18 — 0.26.0: selected world plus mods/plugins ZIP export, optional shared configurations, Paper dimensions, cancellation and staged publication; refined world cards and scoped operation completions. English/Spanish UI choice persists in Settings; names, commands, logs and unknown diagnostics remain verbatim. README/SECURITY rewritten in English, historical notes moved under docs/, MIT project license and collected dependency notices added to Windows resources. 78 frontend and 230 native tests pass; 28 condition-dependent native tests ignored. Fabric API oracle passed 1,263 recognized comparisons on Java 8/21/25 separately. Native visual/keyboard/gameplay/router checks remain open. Windows NSIS installer generated locally (6,631,757 bytes); native versions, icons and copied license resources verified. SHA-256 recorded in [release notes](docs/release-notes/RELEASE_NOTES_v0.26.0.md). No commit, push or GitHub publication.
+
 CONTENT-DIVISIONS-17 — 0.25.0: four discovery types, validated native facets and project URLs, existing .mrpack review entry, client/server role labels, stale-result suppression and installed-card refinements. Redundant wizard next-step text removed. Fabric predicate review added for main-mod declarations with conservative nested/override limits. 225 offline native and 74 frontend tests passed; public Modrinth search integration passed without archive downloads. Native visual/keyboard/browser dispatch and gameplay still pending. English commit messages requested for subsequent iterations.
 
 0.25.0 Windows NSIS installer generated: 6,514,214 bytes; native version and executable/installer icons verified; SHA-256 in release notes and adjacent checksum file. Final category refinement uses official per-type tags, including texture resolution; ten focused content tests pass after that refinement. Not installed, committed, pushed or published.
@@ -116,7 +118,7 @@ Release 0.9.0: instalador NSIS x64 generado (5.60 MiB), con SHA-256 junto al eje
 
 ## Visual refresh 0.10.0
 
-The current direction is Minecraft / End with the supplied Tableland palette, Minehut-like controls, local Monocraft and the user-provided gold voxel emblem. See design.md and RELEASE_NOTES_v0.10.0.md. Frontend production compilation, 13 frontend behaviors, 110 offline Rust regressions, token contrast and font glyph coverage passed. Native visual/keyboard review and client gameplay remain unverified by request; this does not complete the original goal. Network mapping work remains pending.
+The current direction is Minecraft / End with the supplied Tableland palette, Minehut-like controls, local Monocraft and the user-provided gold voxel emblem. See design.md and docs/release-notes/RELEASE_NOTES_v0.10.0.md. Frontend production compilation, 13 frontend behaviors, 110 offline Rust regressions, token contrast and font glyph coverage passed. Native visual/keyboard review and client gameplay remain unverified by request; this does not complete the original goal. Network mapping work remains pending.
 
 ## Theme and appearance refresh 0.11.0
 
@@ -139,7 +141,7 @@ excluded. All 24 frontend tests, TypeScript and the production build pass. Appli
 settings and tracked scheduled/safety copies, imports and content removal are included.
 Native visual/keyboard/folder review, real scheduled Java resume, gameplay, physical
 router, TPS and Linux verification remain open; this checkpoint is not completion of
-the original specification. See RELEASE_NOTES_v0.14.0.md for the exact checksum.
+the original specification. See docs/release-notes/RELEASE_NOTES_v0.14.0.md for the exact checksum.
 
 ## Verification checkpoint 0.15.0
 
@@ -150,7 +152,7 @@ passes when run explicitly outside the network sandbox. A focused tunnel mainten
 regression passes after the final liveness change. NAT-PMP, storage measurements,
 world operations and Paper TPS queries are included alongside the account-free tunnel.
 Native UI, physical router, Minecraft gameplay, real TPS responses and Linux checks
-remain open. See RELEASE_NOTES_v0.15.0.md for the installer checksum. The original
+remain open. See docs/release-notes/RELEASE_NOTES_v0.15.0.md for the installer checksum. The original
 application goal remains in progress.
 
 ## Verification checkpoint 0.15.1
@@ -161,7 +163,7 @@ pass; 20 resource/runtime integration tests remain excluded from that run. An
 explicit Java 21 diagnostic integration also passes with actual failure/success
 process exits and persisted per-session reports, without Minecraft/EULA/worlds.
 Windows packaging, native 0.15.1 version and embedded icons are verified; see
-RELEASE_NOTES_v0.15.1.md for the checksum. Native desktop and Minecraft gameplay
+docs/release-notes/RELEASE_NOTES_v0.15.1.md for the checksum. Native desktop and Minecraft gameplay
 verification remain open; the full application objective remains in progress.
 
 ## Verification checkpoint 0.16.0
@@ -176,15 +178,15 @@ Automatic stop copies, recorded backup metadata, historical failures, scheduler
 hardening, isolated NAT-PMP maintenance, startup duration and operator/player controls
 are included. Native desktop, real scheduled Java resume, Minecraft gameplay and
 permission effects, stop-copy/shutdown behavior, physical routers and Linux remain
-open. The full original goal remains active. See RELEASE_NOTES_v0.16.0.md.
+open. The full original goal remains active. See docs/release-notes/RELEASE_NOTES_v0.16.0.md.
 
-Release 0.17.0: instalador Windows NSIS x64 generado a petición del usuario, con progreso nativo de arranque, consulta SLP, heap y exportación de memoria y almacenamiento comprobado. 175 pruebas nativas offline y 27 frontend aprobadas; 22 integraciones externas excluidas en esta ejecución. TypeScript/Vite, versión del ejecutable e iconos de aplicación/instalador comprobados. SHA-256 y notas en inglés en RELEASE_NOTES_v0.17.0.md. Cliente Fabric/Microsoft sigue aparcado; prueba de instalación/escritorio, partida del amigo, Minecraft/router reales y distribución Linux siguen pendientes. Objetivo completo activo.
+Release 0.17.0: instalador Windows NSIS x64 generado a petición del usuario, con progreso nativo de arranque, consulta SLP, heap y exportación de memoria y almacenamiento comprobado. 175 pruebas nativas offline y 27 frontend aprobadas; 22 integraciones externas excluidas en esta ejecución. TypeScript/Vite, versión del ejecutable e iconos de aplicación/instalador comprobados. SHA-256 y notas en inglés en docs/release-notes/RELEASE_NOTES_v0.17.0.md. Cliente Fabric/Microsoft sigue aparcado; prueba de instalación/escritorio, partida del amigo, Minecraft/router reales y distribución Linux siguen pendientes. Objetivo completo activo.
 
 Petición 0.18.0: Conexión reorganizada con acceso de internet visible y detección automática por interfaz LAN, reintento y router avanzado. Confirmación/revalidación nativa para aperturas conservadas; UPnP se vuelve a detectar al confirmar para evitar caducidad de la caché. Bore retirado de producción. Respuesta Minecraft movida a Rendimiento; historial de fallos no aparece si no existe informe. Indicadores con iconos pixel, medidores reales de plazas/heap/CPU, gráficas ortogonales y barras nativas segmentadas; fuente de lectura y reducción de movimiento conservadas. Pendientes router físico y revisión visual manual; instalador Windows NSIS 0.18.0 generado y verificado (versión/iconos/SHA-256). TypeScript, Vite y 27 pruebas frontend aprobados; 10 UPnP y 3 NAT-PMP aprobados. Sin computer use ni subagentes. El objetivo completo sigue activo.
 
 Petición 0.19.0: revisión de JARs/descriptor Fabric (cliente, cargador, JSON, IDs duplicados), presencia histórica en lista Fabric completa de latest.log sin certificar partida; incompatibilidad por versión/loader/entorno visible en Modrinth antes de revisar instalación, filtros categoría/orden/otras versiones, búsqueda/página conservadas tras instalar. Gráficas sin barras duplicadas, área de muestras, leyendas y navegación de teclado; conexión con ayuda opcional y controles visibles. El caso de mochilas/estructuras de la partida del amigo no se puede identificar sin nombres/log concreto. Comprobaciones de juego, router físico y visuales nativas siguen pendientes. El objetivo completo permanece activo. Sin subagentes, computer use, commit ni publicación.
 
-Verificación 0.19.0: 179 pruebas nativas offline y 29 frontend aprobadas; 23 integraciones excluidas de la suite offline. Catálogo/icono, disponibilidad por publicación y descarga/instalación/actualización real con copia pasan en ejecuciones explícitas con red externa, sin ejecutar mods ni Java. Tres regresiones descriptor/log pasan de nuevo tras la última validación. TypeScript/Vite aprobados. NSIS x64 0.19.0 generado, versiones nativas e iconos comprobados; 6.04 MiB y SHA-256 en RELEASE_NOTES_v0.19.0.md. El caso del amigo, revisión visual nativa/router/juego y Linux siguen pendientes. Objetivo completo activo.
+Verificación 0.19.0: 179 pruebas nativas offline y 29 frontend aprobadas; 23 integraciones excluidas de la suite offline. Catálogo/icono, disponibilidad por publicación y descarga/instalación/actualización real con copia pasan en ejecuciones explícitas con red externa, sin ejecutar mods ni Java. Tres regresiones descriptor/log pasan de nuevo tras la última validación. TypeScript/Vite aprobados. NSIS x64 0.19.0 generado, versiones nativas e iconos comprobados; 6.04 MiB y SHA-256 en docs/release-notes/RELEASE_NOTES_v0.19.0.md. El caso del amigo, revisión visual nativa/router/juego y Linux siguen pendientes. Objetivo completo activo.
 
 ## 0.20.0 — installed content and related diagnostics
 
@@ -195,7 +197,7 @@ Verificación 0.19.0: 179 pruebas nativas offline y 29 frontend aprobadas; 23 in
 
 - Verificación local de 0.20.0: TypeScript/build y 36 pruebas frontend aprobados; 180 pruebas nativas aprobadas, 23 integraciones externas excluidas. Siete regresiones cubren asociación de diagnósticos y una nueva regresión nativa los iconos declarados del JAR.
 
-- Instalador NSIS 0.20.0 generado con el frontend final: 6.338.750 bytes, versión nativa/iconos verificados y SHA-256 registrado en RELEASE_NOTES_v0.20.0.md. No se instaló ni se abrió la aplicación para QA visual.
+- Instalador NSIS 0.20.0 generado con el frontend final: 6.338.750 bytes, versión nativa/iconos verificados y SHA-256 registrado en docs/release-notes/RELEASE_NOTES_v0.20.0.md. No se instaló ni se abrió la aplicación para QA visual.
 
 ## Development after 0.20.0 — truthful save reporting
 
@@ -211,7 +213,7 @@ Verificación 0.19.0: 179 pruebas nativas offline y 29 frontend aprobadas; 23 in
 
 Paper descriptor identity/API parsing now uses bounded streaming YAML, with scalar aliases, duplicate/invalid identity rejection and no plugin execution. Six descriptor/icon regressions pass; a real reviewed LuckPerms installation integration passes in an isolated plugins folder without Java or EULA acceptance. NeoForge secondary IDs/icons, compact inventory and related diagnostic refinements, observed-save reporting and explicit session-bound force close are included.
 
-Release gate: 188 native tests passed, 24 external/runtime/helper tests excluded; all 41 frontend tests passed. TypeScript/Vite and NSIS x64 packaging passed. Product/file versions are 0.21.0 and both embedded icons match the logo. Installer: 6,440,897 bytes; SHA-256 `56950b2ff5e0cb3e25050fd4e06ff37742e73d0ff23045e3aa9733806077528e`. English release notes: RELEASE_NOTES_v0.21.0.md. No install, native visual QA, subagents, computer use, commit, push or publication. Actual gameplay, slow-save shutdown, the friend's missing mods/RAM case, router and Linux checks remain open. Full original objective remains in progress.
+Release gate: 188 native tests passed, 24 external/runtime/helper tests excluded; all 41 frontend tests passed. TypeScript/Vite and NSIS x64 packaging passed. Product/file versions are 0.21.0 and both embedded icons match the logo. Installer: 6,440,897 bytes; SHA-256 `56950b2ff5e0cb3e25050fd4e06ff37742e73d0ff23045e3aa9733806077528e`. English release notes: docs/release-notes/RELEASE_NOTES_v0.21.0.md. No install, native visual QA, subagents, computer use, commit, push or publication. Actual gameplay, slow-save shutdown, the friend's missing mods/RAM case, router and Linux checks remain open. Full original objective remains in progress.
 
 ## Development after 0.21.0
 

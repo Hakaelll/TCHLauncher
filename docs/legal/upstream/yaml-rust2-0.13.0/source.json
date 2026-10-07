@@ -1,0 +1,10 @@
+{
+  "name": "yaml-rust2",
+  "version": "0.13.0",
+  "repo": "Ethiraric/yaml-rust2",
+  "commit": "e12069447073e0c8dd9ceab415159c4c92927534",
+  "license": "MIT OR Apache-2.0",
+  "files": [],
+  "canonicalLicenseSource": "https://github.com/spdx/license-list-data/tree/v3.26.0/text",
+  "note": "No standalone license file in this upstream snapshot; canonical texts accompany the package license declaration and exact source archive."
+}
