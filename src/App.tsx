@@ -1,3 +1,4 @@
+import {focusSearch} from './focusSearch'
 import {errorText} from './format'
 import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
 import {acknowledgedAction} from './acknowledgedAction'
@@ -314,10 +315,7 @@ function App() {
       }
       if(dialog)return
       if(key==='n'&&!operationBusy) {event.preventDefault();setAppearanceOpen(false);setImporting(false);setCreating(true)}
-      if(key==='f') {
-        const search=mainRef.current?.querySelector<HTMLInputElement>('input[type="search"]')
-        if(search&&!search.disabled){event.preventDefault();search.focus();search.select()}
-      }
+      if(key==='f'&&focusSearch(mainRef.current))event.preventDefault()
     }
     window.addEventListener('keydown',shortcut)
     return () => window.removeEventListener('keydown',shortcut)

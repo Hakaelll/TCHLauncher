@@ -1,1 +1,1 @@
-fix: validate integer capacity and verify Vanilla lifecycle
+fix: focus visible searches and pause hidden mod browsing

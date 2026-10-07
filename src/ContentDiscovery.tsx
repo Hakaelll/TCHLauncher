@@ -32,26 +32,34 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
   const key=JSON.stringify([server.id,server.version,server.platform,term,category,sort,allVersions,offset,reload,kind])
   const loader=server.platform==='paper'?'Paper':server.platform==='fabric'?'Fabric':'NeoForge'
   useEffect(()=>{
-    if(!active)return
+    if(!active){setSearching(false);setOpening(null);return}
     // Reopening the inventory preserves the current page and checked releases.
-    if(loadedKey.current===key&&results)return
+    if(loadedKey.current===key&&results)return()=>{generation.current++}
     const sequence=++generation.current;let alive=true
     const current=()=>alive&&sequence===generation.current
     setSearching(true);setError(null);setResults(null);setAvailability({});setOpening(null)
-    void api.searchContent(server.id,term,offset,{category,sort,allVersions,projectKind:kind}).then(async value=>{
+    void api.searchContent(server.id,term,offset,{category,sort,allVersions,projectKind:kind}).then(value=>{
       if(!current())return
       loadedKey.current=key;setResults(value);setSearching(false)
-      if(!installable)return
-      await checkPage(value.hits,async project=>{
-        try {
-          const result=project.versions.includes(server.version)?await api.contentAvailability(server.id,project.project_id):{versionId:null,versionNumber:null,channel:null,environment:null}
-          if(current())setAvailability(previous=>({...previous,[project.project_id]:{value:result}}))
-        }catch(cause){if(current())setAvailability(previous=>({...previous,[project.project_id]:{error:errorText(cause)}}))}
-      },current)
     }).catch(cause=>{if(current()){setError(errorText(cause));setSearching(false)}})
-    return()=>{alive=false;generation.current++;loadedKey.current=''}
+    return()=>{alive=false;generation.current++}
   // Results are intentionally not a dependency: setting them must not restart a search.
   },[active,key])
+  useEffect(()=>{
+    if(!active||!installable||!results||loadedKey.current!==key)return
+    const sequence=generation.current;let alive=true
+    const current=()=>alive&&sequence===generation.current
+    // Resume only unchecked releases; retain the page and completed evidence.
+    const pending=results.hits.filter(project=>!availability[project.project_id]?.value&&!availability[project.project_id]?.error)
+    void checkPage(pending,async project=>{
+      try {
+        const value=project.versions.includes(server.version)?await api.contentAvailability(server.id,project.project_id):{versionId:null,versionNumber:null,channel:null,environment:null}
+        if(current())setAvailability(previous=>({...previous,[project.project_id]:{value}}))
+      }catch(cause){if(current())setAvailability(previous=>({...previous,[project.project_id]:{error:errorText(cause)}}))}
+    },current)
+    return()=>{alive=false}
+  // Capture the current cache when resuming; each reply must not restart workers.
+  },[active,results,key])
   const filter=(update:()=>void)=>{update();setOffset(0)}
   const submit=(event:FormEvent)=>{event.preventDefault();filter(()=>setTerm(query.trim()));setReload(value=>value+1)}
   const retry=async(id:string)=>{

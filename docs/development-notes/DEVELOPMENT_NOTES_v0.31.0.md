@@ -341,3 +341,31 @@ behavior, physical router operation or the friend's reported mod/network issues.
 Existing installer and app version are unchanged.
 
 Commit: `fix: validate integer capacity and verify Vanilla lifecycle`
+
+## Visible search shortcuts and paused discovery (not packaged)
+
+Ctrl+F previously selected the first search input, including the hidden installed
+inventory when browsing Modrinth. It now skips disabled fields (including disabled
+fieldsets), hidden/inert/aria-hidden ancestry and inputs without rendered rectangles.
+Only a valid target consumes the shortcut, focuses and selects its content. Players
+now exposes its existing filter as a search input. Existing dialog guards remain.
+Two DOM-adapter regressions cover eligible selection and native-find fallback; they
+do not establish real Windows focus or layout behavior.
+
+ContentManager now activates discovery only in its visible mode. Search and
+compatibility work have separate lifecycles: hiding stops new compatibility checks,
+rejects late observations and clears transient searching/opening indicators, while
+retaining the result page and completed compatibility evidence. Reopening reuses
+the page and checks only unanswered releases; explicit failure retries remain.
+Already dispatched native requests may finish; they are not forcibly cancelled.
+Existing bounded-worker/cancellation regressions pass. TypeScript, 102 frontend
+tests and production Vite pass. Native switching/keyboard/network behavior remains
+manual, and no measured latency or RAM improvement is claimed.
+
+NEXT_TODOS.md is now an English current roadmap rather than an appended release
+journal. All 39 work IDs remain, current real-engine evidence and source/installer
+boundaries are stated, and unresolved host reports/deferred scope are retained.
+Duplicate/stale chronology was removed; existing docs and Git retain history.
+The roadmap shrank from 72,282 to 10,139 bytes. Installer/version are unchanged.
+
+Commit: `fix: focus visible searches and pause hidden mod browsing`
