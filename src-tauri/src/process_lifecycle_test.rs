@@ -1,4 +1,4 @@
-//! Opt-in verification of the production engine with an isolated real Paper server.
+//! Opt-in verification of the production engine with isolated real Minecraft servers.
 use super::*;
 use crate::{backup,download::DownloadTask,eula,model::CreateServer,properties,storage};
 use std::{collections::VecDeque,path::{Path,PathBuf}};
@@ -55,6 +55,7 @@ fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
         manager.state(&server.id)=="running"
     });
     let startup_ms=began.elapsed().as_millis() as u64;
+    if server.platform=="fabric" {assert!(events.contains("- lithium "),"Fabric did not report the installed Lithium mod: {:?}",events.logs.lock().unwrap().clone());}
     assert!(manager.process_snapshot(&server.id).unwrap().2.is_some());
     let response=crate::server_ping::query(([127,0,0,1],port).into()).unwrap();
     assert_eq!(response.online,Some(0));assert_eq!(response.maximum,Some(2));
@@ -74,20 +75,26 @@ fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
 
 #[test]
 #[ignore="Downloads Java/Paper and runs Minecraft; requires a verified existing consent record in TCH_TEST_CONSENT_RECORD"]
-fn paper_download_ready_command_stop_restart_backup_restore() {
+fn paper_download_ready_command_stop_restart_backup_restore() {verify_lifecycle("paper");}
+
+#[test]
+#[ignore="Downloads Java/Fabric/Lithium and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn fabric_mod_ready_command_stop_restart_backup_restore() {verify_lifecycle("fabric");}
+
+fn verify_lifecycle(platform:&str) {
     let consent_path=std::env::var("TCH_TEST_CONSENT_RECORD").expect("Provide a copy of an already recorded explicit Minecraft EULA acceptance");
     let bytes=fs::read(consent_path).unwrap();assert!(bytes.len()<=4096);
     let consent:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
     assert_eq!(consent["accepted"],true);assert_eq!(consent["document"],"https://www.minecraft.net/en-us/eula");
     chrono::DateTime::parse_from_rfc3339(consent["acceptedAt"].as_str().unwrap()).unwrap();
-    let root=std::env::temp_dir().join(format!("tch-paper-lifecycle-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
+    let root=std::env::temp_dir().join(format!("tch-{platform}-lifecycle-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
     let library=Library{root,manager:ProcessManager::default()};
     eprintln!("Temporary library: {}",library.root.display());
     // Reuse the user's existing consent; never call the acceptance command here.
     storage::connect(&library.root).unwrap().execute("INSERT INTO application_settings(key,value) VALUES(?1,?2)",rusqlite::params!["minecraft_eula_acceptance",consent.to_string()]).unwrap();
     let port=std::net::TcpListener::bind(("127.0.0.1",0)).unwrap().local_addr().unwrap().port();
     let version=std::env::var("TCH_TEST_MINECRAFT").unwrap_or_else(|_|"1.21.4".into());
-    let server=storage::create_with_seed(&library.root,CreateServer{name:"Paper lifecycle verification".into(),version:version.clone(),platform:"paper".into(),memory_min_mb:512,memory_max_mb:2048,max_players:2,port,storage_target_gb:4,image_path:None},Some("42".into())).unwrap();
+    let server=storage::create_with_seed(&library.root,CreateServer{name:format!("{platform} lifecycle verification"),version:version.clone(),platform:platform.into(),memory_min_mb:512,memory_max_mb:2048,max_players:2,port,storage_target_gb:4,image_path:None},Some("42".into())).unwrap();
     let directory=Path::new(&server.directory);
     properties::write(&directory.join("server.properties"),[
         ("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),("simulation-distance".into(),"3".into()),
@@ -99,6 +106,14 @@ fn paper_download_ready_command_stop_restart_backup_restore() {
     let installed=storage::get(&library.root,&server.id).unwrap();
     assert!(Path::new(installed.java_path.as_deref().unwrap()).starts_with(library.root.join("runtimes")));
     crate::runtime::validate_configured(&library.root,&installed).unwrap();
+    let mod_file=if platform=="fabric" {
+        let plan=crate::content::plan(&task(&server.id,"content_plan"),&installed,"lithium",None).unwrap();
+        let prepared=crate::content_storage::review(&installed,plan).unwrap();
+        crate::content_storage::install(&library.root,&installed,&prepared,&task(&server.id,"content_install")).unwrap();
+        let files=crate::content_storage::list(&installed).unwrap();
+        let lithium=files.iter().find(|file|file.project_id.is_some()).expect("No managed installed mod");
+        Some((lithium.filename.clone(),fs::read(directory.join("mods").join(&lithium.filename)).unwrap()))
+    } else {None};
     let first=cycle(&library,&installed,port);
     assert!(directory.join("world/level.dat").is_file());
     let second=cycle(&library,&installed,port);assert_ne!(first.0,second.0);
@@ -111,9 +126,10 @@ fn paper_download_ready_command_stop_restart_backup_restore() {
     assert_eq!(fs::read(directory.join("world/level.dat")).unwrap(),original);
     assert_eq!(properties::read(&directory.join("server.properties")).unwrap()["motd"],server.name);
     let restored=storage::get(&library.root,&server.id).unwrap();
-    assert_eq!(restored.version,version);assert_eq!(restored.platform,"paper");assert!(eula::file_accepted(&restored));
+    assert_eq!(restored.version,version);assert_eq!(restored.platform,platform);assert!(eula::file_accepted(&restored));
+    if let Some((filename,bytes))=&mod_file {assert_eq!(&fs::read(directory.join("mods").join(filename)).unwrap(),bytes);}
     let third=cycle(&library,&restored,port);assert_ne!(third.0,second.0);
     let backups=backup::list_details(&library.root,&server.id).unwrap();assert_eq!(backups.len(),2);
     assert!(backups.iter().any(|copy|copy.reason==Some(backup::Reason::BeforeRestore)));
-    println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":"paper","minecraft":version,"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
+    println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"modLoadedInAllSessions":mod_file.is_some(),"modRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
 }

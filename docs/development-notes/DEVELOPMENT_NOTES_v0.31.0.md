@@ -185,3 +185,31 @@ participation, router forwarding or Internet performance. The existing 0.31.0
 installer does not include this source fix and was not rebuilt.
 
 Commit: `fix: recognize Paper terminal prompts and verify real server lifecycle`
+
+## Real Fabric mod lifecycle (not packaged)
+
+The existing isolated lifecycle harness now covers both Paper and Fabric without
+duplicating installation, command, stop or restore checks. The Fabric entry
+installs a compatible Lithium release through the production Modrinth plan,
+review and SHA-512-validated content installation paths, then executes it in the
+isolated Minecraft instance. It requires the same previously recorded explicit
+EULA acceptance; no acceptance command is called.
+
+Verified Minecraft 1.21.4 with downloaded Temurin 21.0.12.1 and Fabric Loader
+0.19.5: three independent sessions reached ready and returned real Minecraft
+status and nonce command responses; each loader log listed Lithium. All three
+stops were graceful, with zero exit codes and complete console capture. A tracked
+149,491,545-byte backup and before-restore safety copy were created. world/level.dat
+and the installed mod JAR matched the original bytes after restore, and the
+restored instance booted and listed Lithium again. Start-to-ready times were
+55,506 / 17,989 / 14,173 ms; the test passed in 149.02 seconds. These fixture times
+are not a general performance benchmark.
+
+The loopback-only temporary library and copied consent record were removed after
+the test. The regular application database was read without modification.
+Only test code changed; production behavior and the existing installer remain
+unchanged. This verifies installation and loader recognition, not player-side
+mod behavior, the friend's missing backpack/structure mods, native interaction,
+physical routing or the full Fabric dependency solver.
+
+Commit: `test: verify real Fabric mod startup and backup restoration`
