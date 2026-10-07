@@ -99,17 +99,28 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String
     })
 }
 
-fn save_exit(directory:&std::path::Path,id:&str,control:&ProcessControl,code:Option<i32>,complete:bool){
+fn save_exit(directory:&std::path::Path,id:&str,control:&ProcessControl,code:Option<i32>,complete:bool,monitor_failed:bool){
     let time=chrono::Utc::now().timestamp_millis();
     let lines=control.output.lock().map(|output|output.lines()).unwrap_or_default();
     let forced=control.forced.load(std::sync::atomic::Ordering::SeqCst);
-    let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),forced,output_complete:complete,diagnoses:crate::crash_diagnostics::analyze_exit(&lines,forced),recent_files:crate::crash_diagnostics::recent_files(directory,time)};
+    let mut diagnoses=crate::crash_diagnostics::analyze_exit(&lines,forced);
+    if monitor_failed{diagnoses.insert(0,crate::crash_diagnostics::Diagnosis{kind:"process_monitor".into(),title:"Falló la supervisión de Java".into(),explanation:"El launcher no pudo consultar el proceso y solicitó su finalización. Esta salida no se considera una parada limpia.".into(),recommendation:"Revisa la consola antes de volver a iniciar el servidor.".into(),action:"console".into(),evidence:vec![]});}
+    let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),forced,output_complete:complete,diagnoses,recent_files:crate::crash_diagnostics::recent_files(directory,time)};
     if let Err(error)=crate::crash_diagnostics::save(directory,&report){eprintln!("Could not save process diagnostics: {error}");}
 }
 fn drained(stdout:&std::thread::JoinHandle<()>,stderr:&std::thread::JoinHandle<()>)->bool{
     let deadline=Instant::now()+Duration::from_secs(2);
     while !(stdout.is_finished()&&stderr.is_finished())&&Instant::now()<deadline{std::thread::sleep(Duration::from_millis(10));}
     stdout.is_finished()&&stderr.is_finished()
+}
+
+// Killing does not reap an owned child. Never discard ownership when neither
+// termination nor an already completed exit can be confirmed.
+fn terminate_and_reap(child:&mut Child)->std::io::Result<std::process::ExitStatus>{
+    match child.kill(){
+        Ok(())=>child.wait(),
+        Err(error)=>match child.try_wait(){Ok(Some(status))=>Ok(status),_=>Err(error)},
+    }
 }
 
 impl ProcessManager {
@@ -230,31 +241,46 @@ impl ProcessManager {
         let manager=self.clone();
         let id = server.id.clone();
         let directory=std::path::PathBuf::from(&server.directory);
+        let mut monitor_failed=false;
         std::thread::spawn(move || loop {
             std::thread::sleep(Duration::from_millis(500));
             let exit = control.child.lock().unwrap().try_wait();
             match exit {
                 Ok(Some(status)) => {
-                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,status.code(),complete);
-                    let final_state=manager.record_terminal(&id,&control,status.success());
+                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,status.code(),complete,monitor_failed);
+                    let final_state=manager.record_terminal(&id,&control,status.success()&&!monitor_failed);
                     emit_state(&app,&id,&final_state);
                     manager.release_terminal(&id,&control);
                     let forced=control.forced.load(std::sync::atomic::Ordering::SeqCst);
                     let message = if forced {format!("Proceso finalizado: {status}. Cierre forzado solicitado; guardado sin confirmar")}else{format!("Proceso finalizado: {status}")};
                     let mut event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &message).ok())
                         .unwrap_or_else(|| log::parse(&id, &log::stamp(&message)));
-                    if !status.success()||forced { event.level = "error".into(); event.event = Some("crash".into()); }
+                    if !status.success()||forced||monitor_failed { event.level = "error".into(); event.event = Some("crash".into()); }
                     let _ = app.emit("server-log", event);
                     break;
                 }
                 Ok(None) => (),
                 Err(e) => {
-                    let _ = control.child.lock().unwrap().kill();
-                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,None,complete);
+                    if !monitor_failed {
+                        monitor_failed=true;
+                        *control.state.lock().unwrap()="stopping".into();
+                        emit_state(&app,&id,"stopping");
+                        let message=format!("No se pudo consultar el proceso: {e}. Se intenta finalizar Java; el launcher conserva su control hasta confirmar la salida.");
+                        let mut event=log_file.lock().ok().and_then(|mut file|log::append(&mut file,&id,&message).ok()).unwrap_or_else(||log::parse(&id,&log::stamp(&message)));
+                        event.level="error".into();let _=app.emit("server-log",event);
+                    }
+                    let cleanup=terminate_and_reap(&mut control.child.lock().unwrap());
+                    let status=match cleanup {
+                        Ok(status)=>status,
+                        // Retain the PID/session and retry observation. Releasing it
+                        // here would allow another Java process to start unnoticed.
+                        Err(_)=>continue,
+                    };
+                    let complete=drained(&stdout_pump,&stderr_pump);save_exit(&directory,&id,&control,status.code(),complete,true);
                     manager.record_terminal(&id,&control,false);
                     emit_state(&app,&id,"crashed");
                     manager.release_terminal(&id,&control);
-                    let message = format!("No se pudo consultar el proceso: {e}");
+                    let message = format!("Java finalizado tras un error al consultar el proceso: {e}. Estado: {status}");
                     let mut event = log_file.lock().ok().and_then(|mut file| log::append(&mut file, &id, &message).ok())
                         .unwrap_or_else(|| log::parse(&id, &log::stamp(&message)));
                     event.level = "error".into(); event.event = Some("crash".into());
@@ -323,6 +349,41 @@ mod tests {
     }
 
     #[test]
+    fn monitor_cleanup_reaps_a_real_owned_child_before_releasing_its_handle(){
+        let mut command=Command::new(std::env::current_exe().unwrap());
+        command.args(["--exact","process::tests::force_stop_child_fixture","--ignored"])
+            .env("TCH_FORCE_STOP_FIXTURE","owned-test-child").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        struct OwnedChild(Child);impl Drop for OwnedChild{fn drop(&mut self){let _=self.0.kill();let _=self.0.wait();}}
+        let mut child=OwnedChild(command.spawn().unwrap());
+        assert!(child.0.try_wait().unwrap().is_none());
+        let status=terminate_and_reap(&mut child.0).unwrap();
+        assert_eq!(child.0.try_wait().unwrap(),Some(status));
+        // Repeated cleanup of an already reaped child remains a completed exit.
+        assert_eq!(terminate_and_reap(&mut child.0).unwrap(),status);
+    }
+
+    #[test]
+    fn a_monitor_failure_never_becomes_a_clean_stop_even_if_exit_code_is_zero(){
+        let mut command=Command::new(std::env::current_exe().unwrap());
+        command.arg("--list").stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        let mut child=command.spawn().unwrap();let stdin=child.stdin.take().unwrap();
+        let status=child.wait().unwrap();assert!(status.success());
+        let control=Arc::new(ProcessControl::new(child,stdin,false,Instant::now()));
+        let manager=ProcessManager::default();manager.processes.lock().unwrap().insert("monitor".into(),control.clone());
+        let monitor_failed=true;
+        assert_eq!(manager.record_terminal("monitor",&control,status.success()&&!monitor_failed),"crashed");
+        assert!(!manager.exits()["monitor"].successful);assert!(manager.exits()["monitor"].unexpected);
+        let directory=std::env::temp_dir().join(format!("tch-monitor-exit-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
+        save_exit(&directory,"monitor",&control,status.code(),true,true);
+        let report=crate::crash_diagnostics::last_failure(&directory,"monitor").unwrap().unwrap();
+        assert_eq!(report.exit_code,Some(0));assert_eq!(report.diagnoses[0].kind,"process_monitor");assert_eq!(report.session_id,control.session);
+        fs::remove_dir_all(directory).unwrap();
+        manager.release_terminal("monitor",&control);assert!(!manager.is_active("monitor"));
+    }
+
+    #[test]
     fn forced_stop_requires_stopping_and_exact_session_and_never_marks_a_clean_exit(){
         let mut command=Command::new(std::env::current_exe().unwrap());
         command.args(["--exact","process::tests::force_stop_child_fixture","--ignored"])
@@ -352,7 +413,7 @@ mod tests {
         assert_eq!(manager.record_terminal("test",&control,true),"crashed");
         let exit=manager.exits()["test"].clone();assert!(exit.was_running);assert!(!exit.successful);assert!(!exit.unexpected);
         let directory=std::env::temp_dir().join(format!("tch-forced-child-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
-        save_exit(&directory,"test",&control,Some(0),true);
+        save_exit(&directory,"test",&control,Some(0),true,false);
         let report=crate::crash_diagnostics::last_failure(&directory,"test").unwrap().unwrap();assert!(report.forced);assert!(report.stop_requested);assert_eq!(report.session_id,preview.session_id);assert_eq!(report.diagnoses[0].kind,"forced_stop");
         fs::remove_dir_all(directory).unwrap();
         manager.release_terminal("test",&control);assert!(!manager.is_active("test"));
@@ -381,7 +442,7 @@ mod tests {
             let err_control=control.clone();let err_file=file.clone();let err_id=id.clone();
             let err=read_output(stderr,move|line|{err_control.output.lock().unwrap().push(&line);log::append(&mut err_file.lock().unwrap(),&err_id,&line).unwrap();});
             let deadline=Instant::now()+Duration::from_secs(10);let status=loop{if let Some(status)=control.child.lock().unwrap().try_wait().unwrap(){break status;}if Instant::now()>=deadline{let _=control.child.lock().unwrap().kill();panic!("Java did not finish in time");}std::thread::sleep(Duration::from_millis(10));};
-            assert_eq!(status.success(),!failure);let complete=drained(&out,&err);assert!(complete);out.join().unwrap();err.join().unwrap();save_exit(&directory,&id,&control,status.code(),complete);
+            assert_eq!(status.success(),!failure);let complete=drained(&out,&err);assert!(complete);out.join().unwrap();err.join().unwrap();save_exit(&directory,&id,&control,status.code(),complete,false);
             let state=manager.record_terminal(&id,&control,status.success());manager.release_terminal(&id,&control);assert_eq!(state,if failure{"crashed"}else{"stopped"});assert_eq!(manager.state(&id),state);assert!(!manager.is_active(&id));
             let session=manager.exit_token(&id).unwrap();assert_eq!(session,control.session);let report=crate::crash_diagnostics::load(&directory,&id,&session).unwrap().unwrap();assert_eq!(report.exit_code,status.code());assert!(report.output_complete);assert!(!report.stop_requested);assert_eq!(manager.exits()[&id].unexpected,failure);assert_eq!(manager.exits()[&id].successful,!failure);assert!(!manager.exits()[&id].was_running);assert!(!crate::stop_backup::pending(&directory,&id,&manager.exits()[&id]).unwrap());
             if failure{assert!(report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));assert!(fs::read_to_string(directory.join("launcher-logs/latest.log")).unwrap().contains("UnsupportedClassVersionError"));}else{assert!(!report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="java_version"));assert!(crate::crash_diagnostics::load(&directory,&id,old_session.as_deref().unwrap()).unwrap().is_none());}

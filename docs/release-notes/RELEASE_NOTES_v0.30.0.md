@@ -43,4 +43,11 @@ from their real host. Linux remains deferred.
 
 ## Windows package
 
-Packaging verification pending. This document does not yet confirm an installer.
+Installer: `TCHLauncher_0.30.0_x64-setup.exe` (6,680,321 bytes / 6.37 MiB).
+Executable and installer file/product versions are 0.30.0; their embedded icons
+match the supplied golden logo. All four license resources are present in the
+generated NSIS file list. A SHA-256 file accompanies the installer.
+
+SHA-256: `31330479ad2116f97584823bb2942cdef202b33f8c28a5511e131b3796424fba`.
+
+Generated locally. Installation, native UI review and publication were not performed.

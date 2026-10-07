@@ -27,7 +27,15 @@ production compilation passed. The native evidence is detailed in release notes.
 
 ## Package
 
-Offline Windows NSIS packaging is in progress. Do not treat this entry as proof
-of installer availability, successful installation or manual UI review.
+The locally generated Windows NSIS installer is 6,680,321 bytes. Executable and
+installer file/product versions are 0.30.0; both embedded icons match the golden
+logo resource. Four license destinations are present in the generated NSIS script.
+SHA-256 is recorded in [the release notes](../release-notes/RELEASE_NOTES_v0.30.0.md)
+and next to the installer. The original build session handle was no longer
+available at final verification; the generated files and their resource/version
+evidence were inspected directly. No duplicate build was started.
+
+Installation, native visual/keyboard interaction, full gameplay and publication
+remain unverified. Packaging is not evidence that these gates have passed.
 
 Suggested commit: `feat: release 0.30 with console and authentication refinements`

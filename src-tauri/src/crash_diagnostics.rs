@@ -75,7 +75,7 @@ pub fn recent_files(directory:&Path,time:i64)->Vec<ChangedFile>{
 }
 pub fn save(directory:&Path,report:&Report)->Result<(),String>{
     persist(directory,report,"last-exit.json")?;
-    if report.exit_code!=Some(0)||report.forced{persist(directory,report,"last-failure.json")?;}
+    if report.exit_code!=Some(0)||report.forced||report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="process_monitor"){persist(directory,report,"last-failure.json")?;}
     Ok(())
 }
 fn persist(directory:&Path,report:&Report,name:&str)->Result<(),String>{
