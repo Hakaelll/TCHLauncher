@@ -98,6 +98,12 @@ fn output_line(bytes:&[u8],truncated:bool,terminated:bool)->String{
     if truncated{line.push_str(" [output line truncated at 64 KiB]");}
     line
 }
+fn console_command(command:&str)->Result<&str,String>{
+    if command.len()>512||command.chars().any(char::is_control){return Err("Comando vacío o no válido".into());}
+    let command=command.trim();
+    if command.trim_matches('/').trim().is_empty(){return Err("Comando vacío o no válido".into());}
+    Ok(command.strip_prefix('/').unwrap_or(command))
+}
 
 fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String, log_file: Arc<Mutex<File>>, control: Arc<ProcessControl>,stdout:bool) ->std::thread::JoinHandle<()> {
     read_output(reader,move |line| {
@@ -317,13 +323,27 @@ impl ProcessManager {
     }
 
     pub fn send(&self, id: &str, command: &str) -> Result<(), String> {
-        if command.is_empty() || command.len() > 512 || command.contains(['\r','\n']) {
-            return Err("Comando vacío o no válido".into());
-        }
+        let command=console_command(command)?;
         let process = self.processes.lock().unwrap().get(id).cloned().ok_or("El servidor no está en ejecución")?;
         let mut stdin = process.stdin.lock().unwrap();
-        writeln!(stdin, "{}", command.trim_start_matches('/')).and_then(|_| stdin.flush())
+        writeln!(stdin, "{}", command).and_then(|_| stdin.flush())
             .map_err(|e| format!("No se pudo enviar el comando: {e}"))
+    }
+
+    pub fn send_batch(&self,id:&str,commands:&[String],expected_session:&str)->Result<usize,String>{
+        if commands.is_empty()||commands.len()>1000{return Err("La lista debe contener entre 1 y 1000 jugadores".into());}
+        let commands=commands.iter().map(|command|console_command(command)).collect::<Result<Vec<_>,_>>()?;
+        let process=self.processes.lock().map_err(|_|"No se pudo abrir la consola")?.get(id).cloned().ok_or("El servidor no está en ejecución")?;
+        if process.session!=expected_session{return Err("La sesión del servidor ha cambiado. Actualiza la lista antes de importar.".into());}
+        for(index,command)in commands.iter().enumerate(){
+            let result=(||{
+                if *process.state.lock().map_err(|_|"No se pudo consultar el proceso")?!="running"{return Err("El servidor ya no está en ejecución".to_string());}
+                let mut stdin=process.stdin.lock().map_err(|_|"No se pudo abrir la consola")?;
+                writeln!(stdin,"{command}").and_then(|_|stdin.flush()).map_err(|error|format!("No se pudo enviar el comando: {error}"))
+            })();
+            if let Err(error)=result{return Err(format!("Se enviaron {index} de {} jugadores antes del error: {error}",commands.len()));}
+        }
+        Ok(commands.len())
     }
 
     pub fn stop(&self, id: &str, app: AppHandle) -> Result<(), String> {
@@ -365,6 +385,39 @@ impl ProcessManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore="Spawned only by the command pipe regression with an explicit fixture marker"]
+    fn console_pipe_child_fixture(){
+        if std::env::var("TCH_CONSOLE_FIXTURE").as_deref()!=Ok("owned-test-child"){return;}
+        for line in std::io::stdin().lock().lines(){let line=line.unwrap();println!("\nreceived:{line}");if line=="finish"{break;}}
+    }
+    #[test]
+    fn command_batches_validate_before_writing_and_never_target_a_new_session(){
+        let mut command=Command::new(std::env::current_exe().unwrap());
+        command.args(["--exact","process::tests::console_pipe_child_fixture","--ignored","--nocapture"]).env("TCH_CONSOLE_FIXTURE","owned-test-child").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+        #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
+        let mut child=command.spawn().unwrap();let stdin=child.stdin.take().unwrap();let stdout=child.stdout.take().unwrap();
+        let control=Arc::new(ProcessControl::new(child,stdin,false,Instant::now()));
+        struct Cleanup(Arc<ProcessControl>);impl Drop for Cleanup{fn drop(&mut self){let mut child=self.0.child.lock().unwrap();let _=child.kill();let _=child.wait();}}
+        let _cleanup=Cleanup(control.clone());*control.state.lock().unwrap()="running".into();
+        let manager=ProcessManager::default();manager.processes.lock().unwrap().insert("server".into(),control.clone());
+        let lines=Arc::new(Mutex::new(Vec::new()));let captured=lines.clone();let pump=read_output(stdout,move|line|captured.lock().unwrap().push(line));
+        for invalid in ["","   ","/"," /// ","say first\nstop","say\u{0}bad"]{assert!(manager.send("server",invalid).is_err());}
+        assert!(manager.send_batch("server",&["say MUST_NOT_SEND".into(),"\nstop".into()],&control.session).is_err());
+        assert!(manager.send_batch("server",&["say WRONG_SESSION".into()],"previous-session").unwrap_err().contains("sesión"));
+        *control.state.lock().unwrap()="stopping".into();
+        assert!(manager.send_batch("server",&["say STOPPING".into()],&control.session).unwrap_err().contains("0 de 1"));
+        *control.state.lock().unwrap()="running".into();
+        let batch:Vec<_>=(0..1000).map(|index|format!("whitelist add Player_{index}")).collect();
+        assert_eq!(manager.send_batch("server",&batch,&control.session).unwrap(),1000);
+        manager.send("server"," /say café ").unwrap();manager.send("server","//wand").unwrap();manager.send("server","finish").unwrap();
+        let deadline=Instant::now()+Duration::from_secs(5);
+        loop{if control.child.lock().unwrap().try_wait().unwrap().is_some(){break;}assert!(Instant::now()<deadline,"Command fixture did not exit");std::thread::sleep(Duration::from_millis(10));}
+        pump.join().unwrap();
+        let lines=lines.lock().unwrap();let received:Vec<_>=lines.iter().filter_map(|line|line.strip_prefix("received:")).collect();
+        let expected:Vec<_>=batch.iter().map(String::as_str).chain(["say café","/wand","finish"]).collect();assert_eq!(received,expected);
+        manager.release_terminal("server",&control);
+    }
     fn captured_output<R:std::io::Read+Send+'static>(reader:R)->Vec<String>{
         let lines=Arc::new(Mutex::new(Vec::new()));let captured=lines.clone();
         read_output(reader,move|line|captured.lock().unwrap().push(line)).join().unwrap();

@@ -137,3 +137,29 @@ passed TypeScript and the four locale tests. Native file-picker, keyboard,
 appearance and live whitelist acceptance remain pending manual review.
 
 Suggested commit: `feat: improve whitelist import review and harden Java output`
+
+## Session-bound whitelist command dispatch after 0.30.0
+
+Source follow-up; the existing installer is unchanged. Whitelist command writes
+now run in a blocking worker under the existing running-server operation
+reservation, instead of a synchronous Tauri command. The worker validates the
+whole bounded batch before writing and holds one process/session reference.
+A changed session is rejected rather than sending remaining requests to a
+replacement process. Each request checks the running state, and a stop or pipe
+failure reports the count of preceding writes. Counts acknowledge pipe writes,
+not Minecraft account resolution or successful whitelist additions.
+
+Single console commands reject whitespace/slash-only input and control characters.
+Exactly one leading slash is removed, preserving the additional slash used by
+commands such as WorldEdit's //wand. UTF-8 text is retained and the existing
+512-byte command and 1,000-player limits remain in effect. No additional service,
+timer or network connection was added. Worker dispatch does not imply a timeout
+for a blocked OS pipe or a measured reduction in gameplay latency.
+
+Verification: eight process tests passed, with three conditional fixture entries
+ignored. The command test starts a real owned hidden child, drains its stdout,
+checks all 1,000 received requests in order plus Unicode and slash handling, and
+proves invalid batches, wrong sessions and stopped states wrote no commands.
+Minecraft command acceptance, native interaction and router behavior remain open.
+
+Suggested commit: `fix: dispatch whitelist commands off the UI thread and bind them to a session`

@@ -1,1 +1,1 @@
-feat: improve whitelist import review and harden Java output
+fix: dispatch whitelist commands off the UI thread and bind them to a session

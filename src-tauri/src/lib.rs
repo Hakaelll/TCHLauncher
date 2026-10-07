@@ -617,16 +617,15 @@ async fn pick_whitelist_file() -> Result<Option<WhitelistImport>, String> {
 }
 
 #[tauri::command]
-fn import_whitelist(engine: State<'_, Engine>, id: String, names: Vec<String>) -> Result<usize, String> {
+async fn import_whitelist(engine: State<'_, Engine>, id: String, names: Vec<String>) -> Result<usize, String> {
     storage::get(&engine.root, &id)?;
     if engine.processes.state(&id) != "running" { return Err("Inicia el servidor antes de importar la lista blanca".into()); }
     let names = players::validate_names(&names)?;
-    for (index, name) in names.iter().enumerate() {
-        if let Err(e) = engine.processes.send(&id, &players::command("whitelist_add", Some(name), None)?) {
-            return Err(format!("Se enviaron {index} de {} jugadores antes del error: {e}", names.len()));
-        }
-    }
-    Ok(names.len())
+    let commands=names.iter().map(|name|players::command("whitelist_add",Some(name),None)).collect::<Result<Vec<_>,_>>()?;
+    let guard=engine.reserve_running(&id)?;
+    let processes=engine.processes.clone();
+    let session=processes.session_token(&id).ok_or("El servidor no está en ejecución")?;
+    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;processes.send_batch(&id,&commands,&session)}).await.map_err(|error|error.to_string())?
 }
 
 #[tauri::command]
