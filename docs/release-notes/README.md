@@ -2,6 +2,7 @@
 
 User-facing changes and verification limits for Windows previews.
 
+- [0.32.0](RELEASE_NOTES_v0.32.0.md)
 - [0.31.0](RELEASE_NOTES_v0.31.0.md)
 - [0.30.0](RELEASE_NOTES_v0.30.0.md)
 - [0.29.0](RELEASE_NOTES_v0.29.0.md)

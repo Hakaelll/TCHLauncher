@@ -369,3 +369,14 @@ Duplicate/stale chronology was removed; existing docs and Git retain history.
 The roadmap shrank from 72,282 to 10,139 bytes. Installer/version are unchanged.
 
 Commit: `fix: focus visible searches and pause hidden mod browsing`
+
+## Packaged in Windows preview 0.32.0
+
+The source refinements and fixes recorded above are now included in 0.32.0.
+251 offline native tests passed / 33 conditional entries ignored; all 102 frontend
+tests, TypeScript and Windows production Tauri/NSIS packaging passed. The four
+real lifecycle checks were run separately. Binary versions, supplied-logo icons,
+legal inventory/resource destinations and the installer checksum are verified.
+See [release details](../release-notes/RELEASE_NOTES_v0.32.0.md). The preview was
+not installed or published as a GitHub release; native UI/client/router acceptance
+remains outstanding. Source-only statements above describe their historical state.

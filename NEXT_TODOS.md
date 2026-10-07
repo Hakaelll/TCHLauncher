@@ -17,8 +17,8 @@ an explicit user instruction. These labels do not imply feature completion.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Native keyboard and browsing behavior still require review.
-- Current packaged preview is 0.31.0. Source changes since it are **not** included
-  in that installer. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
+- Current packaged preview is 0.32.0, including the accumulated changes recorded
+  after 0.31.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).
 
 ## Remaining work and acceptance evidence
@@ -63,7 +63,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | UX-04 | REVIEW | Creation and settings experience | Deferred five-step wizard, seed, pre-start gameplay defaults and preserved controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.31.0 NSIS x64 was generated with verified version/icons/licenses/checksum. Post-release changes remain source-only; package the next significant preview after its gates. |
+| REL-02 | REVIEW | Current installer | 0.32.0 NSIS x64 generated with verified version/icons/licenses/checksum and 251 native / 102 frontend tests. Native install/upgrade and usage gates remain open. |
 
 ## Reported issues needing host evidence
 

@@ -1,1 +1,1 @@
-fix: focus visible searches and pause hidden mod browsing
+chore: release Windows preview 0.32.0
