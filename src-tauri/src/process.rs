@@ -72,8 +72,31 @@ pub fn emit_state(app: &AppHandle, id: &str, state: &str) {
     let _ = app.emit("server-state", StateEvent { server_id: id.into(), state: state.into() });
 }
 
+const MAX_OUTPUT_LINE_BYTES:usize=64*1024;
 fn read_output<R:std::io::Read+Send+'static>(reader:R,mut consume:impl FnMut(String)+Send+'static)->std::thread::JoinHandle<()>{
-    std::thread::spawn(move||{for line in BufReader::new(reader).lines(){let Ok(line)=line else{break;};consume(line);}})
+    std::thread::spawn(move||{
+        let mut reader=BufReader::new(reader);
+        let mut line=Vec::new();let mut truncated=false;
+        loop{
+            let bytes=match reader.fill_buf(){Ok(bytes)=>bytes,Err(error) if error.kind()==std::io::ErrorKind::Interrupted=>continue,Err(_)=>break};
+            if bytes.is_empty(){
+                if !line.is_empty()||truncated{consume(output_line(&line,truncated,false));}
+                break;
+            }
+            let newline=bytes.iter().position(|byte|*byte==b'\n');
+            let length=newline.unwrap_or(bytes.len());
+            let retained=length.min(MAX_OUTPUT_LINE_BYTES-line.len());
+            line.extend_from_slice(&bytes[..retained]);truncated|=retained<length;
+            reader.consume(length+usize::from(newline.is_some()));
+            if newline.is_some(){consume(output_line(&line,truncated,true));line.clear();truncated=false;}
+        }
+    })
+}
+fn output_line(bytes:&[u8],truncated:bool,terminated:bool)->String{
+    let bytes=if !truncated&&terminated{bytes.strip_suffix(b"\r").unwrap_or(bytes)}else{bytes};
+    let mut line=String::from_utf8_lossy(bytes).into_owned();
+    if truncated{line.push_str(" [output line truncated at 64 KiB]");}
+    line
 }
 
 fn pump<R: std::io::Read + Send + 'static>(reader: R, app: AppHandle, id: String, log_file: Arc<Mutex<File>>, control: Arc<ProcessControl>,stdout:bool) ->std::thread::JoinHandle<()> {
@@ -105,6 +128,7 @@ fn save_exit(directory:&std::path::Path,id:&str,control:&ProcessControl,code:Opt
     let forced=control.forced.load(std::sync::atomic::Ordering::SeqCst);
     let mut diagnoses=crate::crash_diagnostics::analyze_exit(&lines,forced);
     if monitor_failed{diagnoses.insert(0,crate::crash_diagnostics::Diagnosis{kind:"process_monitor".into(),title:"Falló la supervisión de Java".into(),explanation:"El launcher no pudo consultar el proceso y solicitó su finalización. Esta salida no se considera una parada limpia.".into(),recommendation:"Revisa la consola antes de volver a iniciar el servidor.".into(),action:"console".into(),evidence:vec![]});}
+    diagnoses.truncate(6);
     let report=crate::crash_diagnostics::Report{server_id:id.into(),session_id:control.session.clone(),ended_at:time,exit_code:code,stop_requested:control.stop_requested.load(std::sync::atomic::Ordering::SeqCst),forced,output_complete:complete,diagnoses,recent_files:crate::crash_diagnostics::recent_files(directory,time)};
     if let Err(error)=crate::crash_diagnostics::save(directory,&report){eprintln!("Could not save process diagnostics: {error}");}
 }
@@ -341,6 +365,41 @@ impl ProcessManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn captured_output<R:std::io::Read+Send+'static>(reader:R)->Vec<String>{
+        let lines=Arc::new(Mutex::new(Vec::new()));let captured=lines.clone();
+        read_output(reader,move|line|captured.lock().unwrap().push(line)).join().unwrap();
+        Arc::try_unwrap(lines).unwrap().into_inner().unwrap()
+    }
+    #[test]
+    fn malformed_output_keeps_later_startup_events_and_final_unterminated_lines(){
+        let mut bytes=b"bad \xff\xfe text\r\n\n".to_vec();
+        bytes.extend_from_slice(b"[12:00:00] [Server thread/INFO]: Done (1.2s)! For help, type \"help\"\r\nlast\r");
+        let lines=captured_output(std::io::Cursor::new(bytes));
+        assert_eq!(lines.len(),4);assert!(lines[0].contains(char::REPLACEMENT_CHARACTER));assert!(!lines[0].ends_with('\r'));assert_eq!(lines[1],"");
+        assert_eq!(log::parse("server",&lines[2]).event.as_deref(),Some("startup"));assert_eq!(lines[3],"last\r");
+    }
+    #[test]
+    fn oversized_output_is_bounded_and_drained_without_creating_fake_lines(){
+        let mut bytes=vec![b'x';4*1024*1024];
+        bytes.extend_from_slice(b"\n[12:00:00] [Server thread/INFO]: Done (1.2s)! For help, type \"help\"\n");
+        let lines=captured_output(std::io::Cursor::new(bytes));
+        assert_eq!(lines.len(),2);assert!(lines[0].len()<MAX_OUTPUT_LINE_BYTES+64);assert!(lines[0].ends_with("[output line truncated at 64 KiB]"));
+        assert_eq!(log::parse("server",&lines[1]).event.as_deref(),Some("startup"));
+        let lines=captured_output(std::io::Cursor::new(vec![0xff;MAX_OUTPUT_LINE_BYTES*2]));
+        assert_eq!(lines.len(),1);assert!(lines[0].len()<MAX_OUTPUT_LINE_BYTES*3+64);
+    }
+    #[test]
+    fn interrupted_and_fragmented_output_preserves_utf8_and_line_boundaries(){
+        struct Fragmented{bytes:std::io::Cursor<Vec<u8>>,interrupt:bool}
+        impl std::io::Read for Fragmented{
+            fn read(&mut self,buffer:&mut [u8])->std::io::Result<usize>{
+                if self.interrupt{self.interrupt=false;return Err(std::io::ErrorKind::Interrupted.into());}
+                self.interrupt=true;let length=buffer.len().min(1);std::io::Read::read(&mut self.bytes,&mut buffer[..length])
+            }
+        }
+        let text="世界\r\n\nready\n";
+        assert_eq!(captured_output(Fragmented{bytes:std::io::Cursor::new(text.as_bytes().to_vec()),interrupt:true}),vec!["世界","","ready"]);
+    }
     #[test]
     #[ignore="Spawned only by the force-stop process test with an explicit fixture marker"]
     fn force_stop_child_fixture(){
@@ -379,6 +438,11 @@ mod tests {
         save_exit(&directory,"monitor",&control,status.code(),true,true);
         let report=crate::crash_diagnostics::last_failure(&directory,"monitor").unwrap().unwrap();
         assert_eq!(report.exit_code,Some(0));assert_eq!(report.diagnoses[0].kind,"process_monitor");assert_eq!(report.session_id,control.session);
+        control.forced.store(true,std::sync::atomic::Ordering::SeqCst);
+        for line in ["java.lang.UnsupportedClassVersionError: Main","java.lang.OutOfMemoryError: Java heap space","java.net.BindException: address in use","Incompatible mods found!","Error occurred while enabling Example v1"]{control.output.lock().unwrap().push(line);}
+        save_exit(&directory,"monitor",&control,status.code(),true,true);
+        let report=crate::crash_diagnostics::last_failure(&directory,"monitor").unwrap().unwrap();
+        assert_eq!(report.diagnoses.len(),6);assert_eq!(report.diagnoses[0].kind,"process_monitor");assert_eq!(report.diagnoses[1].kind,"forced_stop");
         fs::remove_dir_all(directory).unwrap();
         manager.release_terminal("monitor",&control);assert!(!manager.is_active("monitor"));
     }

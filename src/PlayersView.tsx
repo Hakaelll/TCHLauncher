@@ -5,7 +5,8 @@ import {OperatorSettings} from './OperatorSettings'
 import {PlayerHead} from './PlayerHead'
 import {connectedIdentity, isOfflineUuid} from './playerIdentity'
 import { useRef, useState, type FormEvent } from 'react'
-import { api, type PlayersSnapshot, type Server, type WhitelistImport } from './api'
+import { type PlayersSnapshot, type Server } from './api'
+import {WhitelistImportReview} from './WhitelistImportReview'
 import {playerActions,playerActionErrors,type PlayerAction as Action} from './playerActions'
 import {playerWindow} from './playerWindow'
 import {AuthenticationPanel} from './AuthenticationPanel'
@@ -22,7 +23,7 @@ const groups: { id: Group; label: string; count: (players: PlayersSnapshot) => n
 ])
 
 function PlayerRow({name,uuid,detail,action,disabled,onAction}: {name:string;uuid?:string|null;detail?:string;action?:string;disabled:boolean;onAction?:()=>void}) {
-  return <div className="player-row" data-layout-id={uuid || name}><PlayerHead name={name} uuid={uuid}/><div className="player-row-info"><strong>{name}</strong>{detail && <small title={translatedMessage(detail)}>{translatedMessage(detail)}</small>}</div>{action && <button className="text-button" disabled={disabled} onClick={onAction}>{action}</button>}</div>
+  return <div className="player-row" data-layout-id={uuid || name}><PlayerHead name={name} uuid={uuid}/><div className="player-row-info"><strong>{name}</strong>{detail && <small title={translatedMessage(detail)}>{translatedMessage(detail)}</small>}</div>{action && <button className="text-button" disabled={disabled} onClick={onAction}>{translatedMessage(action)}</button>}</div>
 }
 
 export function PlayersView({server,players,loading,readError,busy,onAction,onToggleWhitelist,onImportWhitelist,onRefresh}: {
@@ -47,8 +48,6 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   const [reason,setReason] = useState('')
   const [notice,setNotice] = useState<string|null>(null)
   const [attempted,setAttempted]=useState(false)
-  const [importFile,setImportFile] = useState<WhitelistImport|null>(null)
-  const [importError,setImportError] = useState<string|null>(null)
   const running = server.state === 'running'
   const canSetWhitelist = running || ['stopped','crashed','error'].includes(server.state)
   const act = async (kind: string, name?: string, motive?: string) => {
@@ -78,8 +77,6 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   }
   const items = players ?? { online:[],known:[],whitelisted:[],operators:[],bannedPlayers:[],bannedIps:[],maxPlayers:0,whitelistEnabled:false,enforceWhitelist:false,onlineMode:true }
   const directAuthentication=players?authenticationState(players.onlineMode,players.authenticationChecks).kind==='direct':false
-  const existing = new Set(items.whitelisted.map(player => player.name.toLowerCase()))
-  const pendingNames = importFile?.names.filter(name => !existing.has(name.toLowerCase())) ?? []
   const errors=playerActionErrors(action,target,reason)
   const windows={
     online:playerWindow(items.online,query,name=>name,page),
@@ -90,19 +87,6 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   }
   const window=windows[group]
   useListMotion(listRef,`${server.id}:${group}:${window.page}:${query}:${JSON.stringify(window.rows)}`)
-  const chooseImport = async () => {
-    setImportError(null)
-    try { const selection = await api.pickWhitelistFile(); if (selection) setImportFile(selection) }
-    catch(e) { setImportError(e instanceof Error ? e.message : String(e)) }
-  }
-  const applyImport = async () => {
-    setImportError(null)
-    if (await onImportWhitelist(pendingNames)) {
-      setNotice(t("Se enviaron {0} solicitudes de lista blanca. Minecraft actualizará la lista al procesarlas.", pendingNames.length))
-      setImportFile(null)
-      await onRefresh()
-    }
-  }
   return <section className="players-view"><div className="section-heading"><div><h2>{t("Jugadores")}</h2><p>{t("Conexiones actuales y permisos guardados por Minecraft.")}</p></div><button disabled={loading} onClick={onRefresh}>{loading?t("Consultando…"):t("Actualizar")}</button></div>
     {(readError||!players)&&<div className={`panel-read-state ${readError?'failed':''}`} role={readError?'alert':'status'}><span className="read-state-mark" aria-hidden="true">{readError?'!':'…'}</span><div><strong>{readError?t("Jugadores sin actualizar"):t("Consultando jugadores")}</strong><p>{readError?(players?t("Se muestran los últimos datos disponibles. "): '')+readError:t("Leyendo conexiones y permisos de Minecraft.")}</p></div></div>}
     <div className="players-overview"><div><strong>{players ? players.online.length : '—'}<span> / {players ? players.maxPlayers : '—'}</span></strong><small>{t("Conectados")}</small></div><div><strong>{players ? players.whitelisted.length : '—'}</strong><small>{t("En lista blanca")}</small></div><div><strong>{players ? players.operators.length : '—'}</strong><small>{t("Operadores")}</small></div></div>
@@ -121,7 +105,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
       {players && group === 'banned' && (items.bannedPlayers.length || items.bannedIps.length ? <>{windows.banned.rows.filter(item=>item.type==='player').map(({entry:player}) => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={[player.reason,player.source,player.created,player.expires].filter(Boolean).join(' · ')} action="Perdonar" disabled={!running || busy} onAction={() => act('pardon',player.name)}/>)}{windows.banned.rows.filter(item=>item.type==='ip').map(({entry}) => <PlayerRow key={entry.ip} name={entry.ip} detail={[entry.reason,entry.source,entry.created,entry.expires].filter(Boolean).join(' · ')} action="Perdonar IP" disabled={!running || busy || entry.ip.startsWith('<')} onAction={() => act('pardon_ip',entry.ip)}/>)}</> : <p className="empty-inline">{t("No hay jugadores ni direcciones IP bloqueadas.")}</p>)}
     </div>
     {players&&window.pages>1&&<nav className="player-pagination" aria-label={t("Páginas de jugadores")}><span>{t("Página")} {window.page+1}  {t("de")} {window.pages}</span><div><button disabled={window.page===0} onClick={()=>setPage(window.page-1)}>{t("Anterior")}</button><button disabled={window.page+1>=window.pages} onClick={()=>setPage(window.page+1)}>{t("Siguiente")}</button></div></nav>}
-    {group === 'whitelist' && <div className="whitelist-import"><div><strong>{t("Importar jugadores")}</strong><p>{t("Elige un archivo .txt con un nombre por línea o un whitelist.json de Minecraft.")}</p></div><button onClick={chooseImport} disabled={busy}>{t("Elegir archivo")}</button>{importError && <p className="form-error" role="alert">{translatedMessage(importError)}</p>}{importFile && <div className="whitelist-import-preview"><div><strong>{importFile.fileName}</strong><span>{pendingNames.length}  {t("nuevos ·")} {importFile.names.length}  {t("en el archivo")}</span></div><p>{importFile.names.slice(0,8).join(', ')}{importFile.names.length > 8 ? ` y ${importFile.names.length - 8} más` : ''}</p><div><button className="text-button" onClick={() => setImportFile(null)}>{t("Cancelar")}</button><button className="primary-button" disabled={!running || busy || !pendingNames.length} onClick={applyImport}>{t("Añadir")} {pendingNames.length}  {t("jugadores")}</button></div>{!running && <p className="field-help">{t("Inicia el servidor para aplicar la importación.")}</p>}</div>}</div>}
+    <div hidden={group!=='whitelist'}><WhitelistImportReview whitelisted={items.whitelisted} running={running} disabled={busy||!players||!!readError} onImport={onImportWhitelist} onRefresh={onRefresh}/></div>
     <div className="player-management"><h3>{t("Gestionar acceso")}</h3><p>{t("Las acciones se envían a Minecraft; sus listas se actualizarán cuando procese el comando.")}</p>
       {!running && <p className="inline-note">{t("Inicia el servidor para modificar jugadores y permisos. Puedes preparar una acción mientras está detenido.")}</p>}
       <form noValidate onSubmit={submit}>

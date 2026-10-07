@@ -1,1 +1,1 @@
-feat: release 0.30 with console and authentication refinements
+feat: improve whitelist import review and harden Java output

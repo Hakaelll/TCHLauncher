@@ -73,9 +73,12 @@ pub fn recent_files(directory:&Path,time:i64)->Vec<ChangedFile>{
     }
     files.sort_by(|a,b|b.modified_at.cmp(&a.modified_at).then(a.name.cmp(&b.name)));files.truncate(32);files
 }
+fn is_failure(report:&Report)->bool{
+    report.exit_code!=Some(0)||report.forced||report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="process_monitor")
+}
 pub fn save(directory:&Path,report:&Report)->Result<(),String>{
     persist(directory,report,"last-exit.json")?;
-    if report.exit_code!=Some(0)||report.forced||report.diagnoses.iter().any(|diagnosis|diagnosis.kind=="process_monitor"){persist(directory,report,"last-failure.json")?;}
+    if is_failure(report){persist(directory,report,"last-failure.json")?;}
     Ok(())
 }
 fn persist(directory:&Path,report:&Report,name:&str)->Result<(),String>{
@@ -93,7 +96,7 @@ pub fn last_failure(directory:&Path,id:&str)->Result<Option<Report>,String>{
     let report=match read_report(directory,id,None,"last-failure.json")?{
         Some(report)=>Some(report),None=>read_report(directory,id,None,"last-exit.json")?,
     };
-    Ok(report.filter(|report|report.exit_code!=Some(0)||report.forced))
+    Ok(report.filter(is_failure))
 }
 fn read_report(directory:&Path,id:&str,session:Option<&str>,name:&str)->Result<Option<Report>,String>{
     let folder=directory.join("launcher-logs");
@@ -108,6 +111,18 @@ fn read_report(directory:&Path,id:&str,session:Option<&str>,name:&str)->Result<O
 
 #[cfg(test)]mod tests{
     use super::*;
+    #[test]fn monitor_failure_survives_a_clean_exit_and_legacy_fallback(){
+        let directory=std::env::temp_dir().join(format!("tch-monitor-history-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
+        let mut report=Report{server_id:"server".into(),session_id:"monitor".into(),ended_at:1000,exit_code:Some(0),stop_requested:false,forced:false,output_complete:true,diagnoses:vec![Diagnosis{kind:"process_monitor".into(),title:"Monitor failed".into(),explanation:String::new(),recommendation:String::new(),action:"console".into(),evidence:Vec::new()}],recent_files:Vec::new()};
+        persist(&directory,&report,"last-exit.json").unwrap();
+        assert_eq!(last_failure(&directory,"server").unwrap().unwrap().session_id,"monitor");
+        save(&directory,&report).unwrap();
+        report.session_id="clean".into();report.diagnoses=analyze_exit(&[],false);save(&directory,&report).unwrap();
+        assert_eq!(load(&directory,"server","clean").unwrap().unwrap().exit_code,Some(0));
+        assert_eq!(last_failure(&directory,"server").unwrap().unwrap().session_id,"monitor");
+        assert!(last_failure(&directory,"other").unwrap().is_none());
+        fs::remove_dir_all(directory).unwrap();
+    }
     #[test]fn forced_exit_is_durable_even_with_zero_code_and_legacy_reports_remain_readable(){
         let directory=std::env::temp_dir().join(format!("tch-forced-history-{}",uuid::Uuid::new_v4()));fs::create_dir_all(directory.join("launcher-logs")).unwrap();
         let mut report=Report{server_id:"server".into(),session_id:"forced".into(),ended_at:1000,exit_code:Some(0),stop_requested:true,forced:true,output_complete:true,diagnoses:analyze_exit(&[],true),recent_files:Vec::new()};

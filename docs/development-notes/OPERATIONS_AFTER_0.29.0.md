@@ -66,3 +66,48 @@ Configuration references: [Paper global configuration](https://docs.papermc.io/p
 and [player information forwarding](https://docs.papermc.io/velocity/player-information-forwarding/).
 
 Suggested commit: `feat: diagnose imported server authentication and proxy settings`
+
+## Process supervision history after 0.30.0
+
+Source follow-up; the existing 0.30.0 installer is unchanged. Monitor cleanup
+retains process ownership until termination and waiting confirm an exit. A
+supervision failure is not a clean stop, even if the eventual exit code is zero.
+The diagnostic writer and history reader now share that failure classification,
+including the older single-file fallback. A later successful session preserves
+the last failure. Combined monitor, forced-stop and server diagnoses stay within
+the reader's six-diagnosis limit, retaining the monitor and forced-stop entries.
+
+Verification: four process tests passed (two conditional fixtures ignored),
+including real owned-child cleanup and zero-code terminal reporting; five
+diagnostic persistence/rule tests passed. The combined-diagnosis limit and
+historical failure after a clean session are covered. These checks do not prove
+Minecraft gameplay, native window behavior or router connectivity.
+
+Suggested commit: `fix: preserve Java monitor failures in diagnostic history`
+
+## Bounded resilient Java output after 0.30.0
+
+Source follow-up; the existing installer is unchanged. Both stdout and stderr
+now decode malformed UTF-8 with replacement characters and continue reading.
+Previously BufRead::lines stopped the pump on an invalid byte sequence, so a
+later readiness message could be lost. Interrupted reads retry; valid multibyte
+text, blank lines, CRLF and unterminated final lines retain their boundaries.
+
+Each source line retains at most 64 KiB before decoding. Excess bytes are drained
+until the newline, without being published as additional log records. The
+retained line explicitly indicates truncation. This bounds line-buffer memory
+and avoids retaining an arbitrary-size single-line payload. The bounded buffer
+is reused; no timer, polling or dependency was added. Very large lines are
+deliberately truncated in launcher logs as well as the UI; Minecraft's own log
+files remain untouched. This is not a measured overall RAM or network improvement.
+
+Verification: seven process tests passed with two conditional fixtures ignored,
+including invalid bytes followed by a real-format parsed startup event, a 4 MiB
+line followed by readiness, invalid-byte expansion, fragmented Unicode and
+interrupted reads. The conditional Java 21 process diagnostic test passed
+separately using the installed managed runtime: incompatible test class, stderr,
+exit codes, session isolation, persisted failure and subsequent successful
+process. It did not run Minecraft, accept EULA or create a world. The reported
+server's startup issue still needs a real reproduction to identify its cause.
+
+Suggested commit: `fix: keep Java output readable after malformed or oversized lines`
