@@ -12,7 +12,7 @@ export function MovingIndicator({active,axis='vertical',className=''}:{active:st
     const parent=ref.current?.parentElement
     if(!parent)return
     const measure=()=>{
-      const target=parent.querySelector<HTMLElement>('[aria-current="page"],[aria-current="step"]')
+      const target=Array.from(parent.querySelectorAll<HTMLElement>('[aria-current="page"],[aria-current="step"]')).find(element=>!element.closest('[data-motion-ghost],[inert],[aria-hidden="true"]'))
       if(!target){setPosition(null);return}
       const bounds=target.getBoundingClientRect(),container=parent.getBoundingClientRect()
       setPosition({x:bounds.left-container.left+parent.scrollLeft,y:bounds.top-container.top+parent.scrollTop,width:bounds.width,height:bounds.height})
@@ -20,7 +20,9 @@ export function MovingIndicator({active,axis='vertical',className=''}:{active:st
     measure()
     const observer=new ResizeObserver(measure);observer.observe(parent)
     for(const child of parent.children)if(child!==ref.current)observer.observe(child)
-    return()=>observer.disconnect()
+    const mutations=new MutationObserver(measure)
+    mutations.observe(parent,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-current','aria-hidden','inert']})
+    return()=>{observer.disconnect();mutations.disconnect()}
   },[active])
   return <span ref={ref} aria-hidden="true" className={`moving-indicator ${axis} ${className}`} style={position?axis==='both'?{opacity:1,width:position.width,height:position.height,transform:`translate(${position.x}px,${position.y}px)`}:axis==='horizontal'?{opacity:1,width:1,transform:`translateX(${position.x}px) scaleX(${position.width})`}:{opacity:1,height:position.height,transform:`translateY(${position.y}px)`}:{opacity:0}}/>
 }
@@ -57,7 +59,8 @@ export function useListMotion(ref:RefObject<HTMLElement|null>,identity:string) {
       if(previousHeight.current!=null && Math.abs(previousHeight.current-origin.height)>1)animations.push(parent.animate([{height:`${previousHeight.current}px`},{height:`${origin.height}px`}],{duration:motion.standard,easing:motion.ease}))
       for(const [id,before] of positions.current)if(!next.has(id)) {
         const ghost=snapshots.current.get(id);if(!ghost)continue
-        ghost.removeAttribute('data-layout-id');ghost.setAttribute('aria-hidden','true');ghost.inert=true
+        ghost.removeAttribute('data-layout-id');ghost.removeAttribute('aria-current');ghost.setAttribute('data-motion-ghost','');ghost.setAttribute('aria-hidden','true');ghost.inert=true
+        ghost.querySelectorAll('[aria-current]').forEach(element=>element.removeAttribute('aria-current'))
         Object.assign(ghost.style,{position:'absolute',top:`${before.top}px`,left:`${before.left}px`,width:`${ghost.getAttribute('data-motion-width') ?? '100%'}`,pointerEvents:'none',zIndex:'0'})
         parent.appendChild(ghost);ghosts.push(ghost)
         const animation=ghost.animate([{opacity:.65},{opacity:0}],{duration:motion.interaction,easing:motion.exit,fill:'forwards'})

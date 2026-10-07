@@ -1,1 +1,1 @@
-style: rebuild Minecraft content discovery layout
+fix: clear stale sidebar selection and refine console progress UI

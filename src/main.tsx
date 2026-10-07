@@ -6,6 +6,8 @@ import './visual.css'
 import './motion.css'
 import './end.css'
 import './discovery.css'
+import './performance.css'
+import './operations.css'
 import { applyAppearance, browserPreferenceStorage, readAppearance } from './appearance'
 import { initializeLanguage } from './locale.ts'
 

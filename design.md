@@ -2,6 +2,21 @@
 
 ## Authority and use
 
+### Performance instruments
+
+RAM and CPU remain simultaneous sampled plots in standard desktop windows, with
+one shared 30-second / one-minute / two-minute range control. Memory fits measured
+RAM and heap with visible axis values, rather than treating Xmx as a resident RAM
+limit. Keep zero as the baseline and label automatic scaling. Real process and
+heap series have independent pressed legend controls; at least one available
+series remains visible. Preserve gaps, unknown values and square single-sample
+markers. Pointer/keyboard sample readings sit above the plot, without covering it.
+Use quiet square framing, five restrained measurement guides and non-scaling line
+strokes. Plot height follows the window. Java interpretation/report explanations
+use disclosures; response/TPS and process/disk facts form separate reading groups.
+No new polling or ambient animation accompanies this layout. Native visual review
+remains manual.
+
 ### Catalog composition refinement
 
 Modrinth discovery uses four raised category selectors with flat pixel SVG marks,
