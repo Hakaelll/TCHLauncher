@@ -3,6 +3,7 @@ import {localizedStatic,t,getLanguage} from './locale.ts'
 import {acknowledgedAction} from './acknowledgedAction'
 import {useLanguage} from './useLanguage'
 import {createLogBatch} from './logBatch'
+import {appendConsoleLines,mergeConsoleHistory,type ConsoleLine} from './consoleTimeline'
 import {startVisibilityPolling} from './visibilityPolling'
 import { PackImport } from './PackImport'
 import {deferredPanel} from './DeferredPanel'
@@ -169,10 +170,11 @@ function App() {
   const {data:logHistory,loading:logLoading,error:logError,refresh:refreshLog}=useServerRead(selectedId,api.log)
   const [consoleQuery,setConsoleQuery]=useState('')
   useEffect(()=>{if(view!=='console'||libraryOpen||creating||importing||appearanceOpen)setConsoleQuery('')},[view,libraryOpen,creating,importing,appearanceOpen])
-  const [logs, setLogs] = useState<LogLine[]>([])
+  const [logs, setLogs] = useState<ConsoleLine[]>([])
+  const logArrival=useRef(0)
   const logBatch=useRef<ReturnType<typeof createLogBatch<LogLine>>|null>(null)
   useEffect(()=>{
-    const batch=createLogBatch<LogLine>(1000,lines=>setLogs(current=>[...current.slice(Math.max(0,current.length+lines.length-1000)),...lines]))
+    const batch=createLogBatch<LogLine>(1000,lines=>{const incoming=lines.map(line=>({...line,arrival:++logArrival.current}));setLogs(current=>appendConsoleLines(current,incoming))})
     logBatch.current=batch
     return()=>{batch.dispose();if(logBatch.current===batch)logBatch.current=null}
   },[])
@@ -298,12 +300,9 @@ function App() {
   }, [selectedId])
 
   useEffect(()=>{
-    if(!logHistory)return
-    setLogs(current=>{
-      const loaded=new Set(logHistory.map(item=>`${item.timestamp??''}\0${item.line}`))
-      return [...logHistory,...current.filter(item=>!loaded.has(`${item.timestamp??''}\0${item.line}`))].slice(-1000)
-    })
-  },[logHistory])
+    if(!logHistory||!selectedId)return
+    setLogs(current=>mergeConsoleHistory(current,logHistory,selectedId))
+  },[logHistory,selectedId])
 
   useEffect(() => {
     if (!selected) return

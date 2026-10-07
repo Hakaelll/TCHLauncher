@@ -28,3 +28,41 @@ remain manual; these checks do not establish rendered appearance or gameplay.
 The native server engine was unchanged and its suite was not rerun.
 
 Suggested commit: `fix: clear stale sidebar selection and refine console progress UI`
+
+## Imported-server authentication diagnostics
+
+The player snapshot now includes read-only Paper/Spigot configuration evidence.
+Paper checks settings.bungeecord in spigot.yml and the version-appropriate
+Velocity and PROXY protocol settings in paper.yml or config/paper-global.yml.
+Modern year-based Minecraft versions also use the current Paper configuration.
+Other loaders do not infer proxy support from these files.
+
+Parsing uses the existing yaml-rust2 dependency with byte, event and depth limits.
+Duplicate keys, aliases, unsupported types and unreadable files remain unknown.
+Nested key segments are compared individually; a literal dotted key cannot
+impersonate the nested setting. Only file names, setting paths, booleans and
+fixed diagnostic messages cross IPC. Proxy secrets and arbitrary YAML contents
+are never returned. Reads do not alter configuration or player data.
+
+The player view separates whitelist policy from authentication configuration,
+lists enabled or unknown proxy checks and explains restart requirements. A
+proxy-enabled or unknown configuration no longer uses online-mode alone to pick
+an account avatar from an ambiguous cache. Spanish and English copy are included.
+
+These are saved-file observations, not confirmation of a running server's
+effective configuration, account authentication, plugins/mods, JVM overrides,
+proxy routing or skin downloads. The reported Minehut case remains unverified
+without the host's configuration and a real reconnect. Inventories and permissions
+associated with separate UUIDs remain separate.
+
+Verification: all 94 frontend tests, TypeScript and production Vite compilation
+passed. The offline native suite passed 242 tests with 28 conditional tests
+ignored. All five final authentication fixtures passed separately, including the
+two added checks for configuration locations and YAML work limits.
+Native UI inspection and real imported-server reconnection remain pending. No
+installer, commit or publication was generated for this addition.
+
+Configuration references: [Paper global configuration](https://docs.papermc.io/paper/reference/global-configuration/)
+and [player information forwarding](https://docs.papermc.io/velocity/player-information-forwarding/).
+
+Suggested commit: `feat: diagnose imported server authentication and proxy settings`

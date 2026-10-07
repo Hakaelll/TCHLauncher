@@ -1,1 +1,1 @@
-fix: clear stale sidebar selection and refine console progress UI
+feat: diagnose imported server authentication and proxy settings

@@ -64,6 +64,7 @@ pub struct PlayersSnapshot {
     pub enforce_whitelist: bool,
     pub max_players: u32,
     pub online_mode: bool,
+    pub authentication_checks: Vec<crate::authentication::Check>,
 }
 
 #[derive(Serialize)]
@@ -107,6 +108,7 @@ pub fn snapshot(server: &Server, mut online: Vec<String>) -> Result<PlayersSnaps
         enforce_whitelist: props.get("enforce-whitelist").is_some_and(|value| value == "true"),
         max_players: props.get("max-players").and_then(|value| value.parse().ok()).unwrap_or(20),
         online_mode: props.get("online-mode").map_or(true,|value|value=="true"),
+        authentication_checks: crate::authentication::inspect(server),
     })
 }
 

@@ -45,6 +45,7 @@ mod natpmp_manager;
 pub mod tunnel;
 mod upnp;
 mod players;
+mod authentication;
 mod process;
 mod ticks;
 mod properties;
