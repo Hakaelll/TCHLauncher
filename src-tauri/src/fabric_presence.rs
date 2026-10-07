@@ -49,6 +49,23 @@ fn scan<R:Read+Seek>(archive:&mut zip::ZipArchive<R>,owner:&str,depth:usize,budg
     Ok(())
 }
 
+// Nested JARs are candidates, not automatically selected mods. Follow only
+// uniquely required providers; alternatives remain the loader's decision.
+fn required_candidates(nodes:&[Candidate],providers:&HashMap<&str,Vec<usize>>)->HashSet<usize> {
+    let mut required:HashSet<_>=nodes.iter().enumerate().filter_map(|(index,node)|node.top_level.then_some(index)).collect();
+    let mut pending:std::collections::VecDeque<_>=required.iter().copied().collect();
+    while let Some(index)=pending.pop_front() {
+        for dependency in nodes[index].dependencies.iter().filter(|dependency|dependency.kind=="depends") {
+            if matches!(dependency.id.as_str(),"minecraft"|"java"|"fabricloader") {continue;}
+            let eligible:Vec<_>=providers.get(dependency.id.as_str()).into_iter().flatten().copied()
+                .filter(|&index|crate::fabric_version::matches(&nodes[index].version,&dependency.alternatives)!=Some(false)).collect();
+            if eligible.iter().any(|index|required.contains(index)) {continue;}
+            if eligible.len()==1&&required.insert(eligible[0]) {pending.push_back(eligible[0]);}
+        }
+    }
+    required
+}
+
 pub fn review(base:&Path,files:&[InstalledContent])->Review{
     review_at(base,&base.join("mods"),files)
 }
@@ -73,21 +90,28 @@ pub(crate) fn review_at(base:&Path,content:&Path,files:&[InstalledContent])->Rev
     if complete {
         let mut available:HashSet<&str>=["minecraft","java","fabricloader"].into_iter().collect();
         for node in &nodes{available.insert(&node.id);for alias in &node.provides{available.insert(alias);}}
-        for node in &nodes {
+        let mut providers:HashMap<&str,Vec<usize>>=HashMap::new();
+        for (index,node) in nodes.iter().enumerate() {
+            for id in std::iter::once(&node.id).chain(&node.provides) {
+                let entries=providers.entry(id).or_default();if !entries.contains(&index) {entries.push(index);}
+            }
+        }
+        let required=required_candidates(&nodes,&providers);
+        for (_,node) in nodes.iter().enumerate().filter(|(index,_)|required.contains(index)) {
             for dependency in &node.dependencies {
                 if dependency.kind=="depends"&&!available.contains(dependency.id.as_str()) {
                     let message=format!("Dependencia obligatoria sin proveedor encontrado: {} (requerida por {}). Rango declarado: {}",dependency.id,node.id,dependency.alternatives.join(" o "));
                     blocking.entry(node.owner.clone()).or_default().push(message.clone());
                     let row=issues.entry(node.owner.clone()).or_default();if !row.contains(&message){row.push(message);}
                 }
-                if node.top_level&&matches!(dependency.kind.as_str(),"depends"|"breaks"|"conflicts"){
-                    let providers:Vec<_>=nodes.iter().filter(|candidate|candidate.id==dependency.id||candidate.provides.contains(&dependency.id)).collect();
-                    let outcomes:Vec<_>=providers.iter().map(|candidate|crate::fabric_version::matches(&candidate.version,&dependency.alternatives)).collect();
+                if matches!(dependency.kind.as_str(),"depends"|"breaks"|"conflicts"){
+                    let providers:Vec<_>=providers.get(dependency.id.as_str()).into_iter().flatten().map(|&index|(index,&nodes[index])).collect();
+                    let outcomes:Vec<_>=providers.iter().map(|(_,candidate)|crate::fabric_version::matches(&candidate.version,&dependency.alternatives)).collect();
                     let mismatch=dependency.kind=="depends"&&!providers.is_empty()&&outcomes.iter().all(|result|*result==Some(false));
                     // Optional nested candidates are not evidence that a forbidden mod is selected.
-                    let incompatible=dependency.kind!="depends"&&providers.iter().zip(&outcomes).any(|(candidate,result)|candidate.top_level&&*result==Some(true));
+                    let incompatible=dependency.kind!="depends"&&providers.iter().zip(&outcomes).any(|((index,_),result)|required.contains(index)&&*result==Some(true));
                     if mismatch||incompatible{
-                        let message=if mismatch{format!("Ninguna versión encontrada de {} cumple el requisito de {}: {}. Encontradas: {}",dependency.id,node.id,dependency.alternatives.join(" o "),providers.iter().map(|candidate|candidate.version.as_str()).collect::<Vec<_>>().join(", "))}else{format!("{} declara {} con {} en el rango {}",node.id,if dependency.kind=="breaks"{"incompatibilidad"}else{"conflicto"},dependency.id,dependency.alternatives.join(" o "))};
+                        let message=if mismatch{format!("Ninguna versión encontrada de {} cumple el requisito de {}: {}. Encontradas: {}",dependency.id,node.id,dependency.alternatives.join(" o "),providers.iter().map(|(_,candidate)|candidate.version.as_str()).collect::<Vec<_>>().join(", "))}else{format!("{} declara {} con {} en el rango {}",node.id,if dependency.kind=="breaks"{"incompatibilidad"}else{"conflicto"},dependency.id,dependency.alternatives.join(" o "))};
                         if mismatch||dependency.kind=="breaks" {blocking.entry(node.owner.clone()).or_default().push(message.clone());}
                         let row=issues.entry(node.owner.clone()).or_default();if !row.contains(&message){row.push(message);}
                     }
@@ -95,7 +119,7 @@ pub(crate) fn review_at(base:&Path,content:&Path,files:&[InstalledContent])->Rev
             }
         }
     }
-    Review{issues,blocking,note:if complete{"Dependencias Fabric: presencia revisada y rangos reconocidos de mods principales comprobados; incompatibilidades declaradas entre mods principales revisadas. Java, Minecraft, versión del loader y selección de archivos incluidos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
+    Review{issues,blocking,note:if complete{"Dependencias Fabric: presencia y rangos reconocidos revisados para mods principales y proveedores incluidos obligatorios sin alternativas. Java, Minecraft, versión del loader y selección entre candidatos alternativos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
 }
 
 #[cfg(test)]
@@ -124,7 +148,7 @@ mod tests {
         fs::write(root.join("mods/backpack.jar"),&outer).unwrap();
         let result=audit(&root);let issues=&result.checks[0].issues;
         assert_eq!(issues.len(),1);assert!(issues[0].contains("missingtransitive"));assert!(issues[0].contains("requerida por library"));
-        assert!(result.log_note.contains("presencia revisada"));assert_eq!(fs::read(root.join("mods/backpack.jar")).unwrap(),outer);
+        assert!(result.log_note.contains("presencia y rangos"));assert_eq!(fs::read(root.join("mods/backpack.jar")).unwrap(),outer);
         fs::write(root.join("mods/provider.jar"),jar(serde_json::json!({"schemaVersion":1,"id":"missingtransitive","version":"1"}),vec![])).unwrap();
         assert!(audit(&root).checks.iter().all(|check|check.issues.is_empty()));
         fs::remove_dir_all(root).unwrap();
@@ -168,6 +192,35 @@ mod tests {
         let nested=jar(serde_json::json!({"schemaVersion":1,"id":"optional","version":"1"}),vec![]);
         let main=jar(serde_json::json!({"schemaVersion":1,"id":"mainmod","version":"1","jars":[{"file":"optional.jar"}],"breaks":{"optional":"*"}}),vec![("optional.jar",nested)]);
         fs::write(root.join("mods/main.jar"),main).unwrap();assert!(audit(&root).checks[0].issues.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn unused_nested_dependency_does_not_block_but_unique_required_provider_does(){
+        let root=root();
+        let nested=jar(serde_json::json!({"schemaVersion":1,"id":"optional","version":"1","depends":{"absent":"*"}}),vec![]);
+        for required in [false,true] {
+            let mut value=serde_json::json!({"schemaVersion":1,"id":"mainmod","version":"1","jars":[{"file":"optional.jar"}]});
+            if required {value["depends"]=serde_json::json!({"optional":"*"});}
+            let main=jar(value,vec![("optional.jar",nested.clone())]);
+            fs::write(root.join("mods/main.jar"),&main).unwrap();
+            let files=crate::content_storage::list(&serde_json::from_value(serde_json::json!({"id":"x","name":"x","version":"1.21.4","platform":"fabric","directory":root.to_string_lossy(),"jarPath":null,"javaPath":null,"memoryMinMb":512,"memoryMaxMb":1024,"storageTargetGb":2,"createdAt":"","state":"stopped","imageData":null,"pinned":false})).unwrap()).unwrap();
+            let result=review(&root,&files);
+            assert_eq!(!result.blocking.is_empty(),required);
+            assert_eq!(!audit(&root).checks[0].issues.is_empty(),required);
+            assert_eq!(fs::read(root.join("mods/main.jar")).unwrap(),main);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn alternative_nested_versions_do_not_require_each_candidates_dependencies(){
+        let root=root();
+        let bad=jar(serde_json::json!({"schemaVersion":1,"id":"library","version":"1","depends":{"absent":"*"}}),vec![]);
+        let good=jar(serde_json::json!({"schemaVersion":1,"id":"library","version":"2"}),vec![]);
+        for (range,has_issue) in [("*",false),(">=2",false),("<2",true)] {
+            let main=jar(serde_json::json!({"schemaVersion":1,"id":"mainmod","version":"1","jars":[{"file":"bad.jar"},{"file":"good.jar"}],"depends":{"library":range}}),vec![("bad.jar",bad.clone()),("good.jar",good.clone())]);
+            fs::write(root.join("mods/main.jar"),main).unwrap();
+            assert_eq!(!audit(&root).checks[0].issues.is_empty(),has_issue,"{range}");
+        }
         fs::remove_dir_all(root).unwrap();
     }
     #[test]

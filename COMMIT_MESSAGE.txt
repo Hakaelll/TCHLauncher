@@ -1,1 +1,1 @@
-test: verify real Fabric mod startup and backup restoration
+fix: avoid false Fabric dependency blocks for optional bundled mods

@@ -384,6 +384,27 @@ mod tests {
         assert_eq!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().len(),2);
     }
     #[test]
+    fn enabling_mod_with_unused_nested_candidate_preserves_bytes_and_does_not_false_block(){
+        use std::io::Write;
+        let fixture=Fixture::new();let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();
+        let nested=fixture.root.join("nested.jar");
+        test_jar(&nested,"fabric.mod.json",r#"{"schemaVersion":1,"id":"optional","version":"1","depends":{"absent":"*"}}"#);
+        let path=dir.join("main.jar.disabled");
+        let mut archive=zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        archive.start_file("fabric.mod.json",zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(br#"{"schemaVersion":1,"id":"mainmod","version":"1","jars":[{"file":"nested.jar"}]}"#).unwrap();
+        archive.start_file("nested.jar",zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(&fs::read(nested).unwrap()).unwrap();archive.finish().unwrap();
+        let original=fs::read(&path).unwrap();let digest=hash(&path).unwrap();
+        for enabled in [true,false] {
+            let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();
+            set_enabled_tracked(&fixture.root,&fixture.server,"main.jar",&digest,enabled,&task).unwrap();
+            assert_eq!(fs::read(dir.join(if enabled{"main.jar"}else{"main.jar.disabled"})).unwrap(),original);
+            assert_eq!(list(&fixture.server).unwrap().len(),usize::from(enabled));
+        }
+        assert_eq!(crate::storage::list_backups(&fixture.root,&fixture.server.id).unwrap().len(),2);
+    }
+    #[test]
     fn content_toggle_rejects_stale_hash_collision_and_unsafe_filename_before_backup(){
         let fixture=Fixture::platform("paper");let dir=folder(&fixture.server).unwrap();fs::create_dir(&dir).unwrap();fs::write(dir.join("sample.jar"),b"original").unwrap();
         let digest=hash(&dir.join("sample.jar")).unwrap();let task=DownloadTask::new(&fixture.server.id,"content_toggle",|_|{}).unwrap();

@@ -213,3 +213,31 @@ mod behavior, the friend's missing backpack/structure mods, native interaction,
 physical routing or the full Fabric dependency solver.
 
 Commit: `test: verify real Fabric mod startup and backup restoration`
+
+## Fabric optional bundled dependency correction (not packaged)
+
+The static Fabric review previously checked every bundled candidate's missing
+requirements, even when no main mod required that candidate. This could create a
+false red inventory issue and block activating a valid mod through content
+controls. Review now begins with main mods and follows uniquely required bundled
+providers, matching recognized version ranges and aliases. Unselected optional
+candidates and ambiguous alternatives do not create definite missing-dependency
+or selected-incompatibility claims. Required transitive failures remain attributed
+to the owning top-level JAR.
+
+Provider identities are indexed once; a work queue visits each required candidate
+at most once, including cycles. Partial metadata, read limits and dependency
+overrides still suppress negative conclusions. English/Spanish evidence copy
+states the revised scope. This does not implement Fabric's global candidate
+selection solver; alternative combinations, built-in runtime versions and actual
+loading remain the loader's authority.
+
+Eight dependency archive/audit cases passed, including unused optional candidates,
+unique transitive requirements and alternative versions filtered by ranges.
+Thirteen content storage cases passed, including the production enable/disable
+round trip preserving original JAR bytes and creating safety copies; three
+external integrations were intentionally ignored. Four locale tests, TypeScript,
+production cargo check and diff validation passed. No native visual review,
+new gameplay diagnosis or installer generation is claimed.
+
+Commit: `fix: avoid false Fabric dependency blocks for optional bundled mods`
