@@ -415,3 +415,24 @@ ARCHITECTURE.md no longer describes removed Bore/tunnel source and test modules.
 No production behavior or installer version changes in this iteration.
 
 Commit: `test: verify Paper startup stop and durable stop backups`
+
+## Server configuration organization and search
+
+The server settings save heading is sticky in the current workspace scroller;
+capacity/gameplay controls now precede maintenance. Search filters localized
+property groups, labels/descriptions and native keys without changing drafts,
+handles accents, reveals matching advanced keys and remains available with the
+server running. A server-keyed settings instance clears old search/add drafts
+when switching selection. Existing save/load/dirty guards and all runtime, JVM,
+update, task, image and delete controls remain. Scoped deferred styles preserve
+End tokens and stack the add-property inputs at narrow widths.
+
+Adding a property now refuses duplicate names instead of overwriting an existing
+draft, validates the native 80-character ASCII key and 1024-byte/newline value
+limits, and displays translated inline recovery. Native save validation remains
+authoritative; imported unchanged legacy values are not newly rejected.
+TypeScript, all 105 frontend tests and Windows production Vite pass. New tests
+cover duplicate preservation, UTF-8 limits and localized search. Native visual,
+keyboard and scrolling verification remains open. Installer 0.32.0 is unchanged.
+
+Commit: `feat: make server settings searchable and keep save controls visible`

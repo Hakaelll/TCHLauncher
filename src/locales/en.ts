@@ -1663,4 +1663,12 @@ export const english: Record<string,string> = {
   "Restaurar copia del {0}": "Restore backup from {0}",
   "No hay copias que coincidan con los filtros.": "No backups match these filters.",
 
+  "Buscar ajustes": "Search settings",
+  "Buscar por nombre o propiedad…": "Search by name or property…",
+  "Borrar búsqueda": "Clear search",
+  "No hay ajustes de juego que coincidan con la búsqueda.": "No game settings match this search.",
+  "Java y mantenimiento": "Java and maintenance",
+  "Usa una clave de hasta 80 caracteres: letras, números, puntos, guiones o guiones bajos.": "Use a key of up to 80 characters: letters, numbers, dots, hyphens or underscores.",
+  "La propiedad ya existe. Modifica su valor en la lista.": "This property already exists. Edit its value in the list.",
+  "El valor debe ocupar como máximo 1024 bytes y no contener saltos de línea.": "The value must fit within 1024 bytes and contain no line breaks.",
 }

@@ -68,6 +68,19 @@ collapse button remains. Context menus keep it open until dismissed. Server sect
 wrapping workspace bar. There is no repeated server-image banner. The user reviews
 native appearance manually; no computer use or delegated agents are used.
 
+### Server configuration refinement
+
+Keep the save heading opaque and sticky within the existing scrollable workspace.
+Capacity and gameplay properties precede Java, upgrades and automation controls.
+An enabled search finds localized groups/labels/descriptions and native keys even
+while the server is running; it filters existing properties without changing them.
+Advanced matching keys are revealed during search. A plain clear action restores
+all fields. Search and property-add drafts reset when changing the selected server.
+New property keys cannot overwrite existing values and follow native key/value
+limits, with adjacent readable validation. The End search uses an inset square
+surface and focus outline; narrow windows stack advanced-property inputs.
+These styles load with the deferred settings section. Native review remains manual.
+
 ## Themes and persistence
 
 The default **End** theme uses canvas `#131217`, surface `#1c1b22`, raised surface

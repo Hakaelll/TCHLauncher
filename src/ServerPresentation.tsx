@@ -3,8 +3,9 @@ import type {Server} from './api'
 export {fmtBytes} from './format'
 export const platformName = (platform:Server['platform']) => ({vanilla:'Vanilla',paper:'Paper',fabric:'Fabric',neoforge:'NeoForge'})[platform]
 
-export function Icon({name, size = 18}: {name: 'plus' | 'folder' | 'arrow' | 'back' | 'server' | 'check'; size?: number}) {
+export function Icon({name, size = 18}: {name: 'plus' | 'folder' | 'arrow' | 'back' | 'server' | 'check' | 'search'; size?: number}) {
   const paths = {
+    search: <><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></>,
     plus: <path d="M12 5v14M5 12h14"/>,
     folder: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>,
     arrow: <><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></>,

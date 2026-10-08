@@ -13,7 +13,7 @@ an explicit user instruction. These labels do not imply feature completion.
   level.dat bytes; this is not a full Minecraft client gameplay test.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  103 frontend tests, TypeScript and production Vite passed.
+  105 frontend tests, TypeScript and production Vite passed.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Native keyboard and browsing behavior still require review.
@@ -60,7 +60,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | APP-LOG-01 | REVIEW | Launcher diagnostics | Bounded rotated local JSONL logs implemented. Verify native folder opening and OS-session error reporting. |
 | UX-02 | REVIEW | Server image | Launcher and Minecraft server-icon.png use the selected image. Verify native crop/remove and the Minecraft multiplayer list. |
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |
-| UX-04 | REVIEW | Creation and settings experience | Deferred five-step wizard, seed, pre-start gameplay defaults and preserved controls implemented. Verify native flow, validation, focus and narrow layouts. |
+| UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
 | REL-02 | REVIEW | Current installer | 0.32.0 NSIS x64 generated with verified version/icons/licenses/checksum and 251 native / 102 frontend tests. Native install/upgrade and usage gates remain open. |

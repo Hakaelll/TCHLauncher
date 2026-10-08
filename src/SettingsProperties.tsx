@@ -1,3 +1,4 @@
+import {settingsMatch} from './settingsSearch'
 import {translatedMessage,localizedStatic,t} from './locale.ts'
 type SettingField = {key:string;label:string;description:string;kind:'text'|'number'|'toggle'|'choice';min?:number;max?:number;options?:{value:string;label:string}[]}
 const settingsGroups: {title:string;description:string;fields:SettingField[]}[] = localizedStatic([
@@ -38,10 +39,10 @@ const settingsGroups: {title:string;description:string;fields:SettingField[]}[] 
 ])
 export const knownSettings = new Set(settingsGroups.flatMap(group => group.fields.map(field => field.key)))
 
-export function SettingsPropertyGroups({values,onChange,version}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void;version:string}) {
+export function SettingsPropertyGroups({values,onChange,version,query=''}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void;version:string;query?:string}) {
   const update = (key: string, value: string) => onChange({...values,[key]:value})
-  const groups=settingsGroups.map(group=>({...group,fields:group.fields.filter(field=>Object.hasOwn(values,field.key))})).filter(group=>group.fields.length)
-  return <div className="settings-groups">{groups.map(group=><section className="settings-group" key={group.title} aria-label={group.title}>
+  const groups=settingsGroups.map(group=>({...group,fields:group.fields.filter(field=>Object.hasOwn(values,field.key)&&settingsMatch(query,group.title,field.key,field.label,field.description))})).filter(group=>group.fields.length)
+  return <div className="settings-groups">{query.trim()&&!groups.length&&<p className="empty-inline" role="status">{t("No hay ajustes de juego que coincidan con la búsqueda.")}</p>}{groups.map(group=><section className="settings-group" key={group.title} aria-label={group.title}>
     <div className="settings-group-heading"><h4>{group.title}</h4><p>{translatedMessage(group.description)}</p><span className="settings-field-count">{group.fields.length}  {t("opciones disponibles")}</span></div>
     <div className="settings-fields">{group.fields.map(field=>{
       const value=values[field.key]
