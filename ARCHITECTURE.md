@@ -105,13 +105,12 @@ Each Paper process owns a fresh `ticks::Collector`. Explicit `request_tps` requi
 
 `natpmp.rs` implements bounded connected-UDP exchanges with the selected private IPv4 gateway on port 5351. Address and TCP mapping replies validate version/opcode, exact packet size, result codes, the requested internal port and temporary leases; assigned external ports are retained as reported. Specific deletion uses lifetime/external port zero and forbids internal port zero, avoiding the protocol's all-mappings deletion. Two local tests cover wire parsing/errors and an actual loopback UDP address/open/close exchange. The native manager now persists intents before sending mapping requests, retains assigned external ports, renews confirmed leases halfway to expiry and attempts scoped cleanup after stop, configuration changes or application exit. Failed cleanup stays registered for retry; gateway detection uses the selected interface on Windows and the default route on Linux, with manual IPv4 fallback. Native commands and Connection controls require confirmation and prevent simultaneous UPnP/NAT-PMP registration for a server. A local manager regression verifies renewal, duplicate protection, lost replies, cleanup retry, expiry and stop during creation. Physical-router support, native interaction and remote reachability remain unverified. The protocol follows [RFC 6886](https://www.rfc-editor.org/rfc/rfc6886.html).
 
-## Tunnel integration status
+## Internet access
 
-`tunnel.rs` exports `TunnelProvider` and a manager for optional TCP integrations. Provider registration may be empty and is independent of LAN/UPnP. Requests require explicit confirmation, a valid server UUID and a local TCP endpoint. Provider lease handles are excluded from serialized status. A stopped server during creation queues owned lease cleanup; failed cleanup retains an Attention session for retry, and overlapping cleanup prevents replacement until it finishes. Providers must use bounded worker-thread operations and clean any resources before returning a connection error. The former Bore integration is removed from production in 0.18.0; the contract is retained only in tests. Five local contract/lifecycle tests cover ownership, confirmation, target changes, worker disconnection and cleanup. An explicit public-relay integration test passed with a temporary echo listener; Minecraft gameplay and native interaction remain manual checks.
-
-## Removed Bore integration
-
-At the user's request, 0.18.0 removes the Bore panel, API bindings, native commands, production provider registration and maintenance/shutdown references. `bore.rs` and `tunnel.rs` are compiled only under `cfg(test)` to retain existing protocol/ownership regressions; they are not usable by the shipped launcher. Internet access uses UPnP/NAT-PMP or manual forwarding. No external tunnel replaces Bore.
+Internet access uses UPnP, NAT-PMP or manual router forwarding. Bore and the former
+tunnel manager have been removed, including their production commands and legacy
+test modules. No relay service, account or external tunnel is required. Physical
+router and remote Minecraft client verification remain open; see NEXT_TODOS.md.
 
 ## Process crash diagnostics
 

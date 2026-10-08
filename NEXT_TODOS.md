@@ -13,7 +13,7 @@ an explicit user instruction. These labels do not imply feature completion.
   level.dat bytes; this is not a full Minecraft client gameplay test.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  102 frontend tests, TypeScript and production Vite passed.
+  103 frontend tests, TypeScript and production Vite passed.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Native keyboard and browsing behavior still require review.
@@ -27,10 +27,10 @@ an explicit user instruction. These labels do not imply feature completion.
 | --- | --- | --- | --- |
 | CORE-01 | REVIEW | Multiple servers and persistence | Verify native creation/reselection and simultaneous independent instances; file/SQLite regressions exist. |
 | CORE-02 | REVIEW | Managed downloads and Java | Four real isolated engine installs pass. Verify native download/runtime recovery and custom Java selection. |
-| CORE-03 | REVIEW | Start, console, stop and restart | All four real engines pass three ready/status/command/graceful-stop sessions. Verify native IPC, stop during startup and slow saves. |
+| CORE-03 | REVIEW | Start, console, stop and restart | All four real engines pass three ready/status/command/graceful-stop sessions. Paper startup Stop verified with real Java; verify native IPC and slow saves. |
 | CORE-04 | REVIEW | Properties and capacity | Shared integer limits and recoverable file/SQLite saves implemented. Verify native edits and actual version-specific gameplay rules. |
 | CORE-05 | REVIEW | Backup and restore | Tracked real world restore and restored boot pass for all four engines; level.dat byte equality checked. Verify native restore/retention and interruption. |
-| BACKUP-STOP-01 | REVIEW | Copy after clean stop | Session-bound durable deduplication and file regressions exist. Verify automatic stop-copy with real Minecraft through the app. |
+| BACKUP-STOP-01 | REVIEW | Copy after clean stop | Real Paper exit produces one durable copy without replay; startup-stop is excluded. Verify native observer, immediate restart and window exit. |
 | CORE-06 | REVIEW | Close with active processes | Stop, keep in background and cancel paths implemented. Verify native close/tray lifecycle and process ownership. |
 | CORE-07 | REVIEW | Measured telemetry | CPU, resident RAM, heap, I/O, uptime, storage and startup observations connected. Real Paper TPS response verified across three sessions; verify native plots. |
 | CRASH-DIAG-01 | REVIEW | Crash evidence | Bounded durable session reports and real Java failure/relaunch verified. Verify native recovery actions and actual Minecraft crash cases. |

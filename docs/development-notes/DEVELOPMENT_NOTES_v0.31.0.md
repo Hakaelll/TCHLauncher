@@ -398,3 +398,20 @@ restored-world boot in 154.02 seconds. Native UI/client/router checks remain ope
 These changes are source-only; the existing 0.32.0 installer is unchanged.
 
 Commit: `refactor: share locale formatting and fix Paper TPS responses`
+
+## Real startup stop and stop-copy evidence
+
+The opt-in Paper harness now shares its managed installation setup. A real Paper
+1.21.4 test sends Stop twice while Starting: Java exits gracefully with code zero,
+the application states remain Starting/Stopping/Stopped, and no eligible running
+exit or stop-copy is invented. A subsequent ready/TPS/command/clean-stop session
+feeds its actual exit to the production stop-copy worker. Exactly one ServerStop
+snapshot preserves level.dat bytes; persisted recovery and another worker call do
+not replay it. The registry ends empty. The integration passed in 106.71 seconds;
+both stop-copy filesystem/SQLite regressions also pass. Its temporary library was
+removed. This does not exercise the native scheduler observer, IPC or window exit.
+
+ARCHITECTURE.md no longer describes removed Bore/tunnel source and test modules.
+No production behavior or installer version changes in this iteration.
+
+Commit: `test: verify Paper startup stop and durable stop backups`

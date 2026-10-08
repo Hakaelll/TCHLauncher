@@ -102,7 +102,7 @@ fn neoforge_ready_command_stop_restart_backup_restore() {verify_lifecycle("neofo
 #[ignore="Downloads Java/Vanilla and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
 fn vanilla_ready_command_stop_restart_backup_restore() {verify_lifecycle("vanilla");}
 
-fn verify_lifecycle(platform:&str) {
+fn installed_library(platform:&str)->(Library,Server,u16) {
     let consent_path=std::env::var("TCH_TEST_CONSENT_RECORD").expect("Provide a copy of an already recorded explicit Minecraft EULA acceptance");
     let bytes=fs::read(consent_path).unwrap();assert!(bytes.len()<=4096);
     let consent:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
@@ -127,6 +127,13 @@ fn verify_lifecycle(platform:&str) {
     let installed=storage::get(&library.root,&server.id).unwrap();
     assert!(Path::new(installed.java_path.as_deref().unwrap()).starts_with(library.root.join("runtimes")));
     crate::runtime::validate_configured(&library.root,&installed).unwrap();
+    (library,installed,port)
+}
+
+fn verify_lifecycle(platform:&str) {
+    let (library,installed,port)=installed_library(platform);
+    let directory=Path::new(&installed.directory);
+    let server=&installed;let version=installed.version.as_str();
     let mod_file=if platform=="fabric" {
         let plan=crate::content::plan(&task(&server.id,"content_plan"),&installed,"lithium",None).unwrap();
         let prepared=crate::content_storage::review(&installed,plan).unwrap();
@@ -153,4 +160,43 @@ fn verify_lifecycle(platform:&str) {
     let backups=backup::list_details(&library.root,&server.id).unwrap();assert_eq!(backups.len(),2);
     assert!(backups.iter().any(|copy|copy.reason==Some(backup::Reason::BeforeRestore)));
     println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"modLoadedInAllSessions":mod_file.is_some(),"modRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
+}
+
+#[test]
+#[ignore="Downloads Java/Paper and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn paper_stop_during_startup_then_copy_after_clean_running_stop() {
+    let (library,server,port)=installed_library("paper");
+    let manager=&library.manager;let id=&server.id;
+    let jobs=Arc::new(Mutex::new(HashMap::new()));
+    crate::stop_backup::configure(&library.root,id,true,None).unwrap();
+    let events=Arc::new(Events::default());
+    manager.launch(&server,events.clone(),&crate::jvm::get(&library.root,id).unwrap()).unwrap();
+    assert_eq!(manager.state(id),"starting");
+    manager.request_stop(id,events.as_ref()).unwrap();
+    manager.request_stop(id,events.as_ref()).unwrap(); // Repeated stop is idempotent.
+    wait_for("Paper stop requested during startup",180,&events,||!manager.is_active(id)&&events.contains("Proceso finalizado"));
+    assert_eq!(manager.state(id),"stopped");
+    assert_eq!(*events.states.lock().unwrap(),vec!["starting","stopping","stopped"]);
+    let early_exit=manager.exits()[id].clone();
+    assert!(early_exit.successful&&!early_exit.was_running&&!early_exit.unexpected);
+    assert!(!crate::stop_backup::pending(&library.root,id,&early_exit).unwrap());
+    assert!(!crate::stop_backup::run(&library.root,id,&early_exit,&jobs,|_|{}).unwrap());
+    assert!(backup::list_details(&library.root,id).unwrap().is_empty());
+    let report=crate::crash_diagnostics::load(Path::new(&server.directory),id,&early_exit.token).unwrap().unwrap();
+    assert!(report.stop_requested&&report.output_complete&&!report.forced);assert_eq!(report.exit_code,Some(0));
+    let (session,_)=cycle(&library,&server,port);
+    let exit=manager.exits()[id].clone();assert_eq!(exit.token,session);
+    assert!(crate::stop_backup::pending(&library.root,id,&exit).unwrap());
+    assert!(crate::stop_backup::run(&library.root,id,&exit,&jobs,|_|{}).unwrap());
+    let copies=backup::list_details(&library.root,id).unwrap();assert_eq!(copies.len(),1);
+    assert_eq!(copies[0].reason,Some(backup::Reason::ServerStop));
+    let world=Path::new(&server.directory).join("world/level.dat");
+    assert_eq!(fs::read(world).unwrap(),fs::read(Path::new(&copies[0].backup.path).join("world/level.dat")).unwrap());
+    assert_eq!(crate::stop_backup::status(&library.root,id).unwrap().phase,"completed");
+    crate::stop_backup::recover(&library.root).unwrap();
+    assert!(!crate::stop_backup::pending(&library.root,id,&exit).unwrap());
+    assert!(!crate::stop_backup::run(&library.root,id,&exit,&jobs,|_|{}).unwrap());
+    assert_eq!(backup::list_details(&library.root,id).unwrap().len(),1);
+    assert!(jobs.lock().unwrap().is_empty());
+    println!("PAPER_STOP_COPY_EVIDENCE startupStop=graceful readyAfterStop=false cleanRunningStopCopy=1 replayed=false levelDatMatches=true");
 }
