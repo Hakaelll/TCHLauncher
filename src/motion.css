@@ -5,7 +5,6 @@ button:active:not(:disabled,.server-row,.server-sections button,.wizard-steps bu
 .moving-indicator { transition:transform var(--motion-standard) var(--motion-ease),opacity var(--motion-interaction) var(--motion-ease),width var(--motion-standard) var(--motion-ease),height var(--motion-standard) var(--motion-ease); }
 .server-artwork,.state-dot { transition:background-color var(--motion-standard) var(--motion-ease),border-color var(--motion-interaction) var(--motion-ease),outline-color var(--motion-interaction) var(--motion-ease); }
 .sidebar-tooltip { animation:tooltip-enter var(--motion-interaction) var(--motion-enter); }
-.chart-tooltip { animation:chart-tooltip-enter var(--motion-interaction) var(--motion-enter); }
 .server-context-menu { transform-origin:top left; animation:menu-enter var(--motion-micro) var(--motion-enter); }
 .modal-dialog[open] { animation:dialog-enter var(--motion-standard) var(--motion-enter); }
 .modal-dialog::backdrop { animation:backdrop-enter var(--motion-micro) var(--motion-ease); }
@@ -17,7 +16,6 @@ details::details-content { interpolate-size:allow-keywords; transition:content-v
 details[open]::details-content { block-size:auto; }
 .stage-copy .state-dot.starting,.stage-copy .state-dot.installing,.stage-copy .state-dot.stopping { animation:status-working var(--motion-activity) var(--motion-ease) infinite; }
 @keyframes tooltip-enter { from { opacity:0; transform:translateX(-4px); } to { opacity:1; transform:translateX(0); } }
-@keyframes chart-tooltip-enter { from { opacity:0; } to { opacity:1; } }
 @keyframes menu-enter { from { opacity:0; transform:translateY(-4px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
 @keyframes dialog-enter { from { opacity:0; transform:scale(.985); } to { opacity:1; transform:scale(1); } }
 @keyframes backdrop-enter { from { opacity:0; } to { opacity:1; } }

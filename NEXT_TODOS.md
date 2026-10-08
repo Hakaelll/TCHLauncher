@@ -25,6 +25,8 @@ an explicit user instruction. These labels do not imply feature completion.
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory
   sorting and catalog lookups no longer repeat per icon/result.
+- Removed obsolete interface CSS and exact duplicate rules: Windows initial CSS
+  is 218.04 kB (35.66 kB gzip), down from 225.09 kB. Native comparison remains open.
   Native keyboard and browsing behavior still require review.
 - Current packaged preview is 0.33.0, including the accumulated changes recorded
   after 0.32.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)

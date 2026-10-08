@@ -538,3 +538,25 @@ behavior, mod/plugin migration, other version families or physical networking.
 No production changes or new installer in this test-only iteration.
 
 Commit: `test: verify real world conversion and complete Vanilla rollback`
+
+## Obsolete visual rules removed
+
+The active React surface no longer produces the former sidebar/collapse control,
+legacy installed-content rows/status/actions, chart-switch/tooltip, network-guide
+and old empty/table controls. A reviewed explicit class list removed their selector
+branches, preserving live branches of grouped rules and their declarations. Dynamic
+pixel/glyph classes and functional selector groups were retained. Five exact repeat
+rules in visual.css were removed only when an identical later rule remained in the
+same parent context. The unused chart-tooltip keyframe was also removed.
+
+This removes 8,128 normalized UTF-8 source bytes from four stylesheets and reduces
+the Windows initial CSS from 225.09 to 218.04 kB (gzip 36.78 to 35.66 kB). Initial
+JavaScript remains 460.12 kB. All 106 frontend tests, TypeScript and the Windows
+production Vite build passed. CSS parsing and the reviewed diff provide source
+and build evidence; native rendered/keyboard/theme comparison remains pending.
+No lower runtime RAM, faster frames or connection improvements are claimed.
+These source changes are not yet packaged in the unchanged 0.33.0 installer.
+Local before-files and the removed-selector report are under artifacts/lifecycle
+(ignored), rather than new permanent tooling/dependencies in the repository.
+
+Commit: `refactor: remove obsolete interface styles and duplicate chart rules`
