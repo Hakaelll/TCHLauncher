@@ -11,6 +11,8 @@ an explicit user instruction. These labels do not imply feature completion.
   Minecraft 1.21.4 lifecycle: managed Java/install, three ready/status/command/
   graceful-stop sessions, tracked backup/restore and restored boot. Restore checks
   level.dat bytes; this is not a full Minecraft client gameplay test.
+- Two real Vanilla instances also passed simultaneous ready states, distinct
+  PIDs/ports/directories, isolated commands/logs and independent graceful stops.
 - Paper with managed Chunky also passed three real plugin enablements and
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
@@ -27,7 +29,7 @@ an explicit user instruction. These labels do not imply feature completion.
 
 | ID | Status | Area | Remaining acceptance evidence |
 | --- | --- | --- | --- |
-| CORE-01 | REVIEW | Multiple servers and persistence | Verify native creation/reselection and simultaneous independent instances; file/SQLite regressions exist. |
+| CORE-01 | REVIEW | Multiple servers and persistence | Two real Vanilla processes pass independent simultaneous states/commands/stops. Verify native creation/reselection, event presentation and multi-client gameplay. |
 | CORE-02 | REVIEW | Managed downloads and Java | Four real isolated engine installs pass. Verify native download/runtime recovery and custom Java selection. |
 | CORE-03 | REVIEW | Start, console, stop and restart | All four real engines pass three ready/status/command/graceful-stop sessions. Paper startup Stop verified with real Java; verify native IPC and slow saves. |
 | CORE-04 | REVIEW | Properties and capacity | Shared integer limits and recoverable file/SQLite saves implemented. Verify native edits and actual version-specific gameplay rules. |

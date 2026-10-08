@@ -207,3 +207,67 @@ fn paper_stop_during_startup_then_copy_after_clean_running_stop() {
     assert!(jobs.lock().unwrap().is_empty());
     println!("PAPER_STOP_COPY_EVIDENCE startupStop=graceful readyAfterStop=false cleanRunningStopCopy=1 replayed=false levelDatMatches=true");
 }
+
+#[test]
+#[ignore="Downloads Java/Vanilla and runs two Minecraft instances; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn two_real_servers_keep_processes_commands_and_stops_independent() {
+    let (library,first,first_port)=installed_library("vanilla");
+    let listener=std::net::TcpListener::bind(("127.0.0.1",0)).unwrap();
+    let second_port=listener.local_addr().unwrap().port();assert_ne!(first_port,second_port);
+    let second=storage::create_with_seed(&library.root,CreateServer{name:"Second isolated server".into(),version:first.version.clone(),platform:"vanilla".into(),memory_min_mb:512,memory_max_mb:2048,max_players:3,port:second_port,storage_target_gb:4,image_path:None},Some("84".into())).unwrap();
+    properties::write(&Path::new(&second.directory).join("server.properties"),[
+        ("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),
+        ("simulation-distance".into(),"3".into()),("generate-structures".into(),"false".into()),
+    ].into()).unwrap();
+    eula::require_download_consent(&library.root,&second).unwrap();
+    crate::install::install(&library.root,&second,&task(&second.id,"install")).unwrap();
+    let second=storage::get(&library.root,&second.id).unwrap();
+    assert_ne!(first.id,second.id);assert_ne!(first.directory,second.directory);
+    assert_eq!(first.java_path,second.java_path); // The managed runtime is safely shared.
+    assert_ne!(first.jar_path,second.jar_path);
+    drop(listener);
+    let manager=&library.manager;let a=Arc::new(Events::default());let b=Arc::new(Events::default());
+    manager.launch(&first,a.clone(),&crate::jvm::get(&library.root,&first.id).unwrap()).unwrap();
+    manager.launch(&second,b.clone(),&crate::jvm::get(&library.root,&second.id).unwrap()).unwrap();
+    assert!(manager.launch(&first,a.clone(),&crate::jvm::get(&library.root,&first.id).unwrap()).is_err());
+    for(server,events)in [(&first,&a),(&second,&b)] {
+        wait_for("Simultaneous Minecraft readiness",180,events,||{
+            assert!(manager.is_active(&server.id),"Owned Java exited before readiness");
+            manager.state(&server.id)=="running"
+        });
+    }
+    assert_eq!(manager.active_ids().len(),2);
+    assert_ne!(manager.process_snapshot(&first.id).unwrap().0,manager.process_snapshot(&second.id).unwrap().0);
+    let second_session=manager.session_token(&second.id).unwrap();
+    for(port,maximum)in [(first_port,2),(second_port,3)] {
+        let status=crate::server_ping::query(([127,0,0,1],port).into()).unwrap();
+        assert_eq!(status.online,Some(0));assert_eq!(status.maximum,Some(maximum));
+    }
+    let marker_a=format!("TCH_FIRST_{}",uuid::Uuid::new_v4());let marker_b=format!("TCH_SECOND_{}",uuid::Uuid::new_v4());
+    manager.send(&first.id,&format!("say {marker_a}")).unwrap();manager.send(&second.id,&format!("say {marker_b}")).unwrap();
+    wait_for("First independent console",10,&a,||a.contains(&marker_a));
+    wait_for("Second independent console",10,&b,||b.contains(&marker_b));
+    manager.request_stop(&first.id,a.as_ref()).unwrap();
+    wait_for("First independent stop",60,&a,||!manager.is_active(&first.id)&&a.contains("Proceso finalizado"));
+    assert_eq!(manager.state(&first.id),"stopped");assert_eq!(manager.state(&second.id),"running");
+    assert_eq!(manager.session_token(&second.id).as_deref(),Some(second_session.as_str()));
+    let surviving_marker=format!("TCH_STILL_RUNNING_{}",uuid::Uuid::new_v4());
+    manager.send(&second.id,&format!("say {surviving_marker}")).unwrap();
+    wait_for("Surviving server command",10,&b,||b.contains(&surviving_marker));
+    assert_eq!(crate::server_ping::query(([127,0,0,1],second_port).into()).unwrap().maximum,Some(3));
+    manager.request_stop(&second.id,b.as_ref()).unwrap();
+    wait_for("Second independent stop",60,&b,||!manager.is_active(&second.id)&&b.contains("Proceso finalizado"));
+    assert!(!manager.any_active());assert!(!a.contains(&marker_b)&&!a.contains(&surviving_marker)&&!b.contains(&marker_a));
+    for(server,events)in [(&first,&a),(&second,&b)] {
+        assert_eq!(*events.states.lock().unwrap(),vec!["starting","running","stopping","stopped"]);
+        let exit=manager.exits()[&server.id].clone();assert!(exit.successful&&exit.was_running&&!exit.unexpected);
+        let report=crate::crash_diagnostics::load(Path::new(&server.directory),&server.id,&exit.token).unwrap().unwrap();
+        assert_eq!(report.exit_code,Some(0));assert!(report.stop_requested&&report.output_complete&&!report.forced);
+        let log=fs::read_to_string(Path::new(&server.directory).join("launcher-logs/latest.log")).unwrap();
+        assert!(log.contains(if server.id==first.id {&marker_a}else{&marker_b}));
+        assert!(!log.contains(if server.id==first.id {&marker_b}else{&marker_a}));
+    }
+    assert_eq!(properties::read(&Path::new(&first.directory).join("server.properties")).unwrap()["level-seed"],"42");
+    assert_eq!(properties::read(&Path::new(&second.directory).join("server.properties")).unwrap()["level-seed"],"84");
+    println!("MULTI_SERVER_EVIDENCE simultaneous=2 distinctPids=true distinctDirectories=true separateLogs=true survivingCommand=true gracefulStops=2");
+}

@@ -456,3 +456,21 @@ plugin's installation/loading, not every plugin, its in-game features, native IP
 client gameplay or physical internet access. Installer 0.32.0 remains unchanged.
 
 Commit: `test: verify real Paper plugin loading and backup restoration`
+
+## Two real independent server processes
+
+The opt-in Vanilla 1.21.4 integration installs two managed server directories with
+separate JAR paths, ports, seeds and player limits, while reusing the verified Java
+runtime. Both actual Java PIDs reach Running at once. Duplicate launch is rejected;
+SLP reports each server's configured limit. Unique commands appear only in their
+own callback logs and persisted launcher logs. After the first clean stop, the
+second retains its session, answers a new command and still responds to SLP. Both
+finally stop with code zero, complete output reports and no owned process left.
+The integration passed in 60.12 seconds; its temporary library was removed and
+the durable local transcript is artifacts/lifecycle/multiple-servers.log (ignored).
+
+This proves the production process/console/file path for two Vanilla instances,
+not native UI event presentation, player login or multi-server gameplay. No
+production behavior or installer changes in this test-only iteration.
+
+Commit: `test: verify independent simultaneous Minecraft servers`
