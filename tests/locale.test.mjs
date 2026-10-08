@@ -1,7 +1,7 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {english} from '../src/locales/en.ts'
-import {getLanguage,initializeLanguage,languageKey,languageSaved,localizedStatic,readLanguage,setLanguage,subscribeLanguage,t,translatedMessage,writeLanguage,formatNumber,formatDate} from '../src/locale.ts'
+import {getLanguage,initializeLanguage,languageKey,languageSaved,localizedStatic,readLanguage,setLanguage,subscribeLanguage,t,translatedMessage,writeLanguage,formatNumber,formatDate,formatTime,formatLogTime} from '../src/locale.ts'
 
 const storage=()=>{const data=new Map();return {getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)}}
 test('language survives reload, invalid storage falls back and storage failure leaves the choice usable',()=>{
@@ -50,4 +50,21 @@ test('date formatting follows the selected language for Date, timestamp and stor
     for(const value of [date,date.getTime(),date.toISOString()])assert.equal(formatDate(value,options),expected)
   }
   setLanguage('es',null)
+})
+
+test('clock formatting follows language changes and explicit row language with retained precision',()=>{
+  const date=new Date('2026-10-08T12:34:56Z')
+  for(const options of [{timeZone:'UTC'},{timeZone:'UTC',hour:'2-digit',minute:'2-digit'},{timeZone:'UTC',hour:'2-digit',minute:'2-digit',second:'2-digit'}]) {
+    for(const [language,locale] of [['en','en-US'],['es','es-ES']]) {
+      setLanguage(language,null)
+      for(const value of [date,date.getTime(),date.toISOString()])assert.equal(formatTime(value,options),date.toLocaleTimeString(locale,options))
+      setLanguage(language==='en'?'es':'en',null)
+      assert.equal(formatTime(date,options,language),date.toLocaleTimeString(locale,options))
+    }
+  }
+  setLanguage('es',null)
+  assert.equal(formatLogTime(null),'—')
+  assert.equal(formatLogTime('not-a-Timestamp'),'—')
+  assert.equal(formatLogTime('12:34:56'),'12:34:56')
+  for(const seconds of [false,true])assert.equal(formatLogTime(date.toISOString(),seconds,'en'),formatTime(date,{hour:'2-digit',minute:'2-digit',...(seconds?{second:'2-digit'}:{})},'en'))
 })

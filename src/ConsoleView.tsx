@@ -1,5 +1,5 @@
-import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {translatedMessage,localizedStatic,t,getLanguage,type Language,formatLogTime as clockTime} from './locale.ts'
+import { memo, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, type ServerState } from './api'
 import { motion, reducedMotion } from './motion'
 import {rememberCommand,recallCommand,countLogLevels} from './consoleTools'
@@ -10,12 +10,9 @@ const levels = localizedStatic([
   ['chat','Chat'], ['command',t("Comandos")], ['warn',t("Avisos")], ['error',t("Errores")],
 ] as const)
 
-function clockTime(timestamp: string | null) {
-  if (!timestamp) return '—'
-  if (!timestamp.includes('T')) return timestamp
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
-}
+const ConsoleRow=memo(function ConsoleRow({item,language}:{item:ConsoleLine;language:Language}){
+  return <div className={`log-line ${item.level}`}><time dateTime={item.timestamp?.includes('T') ? item.timestamp : undefined}>{clockTime(item.timestamp,true,language)}</time><span className="log-level">{item.level}</span><span className="log-message">{item.message}</span></div>
+})
 
 export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,historyError,onReload,initialQuery=''}: {
   initialQuery?: string;
@@ -89,7 +86,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const copy = async () => {
     const current=scope.current
     try {
-      await navigator.clipboard.writeText(visible.map(item => `${clockTime(item.timestamp)}  ${item.level.toUpperCase()}  ${item.line}`).join('\n'))
+      await navigator.clipboard.writeText(visible.map(item => `${clockTime(item.timestamp,true)}  ${item.level.toUpperCase()}  ${item.line}`).join('\n'))
       if(currentScope(current))setNotice(t("{0} líneas copiadas.", visible.length))
     } catch {if(currentScope(current))setNotice(t("No se pudo copiar. Selecciona las líneas y usa Ctrl+C."))}
   }
@@ -110,7 +107,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
     <div className="console-tools"><label className="search-label">{t("Buscar")}<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("Texto del log")}/></label><div className="console-tool-actions"><button className="text-button" disabled={!visible.length} onClick={copy}>{t("Copiar vista")}</button><button className="text-button" disabled={exporting || !logs.length} onClick={exportFile}>{exporting ? t("Exportando…") : t("Exportar log")}</button><button className="text-button" disabled={!visible.length && clearedThrough===null} onClick={() => { if (clearedThrough!==null) setClearedThrough(null); else setClearedThrough(consoleBoundary(logs,serverId)); setNotice(null) }}>{clearedThrough!==null ? t("Mostrar historial") : t("Limpiar vista")}</button></div></div>
     <div className="console-filters" role="group" aria-label={t("Filtrar categorías del log")}>{levels.map(([value,label])=><button key={value} className={`console-filter ${value}`} aria-pressed={level===value} onClick={()=>setLevel(value)}><span className="console-filter-mark" aria-hidden="true"/>{translatedMessage(label)}<span className="console-filter-count">{counts[value]??0}</span></button>)}</div>
     <div className="log-window" ref={windowRef} role="log" tabIndex={0} aria-label={t("Salida del servidor")} aria-live="off" onKeyDown={event=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key))pauseFollowing()}} onWheel={pauseFollowing} onTouchStart={pauseFollowing} onPointerDown={pauseFollowing} onScroll={event => { const el = event.currentTarget; if (!automaticScroll.current && el.scrollHeight - el.scrollTop - el.clientHeight > 48) setFollowing(false) }}>
-      {visible.length ? visible.map((item,index) => <div className={`log-line ${item.level}`} key={`${item.timestamp ?? 'legacy'}-${index}`}><time dateTime={item.timestamp?.includes('T') ? item.timestamp : undefined}>{clockTime(item.timestamp)}</time><span className="log-level">{item.level}</span><span className="log-message">{item.message}</span></div>) : <div className="log-empty">{clearedThrough!==null ? t("Vista limpia. Las nuevas líneas aparecerán aquí.") : query || level !== 'all' ? t("No hay líneas que coincidan con el filtro.") : historyError ? t("El historial no está disponible. Puedes reintentar su lectura.") : historyLoading ? t("Leyendo el historial del servidor…") : t("Aún no hay salida. Inicia el servidor para ver su actividad.")}</div>}
+      {visible.length ? visible.map(item => <ConsoleRow key={item.arrival} item={item} language={getLanguage()}/>) : <div className="log-empty">{clearedThrough!==null ? t("Vista limpia. Las nuevas líneas aparecerán aquí.") : query || level !== 'all' ? t("No hay líneas que coincidan con el filtro.") : historyError ? t("El historial no está disponible. Puedes reintentar su lectura.") : historyLoading ? t("Leyendo el historial del servidor…") : t("Aún no hay salida. Inicia el servidor para ver su actividad.")}</div>}
     </div>
     <div className={`console-follow ${following?'following':'paused'}`}><span><i aria-hidden="true"/>{following?t("Seguimiento activo"):t("Seguimiento pausado")}</span>{!following&&<small>{t("Las nuevas líneas siguen llegando.")}</small>}<button aria-pressed={following} onClick={()=>following?pauseFollowing():setFollowing(true)}>{following?t("Dejar de seguir"):t("Ir a las últimas líneas")}</button></div>
     {notice && <p className="console-notice" role="status">{translatedMessage(notice)}</p>}

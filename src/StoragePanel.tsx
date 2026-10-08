@@ -1,5 +1,5 @@
 import {errorText,fmtBytes} from './format'
-import {translatedMessage,t} from './locale.ts'
+import {translatedMessage,t,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type Server,type StorageUsage} from './api'
 import {SliderField} from './SliderField'
@@ -40,7 +40,7 @@ export function StoragePanel({server,busy}:{server:Server;busy:boolean}){
       <dl className="storage-breakdown">{categories.map(item=><div key={item.kind}><dt><span className={`storage-key ${item.kind}`} aria-hidden="true"/>{translatedMessage(item.label)}</dt><dd>{bytes(item.value)}</dd></div>)}<div className="storage-backups"><dt>{t("Copias y archivos en preparación")}</dt><dd>{bytes(usage.backupBytes)}</dd></div></dl>
       <dl className="data-list storage-volumes"><div><dt>{t("Libre en el disco del servidor")}</dt><dd>{usage.serverVolume?`${bytes(usage.serverVolume.availableBytes)} / ${bytes(usage.serverVolume.totalBytes)}`:t("No disponible")}</dd></div><div><dt>{t("Libre en el disco de las copias")}</dt><dd>{usage.backupVolume?`${bytes(usage.backupVolume.availableBytes)} / ${bytes(usage.backupVolume.totalBytes)}`:t("No disponible")}</dd></div></dl>
       {warning&&<p className="storage-threshold-warning" role="status">{t("El servidor ha alcanzado el")} {usage.warningPercent}  {t("% del objetivo de espacio. Revisa los mundos, el contenido o los logs.")}</p>}
-      <p className="field-help">{t("Medición de")} {new Date(usage.sampledAt).toLocaleTimeString()}{t(". El tamaño puede variar mientras el servidor está activo.")}{usage.skippedLinks>0&&` No se incluyeron ${usage.skippedLinks} enlaces simbólicos.`}</p>
+      <p className="field-help">{t("Medición de")} {formatTime(usage.sampledAt)}{t(". El tamaño puede variar mientras el servidor está activo.")}{usage.skippedLinks>0&&` No se incluyeron ${usage.skippedLinks} enlaces simbólicos.`}</p>
     </>}
     <fieldset className="storage-warning-controls" disabled={loading||saving||busy||saved===null}><SliderField id="storage-warning-percent" label="Avisar al alcanzar" value={draft} min={1} max={100} maxInput={100} step={1} unit="%" onChange={setDraft}/><p className="field-help">{t("Porcentaje del objetivo de")} {server.storageTargetGb}  {t("GB. Activa un aviso; no limita el disco ni elimina archivos.")}</p><button disabled={draft===saved||!Number.isInteger(draft)||draft<1||draft>100} onClick={()=>void save()}>{saving?t("Guardando…"):t("Guardar aviso")}</button>{notice&&<p className="field-help" role="status">{translatedMessage(notice)}</p>}</fieldset>
   </section>

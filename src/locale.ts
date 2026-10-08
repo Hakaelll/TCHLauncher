@@ -56,3 +56,11 @@ export function localizedStatic<T extends object>(value:T):T {
 export function formatNumber(value:number,options?:Intl.NumberFormatOptions){return new Intl.NumberFormat(language==='en'?'en-US':'es-ES',options).format(value)}
 export function formatDate(value:Date|string|number,options?:Intl.DateTimeFormatOptions){return new Date(value).toLocaleString(language==='en'?'en-US':'es-ES',options)}
 export function translatedMessage<T>(value:T):T {return (typeof value==='string'?t(value):value) as T}
+
+export function formatTime(value:Date|string|number,options?:Intl.DateTimeFormatOptions,locale=language){return new Date(value).toLocaleTimeString(locale==='en'?'en-US':'es-ES',options)}
+export function formatLogTime(value:string|null,seconds=false,locale=language){
+  if(!value)return '—'
+  if(!value.includes('T'))return value
+  const date=new Date(value)
+  return Number.isNaN(date.getTime())?'—':formatTime(date,{hour:'2-digit',minute:'2-digit',...(seconds?{second:'2-digit'}:{})},locale)
+}

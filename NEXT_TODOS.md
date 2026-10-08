@@ -20,11 +20,14 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  106 frontend tests, TypeScript and production Vite passed.
+  108 frontend tests, TypeScript and production Vite passed.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory
   sorting and catalog lookups no longer repeat per icon/result.
+- Console rows retain identities at the 1,000-line limit and skip unchanged row
+  rendering; clock/log formatting is shared. Source/build checks cover identity
+  and locale behavior; native frame-time/RAM measurements remain pending.
 - Removed obsolete interface CSS and exact duplicate rules: Windows initial CSS
   is 218.04 kB (35.66 kB gzip), down from 225.09 kB. Native comparison remains open.
   Native keyboard and browsing behavior still require review.

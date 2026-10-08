@@ -1,11 +1,11 @@
 import {errorText} from './format'
-import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
+import {translatedMessage,localizedStatic,t,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NetworkSnapshot,type RouterStatus,type Server} from './api'
 import {Modal} from './Modal'
 
 const phaseLabels=localizedStatic({pending:'Comprobando apertura',active:'Apertura confirmada por el router',closing:'Retirada pendiente',attention:'Requiere revisión'})
-const clock=(time:number)=>new Date(time).toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+const clock=(time:number)=>formatTime(time,{hour:'2-digit',minute:'2-digit',second:'2-digit'})
 
 export function RouterPanel({server,network}:{server:Server;network:NetworkSnapshot|null}) {
   const [status,setStatus]=useState<RouterStatus|null>(null)

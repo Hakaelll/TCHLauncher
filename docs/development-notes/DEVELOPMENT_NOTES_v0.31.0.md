@@ -560,3 +560,30 @@ Local before-files and the removed-selector report are under artifacts/lifecycle
 (ignored), rather than new permanent tooling/dependencies in the repository.
 
 Commit: `refactor: remove obsolete interface styles and duplicate chart rules`
+
+## Console identities and shared clock formatting
+
+Disk-history occurrences now receive distinct negative client identities; live
+arrivals keep their positive identities. Reconciliation retains matched objects
+and IDs, including duplicate lines. Console rows use these stable keys and React
+memoization with an explicit language prop. Appending at the 1,000-row limit retains
+all 999 surviving row identities instead of shifting their index-based keys.
+Typing commands or changing unrelated controls no longer reexecutes unchanged row
+markup/time formatting. Search, copy/export, selectable text and clear boundaries
+retain their behavior. Native timestamps and disk logs are unchanged.
+
+Removed one redundant bounded-array copy per log batch. Shared clock/log-time
+formatting replaces repeated date/locale handling across eight components; NAT-PMP
+also reuses the existing error formatter. Clock precision and legacy/invalid log
+handling are retained; lease/storage/TPS clocks now follow the selected language.
+Production source is 186 normalized UTF-8 bytes smaller overall, despite the added
+identity/memoization safeguards. No new dependency or permanent audit script.
+
+All 108 frontend tests, TypeScript and the Windows production Vite build passed.
+New regression coverage checks duplicate historical identities, retention at the
+capacity limit, clear/refresh boundaries, language changes and timestamp precision.
+Initial Windows JavaScript is 460.09 kB (previously 460.12); CSS remains 218.04 kB.
+This is source/build evidence, not a measured native frame-rate/RAM improvement.
+The existing 0.33.0 installer has not been regenerated for these source changes.
+
+Commit: `perf: preserve console rows and share clock formatting`

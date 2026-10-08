@@ -1,4 +1,4 @@
-import {translatedMessage,t,getLanguage,formatNumber} from './locale.ts'
+import {translatedMessage,t,formatNumber,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type Server,type ServerResponse} from './api'
 
@@ -22,7 +22,7 @@ export function ServerResponsePanel({server}:{server:Server}){
   return <div className="server-response" aria-busy={checking}>
     <div className="section-heading"><div><h3>{t("Respuesta de Minecraft")}</h3><p>{t("Latencia y respuesta del servidor en este equipo.")}</p></div><button disabled={!available||checking} onClick={()=>void check()}>{checking?t("Comprobando…"):t("Comprobar respuesta")}</button></div>
     {error&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
-    {response&&<><dl className="data-list"><div><dt>{t("Latencia local")}</dt><dd>{formatNumber(response.latencyMs,{maximumFractionDigits:1})} ms</dd></div><div><dt>{t("Versión anunciada")}</dt><dd>{response.version??t("No publicada")}</dd></div><div><dt>{t("Jugadores publicados")}</dt><dd>{response.online??'—'} / {response.maximum??'—'}</dd></div></dl><p className="field-help" role="status">{t("Respuesta recibida de")} {response.address}  {t("a las")} {new Date(response.sampledAt).toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES')}.</p></>}
+    {response&&<><dl className="data-list"><div><dt>{t("Latencia local")}</dt><dd>{formatNumber(response.latencyMs,{maximumFractionDigits:1})} ms</dd></div><div><dt>{t("Versión anunciada")}</dt><dd>{response.version??t("No publicada")}</dd></div><div><dt>{t("Jugadores publicados")}</dt><dd>{response.online??'—'} / {response.maximum??'—'}</dd></div></dl><p className="field-help" role="status">{t("Respuesta recibida de")} {response.address}  {t("a las")} {formatTime(response.sampledAt)}.</p></>}
     <p className="field-help">{!available?t("Inicia el servidor para comprobarlo. "):''}{t("Es una consulta local, no el ping de tus amigos ni una comprobación de acceso desde internet.")}</p>
   </div>
 }

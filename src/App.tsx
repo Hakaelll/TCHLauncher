@@ -1,6 +1,6 @@
 import {focusSearch} from './focusSearch'
 import {errorText} from './format'
-import {translatedMessage,localizedStatic,t,getLanguage,formatDate} from './locale.ts'
+import {translatedMessage,localizedStatic,t,formatDate,formatLogTime as eventTime} from './locale.ts'
 import {acknowledgedAction} from './acknowledgedAction'
 import {useLanguage} from './useLanguage'
 import {createLogBatch} from './logBatch'
@@ -534,12 +534,6 @@ const eventLabels: Record<string,string> = localizedStatic({
   warning:'Aviso', error:'Error', exception:'Excepción', plugin_error:'Error de plugin',
   mod_error:'Error de mod', crash:'Cierre inesperado', exit:'Proceso finalizado',
 })
-const eventTime = (timestamp: string | null) => {
-  if (!timestamp) return '—'
-  if (!timestamp.includes('T')) return timestamp
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString(getLanguage()==='en'?'en-US':'es-ES',{hour:'2-digit',minute:'2-digit'})
-}
 
 function Overview({server,metrics,observedPhase,players,playersStale,logs,backups,backupsStatus,eula,busy,onAccept,onInstall,onConsole,onSettings,onContent}: {
   observedPhase?:StartupEvent['phase']; server: Server; metrics: Metrics | null; players: PlayersSnapshot | null; playersStale:boolean; logs: LogLine[]; backups: Backup[]; backupsStatus:string|null;

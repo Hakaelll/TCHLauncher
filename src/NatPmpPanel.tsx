@@ -1,9 +1,9 @@
-import {translatedMessage,localizedStatic,t} from './locale.ts'
+import {errorText} from './format'
+import {translatedMessage,localizedStatic,t,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NatPmpDetection,type NatPmpRecord,type NetworkSnapshot,type Server} from './api'
 import {Modal} from './Modal'
 
-const text=(cause:unknown)=>cause instanceof Error?cause.message:String(cause)
 const phases=localizedStatic({pending:'Comprobando apertura',active:'Apertura confirmada por el router',closing:'Retirada pendiente',attention:'Requiere revisión'})
 export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnapshot|null}){
   const [loaded,setLoaded]=useState(0)
@@ -21,7 +21,7 @@ export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnaps
     const refresh=async()=>{
       if(inFlight.current)return
       const current=++revision.current;inFlight.current=true
-      try{const value=await api.natpmpStatus(server.id);if(alive.current&&current===revision.current)setRecord(value)}catch(cause){if(alive.current&&current===revision.current)setError(text(cause))}finally{inFlight.current=false;if(alive.current)setLoaded(value=>value+1)}
+      try{const value=await api.natpmpStatus(server.id);if(alive.current&&current===revision.current)setRecord(value)}catch(cause){if(alive.current&&current===revision.current)setError(errorText(cause))}finally{inFlight.current=false;if(alive.current)setLoaded(value=>value+1)}
     }
     void refresh();const timer=setInterval(()=>void refresh(),5000)
     return()=>{alive.current=false;++revision.current;clearInterval(timer)}
@@ -29,7 +29,7 @@ export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnaps
   const act=async(operation:()=>Promise<void>)=>{
     if(inFlight.current)return
     inFlight.current=true;++revision.current;setBusy(true);setError(null)
-    try{await operation()}catch(cause){if(alive.current)setError(text(cause))}
+    try{await operation()}catch(cause){if(alive.current)setError(errorText(cause))}
     finally{
       try{const value=await api.natpmpStatus(server.id);if(alive.current)setRecord(value)}catch{/* Keep the operation error. */}
       inFlight.current=false;if(alive.current)setBusy(false)
@@ -50,7 +50,7 @@ export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnaps
     {error&&<p className="muted-note" role="status">{translatedMessage(error)} <button className="text-button" disabled={busy||!!record} onClick={()=>void detect()}>{t("Volver a comprobar")}</button></p>}
     {detection&&!record&&<dl className="data-list network-facts"><div><dt>{t("Router compatible")}</dt><dd>{detection.gateway}</dd></div><div><dt>{t("IP externa del router")}</dt><dd>{detection.externalIp}</dd></div></dl>}
     {detection?.publicAddress===false&&!record&&<p className="muted-note">{t("IP externa no pública: puede haber otro router o CGNAT.")}</p>}
-    {record?<><p className="router-mapping-status" role="status"><span className={`state-dot ${record.phase==='active'&&record.expiresAt>Date.now()?'running':'starting'}`} aria-hidden="true"/>{record.expiresAt<=Date.now()?t("Concesión vencida; pendiente de revisión"):phases[record.phase]}</p><dl className="data-list network-facts"><div><dt>{t("Destino local")}</dt><dd>{record.localIp}:{record.internalPort}</dd></div><div><dt>Router</dt><dd>{record.gateway}</dd></div><div><dt>{t("Fin de concesión")}</dt><dd>{new Date(record.expiresAt).toLocaleTimeString()}</dd></div></dl>{address&&<div className="network-address-row"><input readOnly aria-label={t("Dirección externa NAT-PMP")} value={address} onFocus={event=>event.currentTarget.select()}/><button onClick={()=>void copy()}>{copied?t("Copiada"):t("Copiar")}</button></div>}{record.lastError&&<p className="network-error">{translatedMessage(record.lastError)}</p>}<button disabled={busy} onClick={()=>void act(async()=>{await api.closeNatpmp(server.id);if(alive.current){setConsent(null);setCopied(false)}})}>{t("Retirar apertura NAT-PMP")}</button></>:<button className="primary-button" disabled={busy||!canOpen} onClick={()=>{if(detection&&network?.localIp)setConsent({gateway:detection.gateway,ip:network.localIp,port:network.port})}}>{t("Abrir con NAT-PMP")}</button>}
+    {record?<><p className="router-mapping-status" role="status"><span className={`state-dot ${record.phase==='active'&&record.expiresAt>Date.now()?'running':'starting'}`} aria-hidden="true"/>{record.expiresAt<=Date.now()?t("Concesión vencida; pendiente de revisión"):phases[record.phase]}</p><dl className="data-list network-facts"><div><dt>{t("Destino local")}</dt><dd>{record.localIp}:{record.internalPort}</dd></div><div><dt>Router</dt><dd>{record.gateway}</dd></div><div><dt>{t("Fin de concesión")}</dt><dd>{formatTime(record.expiresAt)}</dd></div></dl>{address&&<div className="network-address-row"><input readOnly aria-label={t("Dirección externa NAT-PMP")} value={address} onFocus={event=>event.currentTarget.select()}/><button onClick={()=>void copy()}>{copied?t("Copiada"):t("Copiar")}</button></div>}{record.lastError&&<p className="network-error">{translatedMessage(record.lastError)}</p>}<button disabled={busy} onClick={()=>void act(async()=>{await api.closeNatpmp(server.id);if(alive.current){setConsent(null);setCopied(false)}})}>{t("Retirar apertura NAT-PMP")}</button></>:<button className="primary-button" disabled={busy||!canOpen} onClick={()=>{if(detection&&network?.localIp)setConsent({gateway:detection.gateway,ip:network.localIp,port:network.port})}}>{t("Abrir con NAT-PMP")}</button>}
 
     {consent&&<Modal labelledBy="natpmp-confirm-title" busy={busy} onClose={()=>setConsent(null)}><h2 id="natpmp-confirm-title">{t("Abrir el puerto con NAT-PMP")}</h2><p>{t("El router")} {consent.gateway}  {t("dirigirá conexiones entrantes hacia")} {consent.ip}:{consent.port}{t(". Puede asignar un puerto externo diferente. Se gestionará la concesión TCP de este destino; se renueva mientras el servidor está activo y se intenta retirar al detenerlo. No cambia el firewall ni comprueba el acceso desde internet.")}</p>{error&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}<div className="modal-actions"><button data-modal-close disabled={busy}>{t("Cancelar")}</button><button className="primary-button" disabled={busy||server.state!=='running'} onClick={()=>void act(async()=>{await api.openNatpmp(server.id,consent.gateway,consent.ip,consent.port);if(alive.current)setConsent(null)})}>{busy?t("Abriendo…"):t("Confirmar apertura temporal")}</button></div></Modal>}
   </section>
