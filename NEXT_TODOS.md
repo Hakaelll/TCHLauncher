@@ -24,7 +24,7 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  110 frontend tests, TypeScript and production Vite passed.
+  112 frontend tests, TypeScript and Windows production Vite passed.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory

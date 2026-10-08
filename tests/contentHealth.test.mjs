@@ -109,3 +109,31 @@ test('prepared diagnostics are isolated snapshots reusable across files and new 
   assert.deepEqual(contentSignalsFromDiagnostics(file,check,prepareContentDiagnostics([])),[])
   assert.deepEqual(contentSignalsFromDiagnostics(file,check,diagnostics),original)
 })
+
+test('Windows Paper prompts and ANSI preserve severity without treating chat or INFO as evidence',()=>{
+  const error=line('Error occurred while enabling Better Backpack v1','info','> > \r  \r\x1b[31m[12:00:00 ERROR]: \x1b[0m')
+  const snapshot=JSON.stringify(error)
+  assert.equal(contentSignals(file,check,[error])[0].level,'error')
+  assert.equal(JSON.stringify(error),snapshot)
+  const warning=line("Mod 'backpack' needs a library",'info','> > [12:00:00 WARN]: ')
+  assert.equal(contentSignals(file,check,[warning])[0].level,'warn')
+  const continuation=line("- Mod 'Backpack' (backpack) requires library",'info','')
+  const info=line('Starting world','error','> > [12:00:01 INFO]: ')
+  assert.deepEqual(contentSignals(file,check,[info,continuation]),[])
+  assert.deepEqual(contentSignals(file,check,[error,info,continuation]).map(signal=>signal.level),['error'])
+  assert.deepEqual(contentSignals(file,check,[line('<player> mod backpack failed','error','> [12:00:01 ERROR]: ')]),[])
+  assert.deepEqual(contentSignals(file,check,[line('> > [ERROR] mod backpack failed','info','[12:00:01 INFO]: ')]),[])
+})
+
+test('large diagnostic bursts retain the latest error and latest distinct warning occurrences',()=>{
+  const error=line("Mod 'backpack' failed")
+  const warnings=Array.from({length:1000},(_,i)=>line(`Mod 'backpack' warning ${i}`,'warn','[12:00:01 WARN]: '))
+  const repeated={...warnings[0],timestamp:'2026-10-05T12:00:02Z'}
+  const signals=contentSignals(file,check,[error,...warnings,repeated])
+  assert.equal(signals.length,3)
+  assert.deepEqual(signals.map(signal=>signal.message),[repeated.message,warnings[999].message,error.message])
+  assert.equal(signals[0].timestamp,repeated.timestamp)
+  assert.equal(contentStatus(check,signals),'error')
+  const repeatedError={...error,timestamp:'2026-10-05T12:00:03Z'}
+  assert.equal(contentSignals(file,check,[error,...warnings,repeatedError])[0].timestamp,repeatedError.timestamp)
+})

@@ -691,3 +691,23 @@ JavaScript is 459.94 kB, down from 460.01; deferred Console/ResourceMonitor/Play
 chunks also shrink. CSS remains 218.04 kB. Native compiler caches were not rebuilt,
 and no new installer or native visual/performance claim accompanies this cleanup.
 Commit: `refactor: share error formatting and remove unused artwork`
+
+## Bounded mod evidence and Windows Paper diagnostics
+
+Frontend diagnostics now strip leading Windows Paper terminal prompts only before
+bracketed log headers, after ANSI removal. This restores severity recognition for
+plugin enablement errors without changing console/disk logs. INFO headers still
+reset continuation evidence; player chat and embedded severity text remain excluded.
+
+Per-file evidence retains at most three recent distinct signals during matching,
+plus the latest error when it falls outside that window. Deduplication examines the
+bounded window instead of an accumulating history; final large-array copies are
+removed. A repeated old message receives its latest timestamp. This bounds working
+storage without claiming measured application RAM or frame-time improvements.
+
+All 112 frontend tests, TypeScript and Windows production Vite pass. Regression
+cases cover prompted/ANSI Paper logs, INFO/chat exclusion and a 1,000-warning burst
+with an earlier error and repeated occurrences. Initial JavaScript remains
+459.94 kB and CSS 218.04 kB; the deferred content chunk is 44.41 kB. No native cache
+rebuild, installer regeneration or native UI/client verification in this iteration.
+Commit: `fix: recognize Windows plugin diagnostics and bound mod evidence`
