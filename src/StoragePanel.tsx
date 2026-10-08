@@ -1,10 +1,10 @@
-import {errorText} from './format'
+import {errorText,fmtBytes} from './format'
 import {translatedMessage,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type Server,type StorageUsage} from './api'
 import {SliderField} from './SliderField'
 
-const bytes=(value:number)=>value>=1024**3?`${(value/1024**3).toFixed(2)} GB`:value>=1024**2?`${(value/1024**2).toFixed(1)} MB`:`${Math.round(value/1024)} KB`
+const bytes=(value:number)=>fmtBytes(value,2)
 export function StoragePanel({server,busy}:{server:Server;busy:boolean}){
   const [usage,setUsage]=useState<StorageUsage|null>(null)
   const [loading,setLoading]=useState(true)

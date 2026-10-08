@@ -474,3 +474,17 @@ not native UI event presentation, player login or multi-server gameplay. No
 production behavior or installer changes in this test-only iteration.
 
 Commit: `test: verify independent simultaneous Minecraft servers`
+
+## Windows preview 0.33.0 and incremental cleanup
+
+The accumulated settings, locale, Paper TPS and real-engine evidence above are
+packaged in preview 0.33.0. Storage now uses the shared byte formatter with its
+existing two-decimal GB precision. Chart limits avoid mapped timestamp arrays
+and flattened/filtered memory arrays while preserving unavailable readings,
+server/process isolation and the configured-memory fallback. Across these three
+frontend files, normalized UTF-8 source decreases by 26 bytes; this small cleanup
+is not a runtime memory benchmark. All 105 frontend tests and TypeScript pass.
+Native suite: 251 passed, 36 conditional integrations ignored. Package evidence
+and remaining native/client/router limits are recorded in the 0.33.0 release notes.
+
+Commit: `refactor: streamline chart calculations and package Windows preview 0.33.0`

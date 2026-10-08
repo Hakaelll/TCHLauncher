@@ -6,7 +6,7 @@ export const measured=(value:unknown):value is number=>typeof value==='number'&&
 export function chartSamples(history:MetricSample[],serverId:string,pid:number|null|undefined,windowMs:number):MetricSample[] {
   if(pid==null)return []
   const matching=history.filter(sample=>sample.serverId===serverId&&sample.pid===pid&&Number.isFinite(sample.sampledAt))
-  const latest=Math.max(...matching.map(sample=>sample.sampledAt))
+  const latest=matching.reduce((latest,sample)=>Math.max(latest,sample.sampledAt),-Infinity)
   return matching.filter(sample=>sample.sampledAt>=latest-windowMs).sort((a,b)=>a.sampledAt-b.sampledAt)
 }
 
@@ -23,7 +23,7 @@ export function stepSample(samples:MetricSample[],time:number|null,key:'ArrowLef
 
 /** Fit measured memory to the viewport; Xmx is a fallback, not a resident RAM limit. */
 export function memoryDomain(samples:MetricSample[],configuredBytes:number):number {
-  const values=samples.flatMap(sample=>[sample.memoryBytes,sample.heapUsedBytes]).filter(measured)
-  const peak=Math.max(0,...values)
+  let peak=0
+  for(const sample of samples)peak=Math.max(peak,measured(sample.memoryBytes)?sample.memoryBytes:0,measured(sample.heapUsedBytes)?sample.heapUsedBytes:0)
   return peak>0?peak*1.1:Math.max(configuredBytes,1)
 }
