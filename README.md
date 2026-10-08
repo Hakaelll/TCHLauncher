@@ -88,6 +88,14 @@ Offline Cargo commands require dependencies to have been fetched previously. Som
 
 NSIS installers are generated under `src-tauri/target/release/bundle/nsis/`. Build outputs are ignored by Git; generating an installer locally does not publish a GitHub release.
 
+### Build storage
+
+`src-tauri/target/` contains regenerable compiler output, not installed servers or the application's download size. Repeated debug builds can accumulate large caches. Development and test builds disable debug symbols and incremental caches by default to limit disk usage; recompilation can take longer. Release settings are unaffected.
+
+After stopping Cargo and the development application, `cargo clean --manifest-path src-tauri/Cargo.toml` removes compiler output, **including locally generated installers**. Copy any installers you want to keep outside `target/` first. It does not remove source files or the user's application library.
+
+For source-level debugging, enable symbols explicitly with `cargo build --manifest-path src-tauri/Cargo.toml --config profile.dev.debug=2`. These symbols use additional disk space.
+
 To check the embedded application and installer icons from PowerShell:
 
 ```powershell

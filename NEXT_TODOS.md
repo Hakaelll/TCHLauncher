@@ -38,6 +38,9 @@ an explicit user instruction. These labels do not imply feature completion.
 - Removed obsolete interface CSS and exact duplicate rules: Windows initial CSS
   is 218.04 kB (35.66 kB gzip), down from 225.09 kB. Native comparison remains open.
   Native keyboard and browsing behavior still require review.
+- Development compiler caches were removed: workspace logical size fell from
+  65.238 GiB to 297.9 MiB; installers/executable hashes unchanged. Dev/test symbols
+  and incremental caches are disabled; release profile remains unchanged.
 - Current packaged preview is 0.33.0, including the accumulated changes recorded
   after 0.32.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).

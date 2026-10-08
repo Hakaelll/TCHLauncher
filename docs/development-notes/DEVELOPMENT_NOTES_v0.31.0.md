@@ -643,3 +643,33 @@ populated Paper dimension migration. Those acceptance gates remain open. No
 production changes, frontend changes or regenerated installer in this iteration.
 
 Commit: `test: verify real Fabric world and content round trip`
+
+## Development workspace storage cleanup
+
+The user's folder-size report was reproduced with a no-symlink filesystem scan:
+70,048,605,663 logical bytes (65.238 GiB), 54,038 files. Compiler output accounted
+for 61.320 GiB in target/debug and 3.676 GiB in target/release. No Cargo/rustc or
+TCHLauncher process was running. Resolved cache paths were checked beneath the
+workspace target directory and redirected roots were refused before deletion.
+
+Removed target/debug and release build/deps/fingerprint/incremental/examples
+caches plus the editor build cache. Preserved the release executable, 0.33.0 and
+0.32.0 installers, legal resources and checksums. SHA-256 comparisons confirm the
+three binaries are unchanged. Source, Git history, dependencies, fixture evidence
+and the user's application library were retained.
+
+The same scan after cleanup measured 312,320,916 logical bytes (297.9 MiB), 2,170
+files: 64.947 GiB removed, a 99.55% reduction. Logical file sizes are reported;
+filesystem allocation and hard links can differ. Ignored evidence is stored in
+artifacts/lifecycle/storage-cleanup.json and preserved-builds.json.
+
+Cargo's development profile now sets debug=0 and incremental=false; test inherits
+the development profile. Debug assertions, overflow checks, panic handling and the
+release profile remain at their existing settings. Cargo metadata accepts the
+manifest offline. This limits regenerable development output at the cost of source
+symbols and longer rebuilds. README documents cleanup, installer preservation and
+explicit symbol-enabled debugging. No native rebuild was run solely to regenerate
+the removed caches; the preceding 251-test native suite remains the latest run.
+
+Reference: https://doc.rust-lang.org/cargo/reference/profiles.html
+Commit: `build: limit development artifacts and document cache cleanup`

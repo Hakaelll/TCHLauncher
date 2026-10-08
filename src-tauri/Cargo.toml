@@ -40,3 +40,8 @@ image = {version = "0.25",default-features = false,features = ["png", "jpeg", "w
 winreg = "0.55.0"
 webview2-com = "0.39.1"
 windows-core = "0.62.2"
+
+# Tests inherit this profile. Keep rebuildable development output small.
+[profile.dev]
+debug = 0
+incremental = false
