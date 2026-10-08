@@ -16,6 +16,10 @@ an explicit user instruction. These labels do not imply feature completion.
 - Vanilla 1.21.4 to 1.21.5 also passed a generated-world conversion and rollback:
   all 20 original world-file hashes and JAR bytes restored, converted safety copy
   preserved, managed Java reverified and three real ready/command/clean-stop sessions.
+- Fabric/Lithium world-plus-content ZIP also passes a real second-instance import
+  and boot: 23 manifest hashes verified, all 20 world files equal before boot and
+  the source unchanged. This follows the archive's manual content-copy instructions,
+  not an automatic combined-archive importer or native UI/client test.
 - Paper with managed Chunky also passed three real plugin enablements and
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
@@ -63,7 +67,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | IMPORT-01 | REVIEW | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |
 | PLAYER-01 | REVIEW | Players and permissions | File inventories, online commands, UUID/skin evidence, whitelist import, OP and bans connected. Verify live action outcomes and imported Minehut account identity on the actual host. |
-| WORLD-01 | REVIEW | World operations and combined export | Import/export, world-plus-content ZIP, duplicate, activate, backup and confirmed deletion connected. Verify native/client round trips and dimensions. |
+| WORLD-01 | REVIEW | World operations and combined export | Real Fabric/Lithium ZIP export/import into a second instance passes all world hashes before boot and loaded-mod startup. Verify native/client round trips, other content and populated dimensions. |
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Verify connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |

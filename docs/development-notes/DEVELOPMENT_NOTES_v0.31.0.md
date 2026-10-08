@@ -610,3 +610,36 @@ RAM/frame timing and the reported Internet stalls still require host evidence.
 The existing 0.33.0 installer has not been regenerated for these source changes.
 
 Commit: `perf: share network polling and pause hidden observations`
+
+## Real Fabric world and content export/import
+
+Added an opt-in integration through the production install/process/content and
+tracked world-export/import/activation functions. A real Fabric Minecraft 1.21.4
+server with managed Lithium generates and saves a world, answers a nonce command
+and stops cleanly. The shared ZIP records the actual engine/version and verifies
+all 23 listed file sizes and SHA-256 hashes. Extracted world hashes match all 20
+original files and the two files in mods/ match byte-for-byte. The archive has
+only its listed world/content/config records plus manifest and instructions.
+
+A separately created Fabric instance installs its own launcher, imports the
+extracted world under a different name, selects it with a safety copy, and receives
+the exported mods/config as described by the archive instructions. All imported
+world hashes match before boot. It then reaches actual Running, reports Lithium,
+answers Minecraft status and a nonce command, and stops with code zero and complete
+output. No default world is generated in place of the selected world. Mod bytes
+remain equal and the original server's world stays unchanged throughout.
+
+The integration passed in 87.85 seconds; startup times were 25,647 and 19,984 ms.
+Its isolated library and copied existing consent were verified removed. No new
+EULA acceptance was recorded. Local evidence: artifacts/lifecycle/world-content.log
+(ignored). The existing streamed file-hash helper is shared with the world-upgrade
+test to avoid duplicate verification code. The native regression suite also passes:
+251 passed, 38 opt-in tests ignored, zero failures (66.59 seconds).
+
+This verifies one real Fabric/Lithium round trip through native functions, including
+the archive's documented manual content-copy step. It does not establish a native
+UI round trip, automatic combined-archive import, Minecraft-client gameplay or
+populated Paper dimension migration. Those acceptance gates remain open. No
+production changes, frontend changes or regenerated installer in this iteration.
+
+Commit: `test: verify real Fabric world and content round trip`

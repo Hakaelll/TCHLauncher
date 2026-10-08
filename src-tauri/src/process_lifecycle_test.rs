@@ -276,19 +276,6 @@ fn two_real_servers_keep_processes_commands_and_stops_independent() {
 #[test]
 #[ignore="Downloads Java/Vanilla and upgrades a real world; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
 fn vanilla_generated_world_upgrade_and_full_world_rollback() {
-    use sha2::{Digest,Sha256};
-    use std::{collections::BTreeMap,io::Read};
-    let world_hashes=|base:&Path| {
-        let mut files=BTreeMap::new();let mut buffer=[0u8;65536];
-        for entry in walkdir::WalkDir::new(base) {
-            let entry=entry.unwrap();assert!(!entry.file_type().is_symlink());
-            if !entry.file_type().is_file(){continue;}
-            let mut input=fs::File::open(entry.path()).unwrap();let mut hash=Sha256::new();
-            loop {let count=input.read(&mut buffer).unwrap();if count==0{break;}hash.update(&buffer[..count]);}
-            files.insert(entry.path().strip_prefix(base).unwrap().to_path_buf(),format!("{:x}",hash.finalize()));
-        }
-        files
-    };
     let (library,before,port)=installed_library("vanilla");
     assert_eq!(before.version,"1.21.4","This conversion fixture starts with Minecraft 1.21.4");
     let directory=Path::new(&before.directory);let world=directory.join("world");
@@ -296,7 +283,7 @@ fn vanilla_generated_world_upgrade_and_full_world_rollback() {
     let custom=crate::jvm::Settings{mode:"custom".into(),arguments:"-Dfile.encoding=UTF-8".into()};
     crate::jvm::save(&library.root,&before.id,&custom).unwrap();
     let original_session=cycle(&library,&before,port,None);
-    let original=world_hashes(&world);
+    let original=file_hashes(&world);
     assert!(original.contains_key(Path::new("level.dat")));
     assert!(original.keys().any(|path|path.extension().is_some_and(|extension|extension=="mca")),"No generated region files");
     let old_jar=fs::read(before.jar_path.as_ref().unwrap()).unwrap();
@@ -307,32 +294,32 @@ fn vanilla_generated_world_upgrade_and_full_world_rollback() {
     assert!(!reviewed.warnings.is_empty());
     assert!(crate::minecraft_update::update(&library.root,&before.id,target,&reviewed.fingerprint,false,&operation).is_err());
     assert!(backup::list_details(&library.root,&before.id).unwrap().is_empty());
-    assert_eq!(world_hashes(&world),original,"Unconfirmed conversion changed the world");
+    assert_eq!(file_hashes(&world),original,"Unconfirmed conversion changed the world");
     eula::require_download_consent(&library.root,&before).unwrap();
     crate::minecraft_update::update(&library.root,&before.id,target,&reviewed.fingerprint,true,&operation).unwrap();
     let updated=storage::get(&library.root,&before.id).unwrap();
     assert_eq!(updated.version,target);assert_eq!(updated.java_path,before.java_path);
     assert_eq!(crate::jvm::get(&library.root,&before.id).unwrap(),custom);
     assert_eq!(fs::read(directory.join("server.properties")).unwrap(),config);
-    assert_eq!(world_hashes(&world),original,"Publishing the new engine changed the unbooted world");
+    assert_eq!(file_hashes(&world),original,"Publishing the new engine changed the unbooted world");
     let copies=backup::list_details(&library.root,&before.id).unwrap();assert_eq!(copies.len(),1);
     let saved=&copies[0];assert_eq!(saved.reason,Some(backup::Reason::BeforeMinecraftUpdate));
     assert_eq!(saved.minecraft_version.as_deref(),Some("1.21.4"));assert!(saved.metadata_error.is_none());
-    assert_eq!(world_hashes(&Path::new(&saved.backup.path).join("world")),original);
+    assert_eq!(file_hashes(&Path::new(&saved.backup.path).join("world")),original);
     crate::runtime::validate_configured(&library.root,&updated).unwrap();
     let upgrade_session=cycle(&library,&updated,port,None);assert_ne!(original_session.0,upgrade_session.0);
-    let converted=world_hashes(&world);assert_ne!(converted.get(Path::new("level.dat")),original.get(Path::new("level.dat")));
+    let converted=file_hashes(&world);assert_ne!(converted.get(Path::new("level.dat")),original.get(Path::new("level.dat")));
     backup::restore_tracked(&library.root,&before.id,&saved.backup.id,&task(&before.id,"restore")).unwrap();
     let restored=storage::get(&library.root,&before.id).unwrap();
     assert_eq!(restored.version,"1.21.4");assert!(restored.java_path.is_none());
-    assert_eq!(world_hashes(&world),original,"Rollback did not restore every world file");
+    assert_eq!(file_hashes(&world),original,"Rollback did not restore every world file");
     assert_eq!(fs::read(restored.jar_path.as_ref().unwrap()).unwrap(),old_jar);
     assert_eq!(fs::read(directory.join("server.properties")).unwrap(),config);
     assert_eq!(crate::jvm::get(&library.root,&before.id).unwrap(),custom);
     let copies=backup::list_details(&library.root,&before.id).unwrap();assert_eq!(copies.len(),2);
     let safety=copies.iter().find(|copy|copy.reason==Some(backup::Reason::BeforeRestore)).unwrap();
     assert_eq!(safety.minecraft_version.as_deref(),Some(target));
-    assert_eq!(world_hashes(&Path::new(&safety.backup.path).join("world")),converted);
+    assert_eq!(file_hashes(&Path::new(&safety.backup.path).join("world")),converted);
     // Use the normal managed-runtime preparation after a cross-version restore.
     crate::install::prepare_runtime(&library.root,&restored,&task(&before.id,"runtime"),false).unwrap();
     let restored=storage::get(&library.root,&before.id).unwrap();
@@ -341,4 +328,78 @@ fn vanilla_generated_world_upgrade_and_full_world_rollback() {
     let (_,stage,old,journal)=crate::instance_publication::paths(&library.root,&restored).unwrap();
     assert!(!stage.exists()&&!old.exists()&&!journal.exists());assert!(eula::recorded(&library.root).unwrap());
     println!("WORLD_UPGRADE_EVIDENCE {}",serde_json::json!({"from":before.version,"to":target,"worldFiles":original.len(),"allWorldHashesRestored":true,"convertedSafetyCopyPreserved":true,"originalJarRestored":true,"verifiedSessions":3,"startupMilliseconds":[original_session.1,upgrade_session.1,rollback_session.1],"runtimeReverified":true,"backups":copies.len()}));
+}
+
+fn file_hashes(base:&Path)->std::collections::BTreeMap<PathBuf,String> {
+    use sha2::{Digest,Sha256};
+    use std::{collections::BTreeMap,io::Read};
+    let mut files=BTreeMap::new();let mut buffer=[0u8;65536];
+    for entry in walkdir::WalkDir::new(base) {
+        let entry=entry.unwrap();assert!(!entry.file_type().is_symlink());
+        if !entry.file_type().is_file(){continue;}
+        let mut input=fs::File::open(entry.path()).unwrap();let mut hash=Sha256::new();
+        loop {let count=input.read(&mut buffer).unwrap();if count==0{break;}hash.update(&buffer[..count]);}
+        files.insert(entry.path().strip_prefix(base).unwrap().to_path_buf(),format!("{:x}",hash.finalize()));
+    }
+    files
+}
+
+#[test]
+#[ignore="Downloads Java/Fabric/Lithium and round-trips a real world; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn fabric_world_and_mods_export_import_then_real_boot() {
+    use sha2::{Digest,Sha256};
+    use std::{collections::{BTreeMap,HashMap},io::Read};
+    let (library,source,port)=installed_library("fabric");
+    let plan=crate::content::plan(&task(&source.id,"content_plan"),&source,"lithium",None).unwrap();
+    let reviewed=crate::content_storage::review(&source,plan).unwrap();
+    crate::content_storage::install(&library.root,&source,&reviewed,&task(&source.id,"content_install")).unwrap();
+    let original_session=cycle(&library,&source,port,Some("- lithium "));
+    let source_dir=Path::new(&source.directory);
+    let original_world=file_hashes(&source_dir.join("world"));
+    let original_mods=file_hashes(&source_dir.join("mods"));
+    assert!(!original_mods.is_empty());
+    assert!(original_world.keys().any(|path|path.extension().is_some_and(|ext|ext=="mca")));
+    let jobs:crate::file_tasks::Registry=Arc::new(Mutex::new(HashMap::new()));
+    let destination=library.root.join("world-and-mods.zip");
+    crate::file_tasks::export_world_bundle(&source,"world",&destination,true,&jobs,|_|{}).unwrap();
+    assert!(jobs.lock().unwrap().is_empty());
+    let mut archive=zip::ZipArchive::new(fs::File::open(&destination).unwrap()).unwrap();
+    let manifest:serde_json::Value=serde_json::from_reader(archive.by_name("tch-export.json").unwrap()).unwrap();
+    assert_eq!(manifest["minecraftVersion"],source.version);assert_eq!(manifest["platform"],"fabric");
+    assert_eq!(manifest["worldFolders"],serde_json::json!(["world"]));
+    let mut recorded=BTreeMap::new();let mut buffer=[0u8;65536];
+    for record in manifest["files"].as_array().unwrap() {
+        let name=record["path"].as_str().unwrap();crate::modpack::relative_path(name).unwrap();
+        assert!(name.starts_with("worlds/world/")||name.starts_with("mods/")||name.starts_with("config/")||name.starts_with("defaultconfigs/"));
+        let mut entry=archive.by_name(name).unwrap();let mut hash=Sha256::new();let mut bytes=0u64;
+        loop {let count=entry.read(&mut buffer).unwrap();if count==0{break;}hash.update(&buffer[..count]);bytes+=count as u64;}
+        assert_eq!(bytes,record["bytes"].as_u64().unwrap());
+        assert_eq!(format!("{:x}",hash.finalize()),record["sha256"].as_str().unwrap());
+        assert!(recorded.insert(name.to_owned(),bytes).is_none());
+    }
+    assert_eq!(archive.len(),recorded.len()+2);
+    let extracted=library.root.join("extracted");archive.extract(&extracted).unwrap();drop(archive);
+    assert_eq!(file_hashes(&extracted.join("worlds/world")),original_world);
+    assert_eq!(file_hashes(&extracted.join("mods")),original_mods);
+    assert_eq!(file_hashes(&source_dir.join("world")),original_world);
+    let target_port=std::net::TcpListener::bind(("127.0.0.1",0)).unwrap().local_addr().unwrap().port();
+    let target=storage::create_with_seed(&library.root,CreateServer{name:"Imported shared world".into(),version:source.version.clone(),platform:"fabric".into(),memory_min_mb:512,memory_max_mb:2048,max_players:2,port:target_port,storage_target_gb:4,image_path:None},Some("84".into())).unwrap();
+    eula::require_download_consent(&library.root,&target).unwrap();
+    crate::install::install(&library.root,&target,&task(&target.id,"install")).unwrap();
+    let target=storage::get(&library.root,&target.id).unwrap();let target_dir=Path::new(&target.directory);
+    properties::write(&target_dir.join("server.properties"),[("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),("simulation-distance".into(),"3".into())].into()).unwrap();
+    crate::file_tasks::import_world(&target,&extracted.join("worlds/world"),"Shared world",&jobs,|_|{}).unwrap();
+    crate::file_tasks::set_active_world(&library.root,&target,"Shared world",&jobs,|_|{}).unwrap();
+    for folder in ["mods","config","defaultconfigs"] {
+        if extracted.join(folder).exists(){backup::copy_tree(&extracted.join(folder),&target_dir.join(folder)).unwrap();assert_eq!(file_hashes(&extracted.join(folder)),file_hashes(&target_dir.join(folder)));}
+    }
+    assert_eq!(file_hashes(&target_dir.join("Shared world")),original_world);
+    assert_eq!(properties::read(&target_dir.join("server.properties")).unwrap()["level-name"],"Shared world");
+    assert!(crate::world::list(&target).unwrap().iter().any(|world|world.name=="Shared world"&&world.active));
+    crate::runtime::validate_configured(&library.root,&target).unwrap();
+    let imported_session=cycle(&library,&target,target_port,Some("- lithium "));
+    assert!(!target_dir.join("world").exists());assert!(target_dir.join("Shared world/level.dat").is_file());
+    assert_eq!(file_hashes(&target_dir.join("mods")),original_mods);assert!(jobs.lock().unwrap().is_empty());
+    assert_eq!(file_hashes(&source_dir.join("world")),original_world);
+    println!("WORLD_CONTENT_EVIDENCE {}",serde_json::json!({"platform":"fabric","minecraft":source.version,"mod":"lithium","worldFiles":original_world.len(),"modFiles":original_mods.len(),"manifestHashesVerified":recorded.len(),"importedWorldHashesEqualBeforeBoot":true,"sourceWorldUnchanged":true,"verifiedSessions":2,"startupMilliseconds":[original_session.1,imported_session.1]}));
 }
