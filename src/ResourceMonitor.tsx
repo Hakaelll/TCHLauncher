@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {translatedMessage,t,formatNumber,formatTime} from './locale.ts'
 import {PixelIcon} from './PixelIndicators'
 import {ServerResponsePanel} from './ServerResponsePanel'
@@ -80,7 +81,7 @@ function TickMonitor({server,metrics}:{server:Server;metrics:Metrics|null}){
   useEffect(()=>{if(reading)setWaiting(false)},[reading?.sampledAt])
   const query=async()=>{
     setError(null);setWaiting(true)
-    try{await api.requestTps(server.id);setRequested(true)}catch(cause){setWaiting(false);setError(cause instanceof Error?cause.message:String(cause))}
+    try{await api.requestTps(server.id);setRequested(true)}catch(cause){setWaiting(false);setError(errorText(cause))}
   }
   const pending=waiting||metrics?.tps?.pending
   return <section className="tick-monitor" aria-label={t("TPS del servidor")}><div className="section-heading"><div><h3>{t("Ritmo del servidor")}</h3><p>{server.platform==='paper'?t("Medias de TPS comunicadas por Paper. Objetivo habitual: 20."):t("Este motor no ofrece una fuente de TPS integrada.")}</p></div>{server.platform==='paper'&&<button disabled={server.state!=='running'||!!pending} onClick={()=>void query()}>{pending?t("Consultando…"):t("Consultar TPS")}</button>}</div>
@@ -98,7 +99,7 @@ function MemoryExport({id}:{id:string}) {
     if(inFlight.current)return
     inFlight.current=true;setBusy(true);setError(null);setSaved(null)
     try{const path=await api.exportMemoryReport(id);if(active.current)setSaved(path)}
-    catch(cause){if(active.current)setError(cause instanceof Error?cause.message:String(cause))}
+    catch(cause){if(active.current)setError(errorText(cause))}
     finally{inFlight.current=false;if(active.current)setBusy(false)}
   }
   return <><div className="section-heading"><h3>{t("Memoria de Java")}</h3><button disabled={busy} onClick={()=>void save()}>{busy?t("Guardando…"):t("Exportar diagnóstico")}</button></div>

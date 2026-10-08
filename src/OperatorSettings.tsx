@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {translatedMessage,t} from './locale.ts'
 import {useEffect,useId,useRef,useState,type FormEvent} from 'react'
 import {api,type Operator,type Server} from './api'
@@ -30,7 +31,7 @@ export function OperatorSettings({server,operator,disabled,onRefresh}:{server:Se
       setState(operatorDraft(identity,acknowledged))
       setSaved(t("Permisos guardados. Copia anterior: {0}", copy))
       try{await onRefresh()}catch{if(current.active&&scope.current===current)setError(t("Los permisos se guardaron, pero no se pudo actualizar la lista."))}
-    }catch(cause){if(current.active&&scope.current===current)setError(cause instanceof Error?cause.message:String(cause))}
+    }catch(cause){if(current.active&&scope.current===current)setError(errorText(cause))}
     finally{current.saving=false;if(current.active&&scope.current===current)setSaving(false)}
   }
   return <details className="operator-settings"><summary>{t("Permisos de")} {operator.name}</summary>

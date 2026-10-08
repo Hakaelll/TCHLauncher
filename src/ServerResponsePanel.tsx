@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {translatedMessage,t,formatNumber,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type Server,type ServerResponse} from './api'
@@ -16,7 +17,7 @@ export function ServerResponsePanel({server}:{server:Server}){
     if(inFlight.current||!available)return
     inFlight.current=true;const request=++sequence.current;setChecking(true);setError(null);setResponse(null)
     try{const value=await api.serverResponse(server.id);if(request===sequence.current)setResponse(value)}
-    catch(cause){if(request===sequence.current)setError(cause instanceof Error?cause.message:String(cause))}
+    catch(cause){if(request===sequence.current)setError(errorText(cause))}
     finally{if(request===sequence.current){inFlight.current=false;setChecking(false)}}
   }
   return <div className="server-response" aria-busy={checking}>

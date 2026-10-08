@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useState,type CSSProperties} from 'react'
 import {api} from './api'
@@ -45,7 +46,7 @@ export function DiagnosticsSettings(){
   const openLogs=async()=>{
     if(openingLogs)return
     setOpeningLogs(true);setLogError(null)
-    try{await api.openApplicationLogs()}catch(error){setLogError(error instanceof Error?error.message:String(error))}finally{setOpeningLogs(false)}
+    try{await api.openApplicationLogs()}catch(error){setLogError(errorText(error))}finally{setOpeningLogs(false)}
   }
   return <section className="application-diagnostics" aria-label={t("Diagnóstico y atajos")}>
     <section className="preference-diagnostics" aria-labelledby="diagnostics-title"><h2 id="diagnostics-title">{t("Diagnóstico")}</h2><p>{t("Logs del launcher con inicio, cierre y estados de los servidores. Se conservan el registro actual y uno anterior, hasta 2 MB cada uno. La consola de Minecraft se consulta en su servidor.")}</p><button disabled={openingLogs} onClick={()=>void openLogs()}>{openingLogs?t("Abriendo…"):t("Abrir logs de la aplicación")}</button>{logError&&<p className="form-error" role="alert">{translatedMessage(logError)}</p>}</section>

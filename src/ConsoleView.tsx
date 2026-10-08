@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {translatedMessage,localizedStatic,t,getLanguage,type Language,formatLogTime as clockTime} from './locale.ts'
 import { memo, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, type ServerState } from './api'
@@ -80,7 +81,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
         setCommandHistory(previous=>rememberCommand(previous,sent));setHistoryCursor(null);historyDraft.current=''
         setCommand(previous=>previous.trim()===sent?'':previous)
       }
-    }catch(cause){if(currentScope(current))setNotice(cause instanceof Error?cause.message:String(cause))}
+    }catch(cause){if(currentScope(current))setNotice(errorText(cause))}
     finally{current.sending=false;if(currentScope(current))setSending(false)}
   }
   const copy = async () => {
@@ -98,7 +99,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
     try {
       const destination = await api.exportLog(current.id)
       if(destination&&currentScope(current))setNotice(t("Log exportado: {0}",destination))
-    } catch (error) {if(currentScope(current))setNotice(error instanceof Error ? error.message : String(error))}
+    } catch (error) {if(currentScope(current))setNotice(errorText(error))}
     finally {current.exporting=false;if(currentScope(current))setExporting(false)}
   }
   return <section className="console-view">

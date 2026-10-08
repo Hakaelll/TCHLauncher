@@ -16,7 +16,7 @@ These assets were produced with the built-in imagegen tool, then integrated into
 | `src/assets/choice-import.png` | Production 256px inventory illustration |
 | `src/assets/choice-pack.png` | Production 256px inventory illustration |
 
-Full-size generated inventory artwork is retained in `src/assets/choice-world-original.png`, `choice-import-original.png` and `choice-pack-original.png`. These illustrations are decoration for real create/import actions. They do not represent an actual server or bundled game item.
+Only the production-size inventory artwork is retained in the current tree. Unused full-size originals were removed to keep the workspace smaller and remain recoverable from Git history. The original logo and its full-size cutout are retained for provenance and native icon generation. These illustrations decorate real create/import actions; they do not represent an actual server or bundled game item.
 
 ## Prompts
 

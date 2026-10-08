@@ -673,3 +673,21 @@ the removed caches; the preceding 251-test native suite remains the latest run.
 
 Reference: https://doc.rust-lang.org/cargo/reference/profiles.html
 Commit: `build: limit development artifacts and document cache cleanup`
+
+## Shared error formatting and unused artwork
+
+Eleven identical error-message branches across eight modules now use the existing
+errorText helper. Error objects retain message text; other rejection values retain
+String conversion. Read revisions, mutation acknowledgements, retries and translated
+display stay unchanged. This removes 74 normalized source bytes after imports.
+
+Removed three unused full-resolution inventory illustrations (3,679,975 bytes).
+Their production PNGs remain byte-identical in the Vite output; source logo/cutout
+remain available for icon generation and provenance. The removed originals are
+recoverable from Git history; asset documentation now explains the current layout.
+
+All 110 frontend tests, TypeScript and Windows production Vite pass. Initial
+JavaScript is 459.94 kB, down from 460.01; deferred Console/ResourceMonitor/Players
+chunks also shrink. CSS remains 218.04 kB. Native compiler caches were not rebuilt,
+and no new installer or native visual/performance claim accompanies this cleanup.
+Commit: `refactor: share error formatting and remove unused artwork`

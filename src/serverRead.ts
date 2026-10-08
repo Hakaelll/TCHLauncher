@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 export type ServerRead<T>={serverId:string|null;data:T|null;loading:boolean;error:string|null}
 export function emptyServerRead<T>():ServerRead<T>{return {serverId:null,data:null,loading:false,error:null}}
 export function createServerRead<T>(read:(id:string)=>Promise<T>,publish:(state:ServerRead<T>)=>void){
@@ -15,7 +16,7 @@ export function createServerRead<T>(read:(id:string)=>Promise<T>,publish:(state:
         if(active&&ticket===revision&&state.serverId===id)emit({serverId:id,data,loading:false,error:null})
       }catch(error){
         if(!active||ticket!==revision||state.serverId!==id)return
-        emit({...state,loading:false,error:error instanceof Error?error.message:String(error)})
+        emit({...state,loading:false,error:errorText(error)})
         throw error
       }
     },

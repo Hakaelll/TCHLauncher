@@ -1,3 +1,4 @@
+import {errorText} from './format.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type PlayerIdentity,type WhitelistImport} from './api'
 import {t,translatedMessage} from './locale'
@@ -20,7 +21,7 @@ export function WhitelistImportReview({whitelisted,running,disabled,onImport,onR
     try{
       const selected=await api.pickWhitelistFile()
       if(current.active&&scope.current===current&&selected){setFile(selected);setQuery('');setPage(0);setNotice(null)}
-    }catch(cause){if(current.active&&scope.current===current)setError(cause instanceof Error?cause.message:String(cause))}
+    }catch(cause){if(current.active&&scope.current===current)setError(errorText(cause))}
     finally{current.working=false;if(current.active&&scope.current===current)setPhase('idle')}
   }
   const submit=async()=>{
@@ -32,7 +33,7 @@ export function WhitelistImportReview({whitelisted,running,disabled,onImport,onR
       setFile(null);setQuery('');setPage(0)
       setNotice(t('Se enviaron {0} solicitudes de lista blanca. Minecraft actualizará la lista al procesarlas.',names.length))
       try{await onRefresh()}catch{if(current.active&&scope.current===current)setError(t('Las solicitudes se enviaron, pero no se pudo actualizar la lista.'))}
-    }catch(cause){if(current.active&&scope.current===current)setError(cause instanceof Error?cause.message:String(cause))}
+    }catch(cause){if(current.active&&scope.current===current)setError(errorText(cause))}
     finally{current.working=false;if(current.active&&scope.current===current)setPhase('idle')}
   }
   return <div className="whitelist-import" aria-busy={phase!=='idle'}>
