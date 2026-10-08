@@ -20,3 +20,13 @@ test('each result is checked once as worker slots become free',async()=>{
   await checkPage([1,2,3,4,5,6],async item=>{await Promise.resolve();checked.push(item)},()=>true)
   assert.deepEqual(checked.sort(),[1,2,3,4,5,6])
 })
+
+test('a hidden inventory dispatches no reads and resumes only uncached files',async()=>{
+  const cached=new Set(['one']),reads=[]
+  let visible=false
+  const load=()=>checkPage(['one','two','three'].filter(file=>!cached.has(file)),async file=>{reads.push(file);cached.add(file)},()=>visible)
+  await load();assert.deepEqual(reads,[])
+  visible=true;await load();assert.deepEqual(reads.sort(),['three','two'])
+  visible=false;await load();visible=true;await load()
+  assert.equal(reads.length,2)
+})

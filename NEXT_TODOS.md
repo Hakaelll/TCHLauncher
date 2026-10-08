@@ -17,9 +17,11 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  105 frontend tests, TypeScript and production Vite passed.
+  106 frontend tests, TypeScript and production Vite passed.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
+  Installed icon reads now pause when hidden and resume uncached files; inventory
+  sorting and catalog lookups no longer repeat per icon/result.
   Native keyboard and browsing behavior still require review.
 - Current packaged preview is 0.33.0, including the accumulated changes recorded
   after 0.32.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)

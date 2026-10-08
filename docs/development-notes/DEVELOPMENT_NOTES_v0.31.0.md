@@ -488,3 +488,24 @@ Native suite: 251 passed, 36 conditional integrations ignored. Package evidence
 and remaining native/client/router limits are recorded in the 0.33.0 release notes.
 
 Commit: `refactor: streamline chart calculations and package Windows preview 0.33.0`
+
+## Content inventory work while hidden
+
+InstalledContentView previously shadowed its active prop with a local variable;
+icon reads could therefore continue being scheduled while the inventory was
+hidden. Its effect now observes visibility, cancels further scheduling on leave,
+rejects late replies, resumes uncached items and retains completed icon evidence.
+Cached items no longer occupy worker slots. Filtering/sorting is memoized so an
+icon reply does not sort the inventory again. Discovery uses one category lookup
+and a memoized installed-project set instead of rebuilding category arrays and
+scanning all installed files for every result. First-category precedence and
+language switching remain intact; search, compatibility and install guards stay.
+
+106 frontend tests, TypeScript and the Windows-target Vite build passed. Worker
+coverage includes initially hidden work, bounded dispatch and cached resumption;
+this is not native UI acceptance or a measured RAM/connection improvement. Initial
+JavaScript remains 460.12 kB; the deferred content chunk is 44.40 kB. The 0.33.0
+installer is unchanged: these source-only changes await the next significant
+preview. No Minecraft files, dependencies or downloaded content were removed.
+
+Commit: `perf: pause hidden mod icon reads and reuse catalog lookups`

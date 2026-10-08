@@ -31,7 +31,7 @@ export function InstalledContentView({server,files,audit,logs,locked,stopped,onP
   }),[files,checks,diagnostics])
   const attention=rows.filter(row=>['error','warning'].includes(row.status)).length
   const errors=rows.filter(row=>row.status==='error').length
-  const visible=contentWindow(rows,query,filter,source,sort)
+  const visible=useMemo(()=>contentWindow(rows,query,filter,source,sort),[rows,query,filter,source,sort])
   const menuRow=menu&&active?visible.find(row=>row.file.filename===menu?.filename&&row.file.sha512===menu.hash):undefined
   useEffect(()=>{if(menu&&!menuRow)setMenu(null)},[menu,menuRow])
   const resetFilters=()=>{setQuery('');setFilter('all');setSource('all')}
@@ -46,21 +46,20 @@ export function InstalledContentView({server,files,audit,logs,locked,stopped,onP
   const iconKey=(file:InstalledContent)=>`${server.id}:${file.filename}:${file.sha512}`
   const iconFiles=JSON.stringify(visible.map(({file})=>[file.filename,file.sha512]))
   useEffect(()=>{
-    let active=true
+    if(!active)return
+    let alive=true
     const currentKeys=new Set(files.map(iconKey))
     for(const key of Object.keys(cache.current))if(!currentKeys.has(key))delete cache.current[key]
     setIcons({...cache.current})
     // Four bounded disk reads; diagnostics changing never reload unchanged icons.
-    void checkPage(visible.map(row=>row.file),async file=>{
+    void checkPage(visible.map(row=>row.file).filter(file=>!(iconKey(file) in cache.current)),async file=>{
       const key=iconKey(file)
-      if(!(key in cache.current)) {
-        try{const value=await api.installedContentIcon(server.id,file.filename);if(active)cache.current[key]=value}
-        catch{if(active)cache.current[key]=null}
-      }
-      if(active)setIcons(previous=>previous[key]===cache.current[key]?previous:{...previous,[key]:cache.current[key]??null})
-    },()=>active)
-    return()=>{active=false}
-  },[server.id,iconFiles])
+      try{const value=await api.installedContentIcon(server.id,file.filename);if(alive)cache.current[key]=value}
+      catch{if(alive)cache.current[key]=null}
+      if(alive)setIcons(previous=>previous[key]===cache.current[key]?previous:{...previous,[key]:cache.current[key]??null})
+    },()=>alive)
+    return()=>{alive=false}
+  },[active,server.id,iconFiles])
   useEffect(()=>{if(selected&&!detail)setSelected(null)},[selected,detail])
   useEffect(()=>{
     if(detailView==='messages'&&!detail?.signals.length||detailView==='dependencies'&&!detail?.check?.descriptor.dependencies?.length)setDetailView('file')

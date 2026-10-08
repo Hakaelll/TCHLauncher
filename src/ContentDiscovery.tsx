@@ -1,6 +1,6 @@
 import {errorText} from './format'
 import {translatedMessage,localizedStatic,t,formatNumber} from './locale.ts'
-import {useEffect,useRef,useState,type FormEvent} from 'react'
+import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react'
 import {api,type ContentAvailability,type ContentKind,type ContentSearch,type InstalledContent,type Server} from './api'
 import {checkPage} from './contentBrowse'
 import {ContentGlyph} from './ContentGlyph'
@@ -12,6 +12,8 @@ const kindLabels:Record<ContentKind,string>=localizedStatic({mod:'Mods',plugin:'
 const resourceCategories=localizedStatic([['16x','16×'],['32x','32×'],['64x','64×'],['128x','128×'],['decoration','Decoración'],['realistic','Realista'],['simplistic','Sencillo'],['themed','Temático'],['vanilla-like','Estilo Vanilla']])
 const shaderCategories=localizedStatic([['realistic','Realista'],['fantasy','Fantasía'],['vanilla-like','Estilo Vanilla'],['low','Requisitos bajos'],['medium','Requisitos medios'],['high','Requisitos altos'],['shadows','Sombras'],['reflections','Reflejos'],['colored-lighting','Luz de colores']])
 const packCategories=localizedStatic([['adventure','Aventura'],['challenging','Desafiante'],['quests','Misiones'],['technology','Tecnología'],['magic','Magia'],['lightweight','Ligero'],['multiplayer','Multijugador'],['optimization','Rendimiento']])
+const categoryLabels=new Map([...categories,...pluginCategories,...resourceCategories,...shaderCategories,...packCategories].reverse().map(([id,label])=>[id,label] as const))
+
 type AvailabilityState={value?:ContentAvailability;error?:string}
 
 function ProjectIcon({url,title}:{url:string|null;title:string}) {
@@ -73,6 +75,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     try{await api.openContentProject(id)}catch(cause){if(sequence===generation.current)setError(errorText(cause))}
     finally{if(sequence===generation.current)setOpening(null)}
   }
+  const installedProjects=useMemo(()=>new Set(files.map(file=>file.projectId)),[files])
   const visibleResults=loadedKey.current===key?results:null
   return <div className="content-discovery" aria-busy={searching}>
     <div className="content-discovery-heading"><div><h3>{kind==='modpack'?t("Encuentra tu próxima aventura"):kind==='resourcepack'?t("Dale otra mirada a tu mundo"):kind==='shader'?t("Luz y atmósfera para tu mundo"):server.platform==='paper'?t("Descubre tu próximo plugin"):t("Descubre tu próximo mod")}</h3><p>Modrinth · {installable?`${loader} · `:''}Minecraft {server.version}</p></div><span className="content-catalog-context">{installable?loader:t("Cliente de Minecraft")}<strong>{server.version}</strong></span></div>
@@ -85,9 +88,9 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     {visibleResults?.hits.length===0&&!searching&&<div className="content-empty"><h3>{t("No hay coincidencias")}</h3><p>{t("Prueba otra categoría, nombre o incluye otras versiones para ver qué está disponible.")}</p><button onClick={()=>filter(()=>{setCategory('');setTerm('');setQuery('');setAllVersions(true)})}>{t("Ampliar búsqueda")}</button></div>}
     {searching&&<div className="discovery-placeholders" aria-hidden="true">{Array.from({length:4},(_,index)=><div className="discovery-placeholder" key={index}><span/><div><i/><i/><i/></div><footer/></div>)}</div>}
     <div className="content-results">{visibleResults?.hits.map(project=>{
-      const status=availability[project.project_id],release=status?.value,installed=files.some(file=>file.projectId===project.project_id),beta=release?.channel&&release.channel!=='release'
+      const status=availability[project.project_id],release=status?.value,installed=installedProjects.has(project.project_id),beta=release?.channel&&release.channel!=='release'
       return <article className={`content-project ${installed?'is-installed':''}`} key={project.project_id}>
-        <ProjectIcon url={project.icon_url} title={project.title}/><div className="content-project-body"><div className="content-project-title"><h3>{project.title}</h3>{installed&&<span className="content-installed-badge">{t("Instalado")}</span>}</div><span className="content-author">{t("Por {0}",project.author)}</span><p>{project.description}</p><div className="content-tags">{project.categories.filter(value=>value!==server.platform).slice(0,3).map(value=><span key={value}>{[...categories,...pluginCategories,...resourceCategories,...shaderCategories,...packCategories].find(([id])=>id===value)?.[1]??value}</span>)}{project.downloads!=null&&<span className="content-download-count"><ContentGlyph kind="download"/>{formatNumber(project.downloads,{notation:'compact'})}  {t("descargas")}</span>}</div></div>
+        <ProjectIcon url={project.icon_url} title={project.title}/><div className="content-project-body"><div className="content-project-title"><h3>{project.title}</h3>{installed&&<span className="content-installed-badge">{t("Instalado")}</span>}</div><span className="content-author">{t("Por {0}",project.author)}</span><p>{project.description}</p><div className="content-tags">{project.categories.filter(value=>value!==server.platform).slice(0,3).map(value=><span key={value}>{translatedMessage(categoryLabels.get(value)??value)}</span>)}{project.downloads!=null&&<span className="content-download-count"><ContentGlyph kind="download"/>{formatNumber(project.downloads,{notation:'compact'})}  {t("descargas")}</span>}</div></div>
         <div className="content-project-footer">{!installable?<><div className={`content-availability ${project.versions.includes(server.version)?'compatible':'unavailable'}`}><strong>{project.versions.includes(server.version)?t("El proyecto anuncia {0}",server.version):t("No anuncia {0}", server.version)}</strong><span>{kind==='modpack'?t("Revisa el motor y los archivos para servidor."):t("Contenido para el cliente de Minecraft.")}</span></div><button disabled={locked||opening!==null} onClick={()=>void openProject(project.project_id)}>{opening===project.project_id?t("Abriendo…"):t("Ver publicaciones")}<ContentGlyph kind="external"/></button></>:<><div className={`content-availability ${status?.error?'unknown':release?.versionId?beta?'experimental':'compatible':release?'unavailable':'checking'}`}><strong>{status?.error?t("Sin comprobar"):!release?t("Comprobando versión…"):release.versionId?`${server.version} · ${loader}${beta?` · ${release.channel}`:''}`:t("Sin versión de servidor para {0}", server.version)}</strong><span>{status?.error?status.error:release?.versionId?t("Publicación {0}", release.versionNumber):release?t("No se instalará un archivo de otra versión."):t("Comprobando versión, cargador y entorno.")}</span></div>{status?.error?<button disabled={locked} onClick={()=>void retry(project.project_id)}>{t("Recomprobar")}</button>:<button disabled={!stopped||locked||!release?.versionId} onClick={()=>{if(release?.versionId)onPrepare(project.project_id,release.versionId)}}>{preparing===project.project_id?t("Revisando…"):installed?t("Revisar versión"):beta?t("Revisar beta"):t("Revisar instalación")}</button>}</>}</div>
       </article>
     })}</div>
