@@ -48,7 +48,7 @@ fn wait_for(label:&str,seconds:u64,events:&Events,mut condition:impl FnMut()->bo
         std::thread::sleep(Duration::from_millis(100));
     }
 }
-fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
+fn cycle(library:&Library,server:&Server,port:u16,loaded_content:Option<&str>)->(String,u64) {
     let events=Arc::new(Events::default());let manager=&library.manager;
     let began=Instant::now();
     manager.launch(server,events.clone(),&crate::jvm::get(&library.root,&server.id).unwrap()).unwrap();
@@ -58,7 +58,7 @@ fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
         manager.state(&server.id)=="running"
     });
     let startup_ms=began.elapsed().as_millis() as u64;
-    if server.platform=="fabric" {assert!(events.contains("- lithium "),"Fabric did not report the installed Lithium mod: {:?}",events.logs.lock().unwrap().clone());}
+    if let Some(marker)=loaded_content {assert!(events.contains(marker),"Loader did not report the installed content: {:?}",events.logs.lock().unwrap().clone());}
     assert!(manager.process_snapshot(&server.id).unwrap().2.is_some());
     let response=crate::server_ping::query(([127,0,0,1],port).into()).unwrap();
     assert_eq!(response.online,Some(0));assert_eq!(response.maximum,Some(2));
@@ -88,19 +88,23 @@ fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
 
 #[test]
 #[ignore="Downloads Java/Paper and runs Minecraft; requires a verified existing consent record in TCH_TEST_CONSENT_RECORD"]
-fn paper_download_ready_command_stop_restart_backup_restore() {verify_lifecycle("paper");}
+fn paper_download_ready_command_stop_restart_backup_restore() {verify_lifecycle("paper",None);}
 
 #[test]
 #[ignore="Downloads Java/Fabric/Lithium and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
-fn fabric_mod_ready_command_stop_restart_backup_restore() {verify_lifecycle("fabric");}
+fn fabric_mod_ready_command_stop_restart_backup_restore() {verify_lifecycle("fabric",Some(("lithium","- lithium ")));}
 
 #[test]
 #[ignore="Downloads Java/NeoForge and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
-fn neoforge_ready_command_stop_restart_backup_restore() {verify_lifecycle("neoforge");}
+fn neoforge_ready_command_stop_restart_backup_restore() {verify_lifecycle("neoforge",None);}
 
 #[test]
 #[ignore="Downloads Java/Vanilla and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
-fn vanilla_ready_command_stop_restart_backup_restore() {verify_lifecycle("vanilla");}
+fn vanilla_ready_command_stop_restart_backup_restore() {verify_lifecycle("vanilla",None);}
+
+#[test]
+#[ignore="Downloads Java/Paper/Chunky and runs Minecraft; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn paper_plugin_ready_command_stop_restart_backup_restore() {verify_lifecycle("paper",Some(("chunky","[Chunky] Enabling Chunky v")));}
 
 fn installed_library(platform:&str)->(Library,Server,u16) {
     let consent_path=std::env::var("TCH_TEST_CONSENT_RECORD").expect("Provide a copy of an already recorded explicit Minecraft EULA acceptance");
@@ -130,21 +134,24 @@ fn installed_library(platform:&str)->(Library,Server,u16) {
     (library,installed,port)
 }
 
-fn verify_lifecycle(platform:&str) {
+fn verify_lifecycle(platform:&str,content:Option<(&str,&str)>) {
     let (library,installed,port)=installed_library(platform);
     let directory=Path::new(&installed.directory);
     let server=&installed;let version=installed.version.as_str();
-    let mod_file=if platform=="fabric" {
-        let plan=crate::content::plan(&task(&server.id,"content_plan"),&installed,"lithium",None).unwrap();
+    let content_folder=if platform=="paper" {"plugins"} else {"mods"};
+    let mod_file=if let Some((project,_))=content {
+        let plan=crate::content::plan(&task(&server.id,"content_plan"),&installed,project,None).unwrap();
+        let primary_project=plan.entries.iter().find(|entry|!entry.required).expect("No primary content in plan").project.id.clone();
         let prepared=crate::content_storage::review(&installed,plan).unwrap();
         crate::content_storage::install(&library.root,&installed,&prepared,&task(&server.id,"content_install")).unwrap();
         let files=crate::content_storage::list(&installed).unwrap();
-        let lithium=files.iter().find(|file|file.project_id.is_some()).expect("No managed installed mod");
-        Some((lithium.filename.clone(),fs::read(directory.join("mods").join(&lithium.filename)).unwrap()))
+        let installed_file=files.iter().find(|file|file.project_id.as_ref()==Some(&primary_project)).expect("No managed installed content");
+        Some((installed_file.filename.clone(),fs::read(directory.join(content_folder).join(&installed_file.filename)).unwrap()))
     } else {None};
-    let first=cycle(&library,&installed,port);
+    let loaded_content=content.map(|(_,marker)|marker);
+    let first=cycle(&library,&installed,port,loaded_content);
     assert!(directory.join("world/level.dat").is_file());
-    let second=cycle(&library,&installed,port);assert_ne!(first.0,second.0);
+    let second=cycle(&library,&installed,port,loaded_content);assert_ne!(first.0,second.0);
     let original=fs::read(directory.join("world/level.dat")).unwrap();assert!(!original.is_empty());
     let saved=backup::create_tracked(&library.root,&server.id,&task(&server.id,"backup")).unwrap();
     assert_eq!(fs::read(Path::new(&saved.path).join("world/level.dat")).unwrap(),original);
@@ -155,11 +162,11 @@ fn verify_lifecycle(platform:&str) {
     assert_eq!(properties::read(&directory.join("server.properties")).unwrap()["motd"],server.name);
     let restored=storage::get(&library.root,&server.id).unwrap();
     assert_eq!(restored.version,version);assert_eq!(restored.platform,platform);assert!(eula::file_accepted(&restored));
-    if let Some((filename,bytes))=&mod_file {assert_eq!(&fs::read(directory.join("mods").join(filename)).unwrap(),bytes);}
-    let third=cycle(&library,&restored,port);assert_ne!(third.0,second.0);
+    if let Some((filename,bytes))=&mod_file {assert_eq!(&fs::read(directory.join(content_folder).join(filename)).unwrap(),bytes);}
+    let third=cycle(&library,&restored,port,loaded_content);assert_ne!(third.0,second.0);
     let backups=backup::list_details(&library.root,&server.id).unwrap();assert_eq!(backups.len(),2);
     assert!(backups.iter().any(|copy|copy.reason==Some(backup::Reason::BeforeRestore)));
-    println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"modLoadedInAllSessions":mod_file.is_some(),"modRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
+    println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"contentProject":content.map(|(project,_)|project),"contentFolder":content.map(|_|content_folder),"contentLoadedInAllSessions":mod_file.is_some(),"contentRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
 }
 
 #[test]
@@ -184,7 +191,7 @@ fn paper_stop_during_startup_then_copy_after_clean_running_stop() {
     assert!(backup::list_details(&library.root,id).unwrap().is_empty());
     let report=crate::crash_diagnostics::load(Path::new(&server.directory),id,&early_exit.token).unwrap().unwrap();
     assert!(report.stop_requested&&report.output_complete&&!report.forced);assert_eq!(report.exit_code,Some(0));
-    let (session,_)=cycle(&library,&server,port);
+    let (session,_)=cycle(&library,&server,port,None);
     let exit=manager.exits()[id].clone();assert_eq!(exit.token,session);
     assert!(crate::stop_backup::pending(&library.root,id,&exit).unwrap());
     assert!(crate::stop_backup::run(&library.root,id,&exit,&jobs,|_|{}).unwrap());

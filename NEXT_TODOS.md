@@ -11,6 +11,8 @@ an explicit user instruction. These labels do not imply feature completion.
   Minecraft 1.21.4 lifecycle: managed Java/install, three ready/status/command/
   graceful-stop sessions, tracked backup/restore and restored boot. Restore checks
   level.dat bytes; this is not a full Minecraft client gameplay test.
+- Paper with managed Chunky also passed three real plugin enablements and
+  restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
   105 frontend tests, TypeScript and production Vite passed.
@@ -41,7 +43,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 lifecycle passes; loader/update/import regressions exist. Verify native flows and an actual modded client session. |
 | MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. Verify native selection/scrolling, snapshots and older supported families. |
 | MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Review, content migration, backup and recoverable publication implemented. Verify native upgrade flow with an existing world, client gameplay and rollback. |
-| MOD-01 | REVIEW | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Verify native browsing/reviews and actual loading. Fabric candidate checks remain conservative, not a global solver. |
+| MOD-01 | REVIEW | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
 | PACK-01 | REVIEW | Modpack import | Reviewed .mrpack file selection, exact loader and staged publication implemented. Verify complex third-party packs and native/client outcomes. |
 | IMPORT-01 | REVIEW | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |

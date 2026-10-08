@@ -436,3 +436,23 @@ cover duplicate preservation, UTF-8 limits and localized search. Native visual,
 keyboard and scrolling verification remains open. Installer 0.32.0 is unchanged.
 
 Commit: `feat: make server settings searchable and keep save controls visible`
+
+## Real Paper plugin lifecycle
+
+The opt-in engine harness now supports managed content independently of its
+platform. It selects the primary project from the reviewed production plan,
+installs through the normal Modrinth/hash/publication path and checks that exact
+managed JAR after restoration. Paper 1.21.4 with Chunky passed three loader-reported
+plugin enablements, actual TPS/status/console responses and graceful code-zero
+stops. A tracked backup and pre-restore safety copy were created; level.dat and
+the plugin JAR matched their saved bytes, and the restored world/plugin booted.
+The test passed in 119.51 seconds, with startup observations of 37,138 / 14,521 /
+11,780 ms. The temporary library was removed. The first lost terminal session has
+no retained pass evidence and is not counted; the successful rerun has a durable
+local transcript under ignored artifacts/lifecycle/paper-plugin.log.
+
+Project metadata: https://api.modrinth.com/v2/project/chunky . This verifies one
+plugin's installation/loading, not every plugin, its in-game features, native IPC,
+client gameplay or physical internet access. Installer 0.32.0 remains unchanged.
+
+Commit: `test: verify real Paper plugin loading and backup restoration`
