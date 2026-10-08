@@ -1,4 +1,5 @@
 import {errorText} from './format'
+import {startVisibilityPolling} from './visibilityPolling'
 import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { useEffect, useState } from 'react'
 import { api, type NetworkSnapshot, type Server } from './api'
@@ -28,9 +29,8 @@ export function NetworkPanel({server}: {server: Server}) {
     const refresh = () => api.networkStatus(server.id)
       .then(value => { if (active) { setNetwork(value); setStatusError(null) } })
       .catch(cause => { if (active) { setNetwork(null); setStatusError(errorText(cause)) } })
-    refresh()
-    const timer = window.setInterval(refresh,5000)
-    return () => { active = false; window.clearInterval(timer) }
+    const stop=startVisibilityPolling(refresh,5000,{immediate:true})
+    return () => { active = false; stop() }
   },[server.id])
 
   const copy = async () => {

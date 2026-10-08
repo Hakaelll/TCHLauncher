@@ -1,4 +1,5 @@
 import {errorText} from './format'
+import {startVisibilityPolling} from './visibilityPolling'
 import {translatedMessage,localizedStatic,t,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NetworkSnapshot,type RouterStatus,type Server} from './api'
@@ -21,9 +22,8 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
       try {const value=await api.routerStatus(server.id);if(alive.current&&request===sequence.current){setStatus(value)}}
       catch(cause){if(alive.current&&request===sequence.current)setError(errorText(cause))}
     }
-    void refresh()
-    const timer=window.setInterval(()=>void refresh(),5000)
-    return()=>{alive.current=false;++sequence.current;window.clearInterval(timer)}
+    const stop=startVisibilityPolling(refresh,5000,{immediate:true})
+    return()=>{alive.current=false;++sequence.current;stop()}
   },[server.id])
   const act=async(kind:'detect'|'open'|'close',operation:()=>Promise<RouterStatus>)=>{
     if(inFlight.current)return

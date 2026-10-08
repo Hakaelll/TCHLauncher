@@ -587,3 +587,26 @@ This is source/build evidence, not a measured native frame-rate/RAM improvement.
 The existing 0.33.0 installer has not been regenerated for these source changes.
 
 Commit: `perf: preserve console rows and share clock formatting`
+
+## Network observation scheduling
+
+LAN, UPnP and NAT-PMP panels now reuse the existing visibility scheduler instead
+of independent five-second setInterval loops. Hidden windows pause these UI reads;
+foreground return refreshes immediately. Slow reads cannot overlap periodic reads.
+The shared scheduler also skips immediate reads when mounted hidden and rejects
+already queued hidden callbacks. Metrics keep their configured 15-second hidden
+cadence. Existing response revision/disposal guards and manual actions are retained.
+
+Router maintenance remains in the native start_router_maintenance worker, which
+runs independently every two seconds: UI polling is not responsible for renewing
+or withdrawing leases. No router/firewall/protocol behavior was changed. These are
+source and scheduler-test findings, not physical-router or Internet-play evidence.
+
+All 110 frontend tests, TypeScript and Windows production Vite passed. Regression
+cases cover hidden initial mounting, queued callbacks, foreground return, slow
+reads, disposal and slower background telemetry. Windows initial JavaScript falls
+from 460.09 to 460.01 kB; CSS remains 218.04 kB. Native hidden-window behavior, actual
+RAM/frame timing and the reported Internet stalls still require host evidence.
+The existing 0.33.0 installer has not been regenerated for these source changes.
+
+Commit: `perf: share network polling and pause hidden observations`

@@ -12,7 +12,7 @@ export function startVisibilityPolling(read:()=>Promise<void>,intervalMs:number,
   const clear=()=>{if(timer!==null)environment.cancel(timer);timer=null}
   const schedule=()=>{clear();const ms=delay();if(active&&ms>0)timer=environment.schedule(()=>{timer=null;void run()},ms)}
   const run=async()=>{
-    if(!active||running)return
+    if(!active||running||(!environment.visible()&&!options.hiddenMs))return
     running=true
     try{await read()}finally{running=false;if(active)schedule()}
   }
@@ -20,6 +20,6 @@ export function startVisibilityPolling(read:()=>Promise<void>,intervalMs:number,
     clear()
     if(!running){if(environment.visible())void run();else schedule()}
   })
-  if(options.immediate)void run();else schedule()
+  if(options.immediate&&environment.visible())void run();else schedule()
   return()=>{active=false;clear();unsubscribe()}
 }

@@ -1,4 +1,5 @@
 import {errorText} from './format'
+import {startVisibilityPolling} from './visibilityPolling'
 import {translatedMessage,localizedStatic,t,formatTime} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {api,type NatPmpDetection,type NatPmpRecord,type NetworkSnapshot,type Server} from './api'
@@ -23,8 +24,8 @@ export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnaps
       const current=++revision.current;inFlight.current=true
       try{const value=await api.natpmpStatus(server.id);if(alive.current&&current===revision.current)setRecord(value)}catch(cause){if(alive.current&&current===revision.current)setError(errorText(cause))}finally{inFlight.current=false;if(alive.current)setLoaded(value=>value+1)}
     }
-    void refresh();const timer=setInterval(()=>void refresh(),5000)
-    return()=>{alive.current=false;++revision.current;clearInterval(timer)}
+    const stop=startVisibilityPolling(refresh,5000,{immediate:true})
+    return()=>{alive.current=false;++revision.current;stop()}
   },[server.id])
   const act=async(operation:()=>Promise<void>)=>{
     if(inFlight.current)return
