@@ -1,7 +1,7 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {english} from '../src/locales/en.ts'
-import {getLanguage,initializeLanguage,languageKey,languageSaved,localizedStatic,readLanguage,setLanguage,subscribeLanguage,t,translatedMessage,writeLanguage,formatNumber} from '../src/locale.ts'
+import {getLanguage,initializeLanguage,languageKey,languageSaved,localizedStatic,readLanguage,setLanguage,subscribeLanguage,t,translatedMessage,writeLanguage,formatNumber,formatDate} from '../src/locale.ts'
 
 const storage=()=>{const data=new Map();return {getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)}}
 test('language survives reload, invalid storage falls back and storage failure leaves the choice usable',()=>{
@@ -39,5 +39,15 @@ test('all translations preserve placeholder counts and core user flows have Engl
   }
   setLanguage('en',null)
   for(const key of ['Mundos','Nuevo servidor','Jugadores','Consola','Ajustes','Explorar Modrinth','Idioma de la aplicación','Mundo y mods','Guardar ZIP','Descargando','Secciones del servidor'])assert.notEqual(t(key),key,key)
+  setLanguage('es',null)
+})
+
+test('date formatting follows the selected language for Date, timestamp and stored ISO values',()=>{
+  const date=new Date('2026-10-08T12:34:56Z'),options={timeZone:'UTC'}
+  for(const [language,locale] of [['en','en-US'],['es','es-ES']]) {
+    setLanguage(language,null)
+    const expected=date.toLocaleString(locale,options)
+    for(const value of [date,date.getTime(),date.toISOString()])assert.equal(formatDate(value,options),expected)
+  }
   setLanguage('es',null)
 })

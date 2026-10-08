@@ -1,6 +1,6 @@
 import {useMemo,useRef,useState} from 'react'
 import type {Backup,Server} from './api'
-import {getLanguage,t,translatedMessage} from './locale'
+import {getLanguage,t,translatedMessage,formatDate} from './locale'
 import {BackupPolicyPanel} from './BackupPolicyPanel'
 import {Icon,fmtBytes} from './ServerPresentation'
 import {useListMotion} from './motion'
@@ -12,7 +12,7 @@ export function BackupsView({server,copies,loaded,loading,error,busy,reasons,onC
   const [query,setQuery]=useState(''),[reason,setReason]=useState('')
   const list=useRef<HTMLDivElement>(null)
   const locale=getLanguage()==='en'?'en-US':'es-ES'
-  const date=(copy:Backup)=>new Date(copy.createdAt).toLocaleString(locale)
+  const date=(copy:Backup)=>formatDate(copy.createdAt)
   const reasonText=(copy:Backup)=>copy.reason?reasons[copy.reason]??t('Motivo no disponible'):t('Motivo no registrado')
   const visible=useMemo(()=>copies.filter(copy=>(!reason||copy.reason===reason)&&(!query.trim()||`${date(copy)} ${reasonText(copy)} ${copy.platform??''} ${copy.minecraftVersion??''}`.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale)))),[copies,query,reason,locale,reasons])
   const latest=copies.reduce<Backup|null>((found,copy)=>!found||copy.createdAt>found.createdAt?copy:found,null)

@@ -1,4 +1,4 @@
-import {translatedMessage,localizedStatic,t,getLanguage} from './locale.ts'
+import {translatedMessage,localizedStatic,t,formatDate} from './locale.ts'
 import {useEffect,useMemo,useRef,useState,useId} from 'react'
 import {api,type ContentAudit,type InstalledContent,type LogLine,type Server} from './api'
 import {checkPage} from './contentBrowse'
@@ -8,7 +8,7 @@ import {Modal} from './Modal'
 import {contentWindow,type ContentFilter,type ContentSource} from './contentWindow'
 
 const statusLabels=localizedStatic({error:'Error en el registro',warning:'Revisar',observed:'Presente en el último log',unknown:'Carga sin confirmar'})
-const clock=(value:string|null)=>value?.includes('T')?new Date(value).toLocaleString(getLanguage()==='en'?'en-US':'es-ES'):value??t("Hora no disponible")
+const clock=(value:string|null)=>value?.includes('T')?formatDate(value):value??t("Hora no disponible")
 
 export function InstalledContentView({server,files,audit,logs,locked,stopped,onPrepare,onRemove,onBrowse,onConsole,onProject,onDisable,active}:{server:Server;files:InstalledContent[];audit:ContentAudit|null;logs:LogLine[];locked:boolean;stopped:boolean;onPrepare:(id:string)=>void;onRemove:(file:InstalledContent)=>void;onBrowse:()=>void;onConsole:(query:string)=>void;onProject:(id:string)=>void;onDisable:(file:InstalledContent)=>void;active:boolean}) {
   const menuId=useId()

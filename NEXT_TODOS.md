@@ -32,7 +32,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | CORE-05 | REVIEW | Backup and restore | Tracked real world restore and restored boot pass for all four engines; level.dat byte equality checked. Verify native restore/retention and interruption. |
 | BACKUP-STOP-01 | REVIEW | Copy after clean stop | Session-bound durable deduplication and file regressions exist. Verify automatic stop-copy with real Minecraft through the app. |
 | CORE-06 | REVIEW | Close with active processes | Stop, keep in background and cancel paths implemented. Verify native close/tray lifecycle and process ownership. |
-| CORE-07 | REVIEW | Measured telemetry | CPU, resident RAM, heap, I/O, uptime, storage and startup observations connected. Verify native plots and live Paper TPS response. |
+| CORE-07 | REVIEW | Measured telemetry | CPU, resident RAM, heap, I/O, uptime, storage and startup observations connected. Real Paper TPS response verified across three sessions; verify native plots. |
 | CRASH-DIAG-01 | REVIEW | Crash evidence | Bounded durable session reports and real Java failure/relaunch verified. Verify native recovery actions and actual Minecraft crash cases. |
 | CORE-08 | REVIEW | Download cancellation and retries | Temporary publication, validation and retries implemented. Verify native cancellation/retry and interrupted installs; HTTP Range resume is not implemented. |
 | JVM-01 | REVIEW | JVM settings | Profiles, custom arguments and persistence connected. Verify custom profiles through native restart and runtime selection. |

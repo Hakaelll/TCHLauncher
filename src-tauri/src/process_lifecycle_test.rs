@@ -41,7 +41,10 @@ fn task(id:&str,kind:&str)->DownloadTask {
 fn wait_for(label:&str,seconds:u64,events:&Events,mut condition:impl FnMut()->bool) {
     let deadline=Instant::now()+Duration::from_secs(seconds);
     while !condition() {
-        assert!(Instant::now()<deadline,"{label} timed out; recent real output: {:?}",events.logs.lock().unwrap().clone());
+        if Instant::now()>=deadline {
+            let recent=events.logs.lock().unwrap().clone();
+            panic!("{label} timed out; recent real output: {recent:?}");
+        }
         std::thread::sleep(Duration::from_millis(100));
     }
 }
@@ -60,12 +63,22 @@ fn cycle(library:&Library,server:&Server,port:u16)->(String,u64) {
     let response=crate::server_ping::query(([127,0,0,1],port).into()).unwrap();
     assert_eq!(response.online,Some(0));assert_eq!(response.maximum,Some(2));
     assert!(response.version.as_deref().is_some_and(|version|version.contains(&server.version)));
+    if server.platform=="paper" {
+        assert!(manager.tick_snapshot(&server.id).reading.is_none(),"TPS leaked from an earlier process");
+        manager.request_ticks(&server.id).unwrap();
+        wait_for("Paper TPS response",10,&events,||manager.tick_snapshot(&server.id).reading.is_some());
+        let reading=manager.tick_snapshot(&server.id).reading.unwrap();
+        assert!(!manager.tick_snapshot(&server.id).pending);
+        assert!([reading.one_minute,reading.five_minutes,reading.fifteen_minutes].iter().all(|value|value.is_finite()&&*value>=0.0&&*value<=100.0));
+        eprintln!("PAPER_TPS_EVIDENCE {}",serde_json::to_string(&reading).unwrap());
+    }
     let marker=format!("TCH_LIFECYCLE_{}",uuid::Uuid::new_v4());
     manager.send(&server.id,&format!("say {marker}")).unwrap();
     wait_for("Minecraft command response",10,&events,||events.contains(&marker));
     manager.request_stop(&server.id,events.as_ref()).unwrap();
     wait_for("Graceful Java exit",60,&events,||!manager.is_active(&server.id)&&events.contains("Proceso finalizado"));
     assert_eq!(manager.state(&server.id),"stopped");
+    assert!(manager.tick_snapshot(&server.id).reading.is_none());
     assert_eq!(*events.states.lock().unwrap(),vec!["starting","running","stopping","stopped"]);
     let exit=manager.exits()[&server.id].clone();assert!(exit.successful&&exit.was_running&&!exit.unexpected);
     let report=crate::crash_diagnostics::load(Path::new(&server.directory),&server.id,&session).unwrap().unwrap();

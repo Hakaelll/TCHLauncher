@@ -1,4 +1,4 @@
-import {translatedMessage,t} from './locale.ts'
+import {translatedMessage,t,formatDate} from './locale.ts'
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {api,type BackupPolicy,type BackupRetentionPlan} from './api'
 import {Modal} from './Modal'
@@ -88,7 +88,7 @@ export function BackupPolicyPanel({id,disabled,onChanged}:{id:string;disabled:bo
       <h2 id="retention-title">{t("Limpiar copias antiguas")}</h2>
       <p>{plan.remove.length?t("Se eliminarán {0} copias. Esta acción no se puede deshacer.", plan.remove.length):t("No hay copias que eliminar con esta política.")}</p>
       <p className="muted">{t("Espacio:")} {bytes(plan.beforeBytes)} → {bytes(plan.afterBytes)}</p>
-      <div className="retention-list">{plan.remove.map(copy=><div key={copy.id}><span><time dateTime={new Date(copy.createdAt).toISOString()}>{new Date(copy.createdAt).toLocaleString()}</time><small>{copy.minecraftVersion?`${copy.platform??t("Motor no registrado")} · Minecraft ${copy.minecraftVersion}`:t("Versión no registrada")}</small></span><strong>{bytes(copy.sizeBytes)}</strong></div>)}</div>
+      <div className="retention-list">{plan.remove.map(copy=><div key={copy.id}><span><time dateTime={new Date(copy.createdAt).toISOString()}>{formatDate(copy.createdAt)}</time><small>{copy.minecraftVersion?`${copy.platform??t("Motor no registrado")} · Minecraft ${copy.minecraftVersion}`:t("Versión no registrada")}</small></span><strong>{bytes(copy.sizeBytes)}</strong></div>)}</div>
       {plan.warnings.map(message=><p className="inline-note" key={message}>{translatedMessage(message)}</p>)}
       {error&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
       <div className="modal-actions"><button data-modal-close disabled={working}>{t("Cancelar")}</button><button className="danger-button" disabled={working||disabled||!plan.remove.length} onClick={apply}>{working?t("Eliminando…"):t("Eliminar copias")}</button></div>

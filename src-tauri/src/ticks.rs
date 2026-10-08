@@ -35,17 +35,19 @@ impl Collector{
 
 fn parse(line:&str)->Option<[f64;3]>{
     let clean=crate::log::without_terminal_colors(line);
+    let clean=crate::log::without_terminal_prompt(&clean);
     let (prefix,message)=clean.split_once("]: ")?;
     // Accept only the two native INFO formatters, never chat or plugin prefixes.
     let time=prefix.as_bytes().get(..9)?;
     if time[0]!=b'['||time[3]!=b':'||time[6]!=b':'||[1,2,4,5,7,8].iter().any(|&index|!time[index].is_ascii_digit()){return None;}
     if &prefix[9..]!=" INFO"&&&prefix[9..]!="] [Server thread/INFO"{return None;}
-    let values=message.strip_prefix("TPS from last 1m, 5m, 15m: ")?.split(',').map(|value|{
+    let mut values=message.strip_prefix("TPS from last 1m, 5m, 15m: ")?.split(',').map(|value|{
         let value=value.trim().strip_prefix('*').unwrap_or(value.trim());
         if value.is_empty()||!value.chars().all(|c|c.is_ascii_digit()||c=='.'){return None;}
         value.parse::<f64>().ok().filter(|number|number.is_finite()&&*number>=0.0&&*number<=100.0)
-    }).collect::<Option<Vec<_>>>()?;
-    values.try_into().ok()
+    });
+    let reading=[values.next()??,values.next()??,values.next()??];
+    values.next().is_none().then_some(reading)
 }
 
 #[cfg(test)]
@@ -55,7 +57,8 @@ mod tests{
     fn accepts_only_complete_native_tps_responses(){
         assert_eq!(parse("[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20.0, 19.5, 18.1"),Some([20.0,19.5,18.1]));
         assert_eq!(parse("\u{1b}[33m[12:01:02] [Server thread/INFO]: TPS from last 1m, 5m, 15m: *20.0, 19.5, 18.1\u{1b}[0m"),Some([20.0,19.5,18.1]));
-        for line in ["TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: <Alex> TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: [Plugin] TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02] [Worker/INFO]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 WARN]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: NaN,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: -1,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20 trailing"]{assert!(parse(line).is_none(),"{line}");}
+        assert_eq!(parse("> > \r  \r[01:55:36 INFO]: \u{1b}[33mTPS from last 1m, 5m, 15m: \u{1b}[0m\u{1b}[92m20.0\u{1b}[0m, 20.0, 20.0"),Some([20.0;3]));
+        for line in ["> > \r  \r[12:01:02 INFO]: <Alex> TPS from last 1m, 5m, 15m: 20,20,20","> > \r  \r[12:01:02 INFO]: [Plugin] TPS from last 1m, 5m, 15m: 20,20,20","TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: <Alex> TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: [Plugin] TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02] [Worker/INFO]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 WARN]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: NaN,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: -1,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20 trailing"]{assert!(parse(line).is_none(),"{line}");}
     }
     #[test]
     fn requires_pending_queries_bounds_freshness_and_resets_with_each_process(){

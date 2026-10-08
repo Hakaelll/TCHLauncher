@@ -380,3 +380,21 @@ legal inventory/resource destinations and the installer checksum are verified.
 See [release details](../release-notes/RELEASE_NOTES_v0.32.0.md). The preview was
 not installed or published as a GitHub release; native UI/client/router acceptance
 remains outstanding. Source-only statements above describe their historical state.
+
+## Source refinements after 0.32.0
+
+Shared locale formatters now serve dates/numbers across twelve panels, removing
+465 bytes of frontend production source and making previously OS-localized dates
+follow the selected application language. No installer-size or RAM reduction is
+claimed. TypeScript, 103 frontend tests and the Windows Vite build pass.
+
+A real Paper 1.21.4 run reproduced missing TPS because JLine repeats cleared
+prompts before its command response. Shared prompt normalization now serves both
+logs and TPS, preserving raw records and rejecting chat/plugin imitations. The TPS
+parser uses a fixed three-value array instead of allocating a temporary vector.
+Two TPS and 13 matching log tests pass. The real production lifecycle test passes
+three TPS queries (20/20/20), process resets, commands, graceful stops, backup and
+restored-world boot in 154.02 seconds. Native UI/client/router checks remain open.
+These changes are source-only; the existing 0.32.0 installer is unchanged.
+
+Commit: `refactor: share locale formatting and fix Paper TPS responses`

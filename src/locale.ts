@@ -54,5 +54,5 @@ export function localizedStatic<T extends object>(value:T):T {
   return wrap(value) as T
 }
 export function formatNumber(value:number,options?:Intl.NumberFormatOptions){return new Intl.NumberFormat(language==='en'?'en-US':'es-ES',options).format(value)}
-export function formatDate(value:Date,options?:Intl.DateTimeFormatOptions){return value.toLocaleString(language==='en'?'en-US':'es-ES',options)}
+export function formatDate(value:Date|string|number,options?:Intl.DateTimeFormatOptions){return new Date(value).toLocaleString(language==='en'?'en-US':'es-ES',options)}
 export function translatedMessage<T>(value:T):T {return (typeof value==='string'?t(value):value) as T}

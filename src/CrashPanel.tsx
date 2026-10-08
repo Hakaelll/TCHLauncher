@@ -1,4 +1,4 @@
-import {translatedMessage,t,getLanguage} from './locale.ts'
+import {translatedMessage,t,formatDate} from './locale.ts'
 import {useEffect,useState} from 'react'
 import {api,type CrashReport,type Server} from './api'
 
@@ -16,7 +16,7 @@ function CrashHistory(props:Props){
   if(error)return <p className="field-help" role="status">{t("No se pudo consultar el historial de fallos:")} {translatedMessage(error)}</p>
   if(!report)return null
   return <details className="crash-history" onToggle={event=>setExpanded(event.currentTarget.open)}>
-    <summary>{report.forced?t("Último cierre forzado"):t("Último cierre con error")} · {new Date(report.endedAt).toLocaleString(getLanguage()==='en'?'en-US':'es-ES')}</summary>
+    <summary>{report.forced?t("Último cierre forzado"):t("Último cierre con error")} · {formatDate(report.endedAt)}</summary>
     {expanded&&<CrashReview {...props} historical initial={report}/>}
   </details>
 }
@@ -37,7 +37,7 @@ function CrashReview({server,onConsole,onSettings,onContent,historical,initial}:
     else onConsole()
   }
   return <section className="crash-diagnostics" aria-labelledby="crash-title">
-    <div className="section-heading"><div><h2 id="crash-title">{report?.forced?t("Cierre forzado"):historical?t("Último fallo guardado"):t("Revisar el cierre")}</h2>{report&&<p>{new Date(report.endedAt).toLocaleString()} · {report.exitCode===null?t("Código de salida no disponible"):t("Código de salida {0}", report.exitCode)}</p>}</div><button onClick={onConsole}>{historical?t("Ver consola actual"):t("Ver consola")}</button></div>
+    <div className="section-heading"><div><h2 id="crash-title">{report?.forced?t("Cierre forzado"):historical?t("Último fallo guardado"):t("Revisar el cierre")}</h2>{report&&<p>{formatDate(report.endedAt)} · {report.exitCode===null?t("Código de salida no disponible"):t("Código de salida {0}", report.exitCode)}</p>}</div><button onClick={onConsole}>{historical?t("Ver consola actual"):t("Ver consola")}</button></div>
     {historical&&<p className="field-help">{t("Este informe pertenece a una ejecución anterior. No describe el estado actual del servidor.")}</p>}
     {loading?<p className="field-help" role="status">{historical?t("Leyendo el último fallo guardado…"):t("Leyendo el diagnóstico de este arranque…")}</p>:error?<p role="alert">{t("No se pudo leer el diagnóstico:")} {translatedMessage(error)}</p>:!report?<p className="field-help">{historical?t("No hay un fallo guardado para este servidor."):t("No hay un diagnóstico guardado para este arranque. Revisa la consola.")}</p>:<>
       {report.stopRequested&&!report.forced&&<p className="inline-note">{t("Habías solicitado detener el servidor, pero Java no confirmó un cierre correcto.")}</p>}
@@ -47,7 +47,7 @@ function CrashReview({server,onConsole,onSettings,onContent,historical,initial}:
         {diagnosis.action!=='console'&&<button onClick={()=>review(diagnosis.action)}>{diagnosis.action==='settings'?t("Revisar configuración"):diagnosis.action==='network'?t("Revisar conexión"):server.platform==='vanilla'?t("Ver consola"):server.platform==='paper'?t("Revisar plugins"):t("Revisar mods")}</button>}
         <details><summary>{t("Detalle técnico")}</summary><pre>{diagnosis.evidence.length?diagnosis.evidence.join('\n'):t("No se conservó salida del proceso.")}</pre></details>
       </div>)}</div>
-      {report.recentFiles.length>0&&<details className="crash-recent"><summary>{t("Archivos de mods/plugins modificados en las últimas 24 horas (")}{report.recentFiles.length})</summary><p className="field-help">{t("La fecha del archivo no demuestra que causara el fallo. Los archivos copiados también pueden conservar su fecha original.")}</p><ul>{report.recentFiles.map(file=><li key={`${file.folder}/${file.name}`}><code>{file.folder}/{file.name}</code><time>{new Date(file.modifiedAt).toLocaleString()}</time></li>)}</ul></details>}
+      {report.recentFiles.length>0&&<details className="crash-recent"><summary>{t("Archivos de mods/plugins modificados en las últimas 24 horas (")}{report.recentFiles.length})</summary><p className="field-help">{t("La fecha del archivo no demuestra que causara el fallo. Los archivos copiados también pueden conservar su fecha original.")}</p><ul>{report.recentFiles.map(file=><li key={`${file.folder}/${file.name}`}><code>{file.folder}/{file.name}</code><time>{formatDate(file.modifiedAt)}</time></li>)}</ul></details>}
     </>}
   </section>
 }

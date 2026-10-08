@@ -31,6 +31,13 @@ pub(crate) fn without_terminal_colors(line:&str)->String {
     clean
 }
 
+// JLine may repeat its cleared prompt after commands. Only strip it before a header.
+pub(crate) fn without_terminal_prompt(line:&str)->&str {
+    let mut rest=line;
+    while let Some(tail)=rest.strip_prefix("> ") {rest=tail.trim_start();}
+    if rest.starts_with('[') {rest} else {line}
+}
+
 fn server_info(line:&str)->bool {
     // Paper's console formatter omits the thread and uses [HH:mm:ss INFO].
     let paper_prefix = line.as_bytes().get(..16).is_some_and(|prefix|
@@ -127,10 +134,7 @@ pub fn parse(server_id: &str, record: &str) -> LogEvent {
         _ => (minecraft_time(record), record),
     };
     let clean=without_terminal_colors(line);
-    // JLine on Windows prefixes redirected Paper output with its cleared prompt.
-    // Strip only a leading prompt before a console header; preserve chat/message text.
-    let clean=clean.strip_prefix("> ").map(str::trim_start)
-        .filter(|rest|rest.starts_with('[')).unwrap_or(&clean);
+    let clean=without_terminal_prompt(&clean);
     let (level, event) = classify(clean);
     LogEvent {
         server_id: server_id.to_string(),

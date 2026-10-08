@@ -1,4 +1,4 @@
-import {translatedMessage,t} from './locale.ts'
+import {translatedMessage,t,formatDate} from './locale.ts'
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {listen} from '@tauri-apps/api/event'
 import {api,type CrashPolicy,type CrashStatus} from './api'
@@ -76,7 +76,7 @@ export function CrashRestartPanel({id}:{id:string}) {
     </form>
     <div className="crash-refresh"><span>{dirty?t("Cambios sin guardar"):saved?t("Ajustes guardados"):status?t("Configuración del servidor"):''}</span><button type="button" disabled={working||loading} onClick={()=>void load()}>{loading?t("Consultando…"):t("Actualizar estado")}</button></div>
     {saved&&readError&&<p className="inline-note">{t("Los ajustes se guardaron. No se pudo consultar el estado actualizado; vuelve a intentarlo con «Actualizar estado».")}</p>}
-    {status?.policy.enabled&&<p className="crash-status" role="status"><strong>{status.attempts} / {status.policy.maxAttempts}  {t("intentos usados")}</strong>{status.nextAt!==null&&<span>{t("Próximo intento:")} {new Date(status.nextAt).toLocaleString()}</span>}{status.lastResult&&<span>{translatedMessage(status.lastResult)}</span>}</p>}
+    {status?.policy.enabled&&<p className="crash-status" role="status"><strong>{status.attempts} / {status.policy.maxAttempts}  {t("intentos usados")}</strong>{status.nextAt!==null&&<span>{t("Próximo intento:")} {formatDate(status.nextAt)}</span>}{status.lastResult&&<span>{translatedMessage(status.lastResult)}</span>}</p>}
     {readError&&<p className="form-error" role="alert">{translatedMessage(readError)}</p>}
     {actionError&&<p className="form-error" role="alert">{translatedMessage(actionError)}</p>}
   </section>
