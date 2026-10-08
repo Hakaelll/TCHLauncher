@@ -509,3 +509,32 @@ installer is unchanged: these source-only changes await the next significant
 preview. No Minecraft files, dependencies or downloaded content were removed.
 
 Commit: `perf: pause hidden mod icon reads and reuse catalog lookups`
+
+## Real generated-world upgrade and rollback
+
+The new opt-in production-engine integration goes beyond the earlier Java/EULA
+smoke check: managed Vanilla 1.21.4 creates a real world and stops gracefully.
+The test hashes every file under that world, including generated region files.
+Unconfirmed conversion warnings leave the world and backup list untouched.
+Production review/update publishes Minecraft 1.21.5 with a BeforeMinecraftUpdate
+copy, preserving the unbooted world, Java path, properties and custom JVM settings.
+The new Java process reaches actual Running, advertises 1.21.5, answers a unique
+command and stops cleanly. Its saved level.dat differs from the original.
+
+Production tracked restore then retains the converted world's hashes in its
+BeforeRestore safety copy and restores all 20 original world-file hashes, the
+original JAR bytes, properties and JVM configuration. Cross-version runtime reset
+is resolved through the normal managed-runtime preparation/verification path.
+The restored 1.21.4 process reaches Running, responds to status/command and stops
+with code zero and complete output. No publication stage/old directory/journal
+remains. Three sessions took 17,889 / 12,886 / 10,142 ms to reach readiness; the
+integration passed in 114.95 seconds. Its temporary library and copied consent
+record were removed. The durable local transcript is artifacts/lifecycle/world-upgrade.log
+(ignored). Existing explicit consent was reused; no new acceptance was recorded.
+
+This proves one Vanilla 1.21.4 to 1.21.5 conversion and whole-world file restoration
+before the restored boot. It does not prove native IPC/UI, Minecraft client
+behavior, mod/plugin migration, other version families or physical networking.
+No production changes or new installer in this test-only iteration.
+
+Commit: `test: verify real world conversion and complete Vanilla rollback`

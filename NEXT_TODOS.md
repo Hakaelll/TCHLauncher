@@ -13,6 +13,9 @@ an explicit user instruction. These labels do not imply feature completion.
   level.dat bytes; this is not a full Minecraft client gameplay test.
 - Two real Vanilla instances also passed simultaneous ready states, distinct
   PIDs/ports/directories, isolated commands/logs and independent graceful stops.
+- Vanilla 1.21.4 to 1.21.5 also passed a generated-world conversion and rollback:
+  all 20 original world-file hashes and JAR bytes restored, converted safety copy
+  preserved, managed Java reverified and three real ready/command/clean-stop sessions.
 - Paper with managed Chunky also passed three real plugin enablements and
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
@@ -46,7 +49,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | LOAD-01 | REVIEW | Fabric | Real 1.21.4 / Loader 0.19.5 lifecycle with installed Lithium and restored mod bytes passes. Verify native imports/updates and client mod behavior. |
 | LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 lifecycle passes; loader/update/import regressions exist. Verify native flows and an actual modded client session. |
 | MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. Verify native selection/scrolling, snapshots and older supported families. |
-| MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Review, content migration, backup and recoverable publication implemented. Verify native upgrade flow with an existing world, client gameplay and rollback. |
+| MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Real Vanilla 1.21.4 to 1.21.5 world conversion/rollback passed; all 20 world-file hashes restored before boot. Verify native flow, other engines/content migrations and client gameplay. |
 | MOD-01 | REVIEW | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
 | PACK-01 | REVIEW | Modpack import | Reviewed .mrpack file selection, exact loader and staged publication implemented. Verify complex third-party packs and native/client outcomes. |
 | IMPORT-01 | REVIEW | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |

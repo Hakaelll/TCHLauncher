@@ -271,3 +271,74 @@ fn two_real_servers_keep_processes_commands_and_stops_independent() {
     assert_eq!(properties::read(&Path::new(&second.directory).join("server.properties")).unwrap()["level-seed"],"84");
     println!("MULTI_SERVER_EVIDENCE simultaneous=2 distinctPids=true distinctDirectories=true separateLogs=true survivingCommand=true gracefulStops=2");
 }
+
+
+#[test]
+#[ignore="Downloads Java/Vanilla and upgrades a real world; requires verified existing consent in TCH_TEST_CONSENT_RECORD"]
+fn vanilla_generated_world_upgrade_and_full_world_rollback() {
+    use sha2::{Digest,Sha256};
+    use std::{collections::BTreeMap,io::Read};
+    let world_hashes=|base:&Path| {
+        let mut files=BTreeMap::new();let mut buffer=[0u8;65536];
+        for entry in walkdir::WalkDir::new(base) {
+            let entry=entry.unwrap();assert!(!entry.file_type().is_symlink());
+            if !entry.file_type().is_file(){continue;}
+            let mut input=fs::File::open(entry.path()).unwrap();let mut hash=Sha256::new();
+            loop {let count=input.read(&mut buffer).unwrap();if count==0{break;}hash.update(&buffer[..count]);}
+            files.insert(entry.path().strip_prefix(base).unwrap().to_path_buf(),format!("{:x}",hash.finalize()));
+        }
+        files
+    };
+    let (library,before,port)=installed_library("vanilla");
+    assert_eq!(before.version,"1.21.4","This conversion fixture starts with Minecraft 1.21.4");
+    let directory=Path::new(&before.directory);let world=directory.join("world");
+    properties::write(&directory.join("server.properties"),[("difficulty".into(),"hard".into())].into()).unwrap();
+    let custom=crate::jvm::Settings{mode:"custom".into(),arguments:"-Dfile.encoding=UTF-8".into()};
+    crate::jvm::save(&library.root,&before.id,&custom).unwrap();
+    let original_session=cycle(&library,&before,port,None);
+    let original=world_hashes(&world);
+    assert!(original.contains_key(Path::new("level.dat")));
+    assert!(original.keys().any(|path|path.extension().is_some_and(|extension|extension=="mca")),"No generated region files");
+    let old_jar=fs::read(before.jar_path.as_ref().unwrap()).unwrap();
+    let config=fs::read(directory.join("server.properties")).unwrap();
+    let target="1.21.5";let operation=task(&before.id,"minecraft_update");
+    let reviewed=crate::minecraft_update::review(&library.root,&before,target,&operation).unwrap();
+    assert!(reviewed.blockers.is_empty());assert_eq!(reviewed.java_action,"retain_configured");
+    assert!(!reviewed.warnings.is_empty());
+    assert!(crate::minecraft_update::update(&library.root,&before.id,target,&reviewed.fingerprint,false,&operation).is_err());
+    assert!(backup::list_details(&library.root,&before.id).unwrap().is_empty());
+    assert_eq!(world_hashes(&world),original,"Unconfirmed conversion changed the world");
+    eula::require_download_consent(&library.root,&before).unwrap();
+    crate::minecraft_update::update(&library.root,&before.id,target,&reviewed.fingerprint,true,&operation).unwrap();
+    let updated=storage::get(&library.root,&before.id).unwrap();
+    assert_eq!(updated.version,target);assert_eq!(updated.java_path,before.java_path);
+    assert_eq!(crate::jvm::get(&library.root,&before.id).unwrap(),custom);
+    assert_eq!(fs::read(directory.join("server.properties")).unwrap(),config);
+    assert_eq!(world_hashes(&world),original,"Publishing the new engine changed the unbooted world");
+    let copies=backup::list_details(&library.root,&before.id).unwrap();assert_eq!(copies.len(),1);
+    let saved=&copies[0];assert_eq!(saved.reason,Some(backup::Reason::BeforeMinecraftUpdate));
+    assert_eq!(saved.minecraft_version.as_deref(),Some("1.21.4"));assert!(saved.metadata_error.is_none());
+    assert_eq!(world_hashes(&Path::new(&saved.backup.path).join("world")),original);
+    crate::runtime::validate_configured(&library.root,&updated).unwrap();
+    let upgrade_session=cycle(&library,&updated,port,None);assert_ne!(original_session.0,upgrade_session.0);
+    let converted=world_hashes(&world);assert_ne!(converted.get(Path::new("level.dat")),original.get(Path::new("level.dat")));
+    backup::restore_tracked(&library.root,&before.id,&saved.backup.id,&task(&before.id,"restore")).unwrap();
+    let restored=storage::get(&library.root,&before.id).unwrap();
+    assert_eq!(restored.version,"1.21.4");assert!(restored.java_path.is_none());
+    assert_eq!(world_hashes(&world),original,"Rollback did not restore every world file");
+    assert_eq!(fs::read(restored.jar_path.as_ref().unwrap()).unwrap(),old_jar);
+    assert_eq!(fs::read(directory.join("server.properties")).unwrap(),config);
+    assert_eq!(crate::jvm::get(&library.root,&before.id).unwrap(),custom);
+    let copies=backup::list_details(&library.root,&before.id).unwrap();assert_eq!(copies.len(),2);
+    let safety=copies.iter().find(|copy|copy.reason==Some(backup::Reason::BeforeRestore)).unwrap();
+    assert_eq!(safety.minecraft_version.as_deref(),Some(target));
+    assert_eq!(world_hashes(&Path::new(&safety.backup.path).join("world")),converted);
+    // Use the normal managed-runtime preparation after a cross-version restore.
+    crate::install::prepare_runtime(&library.root,&restored,&task(&before.id,"runtime"),false).unwrap();
+    let restored=storage::get(&library.root,&before.id).unwrap();
+    crate::runtime::validate_configured(&library.root,&restored).unwrap();
+    let rollback_session=cycle(&library,&restored,port,None);assert_ne!(rollback_session.0,upgrade_session.0);
+    let (_,stage,old,journal)=crate::instance_publication::paths(&library.root,&restored).unwrap();
+    assert!(!stage.exists()&&!old.exists()&&!journal.exists());assert!(eula::recorded(&library.root).unwrap());
+    println!("WORLD_UPGRADE_EVIDENCE {}",serde_json::json!({"from":before.version,"to":target,"worldFiles":original.len(),"allWorldHashesRestored":true,"convertedSafetyCopyPreserved":true,"originalJarRestored":true,"verifiedSessions":3,"startupMilliseconds":[original_session.1,upgrade_session.1,rollback_session.1],"runtimeReverified":true,"backups":copies.len()}));
+}
