@@ -711,3 +711,35 @@ with an earlier error and repeated occurrences. Initial JavaScript remains
 459.94 kB and CSS 218.04 kB; the deferred content chunk is 44.41 kB. No native cache
 rebuild, installer regeneration or native UI/client verification in this iteration.
 Commit: `fix: recognize Windows plugin diagnostics and bound mod evidence`
+
+## Installed inventory pages and code review
+
+Installed content displays at most 24 files per page. Complete-inventory filters,
+counts, diagnostic associations and file actions remain available. Page changes
+focus the actual range above the results; controls appear at both ends. Filter and
+sort changes return to page one. Refreshes clamp an out-of-range page. Context
+menus retain filename/hash ownership and close when their file leaves the page.
+Icon reads now use the displayed page, with the existing four-read concurrency
+limit, cache and stale-completion guards. This is a bounded rendering/read change;
+no measured native RAM or frame-time improvement is claimed.
+
+Players and installed content share listWindow for page bounds and slicing.
+Player search retains its 50-entry pages and separate UUIDs. Page sizes are a
+24-or-50 type; select values narrow at the DOM boundary instead of forced casts.
+No dependency was added. Existing player styles cover both pagination controls.
+
+The requested Ponytail and Thermo-Nuclear skills guided a small shared calculation
+and two independent read-only reviews. Pstack workflow guidance was read; Cursor
+model defaults and tools are unavailable here, so reviewers inherit the Codex
+model. Both reviews found no concrete pagination blocker. The structural review
+identified existing duplicated mutation/review lifetimes in ContentManager. A
+future refactor needs separate ownership/concurrency coverage before changing
+those paths. This iteration does not add a generic mutation wrapper.
+
+All 114 frontend tests, TypeScript and Windows production Vite pass. New tests
+cover 49 distinct files with equal titles, complete search/source filtering,
+shrinking/empty inventories and invalid requested page numbers. Windows initial
+JavaScript is 460.24 kB, content is 45.44 kB, shared page code is 0.20 kB and CSS
+is 218.12 kB. The added navigation increases bundle size slightly; it limits mounted
+items and first-page icon reads. Native UI review and a new installer remain pending.
+Commit: `perf: paginate installed content and share list bounds`

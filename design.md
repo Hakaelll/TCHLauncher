@@ -66,7 +66,8 @@ One server rail stays compact by default and expands on hover or keyboard focus.
 It opens over the workspace without shifting content or icon targets; no manual
 collapse button remains. Context menus keep it open until dismissed. Server sections belong to a horizontal,
 wrapping workspace bar. There is no repeated server-image banner. The user reviews
-native appearance manually; no computer use or delegated agents are used.
+native appearance manually; no computer use is used. Code reviews may use subagents
+when authorized by the user.
 
 ### Server configuration refinement
 
@@ -476,3 +477,15 @@ rows with an unavailable label and retry, and block file mutations while reads
 are pending or failed. Manual Refresh worlds remains beside Import world; retain
 readable feedback and no fictitious progress. Post-operation read failure does
 not revoke the native acknowledgement. Native validation remains manual.
+
+## Installed inventory pages
+
+Show at most 24 installed files in either cards or compact view. Search, counts
+and diagnostic filters still use the complete inventory. Previous and Next controls
+appear above and below the results, using the existing player navigation material.
+Show the actual file range and page count. After a page change, focus the range and
+scroll it into view without adding motion. Search, state, source and order changes
+return to the first page. A smaller refreshed inventory clamps the current page.
+Read icons only for the displayed page, retaining existing stale-read guards and
+cache keys. Context menus close when their file leaves the page. Native appearance
+and keyboard verification remain pending.
