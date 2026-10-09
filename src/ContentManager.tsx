@@ -9,6 +9,7 @@ import {ContentDiscovery} from './ContentDiscovery'
 import {InstalledContentView} from './InstalledContentView'
 import {DisabledContentView} from './DisabledContentView'
 import {useServerRead} from './useServerRead'
+import {contentOperation} from './contentOperation'
 const actionLabels=localizedStatic({install:'Añadir',update:'Actualizar',present:'Ya instalado'})
 const environmentLabels:Record<string,string>=localizedStatic({client_and_server:'Cliente y servidor',client_only_server_optional:'Cliente necesario · servidor opcional',server_only:'Solo servidor',server_only_client_optional:'Servidor · cliente opcional',dedicated_server_only:'Servidor dedicado',client_or_server:'Cliente o servidor',client_or_server_prefers_both:'Cliente y servidor recomendados'})
 export function ContentManager({server,progress,logs,onConsole,onInstalled,onDismissProgress,onImportPack}:{server:Server;progress:Progress|null;logs:LogLine[];onConsole:(query:string)=>void;onInstalled:()=>Promise<void>;onDismissProgress:()=>void;onImportPack:()=>void}) {
@@ -33,6 +34,7 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
   const stopped=['stopped','error','crashed'].includes(server.state)
   const locked=installing||preparing!==null||!!progress&&isTaskActive(progress)
   const owns=(current:typeof owner.current)=>current.active&&owner.current===current
+  const operate=(current:typeof owner.current,work:()=>Promise<void>)=>contentOperation({owner:current,isCurrent:()=>owns(current),setBusy:setInstalling,work})
   const observedState=useRef(server.state)
   useEffect(()=>{
     if(observedState.current===server.state)return
@@ -53,9 +55,8 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
     catch(e){if(owns(current))setSyncError(t("La operación terminó, pero no se pudieron actualizar los datos del servidor: {0}", errorText(e)))}
   }
   const retrySync=async()=>{
-    const current=owner.current;if(current.working||locked||loading)return
-    current.working=true;setInstalling(true)
-    try{await sync(current)}finally{current.working=false;if(owns(current))setInstalling(false)}
+    const current=owner.current;if(locked||loading)return
+    await operate(current,()=>sync(current))
   }
   const prepare=async(projectId:string,versionId:string|null=null)=>{
     if(locked||owner.current.working||!stopped)return
@@ -81,42 +82,45 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
   }
   const remove=async()=>{
     const current=owner.current
-    if(!removeTarget||current.working||locked||!stopped)return
-    current.working=true;setInstalling(true);setReviewError(null);setSyncError(null)
-    try {
-      await api.removeContent(server.id,removeTarget.filename,removeTarget.sha512)
-      if(!owns(current))return
-      setRemoveTarget(null);setNotice(t("Archivo retirado. Se ha guardado una copia del servidor."))
-      await sync(current)
-    }catch(e){if(owns(current)&&errorText(e)!=='Instalación cancelada')setReviewError(errorText(e))}
-    finally{current.working=false;if(owns(current))setInstalling(false)}
+    if(!removeTarget||locked||!stopped)return
+    await operate(current,async()=>{
+      setReviewError(null);setSyncError(null)
+      try {
+        await api.removeContent(server.id,removeTarget.filename,removeTarget.sha512)
+        if(!owns(current))return
+        setRemoveTarget(null);setNotice(t("Archivo retirado. Se ha guardado una copia del servidor."))
+        await sync(current)
+      }catch(e){if(owns(current)&&errorText(e)!=='Instalación cancelada')setReviewError(errorText(e))}
+    })
   }
   const toggle=async(file:InstalledContent,enabled:boolean)=>{
     const current=owner.current
     if(current.working||locked||!stopped||loading||inventory.error)return
     if(progress&&!isTaskActive(progress))onDismissProgress()
-    current.working=true;setInstalling(true);setError(null);setNotice(null);setSyncError(null)
-    try{
-      await api.setContentEnabled(server.id,file.filename,file.sha512,enabled)
-      if(!owns(current))return
-      setNotice(enabled?t("Archivo reactivado. Se cargar\u00e1 en el pr\u00f3ximo inicio."):t("Archivo desactivado. Su configuraci\u00f3n se conserva."))
-      await sync(current)
-    }catch(e){if(owns(current))setError(errorText(e))}
-    finally{current.working=false;if(owns(current))setInstalling(false)}
+    await operate(current,async()=>{
+      setError(null);setNotice(null);setSyncError(null)
+      try{
+        await api.setContentEnabled(server.id,file.filename,file.sha512,enabled)
+        if(!owns(current))return
+        setNotice(enabled?t("Archivo reactivado. Se cargar\u00e1 en el pr\u00f3ximo inicio."):t("Archivo desactivado. Su configuraci\u00f3n se conserva."))
+        await sync(current)
+      }catch(e){if(owns(current))setError(errorText(e))}
+    })
   }
   const install=async()=>{
     const current=owner.current
-    if(!review||current.working||locked||!stopped)return
-    current.working=true;setInstalling(true);setReviewError(null);setNotice(null);setSyncError(null)
-    try {
-      await api.installContent(server.id,review.token)
-      if(!owns(current))return
-      setReview(null);setNotice(plugins?t("Plugins instalados. Se cargarán en el próximo inicio."):t("Mods instalados. Reinicia para comprobar su carga."))
-      await sync(current)
-    }catch(e){
-      if(owns(current)){setReviewError(errorText(e));await inventory.refresh(server.id)}
-    }
-    finally{current.working=false;if(owns(current))setInstalling(false)}
+    if(!review||locked||!stopped)return
+    await operate(current,async()=>{
+      setReviewError(null);setNotice(null);setSyncError(null)
+      try {
+        await api.installContent(server.id,review.token)
+        if(!owns(current))return
+        setReview(null);setNotice(plugins?t("Plugins instalados. Se cargarán en el próximo inicio."):t("Mods instalados. Reinicia para comprobar su carga."))
+        await sync(current)
+      }catch(e){
+        if(owns(current)){setReviewError(errorText(e));await inventory.refresh(server.id)}
+      }
+    })
   }
   const main=review?.plan.entries.find(entry=>!entry.required)
   const changes=review?.changes.filter(change=>change.action!=='present')??[]

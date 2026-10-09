@@ -743,3 +743,28 @@ JavaScript is 460.24 kB, content is 45.44 kB, shared page code is 0.20 kB and CS
 is 218.12 kB. The added navigation increases bundle size slightly; it limits mounted
 items and first-page icon reads. Native UI review and a new installer remain pending.
 Commit: `perf: paginate installed content and share list bounds`
+
+## Shared content operation ownership
+
+The four content operations now use one synchronous lock/finalization function:
+retrying metadata sync, removing files, enabling/disabling files and installing
+reviewed content. A local adapter retains the exact owner identity/activity check
+and React busy setter. Individual handlers still own their guards, acknowledgement,
+cancellation suppression, error destination and subsequent reads. Toggle dismisses
+completed progress in its original position. Installation failure still refreshes
+the inventory while holding the lock. No mutation is retried by this helper.
+
+Three promise-based tests verify one write under concurrent invocations, retaining
+the lock through follow-up reading, error propagation and release, and an obsolete
+completion while a replacement owner is busy. Inactive owners cannot start work.
+The separate read-only contract and final diff reviews found no scoped blocker.
+Ponytail kept the extraction limited to repeated lifecycle code; the Thermo-Nuclear
+review drove removal of four independent lock/finalization implementations.
+
+All 117 frontend tests, TypeScript and Windows production Vite pass. Content code
+is 45.46 kB versus 45.44 kB before extraction; this is a maintainability change,
+not a bundle-size or measured RAM improvement. Initial JS remains 460.24 kB and
+CSS 218.12 kB. Native UI validation, Cargo checks and packaging were not rerun for
+this frontend-only refactor. Preparation/review lifecycle consolidation remains
+separate work and was not included.
+Commit: `refactor: share content operation ownership and locking`
