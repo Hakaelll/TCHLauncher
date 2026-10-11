@@ -768,3 +768,32 @@ CSS 218.12 kB. Native UI validation, Cargo checks and packaging were not rerun f
 this frontend-only refactor. Preparation/review lifecycle consolidation remains
 separate work and was not included.
 Commit: `refactor: share content operation ownership and locking`
+
+## Atomic content review replacement
+
+Project installation reviews and bulk update reviews now share one preparation
+lifecycle. A discriminated selection holds the native review token/plan together
+with its kind and, for projects, its compatible version catalog. Preparation keeps
+new versions local until the plan succeeds. A failed replacement retains the entire
+previous selection and reports the error inside its review. Release preference,
+explicit version selection, stopped/busy guards, sequence invalidation, close and
+installation behavior remain in place.
+
+Previously, preparation changed the kind and version catalog before planning
+finished. A successful catalog read followed by a failed plan could leave the old
+token with new version options. Cross-kind replacement was also structurally
+inconsistent, but a normal native UI path reproducing it was not established;
+the modal restricts background interaction. This change fixes the state contract.
+
+Five injected-read tests cover release/explicit/experimental selection, complete
+replacement publication, retained review on planning failure, obsolete catalog and
+plan completion, empty catalogs and unmodified read errors. The caller retains a
+final sequence check at publication: a separate promise-ordering case covers
+invalidation between the helper's completion and the caller resuming. They run the shared
+preparation function, not Tauri IPC or a mounted React modal. All 122 frontend
+tests, TypeScript and Windows production Vite pass. Content JS is 45.75 kB versus
+45.46 kB; initial JS remains 460.24 kB and CSS 218.12 kB. This is a consistency and
+maintainability fix, not a measured RAM or bundle reduction. Native UI validation
+and a new installer remain pending. The preparation consolidation noted above is
+now implemented.
+Commit: `fix: publish content review plans atomically`
