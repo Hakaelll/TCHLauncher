@@ -840,3 +840,25 @@ All 124 frontend tests, TypeScript and Windows production Vite pass. Initial JS
 is 460.43 kB, content is 45.80 kB and CSS remains 218.12 kB. This is a scoped copy
 correction; native layout review and packaging remain pending.
 Commit: `fix: localize content diagnostic fragments`
+
+## Windows preview 0.34.0
+
+The accumulated frontend improvements since 0.33.0 are packaged in a new NSIS
+x64 preview. All four version locations agree on 0.34.0 and Cargo updated only
+the root package version in its lockfile. The offline license generator produces
+the same inventory with no missing local texts. All 124 frontend tests, TypeScript
+and Tauri's optimized Windows build pass. Native tests were not rerun for these
+frontend changes. Embedded executable/installer icons match the supplied logo;
+versions, checksum and all four legal resource destinations are verified.
+
+The installer is 6,719,128 bytes / 6.41 MiB. Its SHA-256 and scoped verification
+limits are recorded in the 0.34.0 release notes. It remains unsigned and has not
+been installed or published as a GitHub release. Preserved executable, 0.33.0
+fallback and 0.34.0 installer hashes remain equal after deleting 2,087,480,229
+bytes of rebuildable release caches. No Cargo/rustc/NSIS process was active before
+cleanup; every target was resolved inside the workspace and checked for reparse
+points. Obsolete 0.32.0 generated installer/checksum files are also removed.
+
+README records the user's preference for detailed English commits: a concise
+title followed by changes, rationale, checks and material limitations.
+Commit: `release: package Windows preview 0.34.0`

@@ -12,7 +12,7 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 ## Project status
 
-Latest development milestone: **0.33.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.33.0.md).
+Latest development milestone: **0.34.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.34.0.md).
 
 TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. Native visual and keyboard review, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
 
@@ -129,7 +129,7 @@ Process RAM is distinct from JVM heap usage. Rising process RAM alone does not e
 
 Include the application version, Windows version, Minecraft version, server type, reproduction steps and relevant **redacted** logs. Mention whether the server was created or imported and which mods or plugins are involved. Never post credentials or private player data.
 
-Preserve the documented file and process safeguards, add meaningful regression checks for behavioral changes, and use English commit messages and release notes. Please discuss large changes before implementing them.
+Preserve the documented file and process safeguards, add meaningful regression checks for behavioral changes, and use English commit messages and release notes. Each commit should have a concise title and a body describing what changed, why, verification performed and any material limitations. Please discuss large changes before implementing them.
 
 ## License and acknowledgements
 

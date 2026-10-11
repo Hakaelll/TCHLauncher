@@ -47,8 +47,8 @@ an explicit user instruction. These labels do not imply feature completion.
 - Development compiler caches were removed: workspace logical size fell from
   65.238 GiB to 297.9 MiB; installers/executable hashes unchanged. Dev/test symbols
   and incremental caches are disabled; release profile remains unchanged.
-- Current packaged preview is 0.33.0, including the accumulated changes recorded
-  after 0.32.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
+- Current packaged preview is 0.34.0, including the accumulated changes recorded
+  after 0.33.0. See [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).
 
 ## Remaining work and acceptance evidence
@@ -93,7 +93,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.33.0 NSIS x64 generated with verified version/icons/licenses/checksum and 251 native / 105 frontend tests. Native install/upgrade and usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.34.0 NSIS x64 generated with verified version/icons/licenses/checksum and 124 frontend tests. Native tests were not rerun for this frontend/package milestone; native install/upgrade and usage gates remain open. |
 
 ## Reported issues needing host evidence
 
