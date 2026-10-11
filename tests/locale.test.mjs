@@ -42,6 +42,23 @@ test('all translations preserve placeholder counts and core user flows have Engl
   setLanguage('es',null)
 })
 
+test('content diagnostics translate counts and alternatives while preserving versions and log text',()=>{
+  setLanguage('en',null)
+  assert.equal(t('Se conservan los últimos archivos leídos.'),'Keeping the last files read.')
+  assert.equal(t('· {0} presentes en el último log',30),'· 30 present in the latest log')
+  assert.equal(t('Log actualizado: {0}.','10/11/2026, 12:34'),'Log updated: 10/11/2026, 12:34.')
+  for(const [count,label,expected] of [[1,'archivo relacionado','related file'],[2,'archivos relacionados','related files']]){
+    assert.equal(t('{0} {1} con errores del registro reciente.',count,t(label)),`${count} ${expected} with errors in the recent log.`)
+  }
+  assert.equal(['>=1.21.1','~1.21.4'].join(t(' o ')),'>=1.21.1 or ~1.21.4')
+  assert.equal(t('Instalar {0} {1}',2,t('archivos')),'Install 2 files')
+  const log='[Server thread/ERROR]: o archivos archivo relacionado'
+  assert.equal(translatedMessage(log),log)
+  setLanguage('es',null)
+  assert.equal(['>=1.21.1','~1.21.4'].join(t(' o ')),'>=1.21.1 o ~1.21.4')
+  assert.equal(t('Instalar {0} {1}',1,t('archivo')),'Instalar 1 archivo')
+})
+
 test('date formatting follows the selected language for Date, timestamp and stored ISO values',()=>{
   const date=new Date('2026-10-08T12:34:56Z'),options={timeZone:'UTC'}
   for(const [language,locale] of [['en','en-US'],['es','es-ES']]) {

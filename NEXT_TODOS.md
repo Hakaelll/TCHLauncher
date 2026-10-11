@@ -24,7 +24,7 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  123 frontend tests, TypeScript and Windows production Vite passed.
+  124 frontend tests, TypeScript and Windows production Vite passed.
   Content reviews now publish their plan, kind and version catalog together;
   failed replacement retains the previous complete review and obsolete replies
   cannot replace it. These are frontend contract checks, not native modal QA.

@@ -824,3 +824,19 @@ and identified the previous hidden-warning behavior, now fixed. Tests cover the
 action/read contract; native dialog interaction, IPC and installer validation
 remain pending. No native rebuild or new installer was produced for this change.
 Commit: `fix: expose Minecraft upgrade refresh recovery`
+
+## Content diagnostic localization
+
+Content inventory read failures, Fabric log counts, log dates, error-file counts,
+installation file counts and dependency alternatives now translate their entire
+application wording. Most labels already existed in the English dictionary but
+their callers bypassed translation or inserted Spanish fragments into translated
+sentences. Native audit issues in the card summary now use the same translation
+path as the detail view. Original console evidence remains verbatim.
+
+A locale test exercises English counts, dates and dependency alternatives, checks
+that version ranges and raw log text stay unchanged, and switches back to Spanish.
+All 124 frontend tests, TypeScript and Windows production Vite pass. Initial JS
+is 460.43 kB, content is 45.80 kB and CSS remains 218.12 kB. This is a scoped copy
+correction; native layout review and packaging remain pending.
+Commit: `fix: localize content diagnostic fragments`
