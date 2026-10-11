@@ -24,10 +24,12 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  122 frontend tests, TypeScript and Windows production Vite passed.
+  123 frontend tests, TypeScript and Windows production Vite passed.
   Content reviews now publish their plan, kind and version catalog together;
   failed replacement retains the previous complete review and obsolete replies
   cannot replace it. These are frontend contract checks, not native modal QA.
+  Minecraft upgrades retain native warnings and expose failed metadata refresh
+  separately, with a read-only retry and blocked replanning until recovery.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory

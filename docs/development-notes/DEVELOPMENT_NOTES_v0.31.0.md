@@ -797,3 +797,30 @@ maintainability fix, not a measured RAM or bundle reduction. Native UI validatio
 and a new installer remain pending. The preparation consolidation noted above is
 now implemented.
 Commit: `fix: publish content review plans atomically`
+
+## Minecraft upgrade read recovery
+
+An acknowledged Minecraft upgrade now uses the existing action/read boundary.
+The helper returns the native value alongside any subsequent read error, retaining
+warnings without turning a successful write into a failed installation. The panel
+shows a separate localized refresh error and an Update data button which only
+calls the parent read. Catalog preparation, inspection and update controls stay
+blocked until that read succeeds, preventing new plans from stale server metadata.
+The same recovery is available inside a failed-update dialog or outside a closed
+successful review. The existing End error material wraps the controls on narrow
+windows; no new theme, animation or polling is added.
+
+Native warnings render independently of startup notices, so a halt, timeout or
+start exception cannot hide them. Startup observation still checks the real native
+running state. Its final metadata read also reports failure instead of silently
+discarding it. A disposed panel no longer updates local UI or initiates startup
+after the update/read result returns.
+
+The new helper test retains a native warning across a read rejection and verifies
+that recovery reads do not repeat the update. All 123 frontend tests, TypeScript
+and Windows production Vite pass. Initial JS is 460.37 kB, settings is 27.65 kB and
+CSS remains 218.12 kB. The read-only review found no new helper/caller regression
+and identified the previous hidden-warning behavior, now fixed. Tests cover the
+action/read contract; native dialog interaction, IPC and installer validation
+remain pending. No native rebuild or new installer was produced for this change.
+Commit: `fix: expose Minecraft upgrade refresh recovery`

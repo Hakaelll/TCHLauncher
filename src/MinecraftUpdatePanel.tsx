@@ -5,6 +5,8 @@ import {api,type MinecraftReview,type Progress,type Server,type Version} from '.
 import {Modal} from './Modal'
 import {InstallProgress} from './InstallProgress'
 import {verifyStartup} from './startupVerification'
+import {acknowledgedAction} from './acknowledgedAction'
+import {errorText} from './format'
 
 const statusLabel=localizedStatic({compatible:'Compatible',incompatible:'Incompatible',unknown:'Sin verificar',update:'Actualizar'})
 
@@ -13,6 +15,8 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
   const [startAfter,setStartAfter]=useState(true)
   const [checkingStartup,setCheckingStartup]=useState(false)
   const [startupIssue,setStartupIssue]=useState<string|null>(null)
+  const [syncError,setSyncError]=useState<string|null>(null)
+  const [updateWarning,setUpdateWarning]=useState<string|null>(null)
   const observer=useRef<AbortController|null>(null)
   const mounted=useRef(true)
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;observer.current?.abort()}},[])
@@ -38,10 +42,19 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
     return()=>{active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
   },[server.id])
   if(!server.jarPath)return null
+  const sync=async()=>{
+    try{await onChanged();if(mounted.current)setSyncError(null)}
+    catch(cause){if(mounted.current)setSyncError(errorText(cause))}
+  }
+  const retrySync=async()=>{
+    if(requestBusy.current||working||checkingStartup||busy)return
+    requestBusy.current=true;setWorking(true)
+    try{await sync()}finally{requestBusy.current=false;if(mounted.current)setWorking(false)}
+  }
   const check=async()=>{
-    if(requestBusy.current||working||checkingStartup||busy||!['stopped','crashed','error'].includes(server.state))return
+    if(requestBusy.current||working||checkingStartup||busy||syncError||!['stopped','crashed','error'].includes(server.state))return
     requestBusy.current=true;setCatalogLoaded(false);setVersions([]);setTarget('')
-    setOpen(true);setWorking(true);setReview(null);setConfirmed(false);setError(null);setNotice(null);setProgress(null);setStartupIssue(null)
+    setOpen(true);setWorking(true);setReview(null);setConfirmed(false);setError(null);setNotice(null);setProgress(null);setStartupIssue(null);setUpdateWarning(null)
     try{
       const catalog=await api.versions(server.platform)
       if(!mounted.current)return
@@ -51,26 +64,28 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
     }catch(cause){if(mounted.current)setError(String(cause))}finally{requestBusy.current=false;if(mounted.current)setWorking(false)}
   }
   const inspect=async()=>{
-    if(!target||!catalogLoaded||requestBusy.current||working||busy)return
+    if(!target||!catalogLoaded||requestBusy.current||working||busy||syncError)return
     requestBusy.current=true
     setWorking(true);setError(null);setReview(null);setConfirmed(false)
     try{const value=await api.minecraftReview(server.id,target);if(mounted.current)setReview(value)}catch(cause){if(mounted.current)setError(String(cause))}finally{requestBusy.current=false;if(mounted.current)setWorking(false)}
   }
   const update=async()=>{
-    if(!review||!confirmed||review.blockers.length||requestBusy.current||working||checkingStartup||busy||!['stopped','crashed','error'].includes(server.state))return
+    if(!review||!confirmed||review.blockers.length||requestBusy.current||working||checkingStartup||busy||syncError||!['stopped','crashed','error'].includes(server.state))return
     requestBusy.current=true
     setWorking(true);setError(null);setProgress(null)
     try{
-      const warning=await api.updateMinecraft(server.id,review.targetMinecraft,review.fingerprint,confirmed)
+      const result=await acknowledgedAction(()=>api.updateMinecraft(server.id,review.targetMinecraft,review.fingerprint,confirmed),onChanged)
+      if(!mounted.current)return
+      setSyncError(result.refreshError)
+      setUpdateWarning(result.value)
       const updatedVersion=review.targetMinecraft
-      await onChanged().catch(()=>{});setOpen(false);setReview(null);setWorking(false)
-      const suffix=warning?` ${warning}`:''
+      setOpen(false);setReview(null);setWorking(false)
       if(!startAfter) {
-        setNotice(t("Minecraft actualizado a {0}. Arranque pendiente de comprobar.{1}", updatedVersion, suffix))
+        setNotice(t("Minecraft actualizado a {0}. Arranque pendiente de comprobar.{1}", updatedVersion, ''))
         return
       }
       setCheckingStartup(true);setStartupIssue(null)
-      setNotice(t("Minecraft {0} instalado. Iniciando y esperando a que termine de cargar.{1}", updatedVersion, suffix))
+      setNotice(t("Minecraft {0} instalado. Iniciando y esperando a que termine de cargar.{1}", updatedVersion, ''))
       try {
         observer.current=new AbortController()
         await api.start(server.id)
@@ -81,20 +96,23 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
           now:()=>performance.now(),timeoutMs:180000,signal:observer.current.signal,
         })
         if(!mounted.current)return
-        if(result.kind==='ready')setNotice(t("Minecraft {0} ha terminado de cargar. El servidor sigue en marcha; comprueba tus mundos y mods desde el juego.{1}", updatedVersion, suffix))
+        if(result.kind==='ready')setNotice(t("Minecraft {0} ha terminado de cargar. El servidor sigue en marcha; comprueba tus mundos y mods desde el juego.{1}", updatedVersion, ''))
         else if(result.kind==='halted')setStartupIssue(t("La actualización está instalada, pero el servidor se detuvo antes de estar listo. Revisa la consola. Puedes volver a la versión anterior desde Copias."))
         else setStartupIssue(t("La actualización está instalada, pero no se ha podido confirmar el arranque. Comprueba el estado y la consola antes de volver a iniciar.{0}", result.error?` ${result.error}`:''))
       } catch(cause) {
         if(mounted.current)setStartupIssue(t("Minecraft se actualizó, pero no se pudo iniciar: {0}. La copia previa está disponible en Copias.", String(cause)))
       } finally {
-        if(mounted.current){setCheckingStartup(false);await onChanged().catch(()=>{})}
+        if(mounted.current){setCheckingStartup(false);await sync()}
       }
-    }catch(cause){if(mounted.current)setError(String(cause));await onChanged().catch(()=>{})}finally{requestBusy.current=false;if(mounted.current)setWorking(false)}
+    }catch(cause){if(mounted.current){setError(errorText(cause));await sync()}}finally{requestBusy.current=false;if(mounted.current)setWorking(false)}
   }
+  const syncFeedback=syncError&&<div className="loader-sync-error"><p className="form-error" role="alert">{t("No se pudieron actualizar los datos del servidor: {0}",syncError)}</p><button disabled={working||checkingStartup||busy} onClick={()=>void retrySync()}>{t("Actualizar datos")}</button></div>
   return <section className="loader-panel minecraft-update-panel">
-    <div className="section-heading"><div><h3>Minecraft</h3><p>{t("Versión")} {server.version}  {t("· cambia de versión con una copia previa.")}</p></div><button disabled={working||checkingStartup||busy||!['stopped','crashed','error'].includes(server.state)} onClick={()=>void check()}>{t("Cambiar versión")}</button></div>
+    <div className="section-heading"><div><h3>Minecraft</h3><p>{t("Versión")} {server.version}  {t("· cambia de versión con una copia previa.")}</p></div><button disabled={working||checkingStartup||busy||!!syncError||!['stopped','crashed','error'].includes(server.state)} onClick={()=>void check()}>{t("Cambiar versión")}</button></div>
     {notice&&!startupIssue&&<p className="inline-note" role="status">{translatedMessage(notice)}</p>}
+    {updateWarning&&<p className="inline-note" role="status">{translatedMessage(updateWarning)}</p>}
     {(checkingStartup||startupIssue)&&<div className="minecraft-startup-result" data-failed={!!startupIssue}><p role={startupIssue?'alert':'status'}>{startupIssue??t("Comprobando el arranque real de Minecraft…")}</p><button className="text-button" onClick={onConsole}>{t("Ver consola")}</button></div>}
+    {!open&&syncFeedback}
     {progress&&!open&&<InstallProgress progress={progress} busy={working} onRetry={()=>void check()} onDismiss={()=>setProgress(null)}/>}
     {open&&<Modal className="minecraft-update-dialog" labelledBy="minecraft-update-title" describedBy="minecraft-update-description" busy={working} onClose={()=>{setOpen(false);setError(null)}}>
       <h2 id="minecraft-update-title">{t("Cambiar Minecraft")}</h2><p id="minecraft-update-description" className="field-help">{server.name} · {server.platform}  {t("· versión actual")} {server.version}</p>
@@ -114,7 +132,8 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
       </div>}
       {progress&&<InstallProgress progress={progress} busy={working} onRetry={()=>void inspect()} onDismiss={()=>setProgress(null)}/>}
       {error&&<p ref={errorRef} className="form-error" role="alert" tabIndex={-1}>{translatedMessage(error)}</p>}
-      <div className="modal-actions"><button data-modal-close disabled={working}>{t("Cancelar")}</button>{!review?<button className="primary-button" disabled={working||busy||!catalogLoaded||!target} onClick={()=>void inspect()}>{t("Revisar cambio")}</button>:<button className="primary-button" disabled={working||busy||!['stopped','crashed','error'].includes(server.state)||!confirmed||!!review.blockers.length} onClick={()=>void update()}>{working?t("Actualizando…"):t("Crear copia y actualizar")}</button>}</div>
+      {syncFeedback}
+      <div className="modal-actions"><button data-modal-close disabled={working}>{t("Cancelar")}</button>{!review?<button className="primary-button" disabled={working||busy||!!syncError||!catalogLoaded||!target} onClick={()=>void inspect()}>{t("Revisar cambio")}</button>:<button className="primary-button" disabled={working||busy||!!syncError||!['stopped','crashed','error'].includes(server.state)||!confirmed||!!review.blockers.length} onClick={()=>void update()}>{working?t("Actualizando…"):t("Crear copia y actualizar")}</button>}</div>
     </Modal>}
   </section>
 }
