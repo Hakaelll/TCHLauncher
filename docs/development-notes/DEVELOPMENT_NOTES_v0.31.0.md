@@ -862,3 +862,29 @@ points. Obsolete 0.32.0 generated installer/checksum files are also removed.
 README records the user's preference for detailed English commits: a concise
 title followed by changes, rationale, checks and material limitations.
 Commit: `release: package Windows preview 0.34.0`
+
+## Scheduled task read recovery
+
+Tasks now use the existing shared server-read owner instead of a separate revision
+counter, initial-load flags and read-error handling. A pending or failed inventory
+read blocks adding, pausing, enabling and removing tasks. Last-known rows remain
+visible with an explicit unconfirmed-list message and a read-only retry. Recovery
+is available inside an open creation dialog as well as in the main panel. The
+initial unavailable list remains distinct from a successfully read empty list.
+Native action acknowledgement and its notice remain separate from read failures;
+retry does not repeat the action. The scheduler event subscription and mutation
+owner still guard server selection and disposal; no new polling is added.
+
+Task status/result labels, intervals and remove-button accessible names now follow
+the selected language. The action selector narrows its DOM value instead of casting
+it. A new test checks state/result localization while preserving native result
+classification. Existing server-read tests cover retained values, failed/retried
+reads, overlapping replies, reselection, acknowledgements and disposal. These
+tests do not mount React or exercise native scheduler events.
+
+All 125 frontend tests, TypeScript and Windows production Vite pass. Initial JS
+is 460.87 kB, tasks is 23.71 kB and CSS remains 218.12 kB. This is read recovery and
+localization work, not a measured memory or bundle-size reduction. Native UI and
+live task execution remain pending; this source change is not in the 0.34.0
+installer. The existing installer is unchanged.
+Commit: `fix: guard scheduled task changes behind confirmed reads`

@@ -1676,6 +1676,16 @@ export const english: Record<string,string> = {
   "{0} archivos en total": "{0} files in total",
   "No se pudieron actualizar los datos del servidor: {0}": "Server data could not be refreshed: {0}",
   "Log actualizado: {0}.": "Log updated: {0}.",
+  "Lista de tareas sin confirmar": "Task list not confirmed",
+  "Finalizada": "Completed",
+  "Pausada": "Paused",
+  "Interrumpida": "Interrupted",
+  "Cancelada": "Cancelled",
+  "Solicitud enviada": "Request sent",
+  "Cada {0} min": "Every {0} min",
+  "cada {0} min": "every {0} min",
+  "Quitar tarea: {0}": "Remove task: {0}",
+  "Se muestran las últimas tareas leídas. Actualiza la lista antes de cambiar tareas.": "Showing the last read tasks. Refresh the list before changing tasks.",
   "o": "or",
 
 }
