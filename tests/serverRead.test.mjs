@@ -3,6 +3,22 @@ import assert from 'node:assert/strict'
 import {createServerRead} from '../src/serverRead.ts'
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
 
+test('nullable crash reports distinguish an unread inventory, absent history and failed observation',async()=>{
+  const pending=[];let state
+  const reader=createServerRead(()=>{const request=deferred();pending.push(request);return request.promise},value=>state=value)
+  reader.select('paper')
+  assert.equal(state.data,null)
+  const first=reader.refresh();assert.equal(state.loading,true)
+  pending[0].resolve({report:null});await first
+  assert.deepEqual(state.data,{report:null});assert.equal(state.loading,false)
+  const retry=reader.refresh();pending[1].reject(new Error('report locked'))
+  await assert.rejects(retry,/report locked/)
+  assert.deepEqual(state.data,{report:null});assert.equal(state.error,'report locked')
+  const report={serverId:'paper',sessionId:'crashed-session',diagnoses:[{kind:'bind'}]}
+  const recovered=reader.refresh();pending[2].resolve({report});await recovered
+  assert.equal(state.error,null);assert.equal(state.data.report,report)
+})
+
 test('failed reads retain known data and retry distinguishes unavailable from valid empty',async()=>{
   const pending=[];let state
   const reader=createServerRead(()=>{const task=deferred();pending.push(task);return task.promise},value=>state=value)

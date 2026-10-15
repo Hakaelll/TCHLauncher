@@ -42,6 +42,20 @@ test('all translations preserve placeholder counts and core user flows have Engl
   setLanguage('es',null)
 })
 
+test('authored crash diagnoses translate while technical evidence remains verbatim',()=>{
+  setLanguage('en',null)
+  try{
+    assert.equal(translatedMessage('Java no es compatible'),'Java is incompatible')
+    assert.equal(translatedMessage('Se agotó la memoria de Java'),'Java ran out of heap memory')
+    assert.equal(translatedMessage('Falló la carga de mods'),'Mod loading failed')
+    assert.equal(translatedMessage('Cierre forzado solicitado'),'Forced shutdown requested')
+    assert.equal(translatedMessage('Abre la consola y revisa las últimas líneas antes de volver a iniciar.'),'Open the console and review the last lines before starting again.')
+    const evidence='[Server thread/ERROR]: java.net.BindException: Address already in use'
+    assert.equal(translatedMessage(evidence),evidence)
+  }finally{setLanguage('es',null)}
+  assert.equal(translatedMessage('Falló la carga de mods'),'Falló la carga de mods')
+})
+
 test('content diagnostics translate counts and alternatives while preserving versions and log text',()=>{
   setLanguage('en',null)
   assert.equal(t('Se conservan los últimos archivos leídos.'),'Keeping the last files read.')

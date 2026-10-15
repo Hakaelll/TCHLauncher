@@ -888,3 +888,30 @@ localization work, not a measured memory or bundle-size reduction. Native UI and
 live task execution remain pending; this source change is not in the 0.34.0
 installer. The existing installer is unchanged.
 Commit: `fix: guard scheduled task changes behind confirmed reads`
+
+## Crash report read recovery and English diagnosis copy
+
+Current diagnostics and crash history now use the existing shared server reader
+and offer a read-only retry. A report envelope distinguishes the initial unread
+state from a successful native null response, so missing history is not presented
+as a failed read or an indefinite loading state. History stays absent when no
+record exists; expanding a known report does not fetch it a second time. Existing
+keyed current/history lifetimes, report timestamps, native exit facts, action
+destinations and raw evidence are preserved. No server process operation or
+additional polling accompanies retry.
+
+Authored native diagnosis titles, explanations and recommendations now translate
+at render time. English copy covers all six diagnostic rules plus unknown and
+forced exits, preserving uncertainty and the difference between heap exhaustion
+and other allocation failures. Technical evidence and changed-file names remain
+verbatim. The existing End read-failure material provides the recovery controls.
+
+New shared-reader coverage distinguishes unread, confirmed absent, failed and
+recovered reports. Locale coverage checks crash labels/recommendations, technical
+evidence and switching back to Spanish. All 127 frontend tests, TypeScript and
+Windows production Vite pass. Initial JS is 464.27 kB versus 460.87 kB, largely
+additional English diagnostic copy; CSS remains 218.12 kB. This is recovery and
+localization work, not a size or memory improvement. Mounted React, native crash
+IPC, visual/keyboard review and packaging remain pending. The 0.34.0 installer
+is unchanged.
+Commit: `fix: recover crash report reads and translate diagnoses`
