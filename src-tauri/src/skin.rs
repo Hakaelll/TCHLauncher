@@ -73,38 +73,3 @@ pub fn player_head(root: &Path,uuid: &str) -> Result<Option<String>,String> {
         Err(error)=>{*failed=Some(Instant::now());if let Some((_,bytes))=cached {Ok(Some(data_url(&bytes)))} else {Err(error)}},
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn profile(url:&str) -> Value {serde_json::json!({"id":"069a79f444e94726a5befca90e38aaf5","properties":[{"name":"textures","value":base64::engine::general_purpose::STANDARD.encode(serde_json::json!({"textures":{"SKIN":{"url":url}}}).to_string())}]})}
-    #[test]
-    fn only_official_texture_urls_are_allowed() {
-        let key="069a79f444e94726a5befca90e38aaf5";let hash="a".repeat(64);
-        assert_eq!(skin_url(&profile(&format!("http://textures.minecraft.net/texture/{hash}")),key).unwrap(),Some(format!("https://textures.minecraft.net/texture/{hash}")));
-        for url in [format!("http://127.0.0.1/texture/{hash}"),format!("https://textures.minecraft.net.evil.test/texture/{hash}"),format!("https://user@textures.minecraft.net/texture/{hash}")] {assert!(skin_url(&profile(&url),key).is_err());}
-        assert!(skin_url(&profile(&format!("https://textures.minecraft.net/texture/{hash}")),"another-profile").is_err());
-    }
-    #[test]
-    fn renders_real_face_and_transparent_hat_pixels() {
-        let mut skin=image::RgbaImage::new(64,64);
-        for y in 8..16 {for x in 8..16 {skin.put_pixel(x,y,image::Rgba([120,80,40,255]));}}
-        skin.put_pixel(40,8,image::Rgba([10,20,200,255]));
-        let mut encoded=Cursor::new(Vec::new());image::DynamicImage::ImageRgba8(skin).write_to(&mut encoded,image::ImageFormat::Png).unwrap();
-        let result=head_png(&encoded.into_inner()).unwrap();let head=image::load_from_memory(&result).unwrap().to_rgba8();
-        assert_eq!((head.width(),head.height()),(8,8));assert_eq!(head.get_pixel(0,0).0,[10,20,200,255]);assert_eq!(head.get_pixel(1,0).0,[120,80,40,255]);
-    }
-    #[test]
-    #[ignore="Fetches a public Minecraft skin from Mojang; requires internet"]
-    fn fetches_and_caches_a_real_minecraft_head() {
-        let root=std::env::temp_dir().join(format!("tch-skin-live-{}",uuid::Uuid::new_v4()));
-        let result=player_head(&root,"069a79f4-44e9-4726-a5be-fca90e38aaf5");
-        let data=result.unwrap().expect("Official profile should have a skin");
-        let bytes=base64::engine::general_purpose::STANDARD.decode(data.strip_prefix("data:image/png;base64,").unwrap()).unwrap();
-        let head=image::load_from_memory(&bytes).unwrap();
-        assert_eq!((head.width(),head.height()),(8,8));
-        assert_eq!(player_head(&root,"069a79f444e94726a5befca90e38aaf5").unwrap().as_deref(),Some(data.as_str()));
-        let _=fs::remove_dir_all(root);
-    }
-
-}

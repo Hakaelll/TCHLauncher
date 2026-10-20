@@ -38,22 +38,3 @@ pub fn open_folder(root:&Path,key:&str,id:Option<&str>)->Result<(),String>{
     Command::new(command).arg(path).spawn().map_err(|e|format!("No se pudo abrir la carpeta: {e}"))?;
     Ok(())
 }
-
-#[cfg(test)] mod tests{
-    use super::*;
-    #[test] fn reports_actual_library_and_resolves_only_supported_locations(){
-        let root=std::env::temp_dir().join(format!("tch-application-settings-{}",uuid::Uuid::new_v4()));
-        storage::connect(&root).unwrap();let details=info(&root).unwrap();
-        assert_eq!(details.version,env!("CARGO_PKG_VERSION"));assert!(!details.eula_recorded);assert_eq!(details.locations.len(),4);
-        assert_eq!(details.locations[0].path,root.to_string_lossy());assert!(details.locations[0].exists);assert!(!details.locations[2].exists);
-        let runtime=folder(&root,"runtimes",None).unwrap();assert!(runtime.is_dir());assert_eq!(runtime.parent().unwrap(),root.canonicalize().unwrap());
-        for key in ["../outside","unknown","server"]{assert!(folder(&root,key,None).is_err());}
-        let server=storage::create(&root,crate::model::CreateServer{name:"Settings".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None}).unwrap();
-        assert_eq!(folder(&root,"server",Some(&server.id)).unwrap(),Path::new(&server.directory).canonicalize().unwrap());
-        fs::remove_dir_all(root).unwrap();
-    }
-    #[test] fn refuses_files_in_place_of_application_folders(){
-        let root=std::env::temp_dir().join(format!("tch-application-path-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();fs::write(root.join("backups"),b"keep").unwrap();
-        assert!(folder(&root,"backups",None).is_err());assert_eq!(fs::read(root.join("backups")).unwrap(),b"keep");fs::remove_dir_all(root).unwrap();
-    }
-}

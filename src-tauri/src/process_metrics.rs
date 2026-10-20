@@ -49,35 +49,3 @@ impl Collector {
         reading
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn counters_reset_on_restart_even_when_windows_reuses_the_pid() {
-        let mut collector = Collector::default();
-        let pid = std::process::id();
-        let first = collector.sample("one","launch-a",pid);
-        assert!(first.memory.is_some()); assert!(first.cpu.is_none());
-        assert!(collector.sample("one","launch-a",pid).cpu.is_some());
-        assert!(collector.sample("one","launch-b",pid).cpu.is_none());
-        assert_eq!(collector.entries.len(),1);
-        assert_eq!(collector.entries["one"].system.processes().len(),1);
-        collector.forget("one"); assert!(collector.entries.is_empty());
-        assert!(collector.sample("one","launch-b",pid).cpu.is_none());
-    }
-    #[test]
-    fn eviction_is_bounded_and_keeps_recent_servers_without_cross_server_resets() {
-        let mut collector = Collector::default();
-        for index in 0..MAX_SERVERS { collector.entry(&index.to_string(),"a",42).sampled = true; }
-        collector.entry("0","a",42);
-        collector.entry("new","a",43);
-        assert_eq!(collector.entries.len(),MAX_SERVERS);
-        assert!(!collector.entries.contains_key("1"));
-        assert!(collector.entries["0"].sampled);
-        assert!(!collector.entry("0","a",44).sampled);
-        for index in 0..1000 { collector.entry("restarts",&index.to_string(),42); }
-        assert_eq!(collector.entries.len(),MAX_SERVERS);
-        assert!(collector.entries["new"].system.processes().is_empty());
-    }
-}

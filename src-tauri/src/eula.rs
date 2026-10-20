@@ -52,24 +52,3 @@ pub fn require_download_consent(root: &Path, server: &Server) -> Result<(),Strin
     if !apply_recorded(root,server)? {return Err("Acepta la EULA de Minecraft antes de la primera descarga. Se recordará en este equipo.".into());}
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn consent_is_explicit_persists_and_applies_to_later_servers() {
-        let root=std::env::temp_dir().join(format!("tch-consent-{}",uuid::Uuid::new_v4()));
-        let create=|name:&str|storage::create(&root,crate::model::CreateServer{name:name.into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None}).unwrap();
-        let first=create("First");
-        assert!(!recorded(&root).unwrap());assert!(!file_accepted(&first));
-        assert!(require_download_consent(&root,&first).is_err());
-        assert!(!Path::new(&first.directory).join("eula.txt").exists());
-        accept(&root,&first).unwrap();assert!(recorded(&root).unwrap());assert!(file_accepted(&first));
-        let second=create("Second");assert!(file_accepted(&second));
-        // A restored older eula.txt is prepared from recorded consent at the next start.
-        fs::write(Path::new(&second.directory).join("eula.txt"),"eula=false\n").unwrap();
-        apply_recorded(&root,&second).unwrap();assert!(file_accepted(&second));
-        let other=root.join("other-installation");assert!(!recorded(&other).unwrap());
-        let _=fs::remove_dir_all(root);
-    }
-}

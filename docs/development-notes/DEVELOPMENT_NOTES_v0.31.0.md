@@ -955,3 +955,41 @@ edge cases, destination aliases and long derived names; both were fixed and
 covered before the final gate. Native UI, real Paper gameplay and interruption
 recovery remain unverified. This source change is not packaged in installer 0.34.0.
 Commit: `fix: preserve Paper world dimension families across operations`
+
+## World-copy recovery and requested test reduction
+
+Paper family duplicate/folder-export publication now records a versioned plan in
+library SQLite before the first visible rename. Fresh ownership markers and
+streamed SHA-256 tree fingerprints identify its prepared parts. Recovery checks
+the entire family and its reserved dimension names before completing remaining
+renames. It confirms publication durably before removing markers; cleanup can be
+repeated. Conflicting or modified folders are retained, never recursively removed.
+Imported server-local journals do not authorize recovery operations.
+
+Startup attempts each pending record independently. An unavailable external
+export stays pending without stopping unrelated servers. Mutating a server with
+an internal pending copy is blocked until application restart recovery; background
+startup also performs recovery. Listing refuses an unresolved internal plan.
+Normal errors before a durable record clean the operation's staging folders;
+errors after it retain recoverable files. Abrupt termination during staging or
+fingerprinting before that record can still leave hidden .part folders. The
+journal covers process interruption, not a proven power-loss durability guarantee.
+Hashing adds file reads; no RAM, network or runtime speedup is claimed.
+
+At the maintainer's explicit request, the suite was reduced from 422 cases to 22,
+a net reduction of 94.8%, including four new combined world-publication checks.
+The retained set has five frontend read/concurrency checks, eight native integrity
+and recovery checks, and nine opt-in real Minecraft scenarios. Many removed cases
+were meaningful low-level coverage; removing them intentionally reduces regression
+protection. Standalone Java predicate/properties probes and their obsolete setup
+instructions were retired. This reduces source maintenance, not installed app size.
+Historical verification records above remain historical evidence.
+
+Current verification: five frontend checks, TypeScript, Windows production Vite
+and eight native checks passed; nine real Minecraft integrations were not rerun.
+The world checks cover all durable rename/cleanup interruption points, repeated
+recovery, foreign destinations, changed files/markers, a disconnected export,
+invalid trusted records and actual tracked duplicate/export task wiring with
+valid compressed level.dat fixtures and distinct dimension files. They do not
+exercise native UI, actual process killing, client gameplay or physical routers.
+The existing 0.34.0 installer is unchanged by these source changes.

@@ -84,7 +84,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --offline --lib
 pnpm tauri build --bundles nsis -- --offline
 ```
 
-Offline Cargo commands require dependencies to have been fetched previously. Some integration tests are ignored by default because they require downloads, managed Java, external services or explicit test fixtures; their setup is documented beside the tests and in [fixture documentation](src-tauri/tests/fixtures/README.md). Automated checks do not accept the Minecraft EULA on the user's behalf.
+Offline Cargo commands require dependencies to have been fetched previously. The compact suite keeps five frontend read/recovery checks, eight native file-integrity/recovery checks and nine opt-in real Minecraft scenarios. The real scenarios require downloads, managed Java and an existing consent record; see [integration setup](src-tauri/tests/fixtures/README.md). The suite was reduced at the maintainer's request; omitted areas have less regression coverage. Automated checks do not accept the Minecraft EULA on the user's behalf.
 
 NSIS installers are generated under `src-tauri/target/release/bundle/nsis/`. Build outputs are ignored by Git; generating an installer locally does not publish a GitHub release.
 
@@ -129,7 +129,7 @@ Process RAM is distinct from JVM heap usage. Rising process RAM alone does not e
 
 Include the application version, Windows version, Minecraft version, server type, reproduction steps and relevant **redacted** logs. Mention whether the server was created or imported and which mods or plugins are involved. Never post credentials or private player data.
 
-Preserve the documented file and process safeguards, add meaningful regression checks for behavioral changes, and use English commit messages and release notes. Each commit should have a concise title and a body describing what changed, why, verification performed and any material limitations. Please discuss large changes before implementing them.
+Preserve the documented file and process safeguards, add meaningful regression checks for behavioral changes, and use English commit messages and release notes. Keep English commit messages to one or two informative lines. Please discuss large changes before implementing them.
 
 ## License and acknowledgements
 

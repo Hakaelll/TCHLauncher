@@ -65,9 +65,9 @@ mod os {
     }
 }
 
-#[cfg(any(target_os="linux",test))]
+#[cfg(target_os="linux")]
 const MARKER:&str="# Managed by TCHLauncher\n";
-#[cfg(any(target_os="linux",test))]
+#[cfg(target_os="linux")]
 fn desktop(path:&Path)->Result<String,String> {
     let text=path.to_str().ok_or("La ruta del launcher no es UTF-8")?;
     // Exec field codes inside quoted arguments are undefined by the standard.
@@ -75,7 +75,7 @@ fn desktop(path:&Path)->Result<String,String> {
     let escaped=text.replace('\\',"\\\\\\\\").replace('"',"\\\\\"").replace('`',"\\\\`").replace('$',"\\\\$");
     Ok(format!("{MARKER}[Desktop Entry]\nType=Application\nName=TCHLauncher\nExec=\"{escaped}\" --autostart\nTerminal=false\n"))
 }
-#[cfg(any(target_os="linux",test))]
+#[cfg(target_os="linux")]
 fn read_desktop(path:&Path)->Result<Option<String>,String> {
     match std::fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_symlink()||!meta.is_file()||meta.len()>32768=>return Err("La entrada de inicio no es un archivo normal de TCHLauncher.".into()),
@@ -84,7 +84,7 @@ fn read_desktop(path:&Path)->Result<Option<String>,String> {
     let value=std::fs::read_to_string(path).map_err(|e|e.to_string())?;
     if !value.starts_with(MARKER){return Err("Ya existe una entrada de inicio ajena al launcher. No se modificará.".into());}Ok(Some(value))
 }
-#[cfg(any(target_os="linux",test))]
+#[cfg(target_os="linux")]
 fn write_desktop(path:&Path,value:Option<&str>)->Result<(),String> {
     read_desktop(path)?;
     if let Some(value)=value {
@@ -118,31 +118,3 @@ mod os {
 }
 pub fn os_status()->Result<OsStatus,String>{os::status()}
 pub fn set_os(enabled:bool)->Result<OsStatus,String>{os::set(enabled)}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    struct Library(PathBuf);
-    impl Drop for Library{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
-    fn fixture()->(Library,String){let root=std::env::temp_dir().join(format!("tch-startup-{}",uuid::Uuid::new_v4()));let server=storage::create(&root,crate::model::CreateServer{name:"Startup".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();(Library(root),server.id)}
-    #[test]
-    fn selected_servers_default_off_persist_and_are_removed_with_server() {
-        let (root,id)=fixture();assert!(!enabled(&root.0,&id).unwrap());assert!(!servers(&root.0).unwrap()[0].enabled);
-        set_server(&root.0,&id,true).unwrap();finish(&root.0,&id,"Error: Java ausente").unwrap();let saved=servers(&root.0).unwrap();assert!(saved[0].enabled);assert_eq!(saved[0].last_result.as_deref(),Some("Error: Java ausente"));assert!(set_server(&root.0,"foreign",true).is_err());set_server(&root.0,&id,false).unwrap();assert!(!enabled(&root.0,&id).unwrap());
-        storage::connect(&root.0).unwrap().execute("DELETE FROM servers WHERE id=?1",[&id]).unwrap();assert!(servers(&root.0).unwrap().is_empty());assert!(!enabled(&root.0,&id).unwrap());
-    }
-    #[test]
-    fn windows_registration_quotes_unicode_path_and_enforces_run_limit() {
-        assert_eq!(windows_command(Path::new("C:\\Program Files\\TCH ñ\\launcher.exe")).unwrap(),"\"C:\\Program Files\\TCH ñ\\launcher.exe\" --autostart");
-        for path in ["bad\"exe","bad\nexe","",&"a".repeat(260)] {assert!(windows_command(Path::new(path)).is_err());}
-    }
-    #[test]
-    fn desktop_entry_quotes_reserved_characters_and_preserves_foreign_entries() {
-        let (root,_)=fixture();let path=root.0.join("autostart/com.tchlauncher.desktop.desktop");let content=desktop(Path::new("/opt/TCH name/$`\\\"launcher")).unwrap();
-        assert!(content.contains("Exec=\"/opt/TCH name/\\\\$\\\\`\\\\\\\\\\\\\"launcher\" --autostart"));
-        write_desktop(&path,Some(&content)).unwrap();assert_eq!(read_desktop(&path).unwrap().as_deref(),Some(content.as_str()));
-        let updated=desktop(Path::new("/opt/TCH/new launcher")).unwrap();write_desktop(&path,Some(&updated)).unwrap();assert_eq!(read_desktop(&path).unwrap().as_deref(),Some(updated.as_str()));write_desktop(&path,None).unwrap();assert!(!path.exists());
-        std::fs::write(&path,b"[Desktop Entry]\nExec=foreign\n").unwrap();assert!(write_desktop(&path,Some(&content)).is_err());assert!(write_desktop(&path,None).is_err());assert_eq!(std::fs::read(&path).unwrap(),b"[Desktop Entry]\nExec=foreign\n");
-        for invalid in ["relative","/opt/new\nkey","/opt/with%field","/opt/with=equals"]{assert!(desktop(Path::new(invalid)).is_err());}
-    }
-}

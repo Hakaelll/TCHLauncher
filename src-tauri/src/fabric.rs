@@ -136,29 +136,3 @@ pub fn game_jar(server:&Server)->Option<PathBuf> {
     let parent=Path::new(server.jar_path.as_ref()?).parent()?;
     (parent.parent()?==Path::new(&server.directory).join(".tch-fabric")).then(||parent.join("vanilla.jar"))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn rejects_unsafe_coordinates_and_selects_stable_loader() {
-        for name in ["../evil:lib:1","org..bad:lib:1","org:../x:1","org:x:1/evil","org:x:1:classifier"] {assert!(library_path(name).is_err());}
-        assert_eq!(library_path("net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7").unwrap(),"net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar");
-        assert_eq!(select_loader(&serde_json::json!([{"loader":{"stable":false,"version":"99"}},{"loader":{"stable":true,"version":"0.19.5"}}])).unwrap(),"0.19.5");
-        assert!(select_loader(&serde_json::json!([])).is_err());
-        let catalog=serde_json::json!([{"loader":{"stable":true,"version":"0.19.5"}},{"loader":{"stable":true,"version":"0.16.10"}}]);
-        assert_eq!(requested_loader(&catalog,Some("0.16.10")).unwrap(),"0.16.10");
-        assert!(requested_loader(&catalog,Some("0.16.11")).is_err());
-    }
-    #[test]
-    fn writes_valid_folded_manifest_with_complete_classpath() {
-        let root=std::env::temp_dir().join(format!("tch-fabric-manifest-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
-        let path=root.join("launcher.jar");let libraries=vec![format!("libraries/{}/loader.jar","a".repeat(130)),"libraries/game.jar".into()];
-        launcher(&path,"net.fabricmc.Launcher","net.fabricmc.KnotServer",&libraries).unwrap();
-        assert_eq!(loader_main_class(&path).unwrap(),"net.fabricmc.Launcher");
-        let mut zip=zip::ZipArchive::new(File::open(path).unwrap()).unwrap();let mut manifest=String::new();zip.by_name("META-INF/MANIFEST.MF").unwrap().read_to_string(&mut manifest).unwrap();
-        assert!(manifest.lines().all(|line|line.len()<=72));
-        assert!(manifest.replace("\r\n ","").contains(&format!("Class-Path: {}",libraries.join(" "))));
-        let _=fs::remove_dir_all(root);
-    }
-}

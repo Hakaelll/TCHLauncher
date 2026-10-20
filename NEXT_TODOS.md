@@ -24,7 +24,7 @@ an explicit user instruction. These labels do not imply feature completion.
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
-  127 frontend tests, TypeScript and Windows production Vite passed.
+  Five retained frontend tests, TypeScript and Windows production Vite passed.
   Content reviews now publish their plan, kind and version catalog together;
   failed replacement retains the previous complete review and obsolete replies
   cannot replace it. These are frontend contract checks, not native modal QA.
@@ -34,9 +34,12 @@ an explicit user instruction. These labels do not imply feature completion.
   labeled unconfirmed rows and block changes until a successful retry.
   Current and historical crash reports offer read-only recovery; nullable report
   envelopes distinguish unread/failed observation from a confirmed absent report.
-  Latest native gate: 257 passed, 38 conditional integrations ignored. Paper
-  family filesystem tests cover distinct dimension bytes, copies/exports,
-  collisions, cancellation, rollback and 64-character primary names.
+  Latest native gate: eight passed, nine real Minecraft integrations ignored.
+  The requested suite reduction leaves 22 cases overall, down from 422 (94.8%).
+  Retained cases prioritize recovery, data integrity and real engine scenarios;
+  retired low-level checks no longer provide current regression coverage.
+  Paper family checks cover distinct copied/exported dimension bytes, source
+  equality, interrupted publication, conflicts and ownership changes.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory
@@ -109,14 +112,21 @@ listed above. These remain required work, rather than implemented features await
 only manual verification:
 
 - **WORLD-PAPER-01 — REVIEW:** Paper's overworld and separate Nether/End folders
-  now share discovery across listing, duplicate, folder/ZIP export, activation and
-  deletion. Six native tests cover dimension bytes, collisions, cancellation,
-  rollback, unsafe siblings, aliases and long names. Native UI and an actual Paper
-  restart with the copied dimensions remain unverified.
-- **WORLD-PAPER-RECOVERY-01 — TODO:** prove recovery if the application exits between
-  publishing dimension folders. In-process failure rolls back published copies,
-  but process interruption between directory renames is not covered by a durable
-  family-publication journal or an interruption test. Original sources stay intact.
+  share discovery across listing, duplicate, folder/ZIP export, activation and
+  deletion. Retained duplicate/export checks compare all dimension bytes and
+  unchanged source hashes. Native UI and an actual Paper restart with copied
+  dimensions remain unverified; older broader unit checks were retired.
+- **WORLD-PAPER-RECOVERY-01 — REVIEW:** trusted SQLite plans, ownership markers
+  and streamed fingerprints recover interruptions between dimension renames.
+  Startup attempts all plans; unavailable external destinations remain pending
+  without blocking unrelated servers. Internal pending copies block mutations
+  until recovery at application restart; background startup also recovers them.
+  Recovery never deletes visible world folders, and preserves modified files or
+  conflicting destinations for review. Retained checks exercise every durable
+  publication/cleanup boundary and repeat recovery. These simulate interruption
+  through unwinding, not OS termination or power loss. A process killed before
+  the durable plan exists may leave hidden staging folders; pre-journal ordinary
+  failures clean their stages. Native recovery presentation remains unverified.
 - **IMPORT-PREVIEW-01 — TODO:** inspect and preview worlds, mods/plugins,
   permissions and important properties before copying or managing an existing
   server. Current inspection focuses on versions/JARs/launchers. Preserve source

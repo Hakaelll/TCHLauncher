@@ -11,10 +11,10 @@ static LOCK:Mutex<()>=Mutex::new(());
 
 #[derive(Clone,Copy,Serialize)]
 #[serde(rename_all="snake_case")]
-pub enum Event {ApplicationStarted,ApplicationStopping,ServerStarting,ServerRunning,ServerStopping,ServerStopped,ServerCrashed,RouterMaintenanceFailed}
+pub enum Event {ApplicationStarted,ApplicationStopping,ServerStarting,ServerRunning,ServerStopping,ServerStopped,ServerCrashed,RouterMaintenanceFailed,WorldCopyRecoveryPending}
 impl Event {
     fn level(self)->&'static str {
-        match self {Self::ServerCrashed=>"warn",Self::RouterMaintenanceFailed=>"error",_=>"info"}
+        match self {Self::ServerCrashed=>"warn",Self::RouterMaintenanceFailed|Self::WorldCopyRecoveryPending=>"error",_=>"info"}
     }
 }
 #[derive(Serialize)]
@@ -64,35 +64,4 @@ pub fn open(root:&Path)->Result<(),String> {
     let mut child=std::process::Command::new(command).arg(path).spawn().map_err(|error|format!("No se pudo abrir la carpeta de logs: {error}"))?;
     std::thread::spawn(move||{let _=child.wait();});
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    struct Sandbox(PathBuf);
-    impl Sandbox {fn new()->Self {Self(std::env::temp_dir().join(format!("tch-app-log-test-{}",uuid::Uuid::new_v4())))}}
-    impl Drop for Sandbox {fn drop(&mut self){let _=fs::remove_dir_all(&self.0);}}
-    #[test]
-    fn diagnostic_records_have_levels_and_no_arbitrary_private_payload(){
-        let root=Sandbox::new();let id=uuid::Uuid::new_v4().to_string();
-        append(&root.0,Event::ApplicationStarted,None,MAX_BYTES).unwrap();
-        append(&root.0,Event::ServerCrashed,Some(&id),MAX_BYTES).unwrap();
-        append(&root.0,Event::RouterMaintenanceFailed,None,MAX_BYTES).unwrap();
-        let entries:Vec<serde_json::Value>=fs::read_to_string(directory(&root.0).unwrap().join("launcher.jsonl")).unwrap().lines().map(|line|serde_json::from_str(line).unwrap()).collect();
-        assert_eq!(entries.len(),3);assert_eq!(entries[0]["level"],"info");assert_eq!(entries[1]["level"],"warn");assert_eq!(entries[2]["level"],"error");
-        assert_eq!(entries[1]["serverId"],id);assert!(entries[0]["serverId"].is_null());
-        assert_eq!(entries[0].as_object().unwrap().len(),5);
-        assert!(append(&root.0,Event::ServerStarting,Some("player-name-or-password"),MAX_BYTES).is_err());
-    }
-    #[test]
-    fn log_rotation_retains_two_bounded_parseable_files(){
-        let root=Sandbox::new();
-        for _ in 0..30 {append(&root.0,Event::ApplicationStarted,None,400).unwrap();}
-        let directory=directory(&root.0).unwrap();
-        assert_eq!(fs::read_dir(&directory).unwrap().count(),2);
-        for file in fs::read_dir(&directory).unwrap() {
-            let file=file.unwrap();assert!(file.metadata().unwrap().len()<=400);
-            for line in fs::read_to_string(file.path()).unwrap().lines(){assert!(serde_json::from_str::<serde_json::Value>(line).is_ok());}
-        }
-    }
 }

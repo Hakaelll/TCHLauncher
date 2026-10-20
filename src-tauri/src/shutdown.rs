@@ -33,23 +33,3 @@ pub fn stop_all(
     for target in clean{if let Err(error)=backup(&target.id){errors.push(format!("{}: Copia tras la parada: {error}",target.label));}}
     if errors.is_empty(){Ok(())}else{Err(errors.join("\n"))}
 }
-
-#[cfg(test)] mod tests{
-    use super::*;
-    fn targets()->Vec<Target>{["a","b","c"].into_iter().map(|id|Target{id:id.into(),label:format!("Server {id}")}).collect()}
-    #[test] fn one_failed_request_does_not_skip_other_stops_or_copies(){
-        let events=std::cell::RefCell::new(Vec::new());
-        let result=stop_all(&targets(),|id|{events.borrow_mut().push(format!("stop:{id}"));if id=="a"{Err("stdin closed".into())}else{Ok(())}},|id|{events.borrow_mut().push(format!("observe:{id}"));StopState::Clean},|id|{events.borrow_mut().push(format!("copy:{id}"));if id=="b"{Err("disk full".into())}else{Ok(())}},Duration::ZERO);
-        let error=result.unwrap_err();assert!(error.contains("Server a: stdin closed"));assert!(error.contains("Server b: Copia tras la parada: disk full"));
-        assert_eq!(&*events.borrow(),&["stop:a","stop:b","stop:c","observe:b","observe:c","copy:b","copy:c"]);
-    }
-    #[test] fn one_shared_deadline_keeps_live_and_unclean_servers_out_of_backups(){
-        let copies=std::cell::RefCell::new(Vec::new());
-        let error=stop_all(&targets(),|_|Ok(()),|id|match id{"a"=>StopState::Active,"b"=>StopState::Failed("crashed".into()),_=>StopState::Clean},|id|{copies.borrow_mut().push(id.to_string());Ok(())},Duration::ZERO).unwrap_err();
-        assert!(error.contains("Server a: No se detuvo a tiempo"));assert!(error.contains("Server b: crashed"));assert_eq!(&*copies.borrow(),&["c"]);
-    }
-    #[test] fn successful_and_empty_batches_have_no_errors(){
-        let mut copies=0;assert!(stop_all(&targets(),|_|Ok(()),|_|StopState::Clean,|_|{copies+=1;Ok(())},Duration::ZERO).is_ok());assert_eq!(copies,3);
-        assert!(stop_all(&[],|_|panic!("empty request"),|_|panic!("empty observe"),|_|panic!("empty copy"),Duration::ZERO).is_ok());
-    }
-}

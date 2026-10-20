@@ -68,33 +68,3 @@ pub fn write_report(destination:&std::path::Path,bytes:&[u8])->Result<(),String>
     if result.is_err(){let _=fs::remove_file(temporary);}
     result
 }
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-    fn metric(time:i64,pid:u32,uptime:u64)->Metrics{
-        Metrics{server_id:"one".into(),sampled_at:time,pid:Some(pid),uptime_seconds:Some(uptime),startup_duration_ms:None,startup_phase:None,memory_bytes:Some(4096),heap:Some(crate::heap::Reading{used_bytes:1024,committed_bytes:2048,collections:3,sampled_at:time}),heap_error:Some("PRIVATE PATH".into()),cpu_percent:None,disk_read_bytes:None,disk_written_bytes:None,size_bytes:None,size_error:None,size_sampled_at:None,size_skipped_links:None,storage_warning_percent:80,tps:crate::ticks::Snapshot{reading:None,pending:false}}
-    }
-    fn server()->Server{Server{id:"one".into(),name:"PRIVATE NAME".into(),version:"1.21.11".into(),platform:"fabric".into(),directory:"PRIVATE PATH".into(),jar_path:None,java_path:None,memory_min_mb:1024,memory_max_mb:12288,storage_target_gb:20,created_at:String::new(),state:"running".into(),image_data:None,pinned:false}}
-    #[test]
-    fn bounded_sessions_and_private_fields(){
-        let history=History::default();let server=server();assert!(history.report(&server).is_err());
-        for n in 0..1000{history.record(&metric(n*2000,42,n as u64*2),"a");}
-        let json:serde_json::Value=serde_json::from_slice(&history.report(&server).unwrap()).unwrap();
-        let samples=json["samples"].as_array().unwrap();assert_eq!(samples.len(),901);assert_eq!(samples[0]["sampledAt"],198000);assert_eq!(samples[900]["collectorEvents"],3);
-        assert!(!json.to_string().contains("PRIVATE"));assert_eq!(json["configuredMaximumHeapMiB"],12288);
-        let mut unavailable=metric(2000000,42,2000);unavailable.heap=None;history.record(&unavailable,"a");
-        let json:serde_json::Value=serde_json::from_slice(&history.report(&server).unwrap()).unwrap();assert!(json["samples"].as_array().unwrap().last().unwrap()["heapUsedBytes"].is_null());
-        history.record(&metric(2001000,43,1),"b");history.record(&metric(2000500,42,2000),"a");
-        let json:serde_json::Value=serde_json::from_slice(&history.report(&server).unwrap()).unwrap();assert_eq!(json["samples"].as_array().unwrap().len(),1);assert_eq!(json["samples"][0]["pid"],43);
-        history.record(&metric(2002000,43,0),"b");assert_eq!(history.0.lock().unwrap()["one"].len(),1);
-        history.record(&metric(2003000,43,5),"c");assert_eq!(history.0.lock().unwrap()["one"].len(),1);
-    }
-    #[test]
-    fn publication_preserves_unrelated_files_and_rejects_directories(){
-        let root=std::env::temp_dir().join(format!("memory-report-{}",uuid::Uuid::new_v4()));std::fs::create_dir(&root).unwrap();
-        let path=root.join("report.json");write_report(&path,b"first").unwrap();write_report(&path,b"second").unwrap();assert_eq!(std::fs::read(&path).unwrap(),b"second");
-        assert!(write_report(&root,b"bad").is_err());assert_eq!(std::fs::read_dir(&root).unwrap().count(),1);assert_eq!(std::fs::read(&path).unwrap(),b"second");
-        std::fs::remove_dir_all(root).unwrap();
-    }
-}

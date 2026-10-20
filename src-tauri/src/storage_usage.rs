@@ -96,39 +96,3 @@ pub fn inspect(root:&Path,server:&Server)->Result<Usage,String>{
     let disks=sysinfo::Disks::new_with_refreshed_list();usage.server_volume=volume(&base,&disks);usage.backup_volume=volume(&backup_path,&disks);usage.sampled_at=chrono::Utc::now().timestamp_millis();
     Ok(usage)
 }
-
-#[cfg(test)] mod tests{
-    use super::*;
-    use std::io::Write;
-    #[test]fn size_cache_distinguishes_empty_missing_and_changed_server_locations(){
-        let root=std::env::temp_dir().join(format!("tch-size-cache-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
-        let cache=SizeCache::default();let first=root.join("first");
-        assert!(cache.sample("one",&first).unwrap().result.is_err());
-        fs::create_dir(&first).unwrap();
-        assert!(cache.sample("one",&first).unwrap().result.is_err());
-        cache.invalidate("one");assert_eq!(cache.sample("one",&first).unwrap().result.unwrap().bytes,0);
-        fs::write(first.join("world.bin"),vec![1u8;250]).unwrap();
-        assert_eq!(cache.sample("one",&first).unwrap().result.unwrap().bytes,0);
-        cache.invalidate("one");assert_eq!(cache.sample("one",&first).unwrap().result.unwrap().bytes,250);
-        let second=root.join("second");fs::create_dir(&second).unwrap();fs::write(second.join("server.jar"),vec![2u8;125]).unwrap();
-        assert_eq!(cache.sample("one",&second).unwrap().result.unwrap().bytes,125);
-        assert_eq!(cache.sample("two",&first).unwrap().result.unwrap().bytes,250);
-        assert!(measure_size(&first.join("world.bin")).is_err());
-        let mut size=u64::MAX;assert!(add(&mut size,1).is_err());assert_eq!(size,u64::MAX);
-        fs::remove_dir_all(root).unwrap();
-    }
-    #[test] fn measures_disjoint_categories_and_persists_validated_warning_preferences(){
-        let root=std::env::temp_dir().join(format!("tch-storage-usage-{}",uuid::Uuid::new_v4()));
-        let server=storage::create(&root,crate::model::CreateServer{name:"Storage".into(),version:"1.21.4".into(),platform:"paper".into(),memory_min_mb:512,memory_max_mb:1024,max_players:2,port:25565,storage_target_gb:2,image_path:None}).unwrap();let base=Path::new(&server.directory);
-        for folder in ["world/region","plugins","logs"]{fs::create_dir_all(base.join(folder)).unwrap();}
-        let mut nbt=flate2::write::GzEncoder::new(fs::File::create(base.join("world/level.dat")).unwrap(),flate2::Compression::default());nbt.write_all(&[10,0,0,10,0,4,b'D',b'a',b't',b'a',0]).unwrap();nbt.finish().unwrap();
-        fs::write(base.join("world/region/r.0.0.mca"),vec![1u8;300]).unwrap();fs::write(base.join("plugins/example.jar"),vec![2u8;50]).unwrap();fs::write(base.join("logs/latest.log"),vec![3u8;40]).unwrap();fs::write(base.join("server.jar"),vec![4u8;70]).unwrap();
-        let backup=root.join("backups").join(&server.id).join("copy");fs::create_dir_all(&backup).unwrap();fs::write(backup.join("server.jar"),vec![5u8;90]).unwrap();
-        let measured=inspect(&root,&server).unwrap();assert_eq!(measured.server_bytes,crate::backup::size(base));assert_eq!(measured.worlds_bytes,crate::backup::size(&base.join("world")));assert_eq!(measured.content_bytes,50);assert_eq!(measured.logs_bytes,40);assert_eq!(measured.backup_bytes,90);assert_eq!(measured.worlds_bytes+measured.content_bytes+measured.logs_bytes+measured.other_bytes,measured.server_bytes);assert_eq!(measured.warning_percent,90);
-        save_warning(&root,&server.id,75).unwrap();assert_eq!(warning_percent(&root,&server.id).unwrap(),75);assert!(save_warning(&root,&server.id,0).is_err());assert!(save_warning(&root,&server.id,101).is_err());assert_eq!(warning_percent(&root,&server.id).unwrap(),75);
-        storage::delete(&root,&server.id).unwrap();assert_eq!(settings(&root).unwrap().query_row("SELECT count(*) FROM storage_warnings",[],|row|row.get::<_,u32>(0)).unwrap(),0);fs::remove_dir_all(root).unwrap();
-    }
-    #[test] fn invalid_backup_location_is_an_error_instead_of_zero_usage(){
-        let root=std::env::temp_dir().join(format!("tch-storage-invalid-{}",uuid::Uuid::new_v4()));fs::create_dir_all(&root).unwrap();let path=root.join("copies");fs::write(&path,b"keep").unwrap();assert!(backup_size(&path).is_err());assert_eq!(fs::read(&path).unwrap(),b"keep");fs::remove_dir_all(root).unwrap();
-    }
-}

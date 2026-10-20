@@ -49,26 +49,3 @@ fn parse(line:&str)->Option<[f64;3]>{
     let reading=[values.next()??,values.next()??,values.next()??];
     values.next().is_none().then_some(reading)
 }
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-    #[test]
-    fn accepts_only_complete_native_tps_responses(){
-        assert_eq!(parse("[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20.0, 19.5, 18.1"),Some([20.0,19.5,18.1]));
-        assert_eq!(parse("\u{1b}[33m[12:01:02] [Server thread/INFO]: TPS from last 1m, 5m, 15m: *20.0, 19.5, 18.1\u{1b}[0m"),Some([20.0,19.5,18.1]));
-        assert_eq!(parse("> > \r  \r[01:55:36 INFO]: \u{1b}[33mTPS from last 1m, 5m, 15m: \u{1b}[0m\u{1b}[92m20.0\u{1b}[0m, 20.0, 20.0"),Some([20.0;3]));
-        for line in ["> > \r  \r[12:01:02 INFO]: <Alex> TPS from last 1m, 5m, 15m: 20,20,20","> > \r  \r[12:01:02 INFO]: [Plugin] TPS from last 1m, 5m, 15m: 20,20,20","TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: <Alex> TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: [Plugin] TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02] [Worker/INFO]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 WARN]: TPS from last 1m, 5m, 15m: 20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: NaN,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: -1,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20,20","[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,20,20 trailing"]{assert!(parse(line).is_none(),"{line}");}
-    }
-    #[test]
-    fn requires_pending_queries_bounds_freshness_and_resets_with_each_process(){
-        let now=Instant::now();let line="[12:01:02 INFO]: TPS from last 1m, 5m, 15m: 20,19,18";
-        let mut collector=Collector::default();collector.receive(line,now,100);assert!(collector.snapshot(now).reading.is_none());
-        collector.begin(now).unwrap();assert!(collector.snapshot(now).pending);assert!(collector.begin(now+Duration::from_secs(1)).is_err());
-        collector.receive(line,now+Duration::from_secs(2),200);let snapshot=collector.snapshot(now+Duration::from_secs(3));assert!(!snapshot.pending);assert_eq!(snapshot.reading.unwrap().sampled_at,200);
-        assert!(collector.snapshot(now+Duration::from_secs(63)).reading.is_none());
-        collector.begin(now+Duration::from_secs(70)).unwrap();collector.receive(line,now+Duration::from_secs(81),300);assert!(!collector.snapshot(now+Duration::from_secs(81)).pending);assert!(collector.snapshot(now+Duration::from_secs(81)).reading.is_none());
-        collector.begin(now+Duration::from_secs(85)).unwrap();collector.failed();assert!(!collector.snapshot(now+Duration::from_secs(85)).pending);
-        assert!(Collector::default().snapshot(now).reading.is_none());
-    }
-}

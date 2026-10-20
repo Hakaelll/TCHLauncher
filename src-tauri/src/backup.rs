@@ -45,7 +45,6 @@ pub fn list_details(root:&Path,id:&str)->Result<Vec<Details>,String>{
     }).collect())
 }
 
-
 #[derive(Serialize,Deserialize)]
 struct Snapshot {
     format:u32,version:String,platform:String,jar:Option<String>,
@@ -300,78 +299,7 @@ mod tests {
         let server=storage::create(&root,crate::model::CreateServer{name:"Backup".into(),version:"1.21.4".into(),platform:"fabric".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();
         (Library(root),server)
     }
-    #[test]
-    fn backup_list_uses_saved_reason_and_version_without_guessing_old_metadata(){
-        let (root,server)=fixture();let task=crate::download::DownloadTask::new(&server.id,"minecraft_update",|_|{}).unwrap();
-        let update=create_tracked(&root.0,&server.id,&task).unwrap();let scheduled_task=crate::download::DownloadTask::new(&server.id,"backup",|_|{}).unwrap();let scheduled=create_tracked_for(&root.0,&server.id,&scheduled_task,Reason::Scheduled).unwrap();let manual=create(&root.0,&server.id).unwrap();
-        let details=list_details(&root.0,&server.id).unwrap();assert_eq!(details.len(),3);
-        let saved=details.iter().find(|value|value.backup.id==update.id).unwrap();assert_eq!(saved.reason,Some(Reason::BeforeMinecraftUpdate));assert_eq!(saved.minecraft_version.as_deref(),Some("1.21.4"));assert_eq!(saved.platform.as_deref(),Some("fabric"));assert!(saved.metadata_error.is_none());
-        assert_eq!(details.iter().find(|value|value.backup.id==scheduled.id).unwrap().reason,Some(Reason::Scheduled));assert_eq!(details.iter().find(|value|value.backup.id==manual.id).unwrap().reason,Some(Reason::Manual));
-        let path=Path::new(&manual.path).join(SNAPSHOT);let mut old:serde_json::Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();old.as_object_mut().unwrap().remove("reason");fs::write(&path,serde_json::to_vec(&old).unwrap()).unwrap();
-        let old=list_details(&root.0,&server.id).unwrap().into_iter().find(|value|value.backup.id==manual.id).unwrap();assert!(old.reason.is_none());assert_eq!(old.minecraft_version.as_deref(),Some("1.21.4"));
-        fs::remove_file(&path).unwrap();let missing=list_details(&root.0,&server.id).unwrap().into_iter().find(|value|value.backup.id==manual.id).unwrap();assert!(missing.minecraft_version.is_none());assert!(missing.reason.is_none());assert!(missing.metadata_error.is_none());
-        fs::write(Path::new(&update.path).join(SNAPSHOT),b"broken").unwrap();let details=list_details(&root.0,&server.id).unwrap();assert_eq!(details.len(),3);assert!(details.iter().find(|value|value.backup.id==update.id).unwrap().metadata_error.is_some());assert_eq!(details.iter().find(|value|value.backup.id==scheduled.id).unwrap().reason,Some(Reason::Scheduled));
-        let foreign=root.0.join("foreign");fs::create_dir(&foreign).unwrap();fs::write(foreign.join(SNAPSHOT),b"{} ").unwrap();storage::connect(&root.0).unwrap().execute("UPDATE backups SET path=?2 WHERE id=?1",rusqlite::params![manual.id,foreign.to_string_lossy()]).unwrap();assert!(list_details(&root.0,&server.id).unwrap().iter().find(|value|value.backup.id==manual.id).unwrap().metadata_error.is_some());
-    }
-    #[test]
-    fn tracked_backup_reports_real_bytes_before_publication(){
-        let (root,server)=fixture();let source=Path::new(&server.directory);
-        fs::write(source.join("large.bin"),vec![42u8;600_000]).unwrap();
-        let expected=size(source);let events=std::sync::Arc::new(std::sync::Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
-        let task=crate::download::DownloadTask::new(&server.id,"backup",move|event|capture.lock().unwrap().push(event)).unwrap();
-        let saved=create_tracked(&root.0,&server.id,&task).unwrap();
-        assert_eq!(fs::read(Path::new(&saved.path).join("large.bin")).unwrap(),vec![42u8;600_000]);
-        assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),1);
-        let events=events.lock().unwrap();let measured=events.iter().filter(|event|event.stage=="copying").last().unwrap();
-        assert_eq!(measured.received,expected);assert_eq!(measured.total,Some(expected));assert_eq!(events.last().unwrap().stage,"publishing");
-    }
-    #[test]
-    fn cancelled_tracked_backup_never_publishes_or_changes_source(){
-        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("keep.bin"),vec![7u8;600_000]).unwrap();
-        let slot=std::sync::Arc::new(std::sync::Mutex::new(None::<std::sync::Arc<crate::download::Cancellation>>));let capture=slot.clone();
-        let task=crate::download::DownloadTask::new(&server.id,"backup",move|event|{if event.stage=="copying"&&event.received>0{capture.lock().unwrap().as_ref().unwrap().cancel();}}).unwrap();
-        *slot.lock().unwrap()=Some(task.cancellation.clone());
-        assert_eq!(create_tracked(&root.0,&server.id,&task).err().unwrap(),crate::download::CANCELLED);
-        assert!(storage::list_backups(&root.0,&server.id).unwrap().is_empty());
-        assert_eq!(fs::read(source.join("keep.bin")).unwrap(),vec![7u8;600_000]);
-        assert_eq!(fs::read_dir(backup_base(&root.0,&server.id).unwrap()).unwrap().count(),0);
-    }
-    #[test]
-    fn tracked_restore_measures_safety_copy_and_restore_separately(){
-        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("value.bin"),vec![3u8;500_000]).unwrap();
-        let saved=create(&root.0,&server.id).unwrap();fs::write(source.join("value.bin"),vec![5u8;600_000]).unwrap();
-        let current_size=size(source);let saved_size=size(Path::new(&saved.path));
-        let events=std::sync::Arc::new(std::sync::Mutex::new(Vec::<crate::model::Progress>::new()));let capture=events.clone();
-        let task=crate::download::DownloadTask::new(&server.id,"restore",move|event|capture.lock().unwrap().push(event)).unwrap();
-        restore_tracked(&root.0,&server.id,&saved.id,&task).unwrap();
-        assert_eq!(fs::read(source.join("value.bin")).unwrap(),vec![3u8;500_000]);assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),2);
-        let events=events.lock().unwrap();
-        let safety=events.iter().filter(|event|event.label=="Copia de seguridad antes de restaurar").last().unwrap();assert_eq!(safety.received,current_size);assert_eq!(safety.total,Some(current_size));
-        let restored=events.iter().filter(|event|event.label=="Restaurando archivos de la copia").last().unwrap();assert_eq!(restored.received,saved_size);assert_eq!(restored.total,Some(saved_size));
-        assert_eq!(events.iter().filter(|event|event.stage=="publishing").count(),2);
-    }
-    #[test]
-    fn tracked_restore_cancelled_before_publication_preserves_current_server_and_safety_copy(){
-        let (root,server)=fixture();let source=Path::new(&server.directory);fs::write(source.join("value.bin"),vec![3u8;500_000]).unwrap();
-        let saved=create(&root.0,&server.id).unwrap();fs::write(source.join("value.bin"),vec![5u8;600_000]).unwrap();
-        let slot=std::sync::Arc::new(std::sync::Mutex::new(None::<std::sync::Arc<crate::download::Cancellation>>));let capture=slot.clone();
-        let task=crate::download::DownloadTask::new(&server.id,"restore",move|event|{if event.label=="Restaurando archivos de la copia"&&event.received>0{capture.lock().unwrap().as_ref().unwrap().cancel();}}).unwrap();
-        *slot.lock().unwrap()=Some(task.cancellation.clone());
-        assert_eq!(restore_tracked(&root.0,&server.id,&saved.id,&task).unwrap_err(),crate::download::CANCELLED);
-        assert_eq!(fs::read(source.join("value.bin")).unwrap(),vec![5u8;600_000]);assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),2);
-        assert!(Path::new(&saved.path).is_dir());let (_,stage,previous,journal)=restore_paths(&root.0,&server).unwrap();assert!(!stage.exists());assert!(!previous.exists());assert!(!journal.exists());
-    }
-    #[test]
-    fn restore_rebases_snapshot_launcher_version_capacity_and_jvm() {
-        let (root,server)=fixture();let directory=Path::new(&server.directory);
-        let old=directory.join(".tch-fabric").join(Uuid::new_v4().to_string()).join("fabric-server-launch.jar");fs::create_dir_all(old.parent().unwrap()).unwrap();fs::write(&old,b"old launcher").unwrap();
-        storage::update_install(&root.0,&server.id,&old,Path::new("java21.exe")).unwrap();let settings=crate::jvm::Settings{mode:"custom".into(),arguments:"-XX:+UseG1GC".into()};crate::jvm::save(&root.0,&server.id,&settings).unwrap();
-        let backup=create(&root.0,&server.id).unwrap();
-        let new=directory.join(".tch-fabric").join(Uuid::new_v4().to_string()).join("fabric-server-launch.jar");fs::create_dir_all(new.parent().unwrap()).unwrap();fs::write(&new,b"new launcher").unwrap();
-        storage::update_install(&root.0,&server.id,&new,Path::new("java25.exe")).unwrap();storage::connect(&root.0).unwrap().execute("UPDATE servers SET version='1.21.5',memory_max_mb=4096 WHERE id=?1",[&server.id]).unwrap();crate::jvm::save(&root.0,&server.id,&crate::jvm::Settings::default()).unwrap();
-        restore(&root.0,&server.id,&backup.id).unwrap();let restored=storage::get(&root.0,&server.id).unwrap();
-        assert_eq!(restored.jar_path,Some(old.to_string_lossy().into()));assert_eq!(restored.version,"1.21.4");assert_eq!(restored.memory_max_mb,2048);assert!(restored.java_path.is_none());assert!(old.is_file());assert!(!new.exists());assert_eq!(crate::jvm::get(&root.0,&server.id).unwrap(),settings);assert!(!directory.join(SNAPSHOT).exists());
-    }
+
     #[test]
     fn interrupted_restore_recovers_before_and_after_database_commit() {
         for committed in [false,true] {
@@ -382,48 +310,11 @@ mod tests {
             recover_all(&root.0).unwrap();assert_eq!(target.join("restored.txt").exists(),committed);assert_eq!(target.join("original.txt").exists(),!committed);assert!(!previous.exists());assert!(!journal.exists());
         }
     }
-    #[test]
-    fn database_failure_rolls_directory_back_and_retains_safety_backup() {
-        let (root,server)=fixture();let directory=Path::new(&server.directory);fs::write(directory.join("value.txt"),b"old").unwrap();let saved=create(&root.0,&server.id).unwrap();fs::write(directory.join("value.txt"),b"current").unwrap();
-        storage::connect(&root.0).unwrap().execute_batch("CREATE TRIGGER fail_restore BEFORE UPDATE ON servers BEGIN SELECT RAISE(ABORT,'forced failure'); END;").unwrap();
-        assert!(restore(&root.0,&server.id,&saved.id).is_err());assert_eq!(fs::read(directory.join("value.txt")).unwrap(),b"current");assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),2);
-    }
+
     #[test]
     fn corrupt_snapshot_never_overwrites_server_or_creates_safety_backup() {
         let (root,server)=fixture();let saved=create(&root.0,&server.id).unwrap();let source=Path::new(&saved.path);let mut value:serde_json::Value=serde_json::from_slice(&fs::read(source.join(SNAPSHOT)).unwrap()).unwrap();value["jar"]="../outside".into();fs::write(source.join(SNAPSHOT),serde_json::to_vec(&value).unwrap()).unwrap();
         let original=fs::read(Path::new(&server.directory).join("server.properties")).unwrap();assert!(restore(&root.0,&server.id,&saved.id).is_err());assert_eq!(fs::read(Path::new(&server.directory).join("server.properties")).unwrap(),original);assert_eq!(storage::list_backups(&root.0,&server.id).unwrap().len(),1);
     }
-    #[test]
-    fn recovery_restores_folder_if_interrupted_between_directory_renames() {
-        let (root,server)=fixture();let (target,stage,previous,journal)=restore_paths(&root.0,&server).unwrap();let token=Uuid::new_v4().to_string();
-        fs::create_dir(&stage).unwrap();fs::write(&journal,token).unwrap();fs::rename(&target,&previous).unwrap();
-        recover_all(&root.0).unwrap();assert!(target.join("server.properties").is_file());assert!(!stage.exists());assert!(!previous.exists());assert!(!journal.exists());
-    }
-    #[test]
-    fn copies_nested_files() {
-        let root = std::env::temp_dir().join(format!("tch-backup-test-{}",Uuid::new_v4()));
-        let from = root.join("from"); let to = root.join("to");
-        fs::create_dir_all(from.join("world/region")).unwrap();
-        fs::write(from.join("world/region/r.0.0.mca"),b"abc").unwrap();
-        copy_tree(&from,&to).unwrap();
-        assert_eq!(fs::read(to.join("world/region/r.0.0.mca")).unwrap(),b"abc");
-        let _ = fs::remove_dir_all(root);
-    }
-    #[test]
-    fn backup_and_restore_roundtrip() {
-        let root = std::env::temp_dir().join(format!("tch-roundtrip-{}",Uuid::new_v4()));
-        let server = storage::create(&root,crate::model::CreateServer {
-            name:"Roundtrip".into(),version:"1.21.4".into(),platform:"vanilla".into(),
-            memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None,
-        }).unwrap();
-        let world = Path::new(&server.directory).join("world");
-        fs::create_dir_all(&world).unwrap();
-        fs::write(world.join("level.dat"),b"original").unwrap();
-        let saved = create(&root,&server.id).unwrap();
-        fs::write(world.join("level.dat"),b"changed").unwrap();
-        restore(&root,&server.id,&saved.id).unwrap();
-        assert_eq!(fs::read(world.join("level.dat")).unwrap(),b"original");
-        assert_eq!(storage::list_backups(&root,&server.id).unwrap().len(),2);
-        let _ = fs::remove_dir_all(root);
-    }
+
 }

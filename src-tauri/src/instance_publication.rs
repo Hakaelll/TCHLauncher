@@ -109,18 +109,7 @@ mod tests {
         let jar=stage.join("server.jar");fs::write(&jar,b"new launcher").unwrap();
         (root,server,jar,java)
     }
-    #[test]
-    fn publishes_version_runtime_and_folder_and_keeps_backup_restorable() {
-        let (root,server,jar,java)=fixture();
-        let backup=crate::backup::create(&root.0,&server.id).unwrap();
-        publish(&root.0,&server,"1.21.5",&jar,&java).unwrap();
-        let updated=storage::get(&root.0,&server.id).unwrap();assert_eq!(updated.version,"1.21.5");assert_eq!(updated.java_path,Some(java.to_string_lossy().into()));
-        assert_eq!(fs::read(updated.jar_path.unwrap()).unwrap(),b"new launcher");
-        let (_,stage,old,journal)=paths(&root.0,&server).unwrap();assert!(!stage.exists()&&!old.exists()&&!journal.exists());
-        crate::backup::restore(&root.0,&server.id,&backup.id).unwrap();
-        let restored=storage::get(&root.0,&server.id).unwrap();assert_eq!(restored.version,"1.21.4");assert!(restored.java_path.is_none());
-        assert_eq!(fs::read(restored.jar_path.unwrap()).unwrap(),b"old launcher");
-    }
+
     #[test]
     fn database_failure_rolls_back_original_folder_and_identity() {
         let (root,server,jar,java)=fixture();
@@ -144,10 +133,5 @@ mod tests {
             recover(&root.0,&server.id).unwrap();
         }
     }
-    #[test]
-    fn rejects_staged_launcher_outside_the_prepared_directory() {
-        let (root,server,_,java)=fixture();
-        assert!(publish(&root.0,&server,"1.21.5",Path::new(server.jar_path.as_ref().unwrap()),&java).is_err());
-        assert_eq!(storage::get(&root.0,&server.id).unwrap().version,"1.21.4");
-    }
+
 }

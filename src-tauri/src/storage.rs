@@ -320,23 +320,6 @@ pub fn create_with_seed(root: &Path, input: CreateServer,seed:Option<String>) ->
     Ok(server)
 }
 
-#[cfg(test)]
-mod creation_rules_tests {
-    use super::*;
-    fn input()->CreateServer{CreateServer{name:"Seed world".into(),version:"1.21.11".into(),platform:"fabric".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}}
-    #[test]
-    fn creation_persists_seed_and_editable_rules_before_java_or_world_exists(){
-        let root=std::env::temp_dir().join(format!("tch-create-seed-{}",Uuid::new_v4()));fs::create_dir_all(&root).unwrap();
-        let server=create_with_seed(&root,input(),Some("-9223372036854775808".into())).unwrap();
-        let dir=Path::new(&server.directory);let props=crate::properties::read(&dir.join("server.properties")).unwrap();
-        assert_eq!(props["level-seed"],"-9223372036854775808");assert_eq!(props["gamemode"],"survival");assert_eq!(props["difficulty"],"easy");assert_eq!(props["online-mode"],"true");assert_eq!(props["server-port"],"25565");
-        assert!(server.jar_path.is_none());assert!(!dir.join("world").exists());assert!(!dir.join("eula.txt").exists());
-        let second=create(&root,input()).unwrap();assert_eq!(crate::properties::read(&Path::new(&second.directory).join("server.properties")).unwrap()["level-seed"],"");
-        assert!(create_with_seed(&root,input(),Some("seed\nonline-mode=false".into())).is_err());assert_eq!(list(&root).unwrap().len(),2);
-        fs::remove_dir_all(root).unwrap();
-    }
-}
-
 pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
     let source = path.canonicalize().map_err(|e| format!("No se pudo abrir la carpeta: {e}"))?;
     if !source.is_dir() || !source.join("server.properties").is_file() {
@@ -370,11 +353,6 @@ pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
         suggested_name:source.file_name().map(|n| n.to_string_lossy().into()).unwrap_or_else(|| "Servidor importado".into()),
         jar_files:jars,detected_version,launchers,
     })
-}
-
-#[cfg(test)]
-pub fn import(root: &Path, input: ImportServer) -> Result<Server, String> {
-    import_inner(root,input,&Uuid::new_v4().to_string(),None)
 }
 
 pub fn import_tracked(root:&Path,input:ImportServer,id:&str,task:&crate::download::DownloadTask)->Result<Server,String>{
@@ -502,122 +480,4 @@ pub fn backup_path(root: &Path, server_id: &str, backup_id: &str) -> Result<Path
     let path: Option<String> = db.query_row("SELECT path FROM backups WHERE server_id=?1 AND id=?2", params![server_id,backup_id], |r| r.get(0))
         .optional().map_err(|e| e.to_string())?;
     path.map(PathBuf::from).ok_or_else(|| "No se encontró el backup".into())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn migrates_existing_servers_and_persists_storage_target() {
-        let root = std::env::temp_dir().join(format!("tch-migration-{}", Uuid::new_v4()));
-        std::fs::create_dir_all(root.join("database")).unwrap();
-        let db_path = root.join("database").join("tchlauncher.sqlite");
-        {
-            let old = Connection::open(&db_path).unwrap();
-            old.execute_batch("CREATE TABLE servers (
-                id TEXT PRIMARY KEY, name TEXT NOT NULL, version TEXT NOT NULL,
-                platform TEXT NOT NULL, directory TEXT NOT NULL UNIQUE,
-                jar_path TEXT, java_path TEXT, memory_min_mb INTEGER NOT NULL,
-                memory_max_mb INTEGER NOT NULL, created_at TEXT NOT NULL
-            );
-            INSERT INTO servers (id,name,version,platform,directory,memory_min_mb,memory_max_mb,created_at)
-            VALUES ('old','Existing','1.21.4','vanilla','C:/test-server',1024,2048,'2026-01-01');").unwrap();
-        }
-        assert_eq!(get(&root, "old").unwrap().storage_target_gb, 20);
-        assert!(!get(&root,"old").unwrap().pinned);
-        set_pinned(&root,"old",true).unwrap();
-        assert!(get(&root,"old").unwrap().pinned);
-        update_storage_target(&root, "old", 48).unwrap();
-        assert_eq!(get(&root, "old").unwrap().storage_target_gb, 48);
-        assert!(update_storage_target(&root, "old", 0).is_err());
-        assert_eq!(list(&root).unwrap()[0].storage_target_gb, 48);
-        let _ = std::fs::remove_dir_all(root);
-    }
-    #[test]
-    fn rejects_unsafe_versions_and_memory() {
-        let mut input = CreateServer {name:"Test".into(), version:"../x".into(), platform:"vanilla".into(), memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None};
-        assert!(validate(&input).is_err());
-        input.version="1.21.4".into();
-        input.memory_min_mb=4096;
-        assert!(validate(&input).is_err());
-    }
-    #[test]
-    fn imports_copy_without_mutating_source() {
-        let root = std::env::temp_dir().join(format!("tch-import-{}",Uuid::new_v4()));
-        let source = root.join("existing");
-        std::fs::create_dir_all(&source).unwrap();
-        std::fs::write(source.join("server.properties"),"server-port=25566\nmax-players=12\n").unwrap();
-        std::fs::write(source.join("server.jar"),b"jar fixture").unwrap();
-        let inspection = inspect_import(&source).unwrap();
-        assert_eq!(inspection.jar_files,vec!["server.jar"]);
-        let server = import(&root,ImportServer {path:source.to_string_lossy().into(),name:"Existing".into(),version:"1.21.4".into(),platform:"vanilla".into(),jar_file:"server.jar".into(),copy:true,storage_target_gb:20,image_path:None}).unwrap();
-        assert_ne!(Path::new(&server.directory),source);
-        assert_eq!(std::fs::read(source.join("server.jar")).unwrap(),b"jar fixture");
-        assert_eq!(std::fs::read(server.jar_path.unwrap()).unwrap(),b"jar fixture");
-        let _ = std::fs::remove_dir_all(root);
-    }
-    #[test]
-    fn server_image_is_local_and_can_be_changed_or_removed() {
-        let root = std::env::temp_dir().join(format!("tch-image-{}",Uuid::new_v4()));
-        std::fs::create_dir_all(&root).unwrap();
-        let image = root.join("icon.png");
-        let mut image_data=std::io::Cursor::new(Vec::new());
-        image::DynamicImage::new_rgba8(120,80).write_to(&mut image_data,image::ImageFormat::Png).unwrap();
-        let png=image_data.into_inner();
-        std::fs::write(&image, png).unwrap();
-        let server = create(&root, CreateServer {name:"With icon".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:Some(image.to_string_lossy().into())}).unwrap();
-        assert!(server.image_data.as_deref().unwrap().starts_with("data:image/png;base64,"));
-        assert!(list(&root).unwrap()[0].image_data.is_some());
-        assert_eq!(read_cover(&root,&server.id).unwrap(),Some(format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(fs::read(&image).unwrap()))));
-        let legacy_path=root.join("server-images").join(&server.id);
-        fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();
-        fs::write(&legacy_path,fs::read(&image).unwrap()).unwrap();
-        sync_legacy_icon(&root,&server.id).unwrap();
-        assert!(!legacy_path.exists());
-        let icon_path=Path::new(&server.directory).join("server-icon.png");
-        let icon=image::open(&icon_path).unwrap();
-        assert_eq!((icon.width(),icon.height()),(64,64));
-        let expected=format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(fs::read(&icon_path).unwrap()));
-        assert_eq!(list(&root).unwrap()[0].image_data.as_deref(),Some(expected.as_str()));
-        std::fs::write(&image, b"not an image").unwrap();
-        assert!(set_image(&root,&server.id,&image).is_err());
-        assert!(list(&root).unwrap()[0].image_data.is_some());
-        clear_image(&root,&server.id).unwrap();
-        assert!(list(&root).unwrap()[0].image_data.is_none());
-        assert!(!icon_path.exists());
-        assert!(read_cover(&root,&server.id).unwrap().is_none());
-        let _ = std::fs::remove_dir_all(root);
-    }
-    #[test]
-    fn deletes_managed_files_but_preserves_external_imports() {
-        let root = std::env::temp_dir().join(format!("tch-delete-{}", Uuid::new_v4()));
-        fs::create_dir_all(&root).unwrap();
-        let managed = create(&root, CreateServer {name:"Managed".into(),version:"1.21.4".into(),platform:"vanilla".into(),memory_min_mb:1024,memory_max_mb:2048,max_players:20,port:25565,storage_target_gb:20,image_path:None}).unwrap();
-        fs::write(Path::new(&managed.directory).join("server.jar"), b"managed").unwrap();
-        crate::backup::create(&root, &managed.id).unwrap();
-        fs::create_dir_all(root.join("server-images")).unwrap();
-        fs::write(root.join("server-images").join(&managed.id), b"image").unwrap();
-        let preview = delete_preview(&root, &managed.id).unwrap();
-        assert!(preview.managed_files);
-        assert_eq!(preview.backup_count, 1);
-        let result = delete(&root, &managed.id).unwrap();
-        assert!(result.retained_directory.is_none());
-        assert!(result.cleanup_warnings.is_empty());
-        assert!(!Path::new(&managed.directory).exists());
-        assert!(!root.join("backups").join(&managed.id).exists());
-        assert!(!root.join("server-images").join(&managed.id).exists());
-        assert!(get(&root, &managed.id).is_err());
-
-        let external = root.join("external");
-        fs::create_dir_all(&external).unwrap();
-        fs::write(external.join("server.properties"), b"server-port=25566\nmax-players=12\n").unwrap();
-        fs::write(external.join("server.jar"), b"external").unwrap();
-        let imported = import(&root, ImportServer {path:external.to_string_lossy().into(),name:"External".into(),version:"1.21.4".into(),platform:"vanilla".into(),jar_file:"server.jar".into(),copy:false,storage_target_gb:20,image_path:None}).unwrap();
-        assert!(!delete_preview(&root, &imported.id).unwrap().managed_files);
-        let result = delete(&root, &imported.id).unwrap();
-        assert_eq!(result.retained_directory.as_deref(), Some(imported.directory.as_str()));
-        assert_eq!(fs::read(external.join("server.jar")).unwrap(), b"external");
-        assert!(get(&root, &imported.id).is_err());
-        let _ = fs::remove_dir_all(root);
-    }
 }

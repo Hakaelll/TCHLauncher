@@ -52,6 +52,7 @@ mod storage;
 mod storage_usage;
 mod world;
 mod world_bundle;
+mod world_publication;
 
 use model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
 use players::{PlayersSnapshot, WhitelistImport};
@@ -108,6 +109,7 @@ impl Engine {
         server_settings::recover(&self.root,id)?;
         storage::sync_legacy_icon(&self.root,id)?;
         let server=storage::get(&self.root,id)?;
+        world_publication::recover_server(&self.root,&server)?;
         content_storage::recover(&server)?;
         eula::apply_recorded(&self.root,&server)?;
         runtime::validate_configured(&self.root,&server)?;
@@ -125,6 +127,9 @@ impl Engine {
         let guard=OperationGuard { id: id.into(), operations: self.operations.clone() };
         drop(operations);
         server_settings::recover(&self.root,id)?;
+        if world_publication::pending_server(&self.root,&storage::get(&self.root,id)?)? {
+            return Err("Hay una copia de mundo pendiente de recuperación. Reinicia la aplicación para recuperarla antes de modificar el servidor".into());
+        }
         Ok(guard)
     }
 
@@ -748,7 +753,11 @@ async fn restore_backup(app:AppHandle,engine: State<'_, Engine>, id: String, bac
 #[tauri::command]
 async fn list_worlds(engine: State<'_, Engine>, id: String) -> Result<Vec<world::WorldInfo>, String> {
     let server = storage::get(&engine.root, &id)?;
-    tauri::async_runtime::spawn_blocking(move || world::list(&server)).await.map_err(|e| e.to_string())?
+    let root=engine.root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if world_publication::pending_server(&root,&server)? { return Err("Hay una copia de mundo pendiente de recuperación. Detén el servidor y vuelve a intentar la operación".into()); }
+        world::list(&server)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -775,11 +784,12 @@ async fn import_world(app: AppHandle, engine: State<'_, Engine>, id: String, pat
 #[tauri::command]
 async fn duplicate_world(app: AppHandle, engine: State<'_, Engine>, id: String, name: String, new_name: String) -> Result<world::WorldInfo, String> {
     let guard = engine.reserve_stopped(&id)?;
+    let root=engine.root.clone();
     let server = storage::get(&engine.root, &id)?;
     let jobs=engine.installations.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
-        file_tasks::duplicate_world(&server,&name,&new_name,&jobs,move|progress|{let _=app.emit("install-progress",progress);})
+        file_tasks::duplicate_world(&root,&server,&name,&new_name,&jobs,move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?;
     if result.is_ok() { engine.invalidate_size(&id); }
     result
@@ -797,11 +807,12 @@ async fn export_world(app: AppHandle, engine: State<'_, Engine>, id: String, nam
     let guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root, &id)?;
     let jobs=engine.installations.clone();
+    let root=engine.root.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _guard = guard;
         let emit=move|progress|{let _=app.emit("install-progress",progress);};
         let result=if bundle {file_tasks::export_world_bundle(&server,&name,&destination,include_config.unwrap_or(true),&jobs,emit)}
-            else {file_tasks::export_world(&server,&name,&destination,&jobs,emit)};
+            else {file_tasks::export_world(&root,&server,&name,&destination,&jobs,emit)};
         result.map(|path|Some(path.to_string_lossy().into_owned()))
     }).await.map_err(|e| e.to_string())?
 }
@@ -1325,6 +1336,9 @@ pub fn run() {
             pack_install::recover_all(&root).map_err(std::io::Error::other)?;
             loader_update::recover_all(&root).map_err(std::io::Error::other)?;
             server_settings::recover_all(&root).map_err(std::io::Error::other)?;
+            if !world_publication::recover_all(&root).is_empty() {
+                app_log::record(&root,app_log::Event::WorldCopyRecoveryPending,None);
+            }
             scheduler::recover(&root).map_err(std::io::Error::other)?;
             stop_backup::recover(&root).map_err(std::io::Error::other)?;
             crash_restart::recover(&root).map_err(std::io::Error::other)?;
