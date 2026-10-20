@@ -1413,6 +1413,7 @@ html[data-motion="reduced"] .content-kind-tabs > button { transition:none; }
 .world-row.active { border-color:var(--accent-line); }
 .world-icon { width:60px; height:60px; image-rendering:pixelated; border-radius:2px; background:var(--surface-deep); }
 .world-row-copy strong { font:14px/1.9 var(--font-display); }
+.world-row-copy .world-dimensions { white-space:normal; overflow-wrap:anywhere; }
 .world-active-mark { color:var(--accent-hover); font:10px/1.8 var(--font-display); padding:5px 9px; background:var(--accent-wash); }
 .world-row-actions { gap:4px; }
 .world-row-actions .world-export-button { color:var(--accent-hover); }

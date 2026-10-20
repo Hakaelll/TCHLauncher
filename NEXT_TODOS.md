@@ -34,6 +34,9 @@ an explicit user instruction. These labels do not imply feature completion.
   labeled unconfirmed rows and block changes until a successful retry.
   Current and historical crash reports offer read-only recovery; nullable report
   envelopes distinguish unread/failed observation from a confirmed absent report.
+  Latest native gate: 257 passed, 38 conditional integrations ignored. Paper
+  family filesystem tests cover distinct dimension bytes, copies/exports,
+  collisions, cancellation, rollback and 64-character primary names.
 - Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
   scheduling when hidden and preserves completed page/compatibility evidence.
   Installed icon reads now pause when hidden and resume uncached files; inventory
@@ -75,12 +78,12 @@ an explicit user instruction. These labels do not imply feature completion.
 | LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 lifecycle passes; loader/update/import regressions exist. Verify native flows and an actual modded client session. |
 | MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. Verify native selection/scrolling, snapshots and older supported families. |
 | MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Real Vanilla 1.21.4 to 1.21.5 world conversion/rollback passed; all 20 world-file hashes restored before boot. Verify native flow, other engines/content migrations and client gameplay. |
-| MOD-01 | REVIEW | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
+| MOD-01 | IN_PROGRESS | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
 | PACK-01 | REVIEW | Modpack import | Reviewed .mrpack file selection, exact loader and staged publication implemented. Verify complex third-party packs and native/client outcomes. |
-| IMPORT-01 | REVIEW | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |
+| IMPORT-01 | IN_PROGRESS | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |
-| PLAYER-01 | REVIEW | Players and permissions | File inventories, online commands, UUID/skin evidence, whitelist import, OP and bans connected. Verify live action outcomes and imported Minehut account identity on the actual host. |
-| WORLD-01 | REVIEW | World operations and combined export | Real Fabric/Lithium ZIP export/import into a second instance passes all world hashes before boot and loaded-mod startup. Verify native/client round trips, other content and populated dimensions. |
+| PLAYER-01 | IN_PROGRESS | Players and permissions | File inventories, online commands, UUID/skin evidence, whitelist import, OP and bans connected. Verify live action outcomes and imported Minehut account identity on the actual host. |
+| WORLD-01 | IN_PROGRESS | World operations and combined export | Real Fabric/Lithium ZIP export/import into a second instance passes all world hashes before boot and loaded-mod startup. Verify native/client round trips, other content and populated dimensions. |
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Verify connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
@@ -98,6 +101,35 @@ an explicit user instruction. These labels do not imply feature completion.
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
 | REL-02 | REVIEW | Current installer | 0.34.0 NSIS x64 generated with verified version/icons/licenses/checksum and 124 frontend tests. Native tests were not rerun for this frontend/package milestone; native install/upgrade and usage gates remain open. |
+
+## Implementation gaps from the current scope audit
+
+The source audit at `ad4528d` identified missing paths beyond the native QA gates
+listed above. These remain required work, rather than implemented features awaiting
+only manual verification:
+
+- **WORLD-PAPER-01 — REVIEW:** Paper's overworld and separate Nether/End folders
+  now share discovery across listing, duplicate, folder/ZIP export, activation and
+  deletion. Six native tests cover dimension bytes, collisions, cancellation,
+  rollback, unsafe siblings, aliases and long names. Native UI and an actual Paper
+  restart with the copied dimensions remain unverified.
+- **WORLD-PAPER-RECOVERY-01 — TODO:** prove recovery if the application exits between
+  publishing dimension folders. In-process failure rolls back published copies,
+  but process interruption between directory renames is not covered by a durable
+  family-publication journal or an interruption test. Original sources stay intact.
+- **IMPORT-PREVIEW-01 — TODO:** inspect and preview worlds, mods/plugins,
+  permissions and important properties before copying or managing an existing
+  server. Current inspection focuses on versions/JARs/launchers. Preserve source
+  files and avoid exposing private configuration values.
+- **WORLD-PAPER-IMPORT-01 — TODO:** review external Paper dimension siblings before
+  importing a selected world folder. The picker still copies that one chosen folder;
+  importing an existing complete server preserves all siblings. A reviewed family
+  import is needed to avoid requiring manual sibling copies after a folder/ZIP export.
+- **PLAYER-OFFLINE-01 — TODO:** support identity-preserving whitelist file imports
+  while stopped. Current imports reduce JSON identities to names and require the
+  running command path. Keep explicit UUIDs; never infer or merge identities by name.
+- **MOD-CHANGELOG-01 — TODO:** bulk update review must expose available changelogs
+  for each changed project. Current review shows only the first main entry's notes.
 
 ## Reported issues needing host evidence
 

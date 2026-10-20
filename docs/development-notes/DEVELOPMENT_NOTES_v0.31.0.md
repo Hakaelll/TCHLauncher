@@ -915,3 +915,43 @@ localization work, not a size or memory improvement. Mounted React, native crash
 IPC, visual/keyboard review and packaging remain pending. The 0.34.0 installer
 is unchanged.
 Commit: `fix: recover crash report reads and translate diagnoses`
+
+## Scope audit and Paper world families
+
+The source audit against the original requirements found implementation gaps
+beyond native QA: Paper dimension families, existing-server inventory previews,
+stopped-server identity-preserving whitelist imports and per-project bulk update
+changelogs. NEXT_TODOS now marks those parent areas IN_PROGRESS and records the
+specific missing paths. No full-goal completion is claimed.
+
+Paper worlds now share one family resolver across listing, duplication, folder/ZIP
+export, activation and deletion. A parent row includes total size and paired folder
+names. Direct dimension activation/deletion is rejected, active families remain
+protected and inactive deletion retains its full-server safety copy. Vanilla,
+Fabric and NeoForge keep internal dimension directories unchanged. Destination
+checks prevent a copied/imported primary from becoming an existing world's
+dimension, including exports into an external destination with a matching parent.
+Unsafe or invalid siblings produce a named read error instead of a false empty
+inventory. Valid 64-character primaries support their longer derived folder names
+without relaxing primary input validation.
+
+Copies stage and validate every part before publication. All reserved destination
+names are rechecked after staging and publication callbacks, including dimensions
+absent from the source. Cancellation/copy failures clean staging; an in-process
+later rename failure rolls back the operation's already-published copies and
+reports rollback cleanup failures. This is not a crash-recovery journal: process
+interruption between family directory renames remains separate work. External
+world-folder import still copies only the chosen folder; reviewed family import
+also remains pending. ZIP instructions state the actual manual sibling-copy step.
+
+Six new direct native tests cover distinct dimension files, aggregate listing,
+renamed duplicates, folder/ZIP export, backup-protected activation/deletion,
+collisions, cancellation, invalid stages, later publication failure, aliases,
+reserved suffixes, unsafe siblings and long names. The final full native gate
+passes 257 tests with 38 conditional integrations ignored in 88.87 seconds.
+All 127 frontend tests, TypeScript and Windows production Vite pass. Initial JS
+is 464.84 kB, worlds is 12.44 kB and CSS is 218.19 kB. Read-only review found two
+edge cases, destination aliases and long derived names; both were fixed and
+covered before the final gate. Native UI, real Paper gameplay and interruption
+recovery remain unverified. This source change is not packaged in installer 0.34.0.
+Commit: `fix: preserve Paper world dimension families across operations`

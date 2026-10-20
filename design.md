@@ -472,6 +472,16 @@ Native review remains manual.
 
 ## World inventory feedback
 
+### Paper dimension families
+
+Show one row for a Paper primary world and its paired Nether/End folders. The
+size includes the full family. List the actual included folder names beneath the
+size, wrapping long names. Keep dimension folders out of independent world menus.
+Delete/activate confirmations name the included dimensions explicitly. Duplicate
+and both export modes keep the family together. Other engines retain their normal
+internal dimension layout. External folder import still selects one folder; a
+reviewed external family-import flow remains pending. Native UI review is manual.
+
 Keep read failures distinct from a genuine empty world list. Retain last-known
 rows with an unavailable label and retry, and block file mutations while reads
 are pending or failed. Manual Refresh worlds remains beside Import world; retain

@@ -59,7 +59,7 @@ export type ImportInput = { path: string; name: string; version: string; platfor
 export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }
 export type DeleteOutcome = { retainedDirectory: string | null; cleanupWarnings: string[] }
-export type World = { name: string; sizeBytes: number; active: boolean; iconData: string | null }
+export type World = { name: string; sizeBytes: number; active: boolean; iconData: string | null; dimensions: string[] }
 export type WorldInspection = { path: string; suggestedName: string; sizeBytes: number }
 export type NetworkSnapshot = {
   localIp: string | null

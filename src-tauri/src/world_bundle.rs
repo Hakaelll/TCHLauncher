@@ -63,7 +63,7 @@ pub fn export(server: &Server, name: &str, destination: &Path, include_config: b
     task.cancellation.check()?;
     task.report("Revisando mundo y contenido","preparing");
     let root=Path::new(&server.directory).canonicalize().map_err(|e|e.to_string())?;
-    let world=crate::world::checked_world(server,name)?;
+    let family=crate::world::world_family(server,name)?;
     let parent=destination.parent().ok_or("Elige un archivo ZIP de destino")?.canonicalize().map_err(|e|e.to_string())?;
     if parent.starts_with(&root) { return Err("Guarda el ZIP fuera de la carpeta del servidor".into()); }
     let destination=parent.join(destination.file_name().ok_or("Elige un archivo ZIP de destino")?);
@@ -77,17 +77,9 @@ pub fn export(server: &Server, name: &str, destination: &Path, include_config: b
         Err(e)=>return Err(e.to_string()),
     };
     let mut entries=Vec::new();
-    let mut worlds=vec![name.to_owned()];
-    collect(&root,&world,&format!("worlds/{name}"),&mut entries,task)?;
-    if server.platform=="paper" {
-        for suffix in ["_nether","_the_end"] {
-            let paired=format!("{name}{suffix}");
-            if fs::symlink_metadata(root.join(&paired)).is_ok() {
-                let folder=crate::world::checked_world(server,&paired)?;
-                collect(&root,&folder,&format!("worlds/{paired}"),&mut entries,task)?;
-                worlds.push(paired);
-            }
-        }
+    let worlds: Vec<_> = family.iter().map(|(name, _)| name.clone()).collect();
+    for (part, folder) in &family {
+        collect(&root,folder,&format!("worlds/{part}"),&mut entries,task)?;
     }
     let content=if server.platform=="paper" {"plugins"} else {"mods"};
     let mut folders=vec![content];
@@ -143,7 +135,7 @@ pub fn export(server: &Server, name: &str, destination: &Path, include_config: b
         zip.start_file("tch-export.json",options).map_err(|e|e.to_string())?;
         zip.write_all(&serde_json::to_vec_pretty(&manifest).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
         zip.start_file("README.txt",options).map_err(|e|e.to_string())?;
-        zip.write_all(format!("TCHLauncher world + content export\nMinecraft: {}\nServer type: {}\nWorld: {}\n\nExtract this ZIP. Create a stopped server with the same Minecraft version and server type. Import each folder under worlds/ using Worlds > Import world, then select the primary world. Copy {content}/ and, if included, config/ and defaultconfigs/ to that server's folder before starting it. Disabled files remain disabled. Client-required mods must also be installed by each player.\n\nThis is not a complete server backup. It does not include Java, the server launcher, server.properties, EULA acceptance, logs or launcher accounts. World player data and any included mod/plugin configuration remain in this archive. tch-export.json lists the files and their SHA-256 hashes.\n",server.version,server.platform,name).as_bytes()).map_err(|e|e.to_string())?;
+        zip.write_all(format!("TCHLauncher world + content export\nMinecraft: {}\nServer type: {}\nWorld: {}\n\nExtract this ZIP. Create a stopped server with the same Minecraft version and server type. Import worlds/{name}/ using Worlds > Import world, keep its folder name, then select it as the primary world. For Paper, copy any additional sibling folders under worlds/ directly into the stopped server's folder; these dimensions belong to the primary world. Copy {content}/ and, if included, config/ and defaultconfigs/ to that server's folder before starting it. Disabled files remain disabled. Client-required mods must also be installed by each player.\n\nThis is not a complete server backup. It does not include Java, the server launcher, server.properties, EULA acceptance, logs or launcher accounts. World player data and any included mod/plugin configuration remain in this archive. tch-export.json lists the files and their SHA-256 hashes.\n",server.version,server.platform,name).as_bytes()).map_err(|e|e.to_string())?;
         let file=zip.finish().map_err(|e|e.to_string())?;file.sync_all().map_err(|e|e.to_string())?;drop(file);
         task.begin_publication("Guardando ZIP de mundo y contenido")?;
         if previous_metadata.is_some() {
@@ -231,10 +223,34 @@ mod tests {
     #[test]
     fn paper_export_keeps_separate_dimensions_and_rejects_unsafe_destinations() {
         let (root,mut server)=setup();server.platform="paper".into();let dir=Path::new(&server.directory);
-        for suffix in ["_nether","_the_end"] {crate::backup::copy_tree(&dir.join("world"),&dir.join(format!("world{suffix}"))).unwrap();}
+        for (suffix, bytes) in [("_nether", b"separate nether".as_slice()), ("_the_end", b"separate end".as_slice())] {
+            crate::backup::copy_tree(&dir.join("world"),&dir.join(format!("world{suffix}"))).unwrap();
+            fs::write(dir.join(format!("world{suffix}/region/r.0.0.mca")), bytes).unwrap();
+        }
         fs::create_dir(dir.join("plugins")).unwrap();fs::write(dir.join("plugins/plugin.jar"),b"plugin").unwrap();
         let task=DownloadTask::new(&server.id,"world_export",|_|{}).unwrap();let destination=root.join("paper.zip");export(&server,"world",&destination,false,&task).unwrap();
-        let mut zip=zip::ZipArchive::new(File::open(destination).unwrap()).unwrap();assert!(zip.by_name("worlds/world_nether/level.dat").is_ok());assert!(zip.by_name("worlds/world_the_end/level.dat").is_ok());assert!(zip.by_name("plugins/plugin.jar").is_ok());assert!(zip.by_name("mods/example.jar").is_err());drop(zip);
+        let mut zip=zip::ZipArchive::new(File::open(destination).unwrap()).unwrap();
+        for (folder, expected) in [("world", vec![3;400_000]), ("world_nether", b"separate nether".to_vec()), ("world_the_end", b"separate end".to_vec())] {
+            assert!(zip.by_name(&format!("worlds/{folder}/level.dat")).is_ok());
+            let mut bytes = Vec::new(); zip.by_name(&format!("worlds/{folder}/region/r.0.0.mca")).unwrap().read_to_end(&mut bytes).unwrap();
+            assert_eq!(bytes, expected);
+            assert_eq!(fs::read(dir.join(folder).join("region/r.0.0.mca")).unwrap(), expected);
+        }
+        let mut manifest = String::new(); zip.by_name("tch-export.json").unwrap().read_to_string(&mut manifest).unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        assert_eq!(manifest["worldFolders"], serde_json::json!(["world", "world_nether", "world_the_end"]));
+        assert!(zip.by_name("plugins/plugin.jar").is_ok());assert!(zip.by_name("mods/example.jar").is_err());drop(zip);
+        for dimension in ["world_nether", "world_the_end"] {
+            assert!(export(&server,dimension,&root.join("dimension.zip"),false,&task).is_err());
+            assert!(!root.join("dimension.zip").exists());
+        }
+        let jobs: crate::file_tasks::Registry = Arc::new(Mutex::new(std::collections::HashMap::new()));
+        let observed = jobs.clone(); let cancelled = root.join("cancelled.zip");
+        assert_eq!(crate::file_tasks::export_world_bundle(&server,"world",&cancelled,false,&jobs,move|event| {
+            if event.stage == "copying" && event.received > 0 { assert!(observed.lock().unwrap()[&event.server_id].request_cancel()); }
+        }).unwrap_err(), crate::download::CANCELLED);
+        assert!(!cancelled.exists()); assert!(jobs.lock().unwrap().is_empty());
+        assert!(fs::read_dir(&root).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().starts_with(".tch-export-")));
         assert!(export(&server,"world",&dir.join("bad.zip"),true,&task).is_err());assert!(export(&server,"../escape",&root.join("bad.zip"),true,&task).is_err());
         #[cfg(windows)] {
             let outside=root.join("outside.txt");fs::write(&outside,b"outside").unwrap();
