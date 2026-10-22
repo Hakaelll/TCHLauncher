@@ -42,6 +42,7 @@ mod natpmp;
 mod natpmp_manager;
 mod upnp;
 mod players;
+mod whitelist;
 mod authentication;
 mod process;
 mod ticks;
@@ -56,7 +57,7 @@ mod world_bundle;
 mod world_publication;
 
 use model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, LogEvent, Metrics, Server, VersionInfo};
-use players::{PlayersSnapshot, WhitelistImport};
+use players::PlayersSnapshot;
 use process::ProcessManager;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -611,23 +612,34 @@ async fn save_operator(engine:State<'_,Engine>,id:String,edit:players::OperatorE
 }
 
 #[tauri::command]
-async fn pick_whitelist_file() -> Result<Option<WhitelistImport>, String> {
+async fn pick_whitelist_file() -> Result<Option<whitelist::Import>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let Some(path) = rfd::FileDialog::new().add_filter("Lista de jugadores", &["txt", "json"]).pick_file() else { return Ok(None); };
-        players::read_whitelist_import(&path).map(Some)
+        whitelist::read_import(&path).map(Some)
     }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn import_whitelist(engine: State<'_, Engine>, id: String, names: Vec<String>) -> Result<usize, String> {
-    storage::get(&engine.root, &id)?;
-    if engine.processes.state(&id) != "running" { return Err("Inicia el servidor antes de importar la lista blanca".into()); }
-    let names = players::validate_names(&names)?;
-    let commands=names.iter().map(|name|players::command("whitelist_add",Some(name),None)).collect::<Result<Vec<_>,_>>()?;
-    let guard=engine.reserve_running(&id)?;
-    let processes=engine.processes.clone();
-    let session=processes.session_token(&id).ok_or("El servidor no está en ejecución")?;
-    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;processes.send_batch(&id,&commands,&session)}).await.map_err(|error|error.to_string())?
+async fn import_whitelist(engine: State<'_, Engine>, id: String, selection: whitelist::Selection) -> Result<whitelist::Outcome, String> {
+    match selection {
+        whitelist::Selection::Names { names } => {
+            storage::get(&engine.root, &id)?;
+            let names = players::validate_names(&names)?;
+            let commands=names.iter().map(|name|players::command("whitelist_add",Some(name),None)).collect::<Result<Vec<_>,_>>()?;
+            let guard=engine.reserve_running(&id)?;
+            let processes=engine.processes.clone();
+            let session=processes.session_token(&id).ok_or("El servidor no está en ejecución")?;
+            tauri::async_runtime::spawn_blocking(move||{
+                let _guard=guard;
+                processes.send_batch(&id,&commands,&session).map(|submitted|whitelist::Outcome::Commands{submitted})
+            }).await.map_err(|error|error.to_string())?
+        }
+        whitelist::Selection::Identities { players } => {
+            let guard=engine.reserve_stopped(&id)?;
+            let server=storage::get(&engine.root,&id)?;
+            tauri::async_runtime::spawn_blocking(move||{let _guard=guard;whitelist::merge(&server,players)}).await.map_err(|error|error.to_string())?
+        }
+    }
 }
 
 #[tauri::command]

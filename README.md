@@ -27,7 +27,7 @@ Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launchin
 | Process control | Startup tracking, console commands, graceful shutdown and a separately confirmed forced stop |
 | Worlds | Import, duplicate, select, delete and export; share a world and its mods or plugins in one ZIP |
 | Content | Modrinth discovery for mods/plugins, modpacks, resource packs and shaders; compatibility labels, installed and disabled inventories, reversible enable/disable actions and log-related warnings |
-| Players | Skin heads when a verified profile is available; whitelist, operator and ban management |
+| Players | Skin heads when a verified profile is available; whitelist, operator and ban management; UUID-preserving JSON whitelist import while stopped |
 | Console | Searchable, colored log labels, commands and log export |
 | Performance | Simultaneous process RAM and CPU charts; supported JVM heap data and Paper metrics where available |
 | Backups | Manual and scheduled copies, retention settings, restore and optional copies after clean shutdown |
@@ -84,7 +84,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --offline --lib
 pnpm tauri build --bundles nsis -- --offline
 ```
 
-Offline Cargo commands require dependencies to have been fetched previously. The compact suite keeps five frontend read/recovery checks, nine native file-integrity/recovery checks and nine opt-in real Minecraft scenarios. The real scenarios require downloads, managed Java and an existing consent record; see [integration setup](src-tauri/tests/fixtures/README.md). The suite was reduced at the maintainer's request; omitted areas have less regression coverage. Automated checks do not accept the Minecraft EULA on the user's behalf.
+Offline Cargo commands require dependencies to have been fetched previously. The compact suite keeps five frontend read/recovery checks, ten native file-integrity/recovery checks and nine opt-in real Minecraft scenarios. The real scenarios require downloads, managed Java and an existing consent record; see [integration setup](src-tauri/tests/fixtures/README.md). The suite was reduced at the maintainer's request; omitted areas have less regression coverage. Automated checks do not accept the Minecraft EULA on the user's behalf.
 
 NSIS installers are generated under `src-tauri/target/release/bundle/nsis/`. Build outputs are ignored by Git; generating an installer locally does not publish a GitHub release.
 

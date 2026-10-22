@@ -515,3 +515,18 @@ while picking or submitting; choosing copy versus managing the original retains
 its existing explanation. The layout stacks on narrow windows, and hover colors
 respect system/application reduced motion. The stylesheet loads only with the
 import surface. Native appearance, keyboard flow and contrast remain manual QA.
+
+## Whitelist identity review
+
+JSON import rows show the file's UUID beneath the name and the corresponding
+profile head when available. Keep same-name accounts separate. Prospective
+existing/new counts compare UUIDs; submission sends the whole reviewed identity
+list so the native manager can deduplicate against the current disk file.
+JSON import is a stopped-server operation. TXT rows remain unresolved until a
+running Minecraft session processes their commands; never label a matching name
+as the same account. Both modes explain their required server state beside the
+action. Saved-file results include the safety-copy filename; command results say
+only that requests were sent. No-op imports explicitly say no files changed.
+A failed refresh retains the acknowledged result and clears the import draft.
+The review retains pagination/search, theme materials and readable UUID wrapping.
+Native visual and keyboard verification remain manual.

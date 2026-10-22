@@ -67,13 +67,6 @@ pub struct PlayersSnapshot {
     pub authentication_checks: Vec<crate::authentication::Check>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WhitelistImport {
-    pub file_name: String,
-    pub names: Vec<String>,
-}
-
 fn read_list<T: DeserializeOwned>(directory: &Path, name: &str) -> Result<Vec<T>, String> {
     let path = directory.join(name);
     let preliminary=match fs::metadata(&path){Ok(metadata)=>metadata,Err(error)if error.kind()==std::io::ErrorKind::NotFound=>return Ok(Vec::new()),Err(error)=>return Err(format!("No se pudo leer {name}: {error}"))};
@@ -112,7 +105,7 @@ pub fn snapshot(server: &Server, mut online: Vec<String>) -> Result<PlayersSnaps
     })
 }
 
-fn valid_player(name: &str) -> bool {
+pub(crate) fn valid_player(name: &str) -> bool {
     (3..=16).contains(&name.len()) && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
@@ -126,29 +119,6 @@ pub fn validate_names(names: &[String]) -> Result<Vec<String>, String> {
         if unique.insert(name.to_ascii_lowercase()) { output.push(name.to_string()); }
     }
     Ok(output)
-}
-
-pub fn read_whitelist_import(path: &Path) -> Result<WhitelistImport, String> {
-    let preliminary=fs::metadata(path).map_err(|e|format!("No se pudo abrir la lista: {e}"))?;
-    if !preliminary.is_file(){return Err("La lista debe ser un archivo normal".into());}
-    if preliminary.len()>1_000_000{return Err("El archivo debe ocupar menos de 1 MB".into());}
-    let file=fs::File::open(path).map_err(|e|format!("No se pudo abrir la lista: {e}"))?;
-    let metadata = file.metadata().map_err(|e| format!("No se pudo abrir la lista: {e}"))?;
-    if !metadata.is_file(){return Err("La lista debe ser un archivo normal".into());}
-    if metadata.len() > 1_000_000 { return Err("El archivo debe ocupar menos de 1 MB".into()); }
-    let mut bytes=Vec::new();file.take(1_000_001).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
-    if bytes.len() > 1_000_000 { return Err("El archivo debe ocupar menos de 1 MB".into()); }
-    let names: Vec<String> = if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("json")) {
-        let entries: Vec<PlayerIdentity> = serde_json::from_slice(&bytes).map_err(|e| format!("El JSON no contiene una lista blanca válida: {e}"))?;
-        entries.into_iter().map(|entry| entry.name).collect()
-    } else {
-        let text = String::from_utf8(bytes).map_err(|_| "El archivo de texto debe usar UTF-8")?;
-        text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')).map(str::to_string).collect()
-    };
-    Ok(WhitelistImport {
-        file_name: path.file_name().map(|name| name.to_string_lossy().into()).unwrap_or_else(|| "Lista importada".into()),
-        names: validate_names(&names)?,
-    })
 }
 
 pub fn command(action: &str, target: Option<&str>, reason: Option<&str>) -> Result<String, String> {

@@ -112,3 +112,12 @@ html[data-motion="reduced"] .startup-progress * { transition:none; }
 @media(max-width:650px) { .whitelist-review { padding:14px; }.whitelist-review footer>div { width:100%; }.whitelist-review footer button { flex:1; white-space:normal; } }
 .install-transfer { margin-top:10px; flex-wrap:wrap; font-size:12px; }
 @media(max-width:650px) { .console-tools .search-label { max-width:none; }.console-follow button { margin-left:0; }.install-meter { gap:12px; }.install-percentage { font-size:16px; } }
+
+.whitelist-review-list li { align-items:center; }
+.whitelist-review-identity { flex:1; min-width:0; }
+.whitelist-review-identity small { display:block; margin-top:4px; color:var(--secondary); font-size:11px; overflow-wrap:anywhere; }
+.whitelist-review > .field-help { max-width:65ch; margin-bottom:18px; }
+@media(max-width:600px) {
+  .whitelist-review-list li { flex-wrap:wrap; gap:10px; }
+  .whitelist-review-list li > span:last-child { margin-left:42px; }
+}

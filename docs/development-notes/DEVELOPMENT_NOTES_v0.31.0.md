@@ -1023,3 +1023,36 @@ boundary, verifies flattened fields and unchanged fixture bytes, and covers
 invalid metadata/JSON, private data exclusion, Windows casing and read limits.
 Source review found no remaining required corrections; native UI/client checks
 remain open. The existing 0.34.0 installer has not been rebuilt for this source.
+
+## Identity-preserving whitelist import
+
+The picker now distinguishes TXT name requests from standard Minecraft JSON
+identities. JSON validation retains canonical UUIDs, rejects malformed identities
+and conflicting names for a repeated UUID, and keeps different UUIDs with the same
+name. The review displays identities and source-profile heads; its prospective
+counts never decide which JSON identities reach the native merge.
+
+A stopped-server reservation owns JSON publication. The merge rereads the real
+whitelist, preserves existing JSON objects and unknown fields, and adds only
+missing UUIDs. It writes a synced adjacent stage plus an exclusive original-byte
+safety copy, compares the current original and publishes with one rename.
+[Rust's file rename](https://doc.rust-lang.org/std/fs/fn.rename.html) replaces an
+existing regular file on Windows, avoiding the two-rename gap of the generic
+legacy replacement helper. This is not a proven power-loss durability guarantee.
+Invalid existing files remain unchanged; a no-op creates no backup or stage.
+
+TXT imports keep the reserved running-session command path. Every reviewed name
+is sent, even when the cached whitelist has that name, because a name alone does
+not establish account identity. Exact JSON identities require stopping; editing
+the live file would race Minecraft's own whitelist writes. The outcome distinguishes
+commands submitted from identities saved. Acknowledgement clears the draft before
+refresh; a failed refresh cannot invite an accidental repeat write.
+
+Verification: ten native checks and five frontend checks passed, with nine real
+Minecraft integrations not rerun. TypeScript and Windows production Vite passed.
+The one added combined filesystem check covers JSON/TXT parsing, UUID/name
+conflicts, separate same-name accounts, preserved unknown fields/source bytes,
+exact safety copies, corruption refusal, no-op behavior and missing-file creation.
+Source review caught and fixed cached-identity filtering in submission; the backend
+now receives all reviewed identities. Native IPC, actual client admission and
+visual/keyboard behavior remain open. Source remains ahead of installer 0.34.0.

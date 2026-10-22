@@ -34,9 +34,9 @@ an explicit user instruction. These labels do not imply feature completion.
   labeled unconfirmed rows and block changes until a successful retry.
   Current and historical crash reports offer read-only recovery; nullable report
   envelopes distinguish unread/failed observation from a confirmed absent report.
-  Latest native gate: nine passed, nine real Minecraft integrations ignored.
-  The compact suite has 23 cases overall, including one new import-boundary check;
-  it remains approximately 94.5% smaller than the original 422-case suite.
+  Latest native gate: ten passed, nine real Minecraft integrations ignored.
+  The compact suite has 24 cases overall, including import and permission-boundary
+  checks; it remains approximately 94.3% smaller than the original 422-case suite.
   Retained cases prioritize recovery, data integrity and real engine scenarios;
   retired low-level checks no longer provide current regression coverage.
   Paper family checks cover distinct copied/exported dimension bytes, source
@@ -142,9 +142,16 @@ only manual verification:
   importing a selected world folder. The picker still copies that one chosen folder;
   importing an existing complete server preserves all siblings. A reviewed family
   import is needed to avoid requiring manual sibling copies after a folder/ZIP export.
-- **PLAYER-OFFLINE-01 — TODO:** support identity-preserving whitelist file imports
-  while stopped. Current imports reduce JSON identities to names and require the
-  running command path. Keep explicit UUIDs; never infer or merge identities by name.
+- **PLAYER-OFFLINE-01 — REVIEW:** standard whitelist JSON preserves explicit UUIDs
+  and merges against the current file under a stopped-server reservation. Existing
+  objects and unknown fields survive; same-name/different-UUID accounts stay
+  separate. A synced original-byte safety copy precedes a single adjacent-file
+  rename. Corrupt lists are preserved; no-op imports write nothing. TXT files use
+  the running session's command path so Minecraft resolves names, with no name-only
+  exclusion against cached identities. JSON requires stopping to avoid concurrent
+  Minecraft file writes. Review shows UUIDs/heads, prospective counts and exact
+  saved-versus-submitted results. One combined filesystem check passes; native
+  selection/review and actual Minecraft permission enforcement remain unverified.
 - **MOD-CHANGELOG-01 — TODO:** bulk update review must expose available changelogs
   for each changed project. Current review shows only the first main entry's notes.
 

@@ -4,7 +4,7 @@ import {OperatorSettings} from './OperatorSettings'
 import {PlayerHead} from './PlayerHead'
 import {connectedIdentity, isOfflineUuid} from './playerIdentity'
 import { useRef, useState, type FormEvent } from 'react'
-import { type PlayersSnapshot, type Server } from './api'
+import { type PlayersSnapshot, type Server, type WhitelistSelection, type WhitelistOutcome } from './api'
 import {WhitelistImportReview} from './WhitelistImportReview'
 import {playerActions,playerActionErrors,type PlayerAction as Action} from './playerActions'
 import {playerWindow} from './playerWindow'
@@ -33,7 +33,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   busy: boolean;
   onAction: (action:string,target?:string,reason?:string) => Promise<boolean>;
   onToggleWhitelist: () => Promise<boolean>;
-  onImportWhitelist: (names:string[]) => Promise<boolean>;
+  onImportWhitelist: (selection:WhitelistSelection) => Promise<WhitelistOutcome|null>;
   onRefresh: () => Promise<void>;
 }) {
   const [group,setGroup] = useState<Group>('online')
@@ -104,7 +104,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
       {players && group === 'banned' && (items.bannedPlayers.length || items.bannedIps.length ? <>{windows.banned.rows.filter(item=>item.type==='player').map(({entry:player}) => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={[player.reason,player.source,player.created,player.expires].filter(Boolean).join(' · ')} action="Perdonar" disabled={!running || busy} onAction={() => act('pardon',player.name)}/>)}{windows.banned.rows.filter(item=>item.type==='ip').map(({entry}) => <PlayerRow key={entry.ip} name={entry.ip} detail={[entry.reason,entry.source,entry.created,entry.expires].filter(Boolean).join(' · ')} action="Perdonar IP" disabled={!running || busy || entry.ip.startsWith('<')} onAction={() => act('pardon_ip',entry.ip)}/>)}</> : <p className="empty-inline">{t("No hay jugadores ni direcciones IP bloqueadas.")}</p>)}
     </div>
     {players&&window.pages>1&&<nav className="player-pagination" aria-label={t("Páginas de jugadores")}><span>{t("Página")} {window.page+1}  {t("de")} {window.pages}</span><div><button disabled={window.page===0} onClick={()=>setPage(window.page-1)}>{t("Anterior")}</button><button disabled={window.page+1>=window.pages} onClick={()=>setPage(window.page+1)}>{t("Siguiente")}</button></div></nav>}
-    <div hidden={group!=='whitelist'}><WhitelistImportReview whitelisted={items.whitelisted} running={running} disabled={busy||!players||!!readError} onImport={onImportWhitelist} onRefresh={onRefresh}/></div>
+    <div hidden={group!=='whitelist'}><WhitelistImportReview whitelisted={items.whitelisted} running={running} disabled={busy||!players||!!readError||!canSetWhitelist} onImport={onImportWhitelist} onRefresh={onRefresh}/></div>
     <div className="player-management"><h3>{t("Gestionar acceso")}</h3><p>{t("Las acciones se envían a Minecraft; sus listas se actualizarán cuando procese el comando.")}</p>
       {!running && <p className="inline-note">{t("Inicia el servidor para modificar jugadores y permisos. Puedes preparar una acción mientras está detenido.")}</p>}
       <form noValidate onSubmit={submit}>
