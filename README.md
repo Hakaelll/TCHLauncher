@@ -22,7 +22,7 @@ Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launchin
 
 | Area | Available functionality |
 | --- | --- |
-| Servers | Vanilla, Paper, Fabric and NeoForge; create a server or import an existing folder by copy or in place |
+| Servers | Vanilla, Paper, Fabric and NeoForge; create or import by copy/in place, with a read-only preview of worlds, content, settings and access-file counts |
 | Setup | Version selection, world seed, game settings and resources before first launch; managed Eclipse Temurin runtimes |
 | Process control | Startup tracking, console commands, graceful shutdown and a separately confirmed forced stop |
 | Worlds | Import, duplicate, select, delete and export; share a world and its mods or plugins in one ZIP |
@@ -84,7 +84,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --offline --lib
 pnpm tauri build --bundles nsis -- --offline
 ```
 
-Offline Cargo commands require dependencies to have been fetched previously. The compact suite keeps five frontend read/recovery checks, eight native file-integrity/recovery checks and nine opt-in real Minecraft scenarios. The real scenarios require downloads, managed Java and an existing consent record; see [integration setup](src-tauri/tests/fixtures/README.md). The suite was reduced at the maintainer's request; omitted areas have less regression coverage. Automated checks do not accept the Minecraft EULA on the user's behalf.
+Offline Cargo commands require dependencies to have been fetched previously. The compact suite keeps five frontend read/recovery checks, nine native file-integrity/recovery checks and nine opt-in real Minecraft scenarios. The real scenarios require downloads, managed Java and an existing consent record; see [integration setup](src-tauri/tests/fixtures/README.md). The suite was reduced at the maintainer's request; omitted areas have less regression coverage. Automated checks do not accept the Minecraft EULA on the user's behalf.
 
 NSIS installers are generated under `src-tauri/target/release/bundle/nsis/`. Build outputs are ignored by Git; generating an installer locally does not publish a GitHub release.
 

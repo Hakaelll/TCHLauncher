@@ -54,7 +54,14 @@ export type AuthenticationCheck = {file:string;key:string;enabled:boolean|null;p
 export type PlayersSnapshot = { online: string[]; known: KnownPlayer[]; whitelisted: PlayerIdentity[]; operators: Operator[]; bannedPlayers: BannedPlayer[]; bannedIps: BannedIp[]; whitelistEnabled: boolean; enforceWhitelist: boolean; maxPlayers: number; onlineMode: boolean; authenticationChecks:AuthenticationCheck[] }
 export type WhitelistImport = { fileName: string; names: string[] }
 export type CreateInput = { seed?:string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
-export type ImportInspection = { path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null; launchers: {filename:string;platform:Server['platform']|null;version:string|null;note:string|null}[] }
+export type ImportInspection = {
+  path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null
+  launchers: {filename:string;platform:Server['platform']|null;version:string|null;note:string|null}[]
+  inventory: {
+    worlds:string[]; mods:string[]; plugins:string[]; properties:Record<string,string>
+    permissions:{filename:string;entries:number|null}[]; warnings:string[]
+  }
+}
 export type ImportInput = { path: string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; jarFile: string; copy: boolean; storageTargetGb: number; imagePath?: string | null }
 export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }

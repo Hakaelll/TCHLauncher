@@ -993,3 +993,33 @@ invalid trusted records and actual tracked duplicate/export task wiring with
 valid compressed level.dat fixtures and distinct dimension files. They do not
 exercise native UI, actual process killing, client gameplay or physical routers.
 The existing 0.34.0 installer is unchanged by these source changes.
+
+## Read-only existing-server inventory
+
+Import selection now returns a flattened launcher inspection plus an inventory
+of safe world folders, mod/plugin filenames, allowlisted properties and counts
+from whitelist, operator and ban files. Permission identities, IP values and
+arbitrary settings such as RCON passwords are excluded. Missing permission files
+count as zero; invalid/unreadable files are unavailable and produce warnings.
+World validity uses the existing bounded level.dat check. Content discovery lists
+.jar and .jar.disabled files; it makes no claim that Minecraft loaded them.
+
+Inventory reads stop at 5,000 directory entries, 32 world candidates, 2 MB per
+configuration/permission file, and 32 detailed warnings plus a truncation notice.
+Incomplete inventory remains explicit. Validating a world can decompress up to
+8 MB, so the aggregate candidate cap limits repeated decompression. Checked
+content parents are canonicalized to support Windows folders named Mods/Plugins.
+The UI paginates each category at 24 names, preserves the current themes and
+provides English/Spanish labels. Picking/submission disables import fields.
+
+Launcher-only inspection remains the internal copy/backup validation path;
+collecting the preview does not add inventory scans to those operations. No
+new dependencies, network requests or background polling were added.
+
+Verification: nine native checks and five frontend checks passed; TypeScript
+and Windows production Vite passed. Nine real Minecraft integrations were not
+rerun. The single added combined filesystem check calls the actual preview
+boundary, verifies flattened fields and unchanged fixture bytes, and covers
+invalid metadata/JSON, private data exclusion, Windows casing and read limits.
+Source review found no remaining required corrections; native UI/client checks
+remain open. The existing 0.34.0 installer has not been rebuilt for this source.

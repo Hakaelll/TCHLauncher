@@ -63,7 +63,7 @@ fn plain(meta: &fs::Metadata) -> bool {
     true
 }
 
-fn valid_level_dat(folder: &Path) -> Result<(), String> {
+pub(crate) fn valid_level_dat(folder: &Path) -> Result<(), String> {
     let path = folder.join("level.dat");
     let meta = fs::symlink_metadata(&path).map_err(|_| "La carpeta no contiene level.dat".to_string())?;
     if !meta.is_file() || !plain(&meta) || meta.len() > 32_000_000 {

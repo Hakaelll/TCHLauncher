@@ -499,3 +499,19 @@ return to the first page. A smaller refreshed inventory clamps the current page.
 Read icons only for the displayed page, retaining existing stale-read guards and
 cache keys. Context menus close when their file leaves the page. Native appearance
 and keyboard verification remain pending.
+
+## Existing-server import preview
+
+Place a read-only inventory between the source selector and import settings.
+Keep the End material edges, shared theme tokens and legible Minecraft headings.
+Use compact native disclosures for the three file categories, with actual counts
+and 24 filenames per page. Settings remain visible beside the inventory; access
+file counts follow beneath it. Unknown counts use explicit unavailable text.
+Warnings identify incomplete reads and disabled account verification without
+claiming that detected mods/plugins have loaded. Show no private player records.
+
+Selecting another source resets inventory pagination. Import controls are disabled
+while picking or submitting; choosing copy versus managing the original retains
+its existing explanation. The layout stacks on narrow windows, and hover colors
+respect system/application reduced motion. The stylesheet loads only with the
+import surface. Native appearance, keyboard flow and contrast remain manual QA.

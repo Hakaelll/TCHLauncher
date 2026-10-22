@@ -14,6 +14,7 @@ mod loader_identity;
 mod minecraft_update;
 mod instance_publication;
 mod import_identity;
+mod import_preview;
 mod content;
 mod content_storage;
 mod content_diagnostics;
@@ -378,7 +379,7 @@ async fn delete_server(engine: State<'_, Engine>, id: String) -> Result<DeleteOu
 
 #[tauri::command]
 async fn inspect_import(path: String) -> Result<ImportInspection, String> {
-    tauri::async_runtime::spawn_blocking(move || storage::inspect_import(&PathBuf::from(path))).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || import_preview::inspect(&PathBuf::from(path))).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

@@ -34,8 +34,9 @@ an explicit user instruction. These labels do not imply feature completion.
   labeled unconfirmed rows and block changes until a successful retry.
   Current and historical crash reports offer read-only recovery; nullable report
   envelopes distinguish unread/failed observation from a confirmed absent report.
-  Latest native gate: eight passed, nine real Minecraft integrations ignored.
-  The requested suite reduction leaves 22 cases overall, down from 422 (94.8%).
+  Latest native gate: nine passed, nine real Minecraft integrations ignored.
+  The compact suite has 23 cases overall, including one new import-boundary check;
+  it remains approximately 94.5% smaller than the original 422-case suite.
   Retained cases prioritize recovery, data integrity and real engine scenarios;
   retired low-level checks no longer provide current regression coverage.
   Paper family checks cover distinct copied/exported dimension bytes, source
@@ -127,10 +128,16 @@ only manual verification:
   through unwinding, not OS termination or power loss. A process killed before
   the durable plan exists may leave hidden staging folders; pre-journal ordinary
   failures clean their stages. Native recovery presentation remains unverified.
-- **IMPORT-PREVIEW-01 — TODO:** inspect and preview worlds, mods/plugins,
-  permissions and important properties before copying or managing an existing
-  server. Current inspection focuses on versions/JARs/launchers. Preserve source
-  files and avoid exposing private configuration values.
+- **IMPORT-PREVIEW-01 — REVIEW:** existing-server selection now previews valid world
+  folders, mod/plugin filenames, safe gameplay/access settings and permission-file
+  counts. Incomplete/unreadable inventory is labeled; private permission records
+  and arbitrary configuration values are not displayed. Category lists render
+  24 entries per page and the preview supports English/Spanish. Inspection limits
+  file reads, directory entries, world validations and warning count. Inventory
+  runs only for the preview, not internal copy or legacy-backup revalidation.
+  One combined filesystem check covers cross-layer output, unchanged source
+  bytes, invalid files, private-value exclusion, Windows folder casing and limits.
+  Native selection/review/copy/manage presentation remains unverified.
 - **WORLD-PAPER-IMPORT-01 — TODO:** review external Paper dimension siblings before
   importing a selected world folder. The picker still copies that one chosen folder;
   importing an existing complete server preserves all siblings. A reviewed family

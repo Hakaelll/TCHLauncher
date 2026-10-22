@@ -1,4 +1,4 @@
-use crate::model::{Backup, CreateServer, DeleteOutcome, DeletePreview, ImportInspection, ImportServer, Server};
+use crate::model::{Backup, CreateServer, DeleteOutcome, DeletePreview, LauncherInspection, ImportServer, Server};
 use base64::Engine;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::{Path, PathBuf};
@@ -320,7 +320,7 @@ pub fn create_with_seed(root: &Path, input: CreateServer,seed:Option<String>) ->
     Ok(server)
 }
 
-pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
+pub fn inspect_launchers(path: &Path) -> Result<LauncherInspection, String> {
     let source = path.canonicalize().map_err(|e| format!("No se pudo abrir la carpeta: {e}"))?;
     if !source.is_dir() || !source.join("server.properties").is_file() {
         return Err("La carpeta no contiene server.properties".into());
@@ -348,7 +348,7 @@ pub fn inspect_import(path: &Path) -> Result<ImportInspection, String> {
     let launchers=jars.iter().map(|jar|crate::import_identity::inspect(&source,jar)).collect::<Vec<_>>();
     let versions=launchers.iter().filter_map(|launcher|launcher.version.as_ref()).collect::<std::collections::HashSet<_>>();
     let detected_version=(versions.len()==1).then(||(*versions.iter().next().unwrap()).clone());
-    Ok(ImportInspection {
+    Ok(LauncherInspection {
         path:source.to_string_lossy().into(),
         suggested_name:source.file_name().map(|n| n.to_string_lossy().into()).unwrap_or_else(|| "Servidor importado".into()),
         jar_files:jars,detected_version,launchers,
@@ -363,7 +363,7 @@ fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::downlo
     Uuid::parse_str(id).map_err(|_|"Identificador de servidor no válido")?;
     if let Some(task)=task {task.cancellation.check()?;task.report("Comprobando la carpeta del servidor","preparing");}
     let source = PathBuf::from(&input.path).canonicalize().map_err(|e| e.to_string())?;
-    let inspection = inspect_import(&source)?;
+    let inspection = inspect_launchers(&source)?;
     if !inspection.jar_files.contains(&input.jar_file) { return Err("El archivo de arranque seleccionado no existe en esa carpeta".into()); }
     let selected=inspection.launchers.iter().find(|launcher|launcher.filename==input.jar_file).ok_or("Falta el arranque seleccionado")?;
     if let Some(platform)=&selected.platform{if platform!=&input.platform{return Err(format!("El archivo seleccionado declara {platform}; revisa el tipo del servidor"));}}
@@ -382,7 +382,7 @@ fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::downlo
         let prepared=(||{
             if let Some(task)=task {crate::backup::copy_tree_tracked(&source,&stage,task,"Importando archivos del servidor")?;task.cancellation.check()?;task.report("Comprobando el servidor importado","verifying");}
             else {crate::backup::copy_tree(&source,&stage)?;}
-            let copied=inspect_import(&stage)?;
+            let copied=inspect_launchers(&stage)?;
             if !copied.jar_files.contains(&input.jar_file){return Err("El archivo de arranque cambió durante la importación".into());}
             if input.platform=="neoforge"{crate::neoforge::validate_import(&stage,&input.jar_file,&input.version)?;}
             if let Some(task)=task {task.begin_publication("Incorporando el servidor a la biblioteca")?;}

@@ -36,6 +36,14 @@ pub struct CreateServer {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportInspection {
+    #[serde(flatten)]
+    pub source: LauncherInspection,
+    pub inventory: crate::import_preview::Inventory,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherInspection {
     pub path: String,
     pub suggested_name: String,
     pub jar_files: Vec<String>,

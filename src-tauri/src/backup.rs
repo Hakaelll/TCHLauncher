@@ -77,7 +77,7 @@ fn read_snapshot(source:&Path,fallback:Snapshot)->Result<Snapshot,String> {
     if !path.exists(){
         let mut fallback=fallback;
         if fallback.jar.is_some() {
-            let inspected=storage::inspect_import(source)?;
+            let inspected=storage::inspect_launchers(source)?;
             fallback.version=inspected.detected_version.ok_or("Esta copia antigua no identifica la versión de Minecraft. Importa su carpeta para revisar el motor antes de usarla.")?;
         }
         return Ok(fallback);
