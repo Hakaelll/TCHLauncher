@@ -63,8 +63,8 @@ an explicit user instruction. These labels do not imply feature completion.
 - Development compiler caches were removed: workspace logical size fell from
   65.238 GiB to 297.9 MiB; installers/executable hashes unchanged. Dev/test symbols
   and incremental caches are disabled; release profile remains unchanged.
-- Current packaged preview is 0.37.0, including session UUID observations,
-  exact access-file changes, recovery guidance and background notices. See
+- Current packaged preview is 0.38.0, including reviewed known-player OP grants,
+  access-read guards, contextual task failures and command-palette folder/restart actions. See
   [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).
 
@@ -113,7 +113,7 @@ files local; the digest may remain in the release notes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.37.0 NSIS x64 generated with verified version/checksum. Focused access-file checks, TypeScript and Windows frontend builds passed; dependencies and bundled legal resources are unchanged. Earlier world-publication process-kill and controlled Fabric mrpack evidence is recorded in the release notes. Broad engine checks were not repeated for packaging. Native install/upgrade and usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.38.0 NSIS x64 generated with verified version and local checksum. Focused access-file checks, TypeScript and Windows frontend builds passed; dependencies and bundled legal resources are unchanged. Earlier world-publication process-kill and controlled Fabric mrpack evidence is recorded in the release notes. Broad engine checks were not repeated for packaging. Native install/upgrade and usage gates remain open. |
 
 ## Implementation gaps from the current scope audit
 
@@ -229,7 +229,7 @@ only manual verification:
   Exact selected UUID, duplicate rejection, expected permission checks and unknown
   fields remain intact. The existing focused access-file case passes with edit,
   stale/invalid input, duplicate, corrupt and absent-file coverage. No case or
-  dependency was added. Native UI review remains pending; source follows 0.37.0.
+  dependency was added. Native UI review remains pending; included in installer 0.38.0.
 
 - **OP-GRANT-01 — REVIEW:** known-player rows now review operator grants by
   selected UUID while stopped. Choose level and full-server bypass explicitly;
@@ -240,7 +240,7 @@ only manual verification:
   blocks duplicate submissions and supports English/Spanish. The existing focused
   native case and React rendering checks pass; no retained case or dependency was
   added. Native interaction and actual client enforcement remain unverified.
-  Source is ahead of installer 0.37.0.
+  Included in installer 0.38.0.
 
 - **PLAYER-ACTIONS-01 — REVIEW:** command and whitelist-toggle acknowledgements
   survive a rejected follow-up read via the shared acknowledgedAction helper.
@@ -248,7 +248,7 @@ only manual verification:
   suppressing duplicate submissions and updates after unmount. Inventory-derived
   controls now block during reads or failed observations; free-form live commands
   remain available. Result counts are localized. Five retained frontend checks
-  and TypeScript pass; native interaction remains unverified. Source follows 0.37.0.
+  and TypeScript pass; native interaction remains unverified. Included in installer 0.38.0.
 
 - **TASK-ERROR-01 — REVIEW:** task results distinguish server/content/modpack
   installation, runtime preparation and engine updates, including cancellation.
@@ -257,7 +257,7 @@ only manual verification:
   error and technical details. Native terminal-state checks and React rendering
   for all 17 kinds in English/Spanish pass; TypeScript passes. The temporary native
   check was removed after execution, so the retained case count is unchanged.
-  Native presentation remains unverified; source follows installer 0.37.0.
+  Native presentation remains unverified; included in installer 0.38.0.
 
 ## Reported issues needing host evidence
 

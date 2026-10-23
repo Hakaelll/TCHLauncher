@@ -12,7 +12,7 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 ## Project status
 
-Latest development milestone: **0.37.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.37.0.md).
+Latest development milestone: **0.38.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.38.0.md).
 
 TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. Native visual and keyboard review, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
 
