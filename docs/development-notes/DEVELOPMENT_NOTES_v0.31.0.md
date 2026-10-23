@@ -1358,3 +1358,14 @@ TypeScript and Windows Vite passed; native compilation checked separately.
 No server sessions or broad suites were run, following the user's request for
 brief checks. Real-client login and native visual behavior remain unverified.
 No test case, dependency, installer or GitHub release was added.
+
+## Authorize known identities without a file
+
+Known-player rows now add the selected UUID to the whitelist through the existing
+stopped-server identity writer. They show already-authorized status, require a
+confirmed read and share the mutation owner with identity removal. Native
+acknowledgement includes the safety-copy name and survives a failed refresh.
+The import-file review and row status share UUID-key normalization. No name
+resolution, new native command or automatic whitelist activation was added.
+TypeScript and Windows Vite passed; native row interaction remains manual.
+No new tests, dependencies, installer or GitHub release were generated.

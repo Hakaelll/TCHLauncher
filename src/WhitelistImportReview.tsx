@@ -4,8 +4,7 @@ import {api,type PlayerIdentity,type WhitelistImport,type WhitelistSelection,typ
 import {t,translatedMessage} from './locale'
 import {playerWindow} from './playerWindow'
 import {PlayerHead} from './PlayerHead'
-
-const identityKey=(uuid:string)=>uuid.replaceAll('-','').toLowerCase()
+import {identityKey} from './playerIdentity'
 
 export function WhitelistImportReview({whitelisted,running,disabled,onImport,onRefresh}:{whitelisted:PlayerIdentity[];running:boolean;disabled:boolean;onImport:(selection:WhitelistSelection)=>Promise<WhitelistOutcome|null>;onRefresh:()=>Promise<void>}){
   const [file,setFile]=useState<WhitelistImport|null>(null)

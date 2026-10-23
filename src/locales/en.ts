@@ -1,5 +1,9 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Ese UUID ya está autorizado. No se modificaron archivos.": "That UUID is already allowed. No files were changed.",
+  "Se autorizó el UUID {0} para el próximo inicio. Copia anterior: {1}": "UUID {0} was allowed for the next start. Previous copy: {1}",
+  "Se autorizó el UUID {0} para el próximo inicio.": "UUID {0} was allowed for the next start.",
+  "Detén el servidor para añadir a la lista blanca el UUID seleccionado.": "Stop the server to add the selected UUID to the whitelist.",
   "UUID de esta sesión: {0}": "UUID for this session: {0}",
   "UUID de sesión no observado": "Session UUID not observed",
   "Identidad del jugador": "Player identity",

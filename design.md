@@ -623,3 +623,8 @@ when no session UUID is observed. Search connected rows by name or observed UUID
 Identity log events use the existing player color and a translated event label.
 This is observation of server output, not verification of Microsoft ownership.
 Native appearance and real-client login validation remain manual.
+
+Known-player rows offer Add to whitelist for their exact UUID while stopped.
+Already-authorized UUIDs show a disabled Whitelisted action. Keep same-name
+accounts separate and explain the stopped-server requirement beside the list.
+Show native acknowledgement above the rows, preserving it if refresh fails.
