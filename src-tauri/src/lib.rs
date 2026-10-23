@@ -4,6 +4,7 @@ mod stop_backup;
 mod startup;
 mod shutdown;
 mod application;
+mod app_menu;
 mod app_log;
 mod backup_retention;
 mod file_tasks;
@@ -1381,30 +1382,7 @@ pub fn run() {
             app.manage(Engine { _instance_lock:instance_lock,router:Arc::new(upnp::Manager::default()),natpmp:Arc::new(natpmp_manager::Manager::default()),router_shutdown:Arc::new(std::sync::atomic::AtomicU8::new(0)),scheduler_stopping:std::sync::atomic::AtomicBool::new(false),root,processes:ProcessManager::default(),process_metrics:Arc::new(Mutex::new(process_metrics::Collector::default())),size_cache:Arc::new(storage_usage::SizeCache::default()),memory_history:Arc::new(memory_report::History::default()),operations:Arc::new(Mutex::new(HashSet::new())),installations:Arc::new(Mutex::new(HashMap::new())),content_plans:Arc::new(Mutex::new(HashMap::new())) });
             start_scheduler(app.handle().clone());
             start_router_maintenance(app.handle().clone());
-            let show = tauri::menu::MenuItem::with_id(app,"show","Mostrar TCHLauncher",true,None::<&str>)?;
-            let quit = tauri::menu::MenuItem::with_id(app,"quit","Salir",true,None::<&str>)?;
-            let menu = tauri::menu::Menu::with_items(app,&[&show,&quit])?;
-            tauri::tray::TrayIconBuilder::new()
-                .icon(app.default_window_icon().ok_or("Icono de ventana ausente")?.clone())
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app,event| match event.id().as_ref() {
-                    "show" => show_main(app),
-                    "quit" => {
-                        let engine = app.state::<Engine>();
-                        if engine.processes.any_active() {
-                            show_main(app);
-                            let _ = app.emit("close-with-servers",());
-                        } else { app.exit(0); }
-                    }
-                    _ => (),
-                })
-                .on_tray_icon_event(|tray,event| {
-                    if let tauri::tray::TrayIconEvent::Click { button:tauri::tray::MouseButton::Left, button_state:tauri::tray::MouseButtonState::Up,.. } = event {
-                        show_main(tray.app_handle());
-                    }
-                })
-                .build(app)?;
+            app_menu::install(app)?;
             if std::env::args_os().any(|argument|argument=="--autostart") {
                 if let Some(window)=app.get_webview_window("main"){let _=window.hide();}
             }
@@ -1422,7 +1400,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,grant_operator,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,set_content_enabled,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,open_content_project,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,remove_access_identity,remove_banned_ip,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_server_settings,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![app_menu::set_application_language,export_memory_report,check_server_response,grant_operator,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,set_content_enabled,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,open_content_project,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,remove_access_identity,remove_banned_ip,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_server_settings,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {

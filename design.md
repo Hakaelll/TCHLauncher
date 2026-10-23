@@ -223,6 +223,10 @@ Storage exposes actual native locations and folder actions; Information uses the
 native binary version, OS/architecture and persisted EULA record. Diagnostics and
 shortcuts live in Advanced. Native appearance and keyboard review remain manual.
 
+The selected Spanish/English language also updates the native tray's Show and Quit
+labels on application startup and when changed. A failed native update retains the
+usable interface and reports the original error through the shared error surface.
+
 ## Observed startup path
 
 Overview places a compact Java / Mundo / Listo ordered path between the current

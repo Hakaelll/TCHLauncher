@@ -1,5 +1,6 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "No se pudo actualizar el idioma de la bandeja: {0}": "Could not update the tray menu language: {0}",
   "Dirección IP no válida": "Invalid IP address",
   "banned-ips.json contiene una dirección IP no válida": "banned-ips.json contains an invalid IP address",
   "Se perdonó la IP {0}. Copia anterior: {1}": "IP {0} was unbanned. Previous copy: {1}",

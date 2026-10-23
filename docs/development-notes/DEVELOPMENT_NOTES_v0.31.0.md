@@ -1570,3 +1570,19 @@ native tray/close flow. Local before/after logs and result JSON are under
 artifacts/modal-acceptance*. Temporary fixture sources are removed after checking;
 no dependency or retained test is added. Source remains ahead of installer 0.38.0.
 TypeScript and the Windows-targeted frontend production build also passed.
+
+## Native tray language
+
+The Show/Quit menu previously stayed Spanish after selecting English. Tray setup
+now lives in app_menu.rs; the frontend synchronizes the current language at mount
+and after preference changes. The native command accepts only es/en, updates the
+existing items and retains their close/restore event handling. Update failures use
+the shared application error surface, with stale failures ignored after a language
+change or unmount. No second preference store or dependency is introduced.
+
+A temporary focused native check passed label mapping and invalid-locale rejection.
+The full native test target compiled, including command registration and menu types.
+TypeScript, the Windows frontend build and an IPC payload/rejection check passed.
+The temporary test was removed;
+the existing retained suite is unchanged. Actual Windows tray interaction remains
+unverified. This source change follows published installer 0.39.0.

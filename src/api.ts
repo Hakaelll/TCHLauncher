@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import type {Language} from './locale'
 
 export type ServerState = 'stopped' | 'installing' | 'starting' | 'running' | 'stopping' | 'crashed' | 'error'
 export type RouterStatus = {
@@ -104,6 +105,7 @@ export type MinecraftReview = {currentMinecraft:string;targetMinecraft:string;pl
 export type NatPmpRecord={serverId:string;localIp:string;gateway:string;internalPort:number;externalPort:number|null;externalIp:string|null;phase:'pending'|'active'|'closing'|'attention';expiresAt:number;confirmedAt:number|null;renewAt:number;retryAt:number;lastError:string|null}
 export type NatPmpDetection={gateway:string;externalIp:string;publicAddress:boolean}
 export const api = {
+  setApplicationLanguage:(language:Language)=>invoke<void>('set_application_language',{language}),
   serverResponse:(id:string)=>invoke<ServerResponse>('check_server_response',{id}),
   natpmpStatus:(id:string)=>invoke<NatPmpRecord|null>('get_natpmp_status',{id}),
   detectNatpmp:(id:string,gateway:string|null)=>invoke<NatPmpDetection>('detect_natpmp',{id,gateway}),

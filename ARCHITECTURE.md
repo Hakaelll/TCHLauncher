@@ -46,6 +46,9 @@ retain Minecraft formats. A storage target is a warning threshold, not a disk
 quota. Managed Java does not replace system Java.
 
 Language, theme, typography and motion preferences use local browser storage.
+The frontend sends the current ES/EN language to [app_menu.rs](src-tauri/src/app_menu.rs)
+at startup and on changes. That module owns the tray and updates its existing menu
+labels through a typed native command; it does not duplicate preference storage.
 Native settings such as schedules, OS startup and recorded consent use their
 backend stores. Draft UI values are distinct from acknowledged native changes.
 Library relocation is not implemented.

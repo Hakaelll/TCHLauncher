@@ -89,7 +89,7 @@ const stateText = (state: string) => labels[state as ServerState] || state
 const fmtUptime = (n?: number | null) => n == null ? '—' : `${Math.floor(n / 3600)} h ${Math.floor(n % 3600 / 60)} min`
 
 function App() {
-  useLanguage()
+  const language=useLanguage()
   const [servers, setServers] = useState<Server[]>([])
   const [railHovered,setRailHovered] = useState(false)
   const [railKeyboardFocus,setRailKeyboardFocus] = useState(false)
@@ -128,6 +128,14 @@ function App() {
   const [operationBusy,setBusy] = useState(false)
   const [installingIds,setInstallingIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | ActionFailure | null>(null)
+  useEffect(()=>{
+    if(!isTauri())return
+    let current=true
+    void api.setApplicationLanguage(language).catch(cause=>{
+      if(current)setError(t("No se pudo actualizar el idioma de la bandeja: {0}",errorText(cause)))
+    })
+    return()=>{current=false}
+  },[language])
   const [notice, setNotice] = useState<string | null>(null)
   const [progressByServer,setProgressByServer]=useState<Record<string,Progress>>({})
   const progressRef=useRef<Record<string,Progress>>({})
