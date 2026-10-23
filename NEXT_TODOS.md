@@ -63,8 +63,8 @@ an explicit user instruction. These labels do not imply feature completion.
 - Development compiler caches were removed: workspace logical size fell from
   65.238 GiB to 297.9 MiB; installers/executable hashes unchanged. Dev/test symbols
   and incremental caches are disabled; release profile remains unchanged.
-- Current packaged preview is 0.36.0, including reviewed Paper family import,
-  notes for every updated project and exact-UUID whitelist removal. See
+- Current packaged preview is 0.37.0, including session UUID observations,
+  exact access-file changes, recovery guidance and background notices. See
   [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).
 
@@ -110,7 +110,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.36.0 NSIS x64 generated with verified version/icons/licenses/checksum, ten native checks and five frontend checks. The populated Paper round trip passed separately; other eight real-engine integrations were not rerun. Native install/upgrade and usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.37.0 NSIS x64 generated with verified version/checksum. Focused access-file checks, TypeScript and Windows frontend builds passed; dependencies and bundled legal resources are unchanged. Earlier world-publication process-kill and controlled Fabric mrpack evidence is recorded in the release notes. Broad engine checks were not repeated for packaging. Native install/upgrade and usage gates remain open. |
 
 ## Implementation gaps from the current scope audit
 
@@ -193,7 +193,7 @@ only manual verification:
   pass with the retained case count unchanged. An isolated Vanilla 1.21.4 probe
   confirmed that the three direct UUID commands did not remove the selected test
   profile, so no live-command UUID shortcut is assumed. Native row interaction and
-  actual client permissions remain unverified. Source is ahead of installer 0.36.0.
+  actual client permissions remain unverified. Included in installer 0.37.0.
 - **NOTIFY-01 — REVIEW:** in-app notices identify unexpected server crashes and
   failed tasks, plus successful tasks completed outside their visible workflow.
   Open the console or the task's section directly. Terminal task IDs and crash
@@ -203,7 +203,7 @@ only manual verification:
   checks and actual React ES/EN rendering pass; five retained frontend checks,
   TypeScript and Windows Vite pass. Native delivery, keyboard and layout remain
   manual checks. No operating-system notification or new dependency was added.
-  Original requirement 76; source is ahead of installer 0.36.0.
+  Original requirement 76; included in installer 0.37.0.
 - **ACTION-RECOVERY-01 — REVIEW:** ordinary Start/Restart failures now retain the
   requested server identity, the original reason, operation-specific review advice,
   Settings/Console navigation and expandable raw technical evidence. Runtime
@@ -216,7 +216,7 @@ only manual verification:
   One-off actual React checks cover both languages, routes, context, escaping,
   closed disclosures and unavailable servers. Five frontend cases, TypeScript and
   Windows Vite pass. Native interaction/layout and real failure delivery remain
-  manual gates. Original requirement 49; installer 0.36.0 is unchanged.
+  manual gates. Original requirement 49; included in installer 0.37.0.
 
 
 ## Reported issues needing host evidence
