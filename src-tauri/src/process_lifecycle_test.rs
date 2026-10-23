@@ -49,6 +49,9 @@ fn wait_for(label:&str,seconds:u64,events:&Events,mut condition:impl FnMut()->bo
     }
 }
 fn cycle(library:&Library,server:&Server,port:u16,loaded_content:Option<&str>)->(String,u64) {
+    cycle_checked(library,server,port,loaded_content,|_|{})
+}
+fn cycle_checked(library:&Library,server:&Server,port:u16,loaded_content:Option<&str>,check:impl FnOnce(&Events))->(String,u64) {
     let events=Arc::new(Events::default());let manager=&library.manager;
     let began=Instant::now();
     manager.launch(server,events.clone(),&crate::jvm::get(&library.root,&server.id).unwrap()).unwrap();
@@ -72,6 +75,7 @@ fn cycle(library:&Library,server:&Server,port:u16,loaded_content:Option<&str>)->
         assert!([reading.one_minute,reading.five_minutes,reading.fifteen_minutes].iter().all(|value|value.is_finite()&&*value>=0.0&&*value<=100.0));
         eprintln!("PAPER_TPS_EVIDENCE {}",serde_json::to_string(&reading).unwrap());
     }
+    check(&events);
     let marker=format!("TCH_LIFECYCLE_{}",uuid::Uuid::new_v4());
     manager.send(&server.id,&format!("say {marker}")).unwrap();
     wait_for("Minecraft command response",10,&events,||events.contains(&marker));
@@ -167,6 +171,66 @@ fn verify_lifecycle(platform:&str,content:Option<(&str,&str)>) {
     let backups=backup::list_details(&library.root,&server.id).unwrap();assert_eq!(backups.len(),2);
     assert!(backups.iter().any(|copy|copy.reason==Some(backup::Reason::BeforeRestore)));
     println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"contentProject":content.map(|(project,_)|project),"contentFolder":content.map(|_|content_folder),"contentLoadedInAllSessions":mod_file.is_some(),"contentRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
+    if platform=="paper"&&content.is_none() { verify_paper_world_import(&library,&restored,port); }
+}
+
+fn paper_dimension_session(library:&Library,server:&Server,port:u16,place_blocks:bool)->(String,u64) {
+    cycle_checked(library,server,port,None,|events| {
+        for (dimension,block) in [("overworld","diamond_block"),("the_nether","gold_block"),("the_end","emerald_block")] {
+            let manager=&library.manager;
+            manager.send(&server.id,&format!("execute in minecraft:{dimension} run forceload add 0 0")).unwrap();
+            let ready=format!("TCH_CHUNK_{}",uuid::Uuid::new_v4());
+            let mut last_probe=Instant::now()-Duration::from_secs(1);
+            wait_for("Dimension chunk load",90,events,|| {
+                assert!(manager.is_active(&server.id),"Paper exited while loading {dimension}");
+                if last_probe.elapsed()>=Duration::from_millis(500) {
+                    manager.send(&server.id,&format!("execute in minecraft:{dimension} if loaded 8 80 8 run say {ready}")).unwrap();
+                    last_probe=Instant::now();
+                }
+                events.contains(&format!("[Server] {ready}"))
+            });
+            if place_blocks { manager.send(&server.id,&format!("execute in minecraft:{dimension} run setblock 8 80 8 minecraft:{block}")).unwrap(); }
+            let saved=format!("TCH_BLOCK_{}",uuid::Uuid::new_v4());
+            manager.send(&server.id,&format!("execute in minecraft:{dimension} if block 8 80 8 minecraft:{block} run say {saved}")).unwrap();
+            wait_for("Saved dimension block",10,events,||events.contains(&format!("[Server] {saved}")));
+            manager.send(&server.id,&format!("execute in minecraft:{dimension} run forceload remove 0 0")).unwrap();
+        }
+    })
+}
+
+fn verify_paper_world_import(library:&Library,source:&Server,port:u16) {
+    let original_session=paper_dimension_session(library,source,port,true);
+    let family=crate::world::world_family(source,"world").unwrap(); assert_eq!(family.len(),3);
+    let original:Vec<_>=family.iter().map(|(_,path)|file_hashes(path)).collect();
+    assert!(original.iter().all(|files|files.keys().any(|path|path.extension().is_some_and(|extension|extension=="mca"))));
+    let jobs=crate::file_tasks::Registry::default();
+    let exported=library.root.join("exported-worlds"); fs::create_dir(&exported).unwrap();
+    let primary=crate::file_tasks::export_world(&library.root,source,"world",&exported,&jobs,|_|{}).unwrap();
+    let selection=crate::world_import::inspect(&primary).unwrap(); assert_eq!(selection.dimensions,["world_nether","world_the_end"]);
+    for (index,(name,path)) in family.iter().enumerate() {
+        assert_eq!(file_hashes(&exported.join(name)),original[index]);
+        assert_eq!(file_hashes(path),original[index]);
+    }
+    let target_port=std::net::TcpListener::bind(("127.0.0.1",0)).unwrap().local_addr().unwrap().port();
+    let target=storage::create_with_seed(&library.root,CreateServer{name:"Imported Paper dimensions".into(),version:source.version.clone(),platform:"paper".into(),memory_min_mb:512,memory_max_mb:2048,max_players:2,port:target_port,storage_target_gb:4,image_path:None},Some("84".into())).unwrap();
+    eula::require_download_consent(&library.root,&target).unwrap();
+    crate::install::install(&library.root,&target,&task(&target.id,"install")).unwrap();
+    let target=storage::get(&library.root,&target.id).unwrap(); let directory=Path::new(&target.directory);
+    properties::write(&directory.join("server.properties"),[("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),("simulation-distance".into(),"3".into())].into()).unwrap();
+    let imported=crate::file_tasks::import_world(&library.root,&target,&primary,"Imported world",&selection.dimensions,&jobs,|_|{}).unwrap();
+    assert_eq!(imported.dimensions,["Imported world_nether","Imported world_the_end"]);
+    let copied=crate::world::world_family(&target,"Imported world").unwrap();
+    for (index,(_,path)) in copied.iter().enumerate() { assert_eq!(file_hashes(path),original[index]); }
+    crate::file_tasks::set_active_world(&library.root,&target,"Imported world",&jobs,|_|{}).unwrap();
+    let imported_session=paper_dimension_session(library,&target,target_port,false);
+    assert!(!directory.join("world").exists()); assert!(!directory.join("world_nether").exists()); assert!(!directory.join("world_the_end").exists());
+    for (index,(name,path)) in family.iter().enumerate() {
+        assert_eq!(file_hashes(path),original[index]);
+        assert_eq!(file_hashes(&exported.join(name)),original[index]);
+    }
+    assert!(jobs.lock().unwrap().is_empty());
+    assert!(!crate::world_publication::pending_server(&library.root,&target).unwrap());
+    println!("PAPER_WORLD_EVIDENCE {}",serde_json::json!({"minecraft":source.version,"dimensions":3,"worldFiles":original.iter().map(|files|files.len()).sum::<usize>(),"allImportedHashesEqualBeforeBoot":true,"sourceAndExportUnchanged":true,"distinctBlocksVerifiedAfterImportedBoot":3,"startupMilliseconds":[original_session.1,imported_session.1],"defaultWorldNotGenerated":true}));
 }
 
 #[test]

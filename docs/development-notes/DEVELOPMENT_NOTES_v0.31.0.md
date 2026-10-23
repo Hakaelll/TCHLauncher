@@ -1124,3 +1124,31 @@ React render fixtures and Windows production Vite. Nine real Minecraft scenarios
 were not rerun. Native compilation required the ordinary unsandboxed build path
 after Visual Studio's archiver could not overwrite its generated archive in the
 restricted environment. A focused source review found no required corrections.
+
+## Real populated Paper dimension round trip
+
+The existing opt-in Paper scenario now additionally runs a world round trip after
+its three lifecycle/backup/restore sessions. A fourth source session loads a chunk
+in each dimension and places a distinct diamond/gold/emerald block. Tracked folder
+export and reviewed import copy the complete family into a fresh Paper instance
+under a different world name. All 45 world-file hashes match before target boot.
+The target session uses Minecraft's conditional block commands to verify the saved
+blocks without placing new ones. Probes require a `[Server]` response with a unique
+marker, so command parser errors containing the submitted text cannot pass.
+
+The Minecraft 1.21.4 run passed in 234.10 seconds, including managed Java/Paper
+downloads, five successful sessions and graceful stops. The three dimension blocks
+survived, the source and export stayed byte-identical and no default replacement
+world was generated. TPS responses were observed in all five sessions. The isolated
+temporary library was confirmed absent after fixture cleanup. The existing explicit
+EULA record was reused without creating a new acceptance. Test count remains 24;
+the other eight real-engine scenarios were not rerun. Evidence is recorded in the
+ignored `artifacts/lifecycle/paper-world-import.log`.
+
+The generated archive README now describes reviewed family import instead of
+obsolete manual sibling-folder copying. This run exercises folder export/import;
+it does not claim a new ZIP round trip, native picker/UI or Minecraft client
+gameplay verification. The source audit of original sections 32–46 found no further
+missing production paths in those sections; their remaining native/host gates stay
+open. This follow-up is not included in installer 0.35.0.
+The final native compilation and all ten compact native checks also passed.

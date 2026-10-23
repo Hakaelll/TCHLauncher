@@ -22,6 +22,11 @@ an explicit user instruction. These labels do not imply feature completion.
   not an automatic combined-archive importer or native UI/client test.
 - Paper with managed Chunky also passed three real plugin enablements and
   restored plugin JAR equality. This covers one plugin, not all plugin behavior.
+- Paper 1.21.4 also passes a populated three-dimension folder export/import into
+  a second instance: all 45 world-file hashes equal before boot, distinct blocks
+  verified through Minecraft commands in Overworld/Nether/End after boot, source
+  and exported files unchanged, and no replacement default world generated.
+  The existing Paper scenario now checks this without increasing the test count.
 - Source includes deferred server workflows/settings/console/backups, improved
   operation/plot/catalog/history presentation and shared validation. Latest checks:
   Five retained frontend tests, TypeScript and Windows production Vite passed.
@@ -87,7 +92,7 @@ an explicit user instruction. These labels do not imply feature completion.
 | IMPORT-01 | IN_PROGRESS | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Verify real renamed/legacy/custom launchers through native import. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |
 | PLAYER-01 | IN_PROGRESS | Players and permissions | File inventories, online commands, UUID/skin evidence, whitelist import, OP and bans connected. Verify live action outcomes and imported Minehut account identity on the actual host. |
-| WORLD-01 | IN_PROGRESS | World operations and combined export | Real Fabric/Lithium ZIP export/import into a second instance passes all world hashes before boot and loaded-mod startup. Verify native/client round trips, other content and populated dimensions. |
+| WORLD-01 | IN_PROGRESS | World operations and combined export | Real Fabric/Lithium ZIP export/import and populated Paper three-dimension folder export/import pass. Paper checks 45 world-file hashes before boot and three saved blocks after boot. Verify native/client round trips and broader content. |
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Verify connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
@@ -115,8 +120,9 @@ only manual verification:
 - **WORLD-PAPER-01 — REVIEW:** Paper's overworld and separate Nether/End folders
   share discovery across listing, duplicate, folder/ZIP export, activation and
   deletion. Retained duplicate/export checks compare all dimension bytes and
-  unchanged source hashes. Native UI and an actual Paper restart with copied
-  dimensions remain unverified; older broader unit checks were retired.
+  unchanged source hashes. A real Paper restart now also verifies three distinct
+  saved blocks after family import. Native UI/client gameplay remain unverified;
+  older broader unit checks were retired.
 - **WORLD-PAPER-RECOVERY-01 — REVIEW:** trusted SQLite plans, ownership markers
   and streamed fingerprints recover interruptions between dimension renames.
   Startup attempts all plans; unavailable external destinations remain pending
@@ -145,8 +151,9 @@ only manual verification:
   folders, occupied destinations and non-Paper targets for split worlds. Imports
   reuse staged family copying and trusted SQLite publication recovery. Original
   folders remain unchanged; users must stop the external source server first.
-  Retained filesystem and React preview checks cover the new boundary; native
-  picker/keyboard/layout and real Paper gameplay remain unverified. No automatic
+  Retained filesystem and React preview checks cover the new boundary; the real
+  Paper check also verifies imported dimension hashes and three saved blocks after
+  boot. Native picker/keyboard/layout and client gameplay remain unverified. No automatic
   conversion between Paper's split folders and other engines is claimed.
 - **PLAYER-OFFLINE-01 — REVIEW:** standard whitelist JSON preserves explicit UUIDs
   and merges against the current file under a stopped-server reservation. Existing
