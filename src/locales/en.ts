@@ -1,5 +1,8 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Modpack instalado": "Modpack installed",
+  "Actualiza la biblioteca para abrir el servidor preparado.": "Refresh the library to open the prepared server.",
+  "No se pudo actualizar la biblioteca: {0}": "Could not refresh the library: {0}",
   "Comprueba el runtime en Configuración antes de volver a prepararlo. Puedes verificar Java o elegir otro ejecutable compatible.": "Check the runtime in Settings before preparing it again. You can verify Java or choose another compatible executable.",
   "No se pudo iniciar «{0}»": "Could not start “{0}”",
   "No se pudo reiniciar «{0}»": "Could not restart “{0}”",

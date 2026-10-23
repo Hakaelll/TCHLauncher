@@ -1306,3 +1306,24 @@ a Minecraft client, pre-journal termination or power loss. Existing real Paper
 round-trip evidence remains separate. No frontend code/dependency changed, so
 frontend and Minecraft-engine checks were not repeated for this test-only change.
 No installer or GitHub release was generated.
+
+## Finish modpack import after a library read failure
+
+Pack import now records native success before asking the application to refresh
+and open the server. A failed refresh retains a completed result with a read-only
+Refresh data action; retry does not install the package or create another server.
+The result replaces the wizard controls and redundant progress. A synchronous
+submission guard blocks duplicate requests. The shared acknowledged action now
+passes its result to the refresh callback; existing callbacks ignore that value.
+TypeScript and Windows Vite passed. Native interaction/layout remain manual.
+
+The Fabric scenario already in progress also completed its mrpack extension:
+Minecraft 1.21.4, Fabric 0.20.1 and Lithium loaded successfully after reviewed pack
+installation. The small generated pack verifies exact loader, downloaded JAR
+hashes, an omitted optional file, excluded client overrides, server-overrides
+precedence, unchanged local properties/EULA, receipt selection and unchanged
+source data/archive. Four sessions completed across the existing lifecycle and
+pack target. This is one controlled pack, not broad third-party pack coverage.
+The retained case count remains unchanged; no other engine scenario was rerun.
+Following the user's instruction, further checks are limited to what each
+functional change needs. No installer or GitHub release was generated.

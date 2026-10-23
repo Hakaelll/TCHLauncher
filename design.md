@@ -602,3 +602,14 @@ scrollable. Use the existing theme tokens and translate application copy; raw
 technical evidence remains verbatim. A failed refresh must not hide the original
 runtime failure. Retain existing crash diagnoses and explicit task retry controls.
 Native layout and keyboard validation remain manual.
+
+## Completed modpack import
+
+After native installation succeeds, replace wizard controls with a compact result:
+a square semantic-success mark, Minecraft heading, server name/version and a
+read-only library refresh action. Keep the installed result when refreshing fails.
+Show that read failure separately, preserving the prepared server. The refresh
+button must never repeat installation or create another instance. Hide redundant
+terminal progress and completed capacity/file controls. Use the existing End
+surface tokens, display font and translated application copy. Native visual and
+keyboard review remain manual.

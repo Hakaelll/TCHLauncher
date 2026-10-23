@@ -12,6 +12,12 @@ Minecraft commands to verify the three saved blocks after boot without placing
 new blocks in the target. Source and exported folders must remain unchanged.
 This extends an existing scenario without adding another retained test case.
 
+The standard Fabric lifecycle also imports a small generated `.mrpack` into a
+second instance with real Lithium downloads and the exact source loader version.
+It checks file selection, client exclusion, override precedence, local settings,
+receipt/hash equality and a real ready/command/clean-stop session. This is a
+controlled fixture, not broad third-party modpack compatibility.
+
 Run one scenario at a time on Windows. Dependencies must already be available to
 Cargo; Minecraft, loaders, Java and selected content can still require Internet
 access. Supply a copy of an existing explicit Minecraft EULA acceptance record.

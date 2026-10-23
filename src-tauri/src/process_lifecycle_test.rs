@@ -172,6 +172,79 @@ fn verify_lifecycle(platform:&str,content:Option<(&str,&str)>) {
     assert!(backups.iter().any(|copy|copy.reason==Some(backup::Reason::BeforeRestore)));
     println!("LIFECYCLE_EVIDENCE {}",serde_json::json!({"platform":platform,"minecraft":version,"contentProject":content.map(|(project,_)|project),"contentFolder":content.map(|_|content_folder),"contentLoadedInAllSessions":mod_file.is_some(),"contentRestoredByteForByte":mod_file.is_some(),"runtimeDownloaded":true,"verifiedSessions":3,"startupMilliseconds":[first.1,second.1,third.1],"commandResponses":3,"gracefulStops":3,"backupBytes":saved.size_bytes,"backups":backups.len(),"worldRestoredByteForByte":true,"restoredWorldBooted":true}));
     if platform=="paper"&&content.is_none() { verify_paper_world_import(&library,&restored,port); }
+    if platform=="fabric" { verify_fabric_pack_import(&library,&restored,&mod_file.as_ref().unwrap().0); }
+}
+
+fn verify_fabric_pack_import(library:&Library,source:&Server,primary_file:&str) {
+    use std::io::Write;
+    let source_dir=Path::new(&source.directory);
+    let original_world=file_hashes(&source_dir.join("world"));
+    let original_mods=file_hashes(&source_dir.join("mods"));
+    let planning=task(&source.id,"content_plan");
+    let inventory=crate::content_storage::list(source).unwrap();
+    let primary=inventory.iter().find(|file|file.filename==primary_file).unwrap();
+    let plan=crate::content::plan(&planning,source,primary.project_id.as_deref().unwrap(),primary.version_id.as_deref()).unwrap();
+    let installation:serde_json::Value=serde_json::from_slice(&fs::read(Path::new(source.jar_path.as_deref().unwrap()).parent().unwrap().join("installation.json")).unwrap()).unwrap();
+    let loader=installation["loader"].as_str().unwrap();
+    let mut files:Vec<_>=plan.entries.iter().map(|entry|serde_json::json!({
+        "path":format!("mods/{}",entry.file.filename),"hashes":entry.file.hashes,
+        "env":{"client":"required","server":"required"},"downloads":[entry.file.url],"fileSize":entry.file.size,
+    })).collect();
+    let optional=plan.entries.first().unwrap();
+    files.push(serde_json::json!({"path":"mods/optional-proof.jar","hashes":optional.file.hashes,
+        "env":{"client":"optional","server":"optional"},"downloads":[optional.file.url],"fileSize":optional.file.size}));
+    let path=library.root.join("verified-fabric.mrpack");
+    let mut archive=zip::ZipWriter::new(fs::File::create(&path).unwrap());
+    archive.start_file("modrinth.index.json",zip::write::SimpleFileOptions::default()).unwrap();
+    archive.write_all(&serde_json::to_vec(&serde_json::json!({
+        "formatVersion":1,"game":"minecraft","versionId":"verification-1","name":"Fabric lifecycle pack",
+        "files":files,"dependencies":{"minecraft":source.version,"fabric-loader":loader},
+    })).unwrap()).unwrap();
+    for (name,bytes) in [
+        ("overrides/config/tch-pack-proof.txt","common"),
+        ("server-overrides/config/tch-pack-proof.txt","server"),
+        ("client-overrides/config/tch-client-proof.txt","client"),
+        ("overrides/server.properties","server-port=1\nonline-mode=false\n"),
+        ("overrides/eula.txt","eula=false\n"),
+    ] {
+        archive.start_file(name,zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(bytes.as_bytes()).unwrap();
+    }
+    archive.finish().unwrap();
+    let reviewed=crate::modpack::inspect(&path).unwrap().inspection;
+    assert!(reviewed.blockers.is_empty());assert_eq!(reviewed.excluded_client_files,1);
+    assert_eq!(reviewed.loader_version.as_deref(),Some(loader));
+    assert!(reviewed.entries.iter().filter(|entry|entry.protected).all(|entry|!entry.selected));
+    let selected:Vec<_>=reviewed.entries.iter().filter(|entry|entry.selected).map(|entry|entry.path.clone()).collect();
+    assert!(!selected.contains(&"mods/optional-proof.jar".into()));
+    let port=std::net::TcpListener::bind(("127.0.0.1",0)).unwrap().local_addr().unwrap().port();
+    let target=storage::create(&library.root,CreateServer{name:"Imported mrpack".into(),version:source.version.clone(),platform:"fabric".into(),memory_min_mb:512,memory_max_mb:2048,max_players:2,port,storage_target_gb:4,image_path:None}).unwrap();
+    eula::require_download_consent(&library.root,&target).unwrap();
+    let target_dir=Path::new(&target.directory);
+    properties::write(&target_dir.join("server.properties"),[("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),("simulation-distance".into(),"3".into())].into()).unwrap();
+    let original_properties=fs::read(target_dir.join("server.properties")).unwrap();
+    let original_eula=fs::read(target_dir.join("eula.txt")).unwrap();
+    crate::pack_install::install(&library.root,&target,&path,&reviewed.archive_sha512,&selected,&task(&target.id,"pack_install")).unwrap();
+    let target=storage::get(&library.root,&target.id).unwrap();
+    assert_eq!(fs::read(target_dir.join("server.properties")).unwrap(),original_properties);
+    assert_eq!(fs::read(target_dir.join("eula.txt")).unwrap(),original_eula);
+    assert_eq!(fs::read(target_dir.join("config/tch-pack-proof.txt")).unwrap(),b"server");
+    assert!(!target_dir.join("config/tch-client-proof.txt").exists());
+    assert!(!target_dir.join("mods/optional-proof.jar").exists());
+    let expected_mods=original_mods.iter().filter(|(path,_)|path.extension().is_some_and(|ext|ext=="jar")).map(|(path,hash)|(path.clone(),hash.clone())).collect();
+    assert_eq!(file_hashes(&target_dir.join("mods")),expected_mods);
+    let installed:serde_json::Value=serde_json::from_slice(&fs::read(Path::new(target.jar_path.as_deref().unwrap()).parent().unwrap().join("installation.json")).unwrap()).unwrap();
+    assert_eq!(installed["loader"],loader);
+    let receipt:serde_json::Value=serde_json::from_slice(&fs::read(target_dir.join(".tch-modpack.json")).unwrap()).unwrap();
+    assert_eq!(receipt["archiveSha512"],reviewed.archive_sha512);
+    assert_eq!(receipt["files"],serde_json::json!(selected));
+    crate::runtime::validate_configured(&library.root,&target).unwrap();
+    let session=cycle(library,&target,port,Some("- lithium "));
+    assert_eq!(file_hashes(&source_dir.join("world")),original_world);
+    assert_eq!(file_hashes(&source_dir.join("mods")),original_mods);
+    assert_eq!(crate::modpack::inspect(&path).unwrap().inspection.archive_sha512,reviewed.archive_sha512);
+    assert!(!fs::read_dir(library.root.join("servers")).unwrap().any(|entry|entry.unwrap().file_name().to_string_lossy().starts_with(".tch-pack-")));
+    println!("MRPACK_EVIDENCE {}",serde_json::json!({"minecraft":source.version,"loader":loader,"downloadedModFiles":plan.entries.len(),"selectedFiles":selected.len(),"optionalOmitted":true,"clientOverridesExcluded":true,"serverOverrideWon":true,"localPropertiesAndConsentPreserved":true,"sourceUnchanged":true,"contentHashesEqual":true,"receiptMatchesReview":true,"realReadyCommandCleanStop":true,"startupMilliseconds":session.1}));
 }
 
 fn paper_dimension_session(library:&Library,server:&Server,port:u16,place_blocks:bool)->(String,u64) {
@@ -463,7 +536,8 @@ fn fabric_world_and_mods_export_import_then_real_boot() {
     crate::runtime::validate_configured(&library.root,&target).unwrap();
     let imported_session=cycle(&library,&target,target_port,Some("- lithium "));
     assert!(!target_dir.join("world").exists());assert!(target_dir.join("Shared world/level.dat").is_file());
-    assert_eq!(file_hashes(&target_dir.join("mods")),original_mods);assert!(jobs.lock().unwrap().is_empty());
+    let expected_mods=original_mods.iter().filter(|(path,_)|path.extension().is_some_and(|ext|ext=="jar")).map(|(path,hash)|(path.clone(),hash.clone())).collect();
+    assert_eq!(file_hashes(&target_dir.join("mods")),expected_mods);assert!(jobs.lock().unwrap().is_empty());
     assert_eq!(file_hashes(&source_dir.join("world")),original_world);
     println!("WORLD_CONTENT_EVIDENCE {}",serde_json::json!({"platform":"fabric","minecraft":source.version,"mod":"lithium","worldFiles":original_world.len(),"modFiles":original_mods.len(),"manifestHashesVerified":recorded.len(),"importedWorldHashesEqualBeforeBoot":true,"sourceWorldUnchanged":true,"verifiedSessions":2,"startupMilliseconds":[original_session.1,imported_session.1]}));
 }
