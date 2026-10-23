@@ -1,7 +1,8 @@
 import {t} from './locale.ts'
 import type {Server} from './api'
 
-export type LauncherCommand={id:string;label:string;detail:string;action:'library'|'create'|'import'|'appearance'|'overview'|'console'|'content'|'start'|'stop'|'backup';serverId?:string;disabledReason?:string}
+type ServerAction='overview'|'console'|'content'|'start'|'stop'|'restart'|'backup'|'folder'
+export type LauncherCommand={id:string;label:string;detail:string;disabledReason?:string}&({action:'library'}|{action:'create'}|{action:'import'}|{action:'appearance'}|{action:ServerAction;serverId:string})
 export function launcherCommands(servers:Server[],busy:boolean,installing:ReadonlySet<string>):LauncherCommand[] {
   const commands:LauncherCommand[]=[
     {id:'library',label:t("Mis servidores"),detail:t("Abrir la biblioteca"),action:'library'},
@@ -13,11 +14,12 @@ export function launcherCommands(servers:Server[],busy:boolean,installing:Readon
     const context=`${server.name} · ${server.platform} · ${server.version}`
     const blocked=busy||installing.has(server.id)?t("Hay una operación en curso"):undefined
     const stopped=['stopped','crashed','error'].includes(server.state)
-    const entry=(action:LauncherCommand['action'],label:string,disabledReason?:string):LauncherCommand=>({id:`${server.id}:${action}`,label:`${label} · ${server.name}`,detail:context,action,serverId:server.id,disabledReason})
-    commands.push(entry('overview',t("Abrir servidor")),entry('console',t("Ver consola")))
+    const entry=(action:ServerAction,label:string,disabledReason?:string):LauncherCommand=>({id:`${server.id}:${action}`,label:`${label} · ${server.name}`,detail:context,action,serverId:server.id,disabledReason})
+    commands.push(entry('overview',t("Abrir servidor")),entry('console',t("Ver consola")),entry('folder',t("Abrir carpeta del servidor")))
     if(server.platform!=='vanilla')commands.push(entry('content',server.platform==='paper'?t("Buscar plugins"):t("Buscar mods")))
     if(server.state==='running'||server.state==='starting')commands.push(entry('stop',server.state==='starting'?t("Detener inicio"):t("Detener servidor"),blocked))
     else commands.push(entry('start',t("Iniciar servidor"),blocked||(!stopped?t("El servidor está cambiando de estado"):!server.jarPath||!server.javaPath?t("Prepara el servidor y Java desde Resumen"):undefined)))
+    if(server.state==='running')commands.push(entry('restart',t("Reiniciar servidor"),blocked))
     commands.push(entry('backup',t("Crear copia"),blocked||(!stopped?t("Detén el servidor para crear una copia consistente"):undefined)))
   }
   return commands

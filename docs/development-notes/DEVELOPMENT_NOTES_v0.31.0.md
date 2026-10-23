@@ -1444,3 +1444,16 @@ and loader cancellation; its source/log remain ignored under artifacts, and its
 module was removed from production source. Actual React rendering passed all kinds
 in both languages with escaped technical content. TypeScript passed. No retained
 case, dependency, broad engine run, native UI claim or new release was added.
+
+
+## Command palette server folder and restart
+
+Added the original prompt's Open server folder action and a restart action for
+running servers. Folder opening uses the existing validated native command and
+keeps the current workspace selection. Restart uses the existing contextual
+lifecycle/error path. The dispatcher regenerates available commands before acting,
+so a stopped/removed server or newly active installation cannot execute a stale
+restart. Command types require a server identity for server actions and dispatch
+is exhaustive. English/Spanish generator checks cover labels, filtering, distinct
+server IDs, active operations and state changes; TypeScript passed. No dependency,
+retained case, native Explorer/keyboard check or new installer was added.

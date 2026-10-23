@@ -468,13 +468,18 @@ function App() {
     if(current.action==='appearance'){setAppearanceOpen(true);setCreating(false);setImporting(false);return}
     const server=servers.find(item=>item.id===current.serverId)
     if(!server)return
+    if(current.action==='folder'){
+      void api.openApplicationFolder('server',server.id).catch(cause=>setError(errorText(cause)))
+      return
+    }
     openServer(server)
-    if(current.action==='console'||current.action==='content'){setView(current.action);return}
-    if(current.action==='start')void runServerAction(server,'start')
-    if(current.action==='stop')void act(()=>api.stop(server.id))
-    if(current.action==='backup') {
-      setView('backups')
-      void createCopy(server.id)
+    switch(current.action){
+      case 'overview':return
+      case 'console':case 'content':setView(current.action);return
+      case 'start':case 'restart':void runServerAction(server,current.action);return
+      case 'stop':void act(()=>api.stop(server.id));return
+      case 'backup':setView('backups');void createCopy(server.id);return
+      default:{const unhandled:never=current.action;return unhandled}
     }
   }
   return <div className={`shell auto-rail ${sidebarCollapsed ? 'sidebar-collapsed' : 'rail-expanded'}`}>
