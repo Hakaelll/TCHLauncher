@@ -1327,3 +1327,14 @@ pack target. This is one controlled pack, not broad third-party pack coverage.
 The retained case count remains unchanged; no other engine scenario was rerun.
 Following the user's instruction, further checks are limited to what each
 functional change needs. No installer or GitHub release was generated.
+
+## Continue creation after library refresh failures
+
+Creation/import now insert the acknowledged native server into the visible list
+and use the shared server navigation. Removed the extra library read from their
+native operation, so a failed refresh no longer prevents subsequent world/Java
+preparation. Successful post-install refresh clears the stale read warning.
+Application locations/About use the shared recoverable reader with retry controls;
+folder opening preserves its acknowledgement if the following info read fails.
+TypeScript and Windows Vite passed. Native failure delivery remains manual.
+No new test cases, dependencies, installer or GitHub release were added.

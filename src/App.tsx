@@ -405,17 +405,21 @@ function App() {
     setError(null);setInstallingIds(current=>new Set(current).add(id))
     try {if(kind==='install')await api.install(id);else await api.prepareRuntime(id,kind==='runtime_reinstall')}
     catch(cause){if(progressRef.current[id]?.stage!=='failed' && errorText(cause)!=='Instalación cancelada'){if(kind==='install')setError(errorText(cause));else reportFailure(cause)}}
-    finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().catch(cause=>setError(current=>current??errorText(cause)))}
+    finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().then(()=>setActionRefreshError(null)).catch(cause=>setError(current=>current??errorText(cause)))}
+  }
+  const acceptCreatedServer=(server:Server)=>{
+    setServers(current=>current.some(item=>item.id===server.id)?current.map(item=>item.id===server.id?server:item):[...current,server])
+    openServer(server)
   }
   const create = async(input:CreateInput,worldSource?:Parameters<typeof api.importWorld>[1])=>{
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
+    const ready=await act(async()=>{const server=await api.create(input);acceptCreatedServer(server);if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
     if(ready && id)await runInstallation(id)
   }
   const importExisting = async(input:ImportInput)=>{
     mainRef.current?.scrollTo({top:0,left:0})
     let id:string|null=null
-    const ready=await act(async()=>{const server=await api.importServer(input);setImporting(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();id=server.id})
+    const ready=await act(async()=>{const server=await api.importServer(input);acceptCreatedServer(server);id=server.id})
     if(ready && id)await runInstallation(id)
   }
 
