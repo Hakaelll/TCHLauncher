@@ -5,9 +5,8 @@ Windows is the active platform. The full original manager objective remains open
 flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
 follows an explicit maintainer instruction. These labels do not mean completion.
 
-Current source is newer than the published 0.38.0 Windows preview. GitHub releases
-attach only the installer; checksum files remain local. Linux and client launching
-remain deferred.
+Current source and Windows package target 0.39.0. GitHub releases attach only the
+installer; checksum files remain local. Linux and client launching remain deferred.
 
 ## Evidence already available
 
@@ -98,7 +97,7 @@ scenarios. Detailed observations remain in
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Verify interactive installer choices, OS login and broader production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.38.0 NSIS x64 passed isolated upgrade/uninstall and real scheduled Vanilla actions. Version/local checksum, focused access-file checks, TypeScript and Windows frontend builds were verified for packaging; dependencies and legal resources are unchanged. Interactive UI and broader usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.39.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native builds passed. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; interactive UI and broader usage gates remain open. |
 
 ## Implemented scope from earlier audits
 
@@ -109,9 +108,9 @@ notes as new tasks:
 
 `WORLD-PAPER-01`, `WORLD-PAPER-RECOVERY-01`, `IMPORT-PREVIEW-01`, `WORLD-PAPER-IMPORT-01`, `PLAYER-OFFLINE-01`, `MOD-CHANGELOG-01`, `WHITELIST-REMOVE-01`, `ACCESS-REMOVE-01`, `NOTIFY-01`, `ACTION-RECOVERY-01`, `ACCESS-WRITER-01`, `OP-GRANT-01`, `PLAYER-ACTIONS-01`, `TASK-ERROR-01`, `GENERAL-ERROR-01`.
 
-The current source additionally includes general action-error guidance/log access,
-one NeoForge release parser for discovery and selection, and computation of only
-the requested download checksum. These are not yet in installer 0.38.0.
+Version 0.39.0 includes general action-error guidance/log access, one NeoForge
+release parser for discovery and selection, computation of only the requested
+download checksum, and cancellation of interrupted dialog exits.
 
 ## Closure checks
 
