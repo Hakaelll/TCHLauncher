@@ -68,6 +68,9 @@ an explicit user instruction. These labels do not imply feature completion.
   [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
   and [release history](docs/release-notes/README.md).
 
+GitHub releases attach only the Windows installer, as requested. Keep checksum
+files local; the digest may remain in the release notes.
+
 ## Remaining work and acceptance evidence
 
 | ID | Status | Area | Remaining acceptance evidence |

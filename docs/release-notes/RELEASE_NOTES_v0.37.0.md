@@ -56,5 +56,4 @@ have not been exercised for this build. Linux and client launching remain deferr
 
 - Installer: `TCHLauncher_0.37.0_x64-setup.exe`
 - SHA-256: `0d4f4159c73afd79c0beced6b97531a042ad8a329480defc4f550faeccf42b73`
-- The adjacent `.sha256` download can be used to check the installer.
 
