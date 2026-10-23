@@ -620,10 +620,10 @@ async fn remove_banned_ip(engine: State<'_, Engine>, id: String, ip: String) -> 
 }
 
 #[tauri::command]
-async fn save_operator(engine:State<'_,Engine>,id:String,edit:players::OperatorEdit)->Result<String,String>{
+async fn save_operator(engine:State<'_,Engine>,id:String,edit:access_lists::OperatorEdit)->Result<String,String>{
     let guard=engine.reserve_stopped(&id)?;
     let server=storage::get(&engine.root,&id)?;
-    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;players::save_operator(&server,&edit)}).await.map_err(|e|e.to_string())?
+    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;access_lists::save_operator(&server,&edit)}).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]

@@ -132,6 +132,39 @@ pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
     Ok(Outcome::Saved { added, previous_file })
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct OperatorEdit {
+    pub uuid:String,
+    pub level:u8,
+    pub bypasses_player_limit:bool,
+    pub expected_level:u8,
+    pub expected_bypasses_player_limit:bool,
+}
+
+/// Caller holds the stopped-server reservation. Editing never grants OP implicitly.
+pub fn save_operator(server:&Server,edit:&OperatorEdit)->Result<String,String>{
+    let selected=Uuid::parse_str(&edit.uuid).map_err(|_|"El UUID del operador no es válido")?;
+    if edit.level>4{return Err("El nivel de operador debe estar entre 0 y 4".into());}
+    let (_,previous)=update(server,List::Operators,|entries,_|{
+        let mut selected_index=None;
+        for (index,entry) in entries.iter().enumerate(){
+            let operator:players::Operator=serde_json::from_value(entry.clone())
+                .map_err(|error|format!("ops.json no contiene una lista válida: {error}"))?;
+            if operator.uuid.as_deref().and_then(|id|Uuid::parse_str(id).ok())!=Some(selected){continue;}
+            if selected_index.replace(index).is_some(){return Err("El operador no existe o su UUID aparece repetido. Actualiza la lista.".into());}
+            if operator.level!=edit.expected_level||operator.bypasses_player_limit!=edit.expected_bypasses_player_limit{
+                return Err("Los permisos han cambiado. Actualiza la lista antes de guardar.".into());
+            }
+        }
+        let index=selected_index.ok_or("El operador no existe o su UUID aparece repetido. Actualiza la lista.")?;
+        entries[index]["level"]=serde_json::json!(edit.level);
+        entries[index]["bypassesPlayerLimit"]=serde_json::json!(edit.bypasses_player_limit);
+        Ok(1)
+    })?;
+    previous.ok_or_else(||"No se pudo conservar la copia anterior de ops.json".into())
+}
+
 /// UUID selection avoids removing a different account with the same name.
 pub fn remove(server: &Server, list: List, uuid: &str) -> Result<Removal, String> {
     let selected = Uuid::parse_str(uuid).map_err(|_| "UUID de jugador no válido")?;
@@ -279,6 +312,30 @@ mod tests {
         assert!(matches!(merge(&server, vec![Identity { name: "NewPlayer".into(), uuid: third.into() }]).unwrap(), Outcome::Saved { added: 1, previous_file: None }));
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(&target).unwrap()).unwrap()[0]["uuid"], third);
         assert!(!fs::read_dir(&directory).unwrap().any(|entry| entry.unwrap().path().extension().is_some_and(|ext| ext == "part")));
+        let operators=directory.join("ops.json");
+        let original=format!(r#"[{{"name":"SameName","uuid":"{first}","level":2,"bypassesPlayerLimit":false,"custom":{{"keep":true}}}},{{"name":"SameName","uuid":"{second}","level":4,"bypassesPlayerLimit":true}}]"#);
+        fs::write(&operators,&original).unwrap();
+        let mut edit=OperatorEdit{uuid:first.into(),level:3,bypasses_player_limit:true,expected_level:2,expected_bypasses_player_limit:false};
+        let copy=save_operator(&server,&edit).unwrap();
+        assert_eq!(fs::read(directory.join(copy)).unwrap(),original.as_bytes());
+        let changed=fs::read(&operators).unwrap();
+        let saved:serde_json::Value=serde_json::from_slice(&changed).unwrap();
+        assert_eq!(saved[0]["level"],3);assert_eq!(saved[0]["bypassesPlayerLimit"],true);
+        assert_eq!(saved[0]["custom"],serde_json::json!({"keep":true}));
+        assert_eq!(saved[1],serde_json::from_str::<serde_json::Value>(&original).unwrap()[1]);
+        let count=fs::read_dir(&directory).unwrap().count();
+        assert!(save_operator(&server,&edit).is_err());
+        edit.level=5;assert!(save_operator(&server,&edit).is_err());
+        edit.level=3;edit.uuid=third.into();assert!(save_operator(&server,&edit).is_err());
+        assert_eq!(fs::read(&operators).unwrap(),changed);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(),count);
+        let duplicate=format!(r#"[{{"name":"SameName","uuid":"{first}","level":2}},{{"name":"SameName","uuid":"{first}","level":2}}]"#);
+        fs::write(&operators,&duplicate).unwrap();edit.uuid=first.into();
+        assert!(save_operator(&server,&edit).is_err());assert_eq!(fs::read(&operators).unwrap(),duplicate.as_bytes());
+        fs::write(&operators,b"[{broken").unwrap();
+        assert!(save_operator(&server,&edit).is_err());assert_eq!(fs::read(&operators).unwrap(),b"[{broken");
+        fs::remove_file(&operators).unwrap();
+        assert!(save_operator(&server,&edit).is_err());assert!(!operators.exists());
         let same_name = format!(r#"[{{"name":"SameName","uuid":"{first}","keep":{{"permission":true}}}},{{"name":"SameName","uuid":"{second}"}},{{"name":"SameName","uuid":"{second}","duplicate":true}}]"#);
         fs::write(&target, &same_name).unwrap();
         let removed = remove(&server, List::Whitelist, second).unwrap();

@@ -1382,3 +1382,16 @@ command. The frontend retains acknowledgement through refresh errors.
 The existing access-file case passed with focused IP coverage; no new case was
 added. TypeScript and Windows Vite passed. No broad suite or server run was
 performed. Native row interaction remains manual; no installer/release was built.
+
+
+## Shared operator permission persistence
+
+Moved OperatorEdit and its stopped-server mutation into access_lists. The IPC
+payload and safety-copy acknowledgement are unchanged. Removed the separate
+ops.json read/write implementation; editing now inherits bounded serialization,
+Windows reparse rejection and original comparison immediately before publication.
+Unknown fields and other same-name UUIDs remain unchanged. The retained access-file
+case exercises edits, preserved bytes, stale expected permissions, invalid level,
+missing/duplicate identity, malformed JSON and absent file. Focused native check
+passed; no broad engine run or native UI claim. Source is newer than installer
+0.37.0; no new installer or release was generated for this change.

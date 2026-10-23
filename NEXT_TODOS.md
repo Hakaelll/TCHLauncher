@@ -222,6 +222,15 @@ only manual verification:
   manual gates. Original requirement 49; included in installer 0.37.0.
 
 
+- **ACCESS-WRITER-01 — REVIEW:** operator permission edits now use the shared
+  bounded access-file writer, removing their separate persistence path. The same
+  regular-file/reparse checks, 5 MB output bound, original-byte safety copy and
+  last-moment comparison now apply to operator edits as to whitelist/bans.
+  Exact selected UUID, duplicate rejection, expected permission checks and unknown
+  fields remain intact. The existing focused access-file case passes with edit,
+  stale/invalid input, duplicate, corrupt and absent-file coverage. No case or
+  dependency was added. Native UI review remains pending; source follows 0.37.0.
+
 ## Reported issues needing host evidence
 
 - Internet-only connection stalls without observed CPU/RAM spikes: capture host
