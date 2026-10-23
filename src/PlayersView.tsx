@@ -4,7 +4,7 @@ import {OperatorSettings} from './OperatorSettings'
 import {PlayerHead} from './PlayerHead'
 import {identityKey,isOfflineUuid} from './playerIdentity'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { type PlayerIdentity, type PlayersSnapshot, type Server, type WhitelistSelection, type WhitelistOutcome, type AccessList, type IdentityRemoval } from './api'
+import { type PlayerIdentity, type PlayersSnapshot, type Server, type WhitelistSelection, type WhitelistOutcome, type AccessList, type AccessRemoval } from './api'
 import {WhitelistImportReview} from './WhitelistImportReview'
 import {playerActions,playerActionErrors,type PlayerAction as Action} from './playerActions'
 import {playerWindow} from './playerWindow'
@@ -25,7 +25,7 @@ function PlayerRow({name,uuid,detail,action,disabled,onAction}: {name:string;uui
   return <div className="player-row" data-layout-id={uuid || name}><PlayerHead name={name} uuid={uuid}/><div className="player-row-info"><strong>{name}</strong>{detail && <small title={translatedMessage(detail)}>{translatedMessage(detail)}</small>}</div>{action && <button className="text-button" disabled={disabled} onClick={onAction}>{translatedMessage(action)}</button>}</div>
 }
 
-export function PlayersView({server,players,loading,readError,busy,onAction,onToggleWhitelist,onImportWhitelist,onRemoveIdentity,onRefresh}: {
+export function PlayersView({server,players,loading,readError,busy,onAction,onToggleWhitelist,onImportWhitelist,onRemoveIdentity,onRemoveIp,onRefresh}: {
   server: Server;
   players: PlayersSnapshot | null;
   loading:boolean;
@@ -34,7 +34,8 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   onAction: (action:string,target?:string,reason?:string) => Promise<boolean>;
   onToggleWhitelist: () => Promise<boolean>;
   onImportWhitelist: (selection:WhitelistSelection) => Promise<WhitelistOutcome|null>;
-  onRemoveIdentity: (list:AccessList,uuid:string) => Promise<IdentityRemoval|null>;
+  onRemoveIdentity: (list:AccessList,uuid:string) => Promise<AccessRemoval|null>;
+  onRemoveIp: (ip:string) => Promise<AccessRemoval|null>;
   onRefresh: () => Promise<void>;
 }) {
   const [group,setGroup] = useState<Group>('online')
@@ -85,6 +86,18 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
       await onRefresh()
     }
     return success
+  }
+  const pardonIp=async(ip:string)=>{
+    if(running){await act('pardon_ip',ip);return}
+    const current=identityScope.current
+    if(!stopped||busy||loading||readError||!players||current.working)return
+    current.working=true;setNotice(null)
+    try{
+      const result=await onRemoveIp(ip)
+      if(!result||!current.active)return
+      setNotice(result.removed?t('Se perdonó la IP {0}. Copia anterior: {1}',ip,result.previousFile??'—'):t('Esa IP ya no está bloqueada. No se modificaron archivos.'))
+      await onRefresh().catch(()=>{})
+    }finally{current.working=false}
   }
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -137,7 +150,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
       }) : <p className="empty-inline">{t("El servidor aún no ha guardado jugadores en usercache.json.")}</p>)}
       {players && group === 'whitelist' && (items.whitelisted.length ? windows.whitelist.rows.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid || t('UUID no disponible')} action="Quitar" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('whitelist',player.uuid)}/>) : <p className="empty-inline">{t("No hay jugadores en la lista blanca.")}</p>)}
       {players && group === 'operators' && (items.operators.length ? windows.operators.rows.map(player => <div key={player.uuid || player.name}><PlayerRow name={player.name} uuid={player.uuid} detail={[player.uuid||t("UUID no disponible"),`${t("Nivel")} ${player.level}`,player.bypassesPlayerLimit?t("Sin límite de jugadores"):null].filter(Boolean).join(" · ")} action="Retirar OP" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('operators',player.uuid)}/><OperatorSettings server={server} operator={player} disabled={busy||!!readError} onRefresh={onRefresh}/></div>) : <p className="empty-inline">{t("Todavía no hay operadores.")}</p>)}
-      {players && group === 'banned' && (items.bannedPlayers.length || items.bannedIps.length ? <>{windows.banned.rows.filter(item=>item.type==='player').map(({entry:player}) => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={[player.uuid||t("UUID no disponible"),player.reason,player.source,player.created,player.expires].filter(Boolean).join(' · ')} action="Perdonar" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('banned_players',player.uuid)}/>)}{windows.banned.rows.filter(item=>item.type==='ip').map(({entry}) => <PlayerRow key={entry.ip} name={entry.ip} detail={[entry.reason,entry.source,entry.created,entry.expires].filter(Boolean).join(' · ')} action="Perdonar IP" disabled={!running || busy || entry.ip.startsWith('<')} onAction={() => act('pardon_ip',entry.ip)}/>)}</> : <p className="empty-inline">{t("No hay jugadores ni direcciones IP bloqueadas.")}</p>)}
+      {players && group === 'banned' && (items.bannedPlayers.length || items.bannedIps.length ? <>{windows.banned.rows.filter(item=>item.type==='player').map(({entry:player}) => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={[player.uuid||t("UUID no disponible"),player.reason,player.source,player.created,player.expires].filter(Boolean).join(' · ')} action="Perdonar" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('banned_players',player.uuid)}/>)}{windows.banned.rows.filter(item=>item.type==='ip').map(({entry}) => <PlayerRow key={entry.ip} name={entry.ip} detail={[entry.reason,entry.source,entry.created,entry.expires].filter(Boolean).join(' · ')} action="Perdonar IP" disabled={(!running&&!stopped)||busy||loading||!!readError||entry.ip.startsWith('<')} onAction={()=>void pardonIp(entry.ip)}/>)}</> : <p className="empty-inline">{t("No hay jugadores ni direcciones IP bloqueadas.")}</p>)}
     </div>
     {players&&window.pages>1&&<nav className="player-pagination" aria-label={t("Páginas de jugadores")}><span>{t("Página")} {window.page+1}  {t("de")} {window.pages}</span><div><button disabled={window.page===0} onClick={()=>setPage(window.page-1)}>{t("Anterior")}</button><button disabled={window.page+1>=window.pages} onClick={()=>setPage(window.page+1)}>{t("Siguiente")}</button></div></nav>}
     <div hidden={group!=='whitelist'}><WhitelistImportReview whitelisted={items.whitelisted} running={running} disabled={busy||!players||!!readError||!canSetWhitelist} onImport={onImportWhitelist} onRefresh={onRefresh}/></div>

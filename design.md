@@ -628,3 +628,8 @@ Known-player rows offer Add to whitelist for their exact UUID while stopped.
 Already-authorized UUIDs show a disabled Whitelisted action. Keep same-name
 accounts separate and explain the stopped-server requirement beside the list.
 Show native acknowledgement above the rows, preserving it if refresh fails.
+
+Banned-IP rows keep the same Pardon IP action while running or stopped. Use
+Minecraft commands while running; stopped removal shows the native safety-copy
+filename. Retain acknowledgement if the list refresh fails and disable actions
+while stopping, busy or reading unconfirmed permission data.

@@ -145,9 +145,37 @@ pub fn remove(server: &Server, list: List, uuid: &str) -> Result<Removal, String
     Ok(Removal { removed: removed > 0, previous_file })
 }
 
+pub fn remove_ip(server: &Server, ip: &str) -> Result<Removal, String> {
+    let selected=ip.parse::<std::net::IpAddr>().map_err(|_|"Dirección IP no válida")?;
+    let (removed,previous_file)=update_file(server,"banned-ips",|entries| {
+        for entry in entries.iter() {
+            entry["ip"].as_str().and_then(|ip|ip.parse::<std::net::IpAddr>().ok())
+                .ok_or("banned-ips.json contiene una dirección IP no válida")?;
+        }
+        let before=entries.len();
+        entries.retain(|entry|entry["ip"].as_str().and_then(|ip|ip.parse::<std::net::IpAddr>().ok())!=Some(selected));
+        Ok(before-entries.len())
+    })?;
+    Ok(Removal{removed:removed>0,previous_file})
+}
+
 fn update(server: &Server, list: List, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut HashMap<Uuid, String>) -> Result<usize, String>) -> Result<(usize, Option<String>), String> {
+    update_file(server,list.stem(),|entries| {
+        let filename=format!("{}.json",list.stem());
+        let mut existing = HashMap::new();
+        for entry in entries.iter() {
+            let player: Identity = serde_json::from_value(entry.clone()).map_err(|error| format!("{filename} contiene una identidad incompleta: {error}"))?;
+            let uuid = identity_uuid(&player)?;
+            if let Some(name) = existing.insert(uuid, player.name.to_ascii_lowercase()) {
+                if name != player.name.to_ascii_lowercase() { return Err(format!("{filename} contiene un UUID con nombres distintos")); }
+            }
+        }
+        change(entries,&mut existing)
+    })
+}
+
+fn update_file(server: &Server, stem: &str, change: impl FnOnce(&mut Vec<serde_json::Value>) -> Result<usize, String>) -> Result<(usize, Option<String>), String> {
     let directory = Path::new(&server.directory);
-    let stem = list.stem();
     let filename = format!("{stem}.json");
     let path = directory.join(&filename);
     let original = read_file(&path, 5_000_000)?;
@@ -155,15 +183,7 @@ fn update(server: &Server, list: List, change: impl FnOnce(&mut Vec<serde_json::
         Some(bytes) => serde_json::from_slice(bytes).map_err(|error| format!("{filename} no contiene una lista válida: {error}"))?,
         None => Vec::new(),
     };
-    let mut existing = HashMap::new();
-    for entry in &entries {
-        let player: Identity = serde_json::from_value(entry.clone()).map_err(|error| format!("{filename} contiene una identidad incompleta: {error}"))?;
-        let uuid = identity_uuid(&player)?;
-        if let Some(name) = existing.insert(uuid, player.name.to_ascii_lowercase()) {
-            if name != player.name.to_ascii_lowercase() { return Err(format!("{filename} contiene un UUID con nombres distintos")); }
-        }
-    }
-    let changed = change(&mut entries, &mut existing)?;
+    let changed = change(&mut entries)?;
     if changed == 0 { return Ok((0, None)); }
     let replacement = serde_json::to_vec_pretty(&entries).map_err(|error| error.to_string())?;
     if replacement.len() > 5_000_000 { return Err("La lista resultante supera el límite de 5 MB".into()); }
@@ -312,6 +332,19 @@ mod tests {
             assert!(!absent.removed && absent.previous_file.is_none());
             assert!(!path.exists());
         }
+        let path=directory.join("banned-ips.json");
+        let original=br#"[{"ip":"2001:DB8:0:0:0:0:0:1","reason":"selected"},{"ip":"203.0.113.9","created":"keep","extra":7}]"#;
+        fs::write(&path,original).unwrap();
+        let removed=remove_ip(&server,"2001:db8::1").unwrap();assert!(removed.removed);
+        assert_eq!(fs::read(directory.join(removed.previous_file.unwrap())).unwrap(),original);
+        let remaining=fs::read(&path).unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&remaining).unwrap(),serde_json::json!([{"ip":"203.0.113.9","created":"keep","extra":7}]));
+        let count=fs::read_dir(&directory).unwrap().count();
+        let absent=remove_ip(&server,"2001:db8::1").unwrap();assert!(!absent.removed&&absent.previous_file.is_none());
+        assert!(remove_ip(&server,"../ops.json").is_err());
+        assert_eq!(fs::read(&path).unwrap(),remaining);assert_eq!(fs::read_dir(&directory).unwrap().count(),count);
+        fs::write(&path,br#"[{"ip":"invalid"}]"#).unwrap();
+        assert!(remove_ip(&server,"203.0.113.9").is_err());assert_eq!(fs::read(&path).unwrap(),br#"[{"ip":"invalid"}]"#);
         for legacy in ["deop", "pardon"] { assert!(crate::players::command(legacy, Some("SameName"), None).is_err()); }
     }
 }

@@ -1369,3 +1369,16 @@ The import-file review and row status share UUID-key normalization. No name
 resolution, new native command or automatic whitelist activation was added.
 TypeScript and Windows Vite passed; native row interaction remains manual.
 No new tests, dependencies, installer or GitHub release were generated.
+
+## Unban IPs while stopped
+
+Banned-IP rows now use a stopped-server command that validates IP addresses and
+removes the selected address from banned-ips.json through the shared safe writer.
+Equivalent IPv6 spellings match; other records and unknown fields survive. A
+synced original-byte safety copy precedes publication. Missing IPs write nothing
+and invalid inputs/files are preserved. Live servers keep Minecraft's pardon-ip
+command. The frontend retains acknowledgement through refresh errors.
+
+The existing access-file case passed with focused IP coverage; no new case was
+added. TypeScript and Windows Vite passed. No broad suite or server run was
+performed. Native row interaction remains manual; no installer/release was built.

@@ -1,5 +1,9 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Dirección IP no válida": "Invalid IP address",
+  "banned-ips.json contiene una dirección IP no válida": "banned-ips.json contains an invalid IP address",
+  "Se perdonó la IP {0}. Copia anterior: {1}": "IP {0} was unbanned. Previous copy: {1}",
+  "Esa IP ya no está bloqueada. No se modificaron archivos.": "That IP is no longer banned. No files were changed.",
   "Ese UUID ya está autorizado. No se modificaron archivos.": "That UUID is already allowed. No files were changed.",
   "Se autorizó el UUID {0} para el próximo inicio. Copia anterior: {1}": "UUID {0} was allowed for the next start. Previous copy: {1}",
   "Se autorizó el UUID {0} para el próximo inicio.": "UUID {0} was allowed for the next start.",
