@@ -14,6 +14,12 @@ an explicit user instruction. These labels do not imply feature completion.
   Minecraft 1.21.4 lifecycle: managed Java/install, three ready/status/command/
   graceful-stop sessions, tracked backup/restore and restored boot. Restore checks
   level.dat bytes; this is not a full Minecraft client gameplay test.
+- Historical NeoForge 1.20.1-47.1.106 also passed a real Minecraft 1.20.1
+  lifecycle with managed Temurin 17: three ready/status/command/graceful-stop
+  sessions, tracked backup/restore, exact level.dat and MOTD restoration and a
+  restored-world boot. The existing scenario was parameterized, not duplicated.
+  Temporary data was removed. This covers the engine route, not native selector
+  scrolling, additional mods or a Minecraft client session.
 - Two real Vanilla instances also passed simultaneous ready states, distinct
   PIDs/ports/directories, isolated commands/logs and independent graceful stops.
 - Vanilla 1.21.4 to 1.21.5 also passed a generated-world conversion and rollback:
@@ -91,8 +97,8 @@ files local; the digest may remain in the release notes.
 | JVM-01 | REVIEW | JVM settings | Profiles, custom arguments and persistence connected. Verify custom profiles through native restart and runtime selection. |
 | JAVA-01 | REVIEW | Custom runtime | Executable inspection and version validation implemented. Verify native picker, corrupt runtime recovery and custom-runtime lifecycle. |
 | LOAD-01 | REVIEW | Fabric | Real 1.21.4 / Loader 0.19.5 lifecycle with installed Lithium and restored mod bytes passes. Verify native imports/updates and client mod behavior. |
-| LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 lifecycle passes; loader/update/import regressions exist. Verify native flows and an actual modded client session. |
-| MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. NeoForge catalog and loader selection now share the bounded release parser, including the existing 1.20.1 artifact identity; numeric/prerelease/size checks pass. Verify native selection/scrolling, snapshots and older supported-family installation. |
+| LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 and historical 1.20.1 / 47.1.106 lifecycles pass, including managed Java, three command/stop sessions and restored-world boot. Verify native flows and an actual modded client session. |
+| MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. NeoForge catalog and loader selection now share the bounded release parser, including the existing 1.20.1 artifact identity; numeric/prerelease/size checks pass. Historical 1.20.1 installation and lifecycle pass. Verify native selection/scrolling and snapshots. |
 | MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Real Vanilla 1.21.4 to 1.21.5 world conversion/rollback passed; all 20 world-file hashes restored before boot. Verify native flow, other engines/content migrations and client gameplay. |
 | MOD-01 | IN_PROGRESS | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
 | PACK-01 | REVIEW | Modpack import | Reviewed selection and staged publication implemented. Real Fabric 1.21.4/Lithium mrpack install and boot passed, including exact loader, override precedence, excluded client/optional files and protected settings. Completed imports retain acknowledgement if library refresh fails; retry refreshes data only. Complex third-party packs and native/client outcomes remain open. |

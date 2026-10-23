@@ -1497,3 +1497,17 @@ hex, no hash, mismatch preservation/partial cleanup and unsupported-algorithm
 rejection. The private transfer fixture uses loopback HTTP; it does not verify
 production HTTPS or provide a throughput/CPU benchmark. No retained case or
 dependency was added. Source is ahead of installer 0.38.0.
+
+
+## Real historical NeoForge lifecycle
+
+The existing NeoForge integration passed with TCH_TEST_MINECRAFT=1.20.1 and the
+existing explicit consent record. It selected 1.20.1-47.1.106, downloaded/verified
+Temurin 17 and official server/libraries, prepared the installer, then completed
+three ready/status/command/clean-stop sessions. Backup/restore checked exact
+level.dat bytes, restored MOTD and metadata, a before-restore safety copy and a
+third boot from the restored world. The isolated temporary library was confirmed
+absent after the run. Log: artifacts/lifecycle/neoforge-1.20.1.log. The scenario
+passed in 174.89 seconds; this is a functional result, not a performance benchmark.
+No case, dependency or production change was added. Other engines, native selector
+scrolling, additional mods and actual Minecraft client play were not tested here.

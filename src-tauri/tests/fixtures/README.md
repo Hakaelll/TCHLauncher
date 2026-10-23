@@ -28,6 +28,11 @@ $env:TCH_TEST_CONSENT_RECORD = 'C:/path/to/existing-consent.json'
 cargo test --manifest-path src-tauri/Cargo.toml --offline --lib process::lifecycle_tests::vanilla_ready_command_stop_restart_backup_restore -- --ignored --exact --nocapture
 ```
 
+The NeoForge scenario also passed with `TCH_TEST_MINECRAFT=1.20.1`, selecting
+historical 1.20.1-47.1.106 and managed Temurin 17. It verifies three real server
+sessions, backup/restore, level.dat and MOTD equality, and restored boot. This
+adds no test case and does not include additional mods, native UI or a client.
+
 Most scenarios default to Minecraft 1.21.4. `TCH_TEST_MINECRAFT` overrides the
 version for the shared lifecycle fixture, but scenario-specific upgrades and
 content can have their own compatibility requirements. Read the chosen scenario
