@@ -613,3 +613,13 @@ button must never repeat installation or create another instance. Hide redundant
 terminal progress and completed capacity/file controls. Use the existing End
 surface tokens, display font and translated application copy. Native visual and
 keyboard review remain manual.
+
+## Connected-player identity
+
+Connected rows display the UUID observed during that process session and use it
+for the skin head. Keep historical same-name accounts in Known players. Do not
+choose a connected player's avatar from cached names; use the neutral fallback
+when no session UUID is observed. Search connected rows by name or observed UUID.
+Identity log events use the existing player color and a translated event label.
+This is observation of server output, not verification of Microsoft ownership.
+Native appearance and real-client login validation remain manual.

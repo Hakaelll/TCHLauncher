@@ -2,14 +2,13 @@ import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { MovingIndicator, useListMotion } from './motion'
 import {OperatorSettings} from './OperatorSettings'
 import {PlayerHead} from './PlayerHead'
-import {connectedIdentity, isOfflineUuid} from './playerIdentity'
+import {isOfflineUuid} from './playerIdentity'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { type PlayersSnapshot, type Server, type WhitelistSelection, type WhitelistOutcome, type AccessList, type IdentityRemoval } from './api'
 import {WhitelistImportReview} from './WhitelistImportReview'
 import {playerActions,playerActionErrors,type PlayerAction as Action} from './playerActions'
 import {playerWindow} from './playerWindow'
 import {AuthenticationPanel} from './AuthenticationPanel'
-import {authenticationState} from './authenticationState'
 
 type Group = 'online' | 'known' | 'whitelist' | 'operators' | 'banned'
 const accessLabels:Record<AccessList,string>=localizedStatic({whitelist:'Lista blanca',operators:'Operadores',banned_players:'Jugadores bloqueados'})
@@ -91,10 +90,9 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
     }
   }
   const items = players ?? { online:[],known:[],whitelisted:[],operators:[],bannedPlayers:[],bannedIps:[],maxPlayers:0,whitelistEnabled:false,enforceWhitelist:false,onlineMode:true }
-  const directAuthentication=players?authenticationState(players.onlineMode,players.authenticationChecks).kind==='direct':false
   const errors=playerActionErrors(action,target,reason)
   const windows={
-    online:playerWindow(items.online,query,name=>name,page),
+    online:playerWindow(items.online,query,player=>`${player.name} ${player.uuid??''}`,page),
     known:playerWindow(items.known,query,player=>`${player.name} ${player.uuid??''}`,page),
     whitelist:playerWindow(items.whitelisted,query,player=>`${player.name} ${player.uuid??''}`,page),
     operators:playerWindow(items.operators,query,player=>`${player.name} ${player.uuid??''}`,page),
@@ -105,7 +103,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
   useListMotion(listRef,`${server.id}:${group}:${window.page}:${query}:${JSON.stringify(window.rows)}`)
   return <section className="players-view"><div className="section-heading"><div><h2>{t("Jugadores")}</h2><p>{t("Conexiones actuales y permisos guardados por Minecraft.")}</p></div><button disabled={loading} onClick={onRefresh}>{loading?t("Consultando…"):t("Actualizar")}</button></div>
     {(readError||!players)&&<div className={`panel-read-state ${readError?'failed':''}`} role={readError?'alert':'status'}><span className="read-state-mark" aria-hidden="true">{readError?'!':'…'}</span><div><strong>{readError?t("Jugadores sin actualizar"):t("Consultando jugadores")}</strong><p>{readError?(players?t("Se muestran los últimos datos disponibles. "): '')+readError:t("Leyendo conexiones y permisos de Minecraft.")}</p></div></div>}
-    <div className="players-overview"><div className="player-summary-connections"><div><strong>{players ? players.online.length : '—'}<span> / {players ? players.maxPlayers : '—'}</span></strong><small><i className={`state-dot ${server.state}`} aria-hidden="true"/>{t("Conectados")}</small></div>{players&&players.online.length>0&&<div className="player-summary-heads" aria-hidden="true">{players.online.slice(0,4).map(name=><PlayerHead key={name} name={name} uuid={connectedIdentity(name,[...items.known,...items.whitelisted,...items.operators],directAuthentication)}/>)}{players.online.length>4&&<span>+{players.online.length-4}</span>}</div>}</div><div><strong>{players ? players.whitelisted.length : '—'}</strong><small>{t("En lista blanca")}</small></div><div><strong>{players ? players.operators.length : '—'}</strong><small>{t("Operadores")}</small></div></div>
+    <div className="players-overview"><div className="player-summary-connections"><div><strong>{players ? players.online.length : '—'}<span> / {players ? players.maxPlayers : '—'}</span></strong><small><i className={`state-dot ${server.state}`} aria-hidden="true"/>{t("Conectados")}</small></div>{players&&players.online.length>0&&<div className="player-summary-heads" aria-hidden="true">{players.online.slice(0,4).map(player=><PlayerHead key={player.uuid??player.name} name={player.name} uuid={player.uuid}/>)}{players.online.length>4&&<span>+{players.online.length-4}</span>}</div>}</div><div><strong>{players ? players.whitelisted.length : '—'}</strong><small>{t("En lista blanca")}</small></div><div><strong>{players ? players.operators.length : '—'}</strong><small>{t("Operadores")}</small></div></div>
     <div className="players-toolbar"><div><strong>{t("Acceso al servidor")}</strong><p>{!players?t("Acceso pendiente de consultar."):players.whitelistEnabled ? t(players.enforceWhitelist?'Lista blanca activa · acceso estricto':'Lista blanca activa') : t('Sin lista blanca.')}</p></div><button disabled={!canSetWhitelist || busy || !players} onClick={toggleWhitelist}>{players?.whitelistEnabled ? t("Desactivar lista blanca") : t("Activar lista blanca")}</button></div>
     {players&&<AuthenticationPanel players={players} state={server.state}/>}
     <nav className="player-tabs" aria-label={t("Categorías de jugadores")}><MovingIndicator active={group} axis="horizontal"/>{groups.map(item => <button key={item.id} className={`player-tab ${group === item.id ? 'active' : ''}`} aria-current={group === item.id ? 'page' : undefined} onClick={() => {setGroup(item.id);setPage(0)}}>{translatedMessage(item.label)}<span>{players ? item.count(players) : '—'}</span></button>)}</nav>
@@ -116,7 +114,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
     {identityGroup&&notice&&<p className="player-notice" role="status">{translatedMessage(notice)}</p>}
     <div className="player-list" ref={listRef}>
 
-      {players && group === 'online' && (items.online.length ? windows.online.rows.map(name => <PlayerRow key={name} name={name} uuid={connectedIdentity(name,[...items.known,...items.whitelisted,...items.operators],directAuthentication)} detail="En el servidor" action="Expulsar" disabled={!running || busy} onAction={() => act('kick',name)}/>) : <p className="empty-inline">{t("No hay jugadores conectados ahora.")}</p>)}
+      {players && group === 'online' && (items.online.length ? windows.online.rows.map(player => <PlayerRow key={player.uuid??player.name} name={player.name} uuid={player.uuid} detail={player.uuid?t("UUID de esta sesión: {0}",player.uuid):t("UUID de sesión no observado")} action="Expulsar" disabled={!running || busy} onAction={() => act('kick',player.name)}/>) : <p className="empty-inline">{t("No hay jugadores conectados ahora.")}</p>)}
       {players && group === 'known' && (items.known.length ? windows.known.rows.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid ? `${isOfflineUuid(player.uuid) ? t("UUID local · ") : ''}${player.uuid}` : t("UUID no disponible")} disabled={false}/>) : <p className="empty-inline">{t("El servidor aún no ha guardado jugadores en usercache.json.")}</p>)}
       {players && group === 'whitelist' && (items.whitelisted.length ? windows.whitelist.rows.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid || t('UUID no disponible')} action="Quitar" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('whitelist',player.uuid)}/>) : <p className="empty-inline">{t("No hay jugadores en la lista blanca.")}</p>)}
       {players && group === 'operators' && (items.operators.length ? windows.operators.rows.map(player => <div key={player.uuid || player.name}><PlayerRow name={player.name} uuid={player.uuid} detail={[player.uuid||t("UUID no disponible"),`${t("Nivel")} ${player.level}`,player.bypassesPlayerLimit?t("Sin límite de jugadores"):null].filter(Boolean).join(" · ")} action="Retirar OP" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('operators',player.uuid)}/><OperatorSettings server={server} operator={player} disabled={busy||!!readError} onRefresh={onRefresh}/></div>) : <p className="empty-inline">{t("Todavía no hay operadores.")}</p>)}

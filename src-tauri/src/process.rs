@@ -1,7 +1,7 @@
 use crate::log;
 use crate::model::StateEvent;
 use crate::model::Server;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -18,7 +18,7 @@ pub struct ProcessControl {
     startup_phase:Mutex<crate::startup::Phase>,
     running_since: Mutex<Option<Instant>>,
     state: Mutex<String>,
-    online: Mutex<HashSet<String>>,
+    online: Mutex<crate::players::Connections>,
     paper: bool,
     ticks: Mutex<crate::ticks::Collector>,
     output:Mutex<crate::crash_diagnostics::Output>,
@@ -27,7 +27,7 @@ pub struct ProcessControl {
 
 impl ProcessControl {
     fn new(child:Child,stdin:ChildStdin,paper:bool,started:Instant)->Self{
-        Self{forced:std::sync::atomic::AtomicBool::new(false),stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(HashSet::new()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
+        Self{forced:std::sync::atomic::AtomicBool::new(false),stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(crate::players::Connections::default()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
     }
 }
 
@@ -151,7 +151,7 @@ fn pump<R: std::io::Read + Send + 'static>(reader: R, events:Arc<dyn ProcessEven
                     events.publish_state(&id, "running");
                 }
             }
-            crate::players::apply_log_event(&mut control.online.lock().unwrap(),&event);
+            control.online.lock().unwrap().observe(&event);
             events.log(event);
     },move |error|{
         let stream=if stdout{"stdout"}else{"stderr"};
@@ -234,9 +234,9 @@ impl ProcessManager {
 
     pub fn is_active(&self, id: &str) -> bool { self.processes.lock().unwrap().contains_key(id) }
 
-    pub fn online(&self, id: &str) -> Vec<String> {
+    pub fn online(&self, id: &str) -> Vec<crate::players::PlayerIdentity> {
         self.processes.lock().unwrap().get(id)
-            .map(|p| p.online.lock().unwrap().iter().cloned().collect()).unwrap_or_default()
+            .map(|p| p.online.lock().unwrap().list()).unwrap_or_default()
     }
 
     pub fn session_token(&self,id:&str)->Option<String>{

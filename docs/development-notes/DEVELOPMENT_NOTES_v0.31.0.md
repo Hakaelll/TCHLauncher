@@ -1338,3 +1338,23 @@ Application locations/About use the shared recoverable reader with retry control
 folder opening preserves its acknowledgement if the following info read fails.
 TypeScript and Windows Vite passed. Native failure delivery remains manual.
 No new test cases, dependencies, installer or GitHub release were added.
+
+## Observe connected-player UUIDs
+
+The supplied Paper log includes UUID lines before player joins. The process
+collector now consumes these recognized server/authenticator INFO observations,
+retains bounded recent pending identities and publishes name/UUID objects for
+connected players. Pending observations expire after 60 seconds and are consumed
+on join; conflicting same-name observations remain unresolved. Leave removes the
+connection and pending evidence. Each Java process owns a fresh collector.
+
+Connected heads/detail/search use that observed UUID. Removed the cache-name
+selection helper; unknown sessions retain a neutral head and explicit label.
+Known history and permission files are unchanged. The source contract migrated
+all online-player consumers together. This does not alter server authentication,
+merge UUIDs, move player data or verify Microsoft account ownership.
+
+TypeScript and Windows Vite passed; native compilation checked separately.
+No server sessions or broad suites were run, following the user's request for
+brief checks. Real-client login and native visual behavior remain unverified.
+No test case, dependency, installer or GitHub release was added.

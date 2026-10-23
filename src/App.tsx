@@ -569,7 +569,7 @@ const eventLabels: Record<string,string> = localizedStatic({
   startup:'Servidor iniciado', shutdown:'Servidor deteniéndose', join:'Jugador conectado',
   world_load:'Cargando mundo',spawn_prepare:'Preparando zona inicial',
   leave:'Jugador desconectado', save:'Guardado notificado', save_started:'Guardado iniciado',save_dimension:'Dimensión guardada',save_failed:'Fallo de guardado',lag:'Retraso del servidor',
-  warning:'Aviso', error:'Error', exception:'Excepción', plugin_error:'Error de plugin',
+  identity:'Identidad del jugador', warning:'Aviso', error:'Error', exception:'Excepción', plugin_error:'Error de plugin',
   mod_error:'Error de mod', crash:'Cierre inesperado', exit:'Proceso finalizado',
 })
 

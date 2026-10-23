@@ -3,8 +3,9 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,7 +55,7 @@ pub struct BannedIp {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayersSnapshot {
-    pub online: Vec<String>,
+    pub online: Vec<PlayerIdentity>,
     pub known: Vec<KnownPlayer>,
     pub whitelisted: Vec<PlayerIdentity>,
     pub operators: Vec<Operator>,
@@ -86,10 +87,10 @@ fn read_list<T: DeserializeOwned>(directory: &Path, name: &str) -> Result<Vec<T>
     serde_json::from_slice(&bytes).map_err(|e| format!("{name} no contiene una lista JSON válida: {e}"))
 }
 
-pub fn snapshot(server: &Server, mut online: Vec<String>) -> Result<PlayersSnapshot, String> {
+pub fn snapshot(server: &Server, mut online: Vec<PlayerIdentity>) -> Result<PlayersSnapshot, String> {
     let directory = Path::new(&server.directory);
     let props = crate::properties::read(&directory.join("server.properties"))?;
-    online.sort_unstable_by_key(|name| name.to_ascii_lowercase());
+    online.sort_unstable_by_key(|player| player.name.to_ascii_lowercase());
     Ok(PlayersSnapshot {
         online,
         known: read_list(directory, "usercache.json")?,
@@ -156,10 +157,53 @@ pub(crate) fn message_player_change(message: &str) -> Option<(&str, bool)> {
     valid_player(name).then_some((name, joined))
 }
 
-pub(crate) fn apply_log_event(online:&mut HashSet<String>,event:&crate::model::LogEvent){
-    let Some((name,joined))=message_player_change(&event.message)else{return;};
-    if event.level!="player"||event.event.as_deref()!=Some(if joined{"join"}else{"leave"}){return;}
-    if joined{online.insert(name.into());}else{online.remove(name);}
+pub(crate) fn message_profile(message:&str)->Option<(&str,uuid::Uuid)> {
+    let (name,id)=message.strip_prefix("UUID of player ")?.split_once(" is ")?;
+    if !valid_player(name){return None;}
+    let id=uuid::Uuid::parse_str(id).ok()?;
+    (!id.is_nil()).then_some((name,id))
+}
+
+struct PendingIdentity { uuid: Option<uuid::Uuid>, observed: Instant }
+
+#[derive(Default)]
+pub(crate) struct Connections {
+    joined: HashMap<String,PlayerIdentity>,
+    pending: HashMap<String,PendingIdentity>,
+}
+impl Connections {
+    pub fn list(&self)->Vec<PlayerIdentity> { self.joined.values().cloned().collect() }
+    pub fn observe(&mut self,event:&crate::model::LogEvent) {
+        if event.level!="player" {return;}
+        if event.event.as_deref()==Some("identity") {
+            let Some((name,id))=message_profile(&event.message)else{return;};
+            self.pending.retain(|_,value|value.observed.elapsed()<Duration::from_secs(60));
+            let key=name.to_ascii_lowercase();
+            if let Some(previous)=self.pending.get_mut(&key) {
+                // Conflicting login observations must not select an arbitrary account.
+                if previous.uuid!=Some(id) {previous.uuid=None;}
+                previous.observed=Instant::now();
+                return;
+            }
+            if self.pending.len()>=1024 {
+                if let Some(oldest)=self.pending.iter().min_by_key(|(_,value)|value.observed).map(|(key,_)|key.clone()) {self.pending.remove(&oldest);}
+            }
+            self.pending.insert(key,PendingIdentity{uuid:Some(id),observed:Instant::now()});
+            return;
+        }
+        let Some((name,joined))=message_player_change(&event.message)else{return;};
+        if event.event.as_deref()!=Some(if joined{"join"}else{"leave"}) {return;}
+        let key=name.to_ascii_lowercase();
+        if joined {
+            let evidence=self.pending.remove(&key).filter(|value|value.observed.elapsed()<Duration::from_secs(60));
+            if evidence.is_none()&&self.joined.contains_key(&key) {return;}
+            let uuid=evidence.and_then(|value|value.uuid).map(|id|id.to_string());
+            self.joined.insert(key,PlayerIdentity{name:name.into(),uuid});
+        } else {
+            self.joined.remove(&key);
+            self.pending.remove(&key);
+        }
+    }
 }
 
 #[derive(Deserialize)]

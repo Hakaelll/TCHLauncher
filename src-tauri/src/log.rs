@@ -99,6 +99,11 @@ fn classify(line: &str) -> (&'static str, Option<&'static str>) {
     let lower = line.to_ascii_lowercase();
     let message = message_text(line);
     let message_lower = message.to_ascii_lowercase();
+    let authenticator=line.split_once("]: ").and_then(|(prefix,_)|prefix.rsplit('[').next())
+        .and_then(|thread|thread.strip_prefix("User Authenticator #"))
+        .and_then(|thread|thread.strip_suffix("/INFO"))
+        .is_some_and(|number|!number.is_empty()&&number.bytes().all(|byte|byte.is_ascii_digit()));
+    if (server_info(line)||authenticator)&&crate::players::message_profile(message).is_some() {return ("player",Some("identity"));}
     if let Some((_,joined))=crate::players::message_player_change(message){return ("player",Some(if joined{"join"}else{"leave"}));}
     let chat=message.strip_prefix("[Not Secure] ").unwrap_or(message);
     if chat.starts_with('<') && chat.contains("> ") { return ("chat", None); }

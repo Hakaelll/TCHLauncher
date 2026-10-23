@@ -1,5 +1,8 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "UUID de esta sesión: {0}": "UUID for this session: {0}",
+  "UUID de sesión no observado": "Session UUID not observed",
+  "Identidad del jugador": "Player identity",
   "Modpack instalado": "Modpack installed",
   "Actualiza la biblioteca para abrir el servidor preparado.": "Refresh the library to open the prepared server.",
   "No se pudo actualizar la biblioteca: {0}": "Could not refresh the library: {0}",
