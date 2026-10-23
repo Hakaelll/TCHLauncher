@@ -1484,3 +1484,16 @@ versus explicit prerelease selection, wrong/absent versions, legacy identities,
 26.x mapping and catalog bounds. The check was removed after execution; no retained
 case or dependency was added. This is parser/selection evidence, not a new real
 legacy installer run or native selector review. Source follows installer 0.38.0.
+
+
+## Compute only the requested download checksum
+
+The transfer initializes one SHA-1/SHA-256/SHA-512 hasher paired with its expected
+value, or none when no digest is provided. Unsupported algorithms fail before the
+request or partial-file creation. Chunk writes, limits, retry policy, checksum
+comparison, synced publication and cleanup remain intact. A temporary native check
+passed streamed local HTTP transfers for all three algorithms, uppercase expected
+hex, no hash, mismatch preservation/partial cleanup and unsupported-algorithm
+rejection. The private transfer fixture uses loopback HTTP; it does not verify
+production HTTPS or provide a throughput/CPU benchmark. No retained case or
+dependency was added. Source is ahead of installer 0.38.0.

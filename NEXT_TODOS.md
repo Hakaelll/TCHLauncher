@@ -79,7 +79,7 @@ files local; the digest may remain in the release notes.
 | ID | Status | Area | Remaining acceptance evidence |
 | --- | --- | --- | --- |
 | CORE-01 | REVIEW | Multiple servers and persistence | Two real Vanilla processes pass independent simultaneous states/commands/stops. Verify native creation/reselection, event presentation and multi-client gameplay. |
-| CORE-02 | REVIEW | Managed downloads and Java | Four real isolated engine installs pass. Verify native download/runtime recovery and custom Java selection. |
+| CORE-02 | REVIEW | Managed downloads and Java | Four real isolated engine installs pass. Streaming downloads now compute only the requested digest; focused local transfer checks preserve hash verification and existing files on mismatch. Verify native download/runtime recovery and custom Java selection. |
 | CORE-03 | REVIEW | Start, console, stop and restart | All four real engines pass three ready/status/command/graceful-stop sessions. Paper startup Stop verified with real Java; verify native IPC and slow saves. |
 | CORE-04 | REVIEW | Properties and capacity | Shared integer limits and recoverable file/SQLite saves implemented. Verify native edits and actual version-specific gameplay rules. |
 | CORE-05 | REVIEW | Backup and restore | Tracked real world restore and restored boot pass for all four engines; level.dat byte equality checked. Verify native restore/retention and interruption. |

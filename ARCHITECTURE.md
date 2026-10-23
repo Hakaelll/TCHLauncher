@@ -86,7 +86,8 @@ reinstallation uses another generation instead of replacing another server's
 running executable. Custom runtimes are inspected before selection.
 
 [download.rs](src-tauri/src/download.rs) uses HTTPS, bounded responses, source
-hashes where available, unique partial files and validated publication. Transient
+hashes where available, unique partial files and validated publication. Streaming
+computes only the requested digest; absent expected hashes initialize no hasher. Transient
 network failures get at most three attempts. Permanent failures and hash mismatches
 are not retried automatically. Cancellation interrupts requests, body reads and
 retry waits; guarded publication is not cancellable. HTTP Range resume is not

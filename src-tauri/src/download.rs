@@ -224,14 +224,23 @@ impl DownloadTask {
     }
 
     async fn transfer_once(&self,url: &str,target: &Path,hash: Option<(&str,&str)>,label: &str,attempt: u32) -> Result<(),Failure> {
+        let mut verification=match hash {
+            Some((kind,expected))=>{
+                let digest:Box<dyn sha2::digest::DynDigest+Send>=match kind {
+                    "sha1"=>Box::new(Sha1::new()),
+                    "sha256"=>Box::new(Sha256::new()),
+                    "sha512"=>Box::new(Sha512::new()),
+                    _=>return Err(Failure::local("Algoritmo de hash no compatible")),
+                };
+                Some((expected,digest))
+            }
+            None=>None,
+        };
         let mut response = self.request(url).await?;
         let total = response.content_length();
         if total.is_some_and(|bytes| bytes > self.max_bytes) { return Err(Failure::local("La descarga supera el tamaño permitido")); }
         let part = PartialFile(target.with_extension(format!("part-{}",self.id)));
         let mut file = File::create(&part.0).map_err(Failure::io)?;
-        let mut sha1 = Sha1::new();
-        let mut sha256 = Sha256::new();
-        let mut sha512 = Sha512::new();
         let mut received = 0u64;
         let mut last = Instant::now();
         let mut last_bytes = 0;
@@ -240,7 +249,7 @@ impl DownloadTask {
             received += chunk.len() as u64;
             if received > self.max_bytes { return Err(Failure::local("La descarga supera el tamaño permitido")); }
             file.write_all(&chunk).map_err(Failure::io)?;
-            sha1.update(&chunk); sha256.update(&chunk); sha512.update(&chunk);
+            if let Some((_,digest))=&mut verification {digest.update(&chunk);}
             let elapsed = last.elapsed().as_secs_f64();
             if elapsed >= 0.2 {
                 self.progress(label,"downloading",received,total,Some((received-last_bytes) as f64 / elapsed),attempt,None);
@@ -253,12 +262,8 @@ impl DownloadTask {
         }
         if received == 0 { return Err(Failure::local("La descarga está vacía")); }
         self.progress(label,"verifying",received,total,None,attempt,None);
-        if let Some((kind,expected)) = hash {
-            let actual = match kind {
-                "sha1" => hex(&sha1.finalize()), "sha256" => hex(&sha256.finalize()),
-                "sha512" => hex(&sha512.finalize()),
-                _ => return Err(Failure::local("Algoritmo de hash no compatible")),
-            };
+        if let Some((expected,digest))=verification {
+            let actual=hex(&digest.finalize());
             if !actual.eq_ignore_ascii_case(expected) { return Err(Failure::local(format!("La suma de comprobación de {label} no coincide"))); }
         }
         file.sync_all().map_err(Failure::io)?;
