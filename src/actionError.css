@@ -1,0 +1,9 @@
+.action-error { margin: 16px var(--page-inset); padding: 16px 20px; background: var(--danger-wash); border: 1px solid var(--danger-line); border-left: 3px solid var(--danger); color: var(--ink); overflow-wrap: anywhere; }
+.action-error-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.action-error-heading strong { font-size: 15px; }
+.action-error .action-error-close { flex: none; min-width: 28px; min-height: 28px; padding: 0; border: 0; background: transparent; font-size: 20px; }
+.action-error p { margin: 6px 0 12px; }
+.action-error .action-error-advice { color: var(--secondary); }
+.action-error-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.action-error summary { cursor: pointer; font-size: 13px; }
+.action-error pre { max-height: 200px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--surface); font: 12px/1.6 Consolas, monospace; }

@@ -1255,3 +1255,28 @@ repeat crashes, section routing, escaped names and removed-server actions. Five
 retained frontend checks, TypeScript and Windows production Vite passed. Native
 window delivery, layout and keyboard interaction remain unverified. No release
 was built or published; installer 0.36.0 remains unchanged.
+
+## Startup and runtime recovery actions
+
+Ordinary Start/Restart requests capture the requested server ID/name and operation
+before awaiting the existing acknowledged action. A failed request displays its
+native reason, review advice, Settings/Console navigation and expandable raw
+technical evidence. The same error state still holds ordinary string messages for
+other operations. Removed-server navigation is disabled. No IPC shape changed and
+no substring classifier infers a root cause. Existing update/crash diagnostics
+remain separate. No automatic retry or runtime replacement was added.
+
+Runtime request failures without a failed task use the same contextual surface.
+Failed task views now disclose task ID, kind, attempt and original message, with
+runtime-specific review advice and their existing explicit retry control. A later
+failed refresh preserves an earlier runtime error. Corrected the global notice
+entry animation name so it no longer collides with the existing banner keyframe.
+
+One-off actual React checks passed for all three operation titles in ES/EN,
+context preservation, escaped names/evidence, closed technical disclosures,
+Settings/Console/dismiss actions and unavailable servers. Failed runtime task
+rendering also passed in both languages without invoking a native API. Five
+retained frontend checks, TypeScript and Windows production Vite passed. No native
+code/dependency changed and no retained test case was added. Native failure
+delivery, layout and keyboard interaction remain manual gates. No installer or
+GitHub release was generated; the current installer remains 0.36.0.

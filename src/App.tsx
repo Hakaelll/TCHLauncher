@@ -43,6 +43,7 @@ import {CommandPalette} from './CommandPalette'
 import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
 import {AppNotices} from './AppNotices'
+import {ActionError,actionContext,type ActionContext,type ActionFailure} from './ActionError'
 import {createNoticeObserver,taskSection,type AppNotice} from './noticeEvents'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
@@ -126,7 +127,7 @@ function App() {
   const [packResume,setPackResume]=useState<string|null>(null)
   const [operationBusy,setBusy] = useState(false)
   const [installingIds,setInstallingIds] = useState<Set<string>>(new Set())
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | ActionFailure | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [progressByServer,setProgressByServer]=useState<Record<string,Progress>>({})
   const progressRef=useRef<Record<string,Progress>>({})
@@ -337,13 +338,15 @@ function App() {
   }, [operationBusy,closeMenu])
 
   const [actionRefreshError,setActionRefreshError]=useState<string|null>(null)
-  const act = async (fn: () => Promise<unknown>) => {
+  const act = async (fn: () => Promise<unknown>,context?:ActionContext) => {
     setError(null);setActionRefreshError(null);setBusy(true)
     try {const result=await acknowledgedAction(fn,refresh);setActionRefreshError(result.refreshError);return true}
-    catch (e) { if(errorText(e)!=='Instalación cancelada')setError(errorText(e)) }
+    catch (e) { if(errorText(e)!=='Instalación cancelada')setError(context?{...context,detail:errorText(e)}:errorText(e)) }
     finally { setBusy(false) }
     return false
   }
+
+  const runServerAction=(server:Server,operation:'start'|'restart')=>act(()=>operation==='start'?api.start(server.id):api.restart(server.id),actionContext(server,operation))
 
   const importWhitelist=async(id:string,selection:WhitelistSelection):Promise<WhitelistOutcome|null>=>{
     let outcome:WhitelistOutcome|null=null
@@ -395,12 +398,14 @@ function App() {
   }
 
   const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'|'content_toggle'>='install')=>{
+    const server=servers.find(item=>item.id===id)
+    const reportFailure=(cause:unknown)=>setError(server&&kind!=='install'?{...actionContext(server,'runtime'),detail:errorText(cause)}:errorText(cause))
     try {if(!await api.eulaConsentRecorded()){setConsentError(null);setDownloadConsent({id,kind});return;}}
-    catch(cause){setError(errorText(cause));return;}
+    catch(cause){reportFailure(cause);return;}
     setError(null);setInstallingIds(current=>new Set(current).add(id))
     try {if(kind==='install')await api.install(id);else await api.prepareRuntime(id,kind==='runtime_reinstall')}
-    catch(cause){if(progressRef.current[id]?.stage!=='failed' && errorText(cause)!=='Instalación cancelada')setError(errorText(cause))}
-    finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().catch(cause=>setError(errorText(cause)))}
+    catch(cause){if(progressRef.current[id]?.stage!=='failed' && errorText(cause)!=='Instalación cancelada'){if(kind==='install')setError(errorText(cause));else reportFailure(cause)}}
+    finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().catch(cause=>setError(current=>current??errorText(cause)))}
   }
   const create = async(input:CreateInput,worldSource?:Parameters<typeof api.importWorld>[1])=>{
     let id:string|null=null
@@ -455,7 +460,7 @@ function App() {
     if(!server)return
     openServer(server)
     if(current.action==='console'||current.action==='content'){setView(current.action);return}
-    if(current.action==='start')void act(()=>api.start(server.id))
+    if(current.action==='start')void runServerAction(server,'start')
     if(current.action==='stop')void act(()=>api.stop(server.id))
     if(current.action==='backup') {
       setView('backups')
@@ -481,7 +486,7 @@ function App() {
     </aside>
     <main className="main" ref={mainRef}>
       {actionRefreshError&&<div className="panel-read-state failed" role="alert"><div><strong>{t("Acción completada · datos sin actualizar")}</strong><p>{translatedMessage(actionRefreshError)}</p></div><button disabled={operationBusy} onClick={async()=>{try{await refresh();setActionRefreshError(null)}catch(cause){setActionRefreshError(errorText(cause))}}}>{t("Actualizar datos")}</button><button className="text-button" onClick={()=>setActionRefreshError(null)}>{t("Cerrar aviso")}</button></div>}
-      {error && <div className="error-banner" role="alert"><div><strong>{t("No se pudo completar la acción")}</strong><p>{translatedMessage(error)}</p></div><button onClick={() => setError(null)} aria-label={t("Cerrar error")}>×</button></div>}
+      {error && typeof error!=='string' ? <ActionError failure={error} available={servers.some(server=>server.id===error.serverId)} onClose={()=>setError(null)} onReview={section=>openTask(error.serverId,section)}/> : error && <div className="error-banner" role="alert"><div><strong>{t("No se pudo completar la acción")}</strong><p>{translatedMessage(error)}</p></div><button onClick={() => setError(null)} aria-label={t("Cerrar error")}>×</button></div>}
       {notice && <div className="notice-banner" role="status"><span>{translatedMessage(notice)}</span><button onClick={() => setNotice(null)} aria-label={t("Cerrar aviso")}>×</button></div>}
       {appearanceOpen ? <ApplicationSettings appearance={appearance} saved={appearanceSaved} onAppearance={changeAppearance} servers={servers} selectedId={selectedId} onSelect={setSelectedId} busy={operationBusy} progress={progressByServer} onPrepare={(id,reinstall)=>void runInstallation(id,reinstall?'runtime_reinstall':'runtime')} onChanged={refresh} onOpenServer={(server,section)=>{openServer(server);setView(section)}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       : creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>
@@ -494,9 +499,9 @@ function App() {
             {selected.state==='stopping'&&<button className="danger-button" onClick={()=>setForceStopTarget(selected)}>{t("Forzar cierre…")}</button>}
             {view !== 'overview' && <span className={`status-label ${selected.state}`}><span className={`state-dot ${selected.state}`} aria-hidden="true"/>{stateText(selected.state)}</span>}
             {selected.jarPath && selected.javaPath ? selected.state === 'running' ? <>
-              <button disabled={busy} onClick={() => act(() => api.restart(selected.id))}>{t("Reiniciar")}</button>
+              <button disabled={busy} onClick={() => runServerAction(selected,'restart')}>{t("Reiniciar")}</button>
               <button className="primary-button" disabled={busy} onClick={() => act(() => api.stop(selected.id))}>{t("Detener")}</button>
-            </> : selected.state === 'starting' ? <button disabled={busy} onClick={() => act(() => api.stop(selected.id))}>{t("Detener inicio")}</button> : selected.state === 'stopped' || selected.state === 'crashed' || selected.state === 'error' ? <button className="primary-button" disabled={busy || !eula} onClick={() => act(() => api.start(selected.id))}>{t("Iniciar servidor")} <Icon name="arrow" size={15}/></button> : null : <button className="primary-button" disabled={busy} onClick={() => runInstallation(selected.id)}>{selected.jarPath ? t("Preparar Java") : t("Instalar")} <Icon name="arrow" size={15}/></button>}
+            </> : selected.state === 'starting' ? <button disabled={busy} onClick={() => act(() => api.stop(selected.id))}>{t("Detener inicio")}</button> : selected.state === 'stopped' || selected.state === 'crashed' || selected.state === 'error' ? <button className="primary-button" disabled={busy || !eula} onClick={() => runServerAction(selected,'start')}>{t("Iniciar servidor")} <Icon name="arrow" size={15}/></button> : null : <button className="primary-button" disabled={busy} onClick={() => runInstallation(selected.id)}>{selected.jarPath ? t("Preparar Java") : t("Instalar")} <Icon name="arrow" size={15}/></button>}
           </div>
         </header>
         <nav className="server-sections" aria-label={t("Secciones del servidor")}>
@@ -527,7 +532,7 @@ function App() {
       <p id="restore-description">{t("Los archivos y la configuración volverán al estado de esta copia. Antes guardaremos una copia del estado actual.")}</p>
       <dl className="restore-preview-details"><dt>{t("Fecha")}</dt><dd>{formatDate(restoreTarget.backup.createdAt)}</dd><dt>{t("Tamaño")}</dt><dd>{fmtBytes(restoreTarget.backup.sizeBytes)}</dd><dt>{t("Motivo")}</dt><dd>{restoreTarget.backup.reason?backupReason[restoreTarget.backup.reason]??t("No disponible"):t("No registrado")}</dd><dt>{t("Servidor guardado")}</dt><dd>{restoreTarget.backup.minecraftVersion?`${restoreTarget.backup.platform??t("Motor no registrado")} · Minecraft ${restoreTarget.backup.minecraftVersion}`:t("Versión no registrada")}</dd></dl>
       {progressByServer[restoreTarget.serverId]?.kind==='restore'&&<InstallProgress key={progressByServer[restoreTarget.serverId].taskId} progress={progressByServer[restoreTarget.serverId]} busy={operationBusy} allowRetry={false} onRetry={()=>{}} onDismiss={()=>{const task=progressByServer[restoreTarget.serverId];progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>}
-      {error && <p className="form-error" role="alert">{translatedMessage(error)}</p>}
+      {error && <p className="form-error" role="alert">{translatedMessage(typeof error==='string'?error:error.detail)}</p>}
       <div className="modal-actions"><button data-modal-close disabled={operationBusy}>{t("Cancelar")}</button><button className="primary-button" disabled={operationBusy} onClick={async()=>{
         const target=restoreTarget;setError(null);setBusy(true)
         try{await api.restoreBackup(target.serverId,target.backup.id);if(selectedRef.current===target.serverId){capacityDirtyRef.current=false;setCapacityDirty(false)}setRestoreTarget(null);await syncRestored(target.serverId)}

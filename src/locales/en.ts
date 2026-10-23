@@ -1,5 +1,14 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Comprueba el runtime en Configuración antes de volver a prepararlo. Puedes verificar Java o elegir otro ejecutable compatible.": "Check the runtime in Settings before preparing it again. You can verify Java or choose another compatible executable.",
+  "No se pudo iniciar «{0}»": "Could not start “{0}”",
+  "No se pudo reiniciar «{0}»": "Could not restart “{0}”",
+  "No se pudo preparar Java para «{0}»": "Could not prepare Java for “{0}”",
+  "Error de la acción": "Action error",
+  "Revisa Java, la memoria y el puerto en Configuración. La consola puede aportar información del intento de arranque.": "Review Java, memory and the port in Settings. The console may provide information about the startup attempt.",
+  "Comprueba el estado actual y la consola antes de volver a iniciar. El reinicio puede haberse detenido después de cerrar el proceso anterior.": "Check the current state and console before starting again. The restart may have stopped after closing the previous process.",
+  "Comprueba el runtime en Configuración. Allí puedes verificar Java, reinstalar Temurin o elegir un ejecutable compatible.": "Check the runtime in Settings. You can verify Java, reinstall Temurin or choose a compatible executable there.",
+  "Este servidor ya no está en la biblioteca. El detalle del fallo se conserva aquí.": "This server is no longer in the library. The failure details remain here.",
   "Abrir consola": "Open console",
   "Notificaciones": "Notifications",
   "Ver resultado": "View result",

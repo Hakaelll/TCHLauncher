@@ -56,6 +56,7 @@ progress::-moz-progress-bar { background:var(--accent); box-shadow:inset 0 2px 0
 .install-progress-actions { flex-wrap:wrap; }
 .background-task .install-progress { box-shadow:none; }
 .install-progress .form-error { padding-top:12px; border-top:1px solid var(--danger-line); }
+.task-failure pre { max-height:200px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; background:var(--surface-raised); font:12px/1.6 Consolas,monospace; }
 
 /* Three real startup phases: a connected track, never a simulated percentage. */
 .startup-progress { margin:0 0 24px; padding:20px 0; border-bottom:1px solid var(--line); }

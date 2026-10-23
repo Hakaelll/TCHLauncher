@@ -1,5 +1,5 @@
 .app-notices { position: fixed; z-index: 80; right: 20px; bottom: 20px; width: min(380px, calc(100vw - 100px)); max-height: min(60vh, 620px); overflow-y: auto; display: grid; gap: 8px; pointer-events: none; }
-.app-notice { pointer-events: auto; display: grid; grid-template-columns: 24px minmax(0,1fr) 28px; gap: 10px; padding: 14px; background: var(--surface-raised); color: var(--ink); border: 1px solid var(--control-edge); border-left: 3px solid var(--accent); animation: notice-enter 140ms ease-out; }
+.app-notice { pointer-events: auto; display: grid; grid-template-columns: 24px minmax(0,1fr) 28px; gap: 10px; padding: 14px; background: var(--surface-raised); color: var(--ink); border: 1px solid var(--control-edge); border-left: 3px solid var(--accent); animation: app-notice-enter 140ms ease-out; }
 .app-notice.failed { border-left-color: var(--danger); }
 .app-notice-mark { color: var(--accent); font-weight: 700; }
 .app-notice.failed .app-notice-mark { color: var(--danger); }
@@ -7,6 +7,6 @@
 .app-notice p { margin: 4px 0 8px; font-size: 13px; }
 .app-notice .app-notice-open { min-height: 32px; padding: 4px 10px; font-size: 12px; }
 .app-notice .app-notice-dismiss { align-self: start; padding: 0; min-width: 28px; min-height: 28px; background: transparent; border: 0; font-size: 20px; }
-@keyframes notice-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes app-notice-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .app-notice { animation: none; } }
 [data-motion="reduced"] .app-notice { animation: none; }

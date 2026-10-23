@@ -200,10 +200,20 @@ only manual verification:
   TypeScript and Windows Vite pass. Native delivery, keyboard and layout remain
   manual checks. No operating-system notification or new dependency was added.
   Original requirement 76; source is ahead of installer 0.36.0.
-- **ACTION-RECOVERY-01 — TODO:** ordinary startup/runtime action errors still use
-  the generic dismissible string banner. Add a concrete recovery action and
-  expandable technical evidence for actionable failures; retain richer existing
-  crash-report diagnostics. Original requirement 49.
+- **ACTION-RECOVERY-01 — REVIEW:** ordinary Start/Restart failures now retain the
+  requested server identity, the original reason, operation-specific review advice,
+  Settings/Console navigation and expandable raw technical evidence. Runtime
+  preparation failures before a task owns the error use the same presentation;
+  failed runtime tasks retain their existing retry controls with runtime review
+  advice and task-identifying technical details. Navigation never retries a
+  mutation. Removed-server actions are disabled, and refresh failure after runtime
+  work cannot overwrite an existing error. Existing generic, update and crash
+  diagnostics remain distinct; no error-string heuristic claims a root cause.
+  One-off actual React checks cover both languages, routes, context, escaping,
+  closed disclosures and unavailable servers. Five frontend cases, TypeScript and
+  Windows Vite pass. Native interaction/layout and real failure delivery remain
+  manual gates. Original requirement 49; installer 0.36.0 is unchanged.
+
 
 ## Reported issues needing host evidence
 

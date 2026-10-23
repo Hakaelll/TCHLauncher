@@ -585,3 +585,20 @@ task inventory and crash state retain their own records. No focus stealing or
 automatic retry. Use a polite live region and translated labels. Entry lasts 140 ms
 and respects system/application reduced motion. Native layout and keyboard QA
 remain manual. These are in-app notices, not operating-system notifications.
+
+## Startup and runtime action failures
+
+Identify the requested action and server in a compact semantic error surface.
+Keep the native reason visible, then show operation-specific review advice and
+Settings/Console actions. These actions only navigate; they never retry, reinstall
+or change settings. Preserve the original server identity when selection changes,
+and disable navigation when that server is absent from the library. Restart advice
+must not assume the previous process is still running.
+
+Keep raw evidence, operation and server ID behind a native details disclosure.
+Task failures retain task ID, kind and attempt alongside their original message.
+Wrap long paths and keep the technical block vertically bounded and keyboard
+scrollable. Use the existing theme tokens and translate application copy; raw
+technical evidence remains verbatim. A failed refresh must not hide the original
+runtime failure. Retain existing crash diagnoses and explicit task retry controls.
+Native layout and keyboard validation remain manual.
