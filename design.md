@@ -41,6 +41,18 @@ naming the list as well as the UUID and previous-copy filename. Group changes mu
 not make the acknowledgement look like a change to a different list. Preserve
 existing row materials, head sprites, wrapped details and keyboard controls.
 
+## Known-player operator review
+
+Keep the player's head, name and exact UUID in the known-player row. An inline
+Grant OP disclosure opens below the identity, with level and full-server bypass
+controls followed by an explicit confirmation. Start at level 2 and leave bypass
+off. Use existing End materials, square controls, readable UUID text and wrapping
+labels. At narrow widths the review aligns with the row edge. An existing operator
+gets a quiet status instead of another grant action. Require a stopped server and
+confirmed inventory before writing. Keep acknowledged identity and safety-copy
+filename visible after a refresh failure; refreshing must not grant again. This
+adds no modal, polling or ambient animation. Native appearance remains unverified.
+
 ## Authority and use
 
 ### Operation and startup refinement

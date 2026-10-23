@@ -1,6 +1,7 @@
 import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { MovingIndicator, useListMotion } from './motion'
 import {OperatorSettings} from './OperatorSettings'
+import {OperatorGrant} from './OperatorGrant'
 import {PlayerHead} from './PlayerHead'
 import {identityKey,isOfflineUuid} from './playerIdentity'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
@@ -116,6 +117,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
     }
   }
   const items = players ?? { online:[],known:[],whitelisted:[],operators:[],bannedPlayers:[],bannedIps:[],maxPlayers:0,whitelistEnabled:false,enforceWhitelist:false,onlineMode:true }
+  const operators=new Set(items.operators.flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
   const authorized=new Set(items.whitelisted.flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
   const errors=playerActionErrors(action,target,reason)
   const windows={
@@ -146,7 +148,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
       {players && group === 'online' && (items.online.length ? windows.online.rows.map(player => <PlayerRow key={player.uuid??player.name} name={player.name} uuid={player.uuid} detail={player.uuid?t("UUID de esta sesión: {0}",player.uuid):t("UUID de sesión no observado")} action="Expulsar" disabled={!running || busy} onAction={() => act('kick',player.name)}/>) : <p className="empty-inline">{t("No hay jugadores conectados ahora.")}</p>)}
       {players && group === 'known' && (items.known.length ? windows.known.rows.map(player => {
         const allowed=!!player.uuid&&authorized.has(identityKey(player.uuid))
-        return <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid ? `${isOfflineUuid(player.uuid) ? t("UUID local · ") : ''}${player.uuid}` : t("UUID no disponible")} action={allowed?'En lista blanca':'Añadir a lista blanca'} disabled={allowed||!stopped||busy||loading||!!readError||!player.uuid} onAction={()=>void authorizeKnown(player)}/>
+        return <div className="known-player" key={player.uuid || player.name}><PlayerRow name={player.name} uuid={player.uuid} detail={player.uuid ? `${isOfflineUuid(player.uuid) ? t("UUID local · ") : ''}${player.uuid}` : t("UUID no disponible")} action={allowed?'En lista blanca':'Añadir a lista blanca'} disabled={allowed||!stopped||busy||loading||!!readError||!player.uuid} onAction={()=>void authorizeKnown(player)}/><OperatorGrant server={server} player={player} alreadyOperator={!!player.uuid&&operators.has(identityKey(player.uuid))} disabled={busy||loading||!!readError||!players} onRefresh={onRefresh}/></div>
       }) : <p className="empty-inline">{t("El servidor aún no ha guardado jugadores en usercache.json.")}</p>)}
       {players && group === 'whitelist' && (items.whitelisted.length ? windows.whitelist.rows.map(player => <PlayerRow key={player.uuid || player.name} name={player.name} uuid={player.uuid} detail={player.uuid || t('UUID no disponible')} action="Quitar" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('whitelist',player.uuid)}/>) : <p className="empty-inline">{t("No hay jugadores en la lista blanca.")}</p>)}
       {players && group === 'operators' && (items.operators.length ? windows.operators.rows.map(player => <div key={player.uuid || player.name}><PlayerRow name={player.name} uuid={player.uuid} detail={[player.uuid||t("UUID no disponible"),`${t("Nivel")} ${player.level}`,player.bypassesPlayerLimit?t("Sin límite de jugadores"):null].filter(Boolean).join(" · ")} action="Retirar OP" disabled={!stopped || busy || !!readError || !player.uuid} onAction={() => void removeIdentity('operators',player.uuid)}/><OperatorSettings server={server} operator={player} disabled={busy||!!readError} onRefresh={onRefresh}/></div>) : <p className="empty-inline">{t("Todavía no hay operadores.")}</p>)}
@@ -155,7 +157,7 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
     {players&&window.pages>1&&<nav className="player-pagination" aria-label={t("Páginas de jugadores")}><span>{t("Página")} {window.page+1}  {t("de")} {window.pages}</span><div><button disabled={window.page===0} onClick={()=>setPage(window.page-1)}>{t("Anterior")}</button><button disabled={window.page+1>=window.pages} onClick={()=>setPage(window.page+1)}>{t("Siguiente")}</button></div></nav>}
     <div hidden={group!=='whitelist'}><WhitelistImportReview whitelisted={items.whitelisted} running={running} disabled={busy||!players||!!readError||!canSetWhitelist} onImport={onImportWhitelist} onRefresh={onRefresh}/></div>
     <div className="player-management"><h3>{t("Gestionar acceso")}</h3><p>{t("Las acciones se envían a Minecraft; sus listas se actualizarán cuando procese el comando.")}</p>
-      {!running && <p className="inline-note">{t("Inicia el servidor para modificar jugadores y permisos. Puedes preparar una acción mientras está detenido.")}</p>}
+      {!running && <p className="inline-note">{t("Los comandos requieren el servidor iniciado. En Conocidos puedes preparar la lista blanca y los permisos OP por UUID.")}</p>}
       <form noValidate onSubmit={submit}>
         <fieldset className="player-action-fields" disabled={busy} aria-label={t("Acción sobre un jugador")}>
           <label className="form-row" htmlFor="player-action"><span>{t("Acción")}</span><select id="player-action" value={action} onChange={e=>{setAction(e.target.value as Action);setReason('');setAttempted(false)}}>{Object.entries(playerActions).map(([value,item])=><option key={value} value={value}>{translatedMessage(item.label)}</option>)}</select></label>

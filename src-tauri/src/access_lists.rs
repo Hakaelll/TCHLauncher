@@ -134,6 +134,35 @@ pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
+pub struct OperatorGrant {
+    pub player:Identity,
+    pub level:u8,
+    pub bypasses_player_limit:bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct GrantOutcome {pub added:bool,pub previous_file:Option<String>}
+
+/// Caller holds the stopped-server reservation; an existing operator is never changed.
+pub fn grant_operator(server:&Server,grant:OperatorGrant)->Result<GrantOutcome,String>{
+    let uuid=identity_uuid(&grant.player)?;
+    if uuid.is_nil(){return Err("El UUID del operador no es válido".into());}
+    if grant.level>4{return Err("El nivel de operador debe estar entre 0 y 4".into());}
+    let (added,previous_file)=update(server,List::Operators,|entries,existing|{
+        for entry in entries.iter(){
+            serde_json::from_value::<players::Operator>(entry.clone())
+                .map_err(|error|format!("ops.json no contiene una lista válida: {error}"))?;
+        }
+        if existing.contains_key(&uuid){return Ok(0);}
+        entries.push(serde_json::json!({"uuid":uuid.hyphenated().to_string(),"name":grant.player.name,"level":grant.level,"bypassesPlayerLimit":grant.bypasses_player_limit}));
+        Ok(1)
+    })?;
+    Ok(GrantOutcome{added:added>0,previous_file})
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct OperatorEdit {
     pub uuid:String,
     pub level:u8,
@@ -336,6 +365,27 @@ mod tests {
         assert!(save_operator(&server,&edit).is_err());assert_eq!(fs::read(&operators).unwrap(),b"[{broken");
         fs::remove_file(&operators).unwrap();
         assert!(save_operator(&server,&edit).is_err());assert!(!operators.exists());
+        let grant=||OperatorGrant{player:Identity{name:"SameName".into(),uuid:first.to_uppercase()},level:2,bypasses_player_limit:false};
+        let result=grant_operator(&server,grant()).unwrap();assert!(result.added&&result.previous_file.is_none());
+        let original=fs::read(&operators).unwrap();
+        let saved:serde_json::Value=serde_json::from_slice(&original).unwrap();
+        assert_eq!(saved,serde_json::json!([{"name":"SameName","uuid":first,"level":2,"bypassesPlayerLimit":false}]));
+        let count=fs::read_dir(&directory).unwrap().count();
+        let mut same=grant();same.level=4;same.bypasses_player_limit=true;
+        let result=grant_operator(&server,same).unwrap();assert!(!result.added&&result.previous_file.is_none());
+        assert_eq!(fs::read(&operators).unwrap(),original);assert_eq!(fs::read_dir(&directory).unwrap().count(),count);
+        let mut another=grant();another.player.uuid=second.into();
+        let result=grant_operator(&server,another).unwrap();assert!(result.added);
+        assert_eq!(fs::read(directory.join(result.previous_file.unwrap())).unwrap(),original);
+        let saved:serde_json::Value=serde_json::from_slice(&fs::read(&operators).unwrap()).unwrap();
+        assert_eq!(saved.as_array().unwrap().len(),2);assert_eq!(saved[0]["uuid"],first);assert_eq!(saved[1]["uuid"],second);
+        let original=fs::read(&operators).unwrap();let count=fs::read_dir(&directory).unwrap().count();
+        let mut invalid=grant();invalid.level=5;assert!(grant_operator(&server,invalid).is_err());
+        let mut invalid=grant();invalid.player.uuid=Uuid::nil().to_string();assert!(grant_operator(&server,invalid).is_err());
+        let mut invalid=grant();invalid.player.name="bad name".into();assert!(grant_operator(&server,invalid).is_err());
+        assert_eq!(fs::read(&operators).unwrap(),original);assert_eq!(fs::read_dir(&directory).unwrap().count(),count);
+        fs::write(&operators,b"[{broken").unwrap();assert!(grant_operator(&server,grant()).is_err());
+        assert_eq!(fs::read(&operators).unwrap(),b"[{broken");fs::remove_file(&operators).unwrap();
         let same_name = format!(r#"[{{"name":"SameName","uuid":"{first}","keep":{{"permission":true}}}},{{"name":"SameName","uuid":"{second}"}},{{"name":"SameName","uuid":"{second}","duplicate":true}}]"#);
         fs::write(&target, &same_name).unwrap();
         let removed = remove(&server, List::Whitelist, second).unwrap();

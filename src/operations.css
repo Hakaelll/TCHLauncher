@@ -126,3 +126,21 @@ html[data-motion="reduced"] .startup-progress * { transition:none; }
   .whitelist-review-list li { flex-wrap:wrap; gap:10px; }
   .whitelist-review-list li > span:last-child { margin-left:42px; }
 }
+
+.known-player { border-bottom:1px solid var(--line); }
+.players-view .known-player .player-row { border-bottom:0; }
+.operator-grant { margin:0 12px 16px 66px; }
+.operator-grant summary { display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; padding:10px 0; cursor:pointer; color:var(--ink); font:11px/1.7 var(--font-display); }
+.operator-grant summary::before { content:'+'; color:var(--accent); }
+.operator-grant[open] summary::before { content:'−'; }
+.operator-grant summary span { color:var(--secondary); font:12px/1.6 var(--font-reading); }
+.operator-grant form { display:grid; gap:16px; padding:16px; background:var(--surface-deep); border:1px solid var(--line); }
+.operator-grant-identity { display:grid; gap:6px; }
+.operator-grant-identity code { overflow-wrap:anywhere; color:var(--secondary); font-size:12px; }
+.operator-grant fieldset { display:grid; gap:12px; margin:0; padding:0; border:0; min-width:0; }
+.operator-grant select { max-width:240px; }
+.operator-grant form>button { justify-self:start; white-space:normal; }
+.operator-grant .field-help,.operator-grant-result p { margin:0; }
+.operator-grant-result { display:grid; gap:8px; padding:12px 0; overflow-wrap:anywhere; font-size:12px; }
+.known-operator-status { margin:0 12px 16px 66px; color:var(--secondary); font-size:12px; }
+@media(max-width:650px) { .operator-grant,.known-operator-status { margin-left:12px; }.players-view .known-player .player-row { flex-wrap:wrap; }.known-player .player-row-info { flex-basis:calc(100% - 60px); } }

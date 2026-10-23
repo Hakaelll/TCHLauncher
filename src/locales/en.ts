@@ -1819,4 +1819,16 @@ export const english: Record<string,string> = {
   "Se muestran las últimas tareas leídas. Actualiza la lista antes de cambiar tareas.": "Showing the last read tasks. Refresh the list before changing tasks.",
   "o": "or",
 
+  "Revisar permisos": "Review permissions",
+  "Para el próximo inicio": "For the next start",
+  "Se concedió OP al UUID {0}.": "OP granted to UUID {0}.",
+  "Ese UUID ya es operador. No se cambiaron sus permisos.": "That UUID is already an operator. Its permissions were not changed.",
+  "Copia anterior: {0}": "Previous copy: {0}",
+  "OP concede permisos de administración a esta cuenta. Se aplican en el próximo inicio.": "OP grants administrative permissions to this account. They apply on the next start.",
+  "Detén el servidor para conceder OP por UUID.": "Stop the server to grant OP by UUID.",
+  "Confirmar permisos de operador": "Confirm operator permissions",
+  "Dar OP": "Grant OP",
+  "Operador": "Operator",
+  "Permisos guardados": "Permissions saved",
+  "Los comandos requieren el servidor iniciado. En Conocidos puedes preparar la lista blanca y los permisos OP por UUID.": "Commands require a running server. In Known players, you can prepare the whitelist and OP permissions by UUID.",
 }

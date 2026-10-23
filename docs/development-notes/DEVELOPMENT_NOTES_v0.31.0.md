@@ -1395,3 +1395,23 @@ case exercises edits, preserved bytes, stale expected permissions, invalid level
 missing/duplicate identity, malformed JSON and absent file. Focused native check
 passed; no broad engine run or native UI claim. Source is newer than installer
 0.37.0; no new installer or release was generated for this change.
+
+
+## Prepare known-player operator grants
+
+Added a stopped-server grant_operator IPC using access_lists and Minecraft's
+standard ops.json. It validates name/UUID, rejects nil identities and levels above
+4, preserves existing operators and original bytes, and returns added versus
+already present with the previous-file name. Same-name identities remain separate.
+Known-player rows offer an inline level/bypass review with confirmation. The local
+submission owner prevents repeated requests; read failures preserve acknowledgement.
+Existing operators show status, and running/stale/loading states block submission.
+English and Spanish strings and narrow-window CSS are included.
+
+The existing access-file case passed in 1.18 seconds after native compilation. It
+now exercises first grant, same-UUID no-op without overwritten permissions, a
+second same-name identity, original-byte copy, invalid inputs and corrupt JSON.
+Actual React ES/EN rendering checks cover the displayed UUID, level default, running
+state and existing-operator status. TypeScript and Windows Vite passed. No new
+retained test case or dependency. Native interaction and actual Minecraft access
+remain manual gates; no new installer or release was generated.

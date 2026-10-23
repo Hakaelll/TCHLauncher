@@ -231,6 +231,17 @@ only manual verification:
   stale/invalid input, duplicate, corrupt and absent-file coverage. No case or
   dependency was added. Native UI review remains pending; source follows 0.37.0.
 
+- **OP-GRANT-01 — REVIEW:** known-player rows now review operator grants by
+  selected UUID while stopped. Choose level and full-server bypass explicitly;
+  confirmation writes standard ops.json with the shared safety-copy writer.
+  Existing operator UUIDs are not overwritten, and same-name accounts stay separate.
+  Bounded file/identity validation and the stopped-server reservation apply to IPC.
+  The inline End-themed review retains acknowledgement across refresh failures,
+  blocks duplicate submissions and supports English/Spanish. The existing focused
+  native case and React rendering checks pass; no retained case or dependency was
+  added. Native interaction and actual client enforcement remain unverified.
+  Source is ahead of installer 0.37.0.
+
 ## Reported issues needing host evidence
 
 - Internet-only connection stalls without observed CPU/RAM spikes: capture host
