@@ -1056,3 +1056,22 @@ exact safety copies, corruption refusal, no-op behavior and missing-file creatio
 Source review caught and fixed cached-identity filtering in submission; the backend
 now receives all reviewed identities. Native IPC, actual client admission and
 visual/keyboard behavior remain open. Source remains ahead of installer 0.34.0.
+
+## Windows 0.35.0 package
+
+Version 0.35.0 now packages the source follow-ups since 0.34.0, including task and
+crash read recovery, Paper dimension families and publication recovery, existing
+server inspection and UUID-preserving whitelist imports. App/Cargo/config versions
+match. Ten native tests, five frontend tests, TypeScript and optimized Windows
+NSIS compilation passed; nine real-engine scenarios remain opt-in and were not
+rerun. Resource checks verify executable/installer version and exact logo pixels,
+plus all four legal resources in the NSIS script. The regenerated inventory has
+349 entries and 616 notice texts, with none missing and no dependency changes.
+
+The installer is 6,787,166 bytes; its checksum and verification limits are in
+[0.35.0 release notes](../release-notes/RELEASE_NOTES_v0.35.0.md). Package 0.34.0
+remains as fallback. Compiler-cache cleanup removed 3,962,938,326 bytes and obsolete
+0.33.0/debug artifacts another 18,806,610 bytes. Executable and retained installer
+hashes match before/after cleanup. Cleanup excluded application data, libraries,
+servers, worlds and downloaded runtimes. Native installation, UI and gameplay
+verification remain pending; this is an unsigned locally generated preview.
