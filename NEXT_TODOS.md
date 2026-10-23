@@ -179,6 +179,25 @@ only manual verification:
   absent UUIDs do not write files. The obsolete name-only removal command path is
   rejected. Existing whitelist filesystem coverage includes removal without adding
   a test case. Native row interaction and actual client access remain unverified.
+- **ACCESS-REMOVE-01 — REVIEW:** operator removal and player unbanning now submit
+  the selected UUID through the same stopped-server writer as whitelist removal.
+  A closed native list enum selects only whitelist/ops/banned-players JSON files.
+  Unrelated records and unknown fields survive, original bytes receive a safety
+  copy, and missing identities write nothing. Name-only deop/pardon UI routes are
+  retired; raw console commands remain available. Operator/banned rows display UUIDs.
+  Ten native checks, five frontend checks, TypeScript and Windows production Vite
+  pass with the retained case count unchanged. An isolated Vanilla 1.21.4 probe
+  confirmed that the three direct UUID commands did not remove the selected test
+  profile, so no live-command UUID shortcut is assumed. Native row interaction and
+  actual client permissions remain unverified. Source is ahead of installer 0.36.0.
+- **NOTIFY-01 — TODO:** unexpected crashes on another server and relevant background
+  task results need restrained actionable global notices, with server/task identity
+  and deduplication. Existing event handlers update state/task inventories but do
+  not notify the user outside the selected workflow. Original requirement 76.
+- **ACTION-RECOVERY-01 — TODO:** ordinary startup/runtime action errors still use
+  the generic dismissible string banner. Add a concrete recovery action and
+  expandable technical evidence for actionable failures; retain richer existing
+  crash-report diagnostics. Original requirement 49.
 
 ## Reported issues needing host evidence
 

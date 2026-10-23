@@ -1,5 +1,14 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Sin límite de jugadores": "Bypasses player limit",
+  "UUID de jugador no válido": "Invalid player UUID",
+  "{0} no contiene una lista válida: {1}": "{0} does not contain a valid list: {1}",
+  "{0} contiene una identidad incompleta: {1}": "{0} contains an incomplete identity: {1}",
+  "{0} contiene un UUID con nombres distintos": "{0} contains a UUID with conflicting names",
+  "{0} ha cambiado. Actualiza la lista antes de modificarla.": "{0} has changed. Refresh the list before modifying it.",
+  "Detén el servidor para retirar la entrada seleccionada por UUID sin afectar a otra cuenta con el mismo nombre.": "Stop the server to remove the selected entry by UUID without affecting another account with the same name.",
+  "Se quitó el UUID {0} de {1}. Copia anterior: {2}": "Removed UUID {0} from {1}. Previous copy: {2}",
+  "Ese UUID ya no está en {0}. No se modificaron archivos.": "That UUID is no longer in {0}. No files were changed.",
   "Detén el servidor para quitar una identidad por UUID sin afectar a otra cuenta con el mismo nombre.": "Stop the server to remove an identity by UUID without affecting another account with the same name.",
   "Se quitó el UUID {0}. Copia anterior: {1}": "Removed UUID {0}. Previous copy: {1}",
   "Ese UUID ya no está en la lista blanca. No se modificaron archivos.": "That UUID is no longer whitelisted. No files were changed.",

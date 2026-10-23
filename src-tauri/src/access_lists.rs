@@ -104,10 +104,20 @@ pub fn read_import(path: &Path) -> Result<Import, String> {
 #[serde(rename_all = "camelCase")]
 pub struct Removal { pub removed: bool, pub previous_file: Option<String> }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum List { Whitelist, Operators, BannedPlayers }
+
+impl List {
+    fn stem(self) -> &'static str {
+        match self { Self::Whitelist => "whitelist", Self::Operators => "ops", Self::BannedPlayers => "banned-players" }
+    }
+}
+
 /// Caller holds the stopped-server reservation until this operation finishes.
 pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
     let incoming = validate_identities(input)?;
-    let (added, previous_file) = update(server, |entries, existing| {
+    let (added, previous_file) = update(server, List::Whitelist, |entries, existing| {
         let mut added = 0;
         for player in incoming {
             let uuid = identity_uuid(&player)?;
@@ -123,11 +133,11 @@ pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
 }
 
 /// UUID selection avoids removing a different account with the same name.
-pub fn remove(server: &Server, uuid: &str) -> Result<Removal, String> {
-    let selected = Uuid::parse_str(uuid).map_err(|_| "UUID de lista blanca no válido")?;
-    if !selected.hyphenated().to_string().eq_ignore_ascii_case(uuid) { return Err("UUID de lista blanca no válido".into()); }
+pub fn remove(server: &Server, list: List, uuid: &str) -> Result<Removal, String> {
+    let selected = Uuid::parse_str(uuid).map_err(|_| "UUID de jugador no válido")?;
+    if !selected.hyphenated().to_string().eq_ignore_ascii_case(uuid) { return Err("UUID de jugador no válido".into()); }
     let canonical = selected.hyphenated().to_string();
-    let (removed, previous_file) = update(server, |entries, _| {
+    let (removed, previous_file) = update(server, list, |entries, _| {
         let before = entries.len();
         entries.retain(|entry| !entry["uuid"].as_str().is_some_and(|uuid| uuid.eq_ignore_ascii_case(&canonical)));
         Ok(before - entries.len())
@@ -135,20 +145,22 @@ pub fn remove(server: &Server, uuid: &str) -> Result<Removal, String> {
     Ok(Removal { removed: removed > 0, previous_file })
 }
 
-fn update(server: &Server, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut HashMap<Uuid, String>) -> Result<usize, String>) -> Result<(usize, Option<String>), String> {
+fn update(server: &Server, list: List, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut HashMap<Uuid, String>) -> Result<usize, String>) -> Result<(usize, Option<String>), String> {
     let directory = Path::new(&server.directory);
-    let path = directory.join("whitelist.json");
+    let stem = list.stem();
+    let filename = format!("{stem}.json");
+    let path = directory.join(&filename);
     let original = read_file(&path, 5_000_000)?;
     let mut entries: Vec<serde_json::Value> = match original.as_deref() {
-        Some(bytes) => serde_json::from_slice(bytes).map_err(|error| format!("whitelist.json no contiene una lista válida: {error}"))?,
+        Some(bytes) => serde_json::from_slice(bytes).map_err(|error| format!("{filename} no contiene una lista válida: {error}"))?,
         None => Vec::new(),
     };
     let mut existing = HashMap::new();
     for entry in &entries {
-        let player: Identity = serde_json::from_value(entry.clone()).map_err(|error| format!("whitelist.json contiene una identidad incompleta: {error}"))?;
+        let player: Identity = serde_json::from_value(entry.clone()).map_err(|error| format!("{filename} contiene una identidad incompleta: {error}"))?;
         let uuid = identity_uuid(&player)?;
         if let Some(name) = existing.insert(uuid, player.name.to_ascii_lowercase()) {
-            if name != player.name.to_ascii_lowercase() { return Err("whitelist.json contiene un UUID con nombres distintos".into()); }
+            if name != player.name.to_ascii_lowercase() { return Err(format!("{filename} contiene un UUID con nombres distintos")); }
         }
     }
     let changed = change(&mut entries, &mut existing)?;
@@ -156,8 +168,8 @@ fn update(server: &Server, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut
     let replacement = serde_json::to_vec_pretty(&entries).map_err(|error| error.to_string())?;
     if replacement.len() > 5_000_000 { return Err("La lista resultante supera el límite de 5 MB".into()); }
     let token = Uuid::new_v4();
-    let temporary = directory.join(format!("whitelist-{token}.part"));
-    let previous_file = original.as_ref().map(|_| format!("whitelist-before-{token}.json"));
+    let temporary = directory.join(format!("{stem}-{token}.part"));
+    let previous_file = original.as_ref().map(|_| format!("{stem}-before-{token}.json"));
     let result = (|| {
         let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&temporary).map_err(|error| error.to_string())?;
         file.write_all(&replacement).and_then(|_| file.sync_all()).map_err(|error| error.to_string())?;
@@ -166,7 +178,7 @@ fn update(server: &Server, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut
             let mut safety = fs::OpenOptions::new().write(true).create_new(true).open(directory.join(name)).map_err(|error| error.to_string())?;
             safety.write_all(bytes).and_then(|_| safety.sync_all()).map_err(|error| error.to_string())?;
         }
-        if read_file(&path, 5_000_000)? != original { return Err("whitelist.json ha cambiado. Actualiza la lista antes de modificarla.".into()); }
+        if read_file(&path, 5_000_000)? != original { return Err(format!("{filename} ha cambiado. Actualiza la lista antes de modificarla.")); }
         fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
         Ok((changed, previous_file))
     })();
@@ -249,26 +261,57 @@ mod tests {
         assert!(!fs::read_dir(&directory).unwrap().any(|entry| entry.unwrap().path().extension().is_some_and(|ext| ext == "part")));
         let same_name = format!(r#"[{{"name":"SameName","uuid":"{first}","keep":{{"permission":true}}}},{{"name":"SameName","uuid":"{second}"}},{{"name":"SameName","uuid":"{second}","duplicate":true}}]"#);
         fs::write(&target, &same_name).unwrap();
-        let removed = remove(&server, second).unwrap();
+        let removed = remove(&server, List::Whitelist, second).unwrap();
         assert!(removed.removed);
         assert_eq!(fs::read(directory.join(removed.previous_file.unwrap())).unwrap(), same_name.as_bytes());
         let remaining: Vec<serde_json::Value> = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
         assert_eq!(remaining, vec![serde_json::from_str::<Vec<serde_json::Value>>(&same_name).unwrap().remove(0)]);
         let count = fs::read_dir(&directory).unwrap().count();
         let unchanged = fs::read(&target).unwrap();
-        let absent = remove(&server, second).unwrap();
+        let absent = remove(&server, List::Whitelist, second).unwrap();
         assert!(!absent.removed && absent.previous_file.is_none());
         assert_eq!(fs::read(&target).unwrap(), unchanged);
         assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
-        assert!(remove(&server, "SameName").is_err());
+        assert!(remove(&server, List::Whitelist, "SameName").is_err());
         assert!(crate::players::command("whitelist_remove", Some("SameName"), None).is_err());
         fs::write(&target, b"[{broken JSON").unwrap();
-        assert!(remove(&server, first).is_err());
+        assert!(remove(&server, List::Whitelist, first).is_err());
         assert_eq!(fs::read(&target).unwrap(), b"[{broken JSON");
         assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
         fs::remove_file(&target).unwrap();
-        let absent = remove(&server, first).unwrap();
+        let absent = remove(&server, List::Whitelist, first).unwrap();
         assert!(!absent.removed && absent.previous_file.is_none());
         assert!(!target.exists());
+        assert!(serde_json::from_str::<List>(r#""../../server.properties""#).is_err());
+        for list in [List::Operators, List::BannedPlayers] {
+            let path = directory.join(format!("{}.json", list.stem()));
+            let original = format!(r#"[
+  {{"name":"SameName","uuid":"{first}","level":3,"bypassesPlayerLimit":true,"reason":"keep this reason","expires":"forever","custom":{{"keep":true}}}},
+  {{"name":"SameName","uuid":"{second}","level":4,"reason":"selected"}}
+]"#);
+            fs::write(&path, &original).unwrap();
+            fs::write(&target, &same_name).unwrap();
+            let removed = remove(&server, list, second).unwrap();
+            assert!(removed.removed);
+            assert_eq!(fs::read(directory.join(removed.previous_file.unwrap())).unwrap(), original.as_bytes());
+            let remaining: Vec<serde_json::Value> = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert_eq!(remaining, vec![serde_json::from_str::<Vec<serde_json::Value>>(&original).unwrap().remove(0)]);
+            assert_eq!(fs::read(&target).unwrap(), same_name.as_bytes());
+            let count = fs::read_dir(&directory).unwrap().count();
+            let unchanged = fs::read(&path).unwrap();
+            let absent = remove(&server, list, second).unwrap();
+            assert!(!absent.removed && absent.previous_file.is_none());
+            assert_eq!(fs::read(&path).unwrap(), unchanged);
+            assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
+            fs::write(&path, b"[broken JSON").unwrap();
+            assert!(remove(&server, list, first).is_err());
+            assert_eq!(fs::read(&path).unwrap(), b"[broken JSON");
+            assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
+            fs::remove_file(&path).unwrap();
+            let absent = remove(&server, list, first).unwrap();
+            assert!(!absent.removed && absent.previous_file.is_none());
+            assert!(!path.exists());
+        }
+        for legacy in ["deop", "pardon"] { assert!(crate::players::command(legacy, Some("SameName"), None).is_err()); }
     }
 }

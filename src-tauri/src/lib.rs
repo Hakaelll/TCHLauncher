@@ -43,7 +43,7 @@ mod natpmp;
 mod natpmp_manager;
 mod upnp;
 mod players;
-mod whitelist;
+mod access_lists;
 mod authentication;
 mod process;
 mod ticks;
@@ -606,10 +606,10 @@ fn manage_player(engine: State<'_, Engine>, id: String, action: String, target: 
 }
 
 #[tauri::command]
-async fn remove_whitelist_identity(engine: State<'_, Engine>, id: String, uuid: String) -> Result<whitelist::Removal, String> {
+async fn remove_access_identity(engine: State<'_, Engine>, id: String, list: access_lists::List, uuid: String) -> Result<access_lists::Removal, String> {
     let guard=engine.reserve_stopped(&id)?;
     let server=storage::get(&engine.root,&id)?;
-    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;whitelist::remove(&server,&uuid)}).await.map_err(|error|error.to_string())?
+    tauri::async_runtime::spawn_blocking(move||{let _guard=guard;access_lists::remove(&server,list,&uuid)}).await.map_err(|error|error.to_string())?
 }
 
 #[tauri::command]
@@ -620,17 +620,17 @@ async fn save_operator(engine:State<'_,Engine>,id:String,edit:players::OperatorE
 }
 
 #[tauri::command]
-async fn pick_whitelist_file() -> Result<Option<whitelist::Import>, String> {
+async fn pick_whitelist_file() -> Result<Option<access_lists::Import>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let Some(path) = rfd::FileDialog::new().add_filter("Lista de jugadores", &["txt", "json"]).pick_file() else { return Ok(None); };
-        whitelist::read_import(&path).map(Some)
+        access_lists::read_import(&path).map(Some)
     }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn import_whitelist(engine: State<'_, Engine>, id: String, selection: whitelist::Selection) -> Result<whitelist::Outcome, String> {
+async fn import_whitelist(engine: State<'_, Engine>, id: String, selection: access_lists::Selection) -> Result<access_lists::Outcome, String> {
     match selection {
-        whitelist::Selection::Names { names } => {
+        access_lists::Selection::Names { names } => {
             storage::get(&engine.root, &id)?;
             let names = players::validate_names(&names)?;
             let commands=names.iter().map(|name|players::command("whitelist_add",Some(name),None)).collect::<Result<Vec<_>,_>>()?;
@@ -639,13 +639,13 @@ async fn import_whitelist(engine: State<'_, Engine>, id: String, selection: whit
             let session=processes.session_token(&id).ok_or("El servidor no está en ejecución")?;
             tauri::async_runtime::spawn_blocking(move||{
                 let _guard=guard;
-                processes.send_batch(&id,&commands,&session).map(|submitted|whitelist::Outcome::Commands{submitted})
+                processes.send_batch(&id,&commands,&session).map(|submitted|access_lists::Outcome::Commands{submitted})
             }).await.map_err(|error|error.to_string())?
         }
-        whitelist::Selection::Identities { players } => {
+        access_lists::Selection::Identities { players } => {
             let guard=engine.reserve_stopped(&id)?;
             let server=storage::get(&engine.root,&id)?;
-            tauri::async_runtime::spawn_blocking(move||{let _guard=guard;whitelist::merge(&server,players)}).await.map_err(|error|error.to_string())?
+            tauri::async_runtime::spawn_blocking(move||{let _guard=guard;access_lists::merge(&server,players)}).await.map_err(|error|error.to_string())?
         }
     }
 }
@@ -1408,7 +1408,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,set_content_enabled,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,open_content_project,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,remove_whitelist_identity,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_server_settings,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
+        .invoke_handler(tauri::generate_handler![export_memory_report,check_server_response,save_operator,get_stop_backup,set_stop_backup,get_last_crash_report,get_crash_report,get_natpmp_status,detect_natpmp,open_natpmp,close_natpmp,request_tps,get_storage_usage,save_storage_warning,get_application_info,open_application_folder,update_minecraft,review_minecraft_update,review_loader_update,update_loader,get_os_autostart,set_os_autostart,get_startup_servers,set_startup_server,get_crash_restart,save_crash_restart,list_scheduled_tasks,add_scheduled_task,set_scheduled_task_enabled,remove_scheduled_task,get_backup_policy,save_backup_policy,preview_backup_retention,apply_backup_retention,install_modpack,pick_modpack,inspect_modpack,remove_content,set_content_enabled,plan_content_updates,content_icon,list_content,install_content,content_versions,content_availability,audit_content,installed_content_icon,search_content,open_content_project,plan_content,list_servers,set_server_pinned,get_versions,create_server,pick_import_folder,pick_server_image,set_server_image,clear_server_image,preview_delete_server,delete_server,inspect_import,import_server,install_server,cancel_install,get_installation_progress,prepare_runtime,get_runtime_info,get_jvm_settings,preview_jvm,save_jvm_settings,pick_custom_runtime,set_custom_runtime,get_player_head,get_server_cover,accept_eula,eula_accepted,eula_consent_recorded,start_server,stop_server,preview_force_stop,force_stop_server,restart_server,send_command,get_players,manage_player,remove_access_identity,pick_whitelist_file,import_whitelist,read_log,export_log,get_properties,save_properties,save_server_settings,save_memory,save_storage_target,create_backup,list_backups,restore_backup,list_worlds,pick_world_folder,import_world,duplicate_world,export_world,set_active_world,delete_world,open_world_folder,get_metrics,system_memory,get_network_status,get_public_ip,open_application_logs,get_router_status,detect_router,open_router_port,close_router_port,hide_window,stop_all_and_exit])
         .build(tauri::generate_context!())
         .expect("failed to build TCHLauncher")
         .run(|app,event| {

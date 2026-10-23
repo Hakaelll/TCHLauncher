@@ -1199,3 +1199,37 @@ installer hashes were unchanged. Server data, worlds, downloaded runtimes, app d
 and dependencies were excluded. Ignored proof files are `artifacts/package-0.36.json`
 and `artifacts/cleanup-0.36.json`. Native installation, UI and client/physical-router
 acceptance gates remain open; the full original goal is not complete.
+
+## Exact operator and ban removal
+
+The remaining operator and banned-player row actions still sent names, so accounts
+sharing a name could not be addressed individually. An isolated official Vanilla
+1.21.4 probe first checked direct UUID commands with both profiles in usercache.
+`deop UUID`, `pardon UUID` and `whitelist remove UUID` each reported that the player
+did not exist; all three JSON lists retained both profiles. The JAR matched the
+official manifest hash, Java reused the existing managed runtime, the recorded
+EULA was reused and the server bound only to loopback. Java exited cleanly. This
+is evidence for the tested version, not an assertion about every Minecraft build.
+
+The shared file writer now lives in `access_lists.rs`. Its closed deserialized
+list enum maps whitelist, operators and banned players to fixed standard filenames.
+Only whitelist import can merge entries; selected-row removal accepts the list and
+UUID. The existing stopped-server reservation, bounded validation, exact safety
+copy, changed-original check and single-file publication remain in place. The old
+whitelist-only IPC and name-based deop/pardon helper routes were removed after
+migrating callers. Other records, including operator levels, bypass flags, ban
+metadata and unknown fields, are preserved. Absent UUIDs remain no-ops.
+
+The UI displays operator/ban UUIDs, explains stopping beside the list and includes
+the list label in its retained acknowledgement. Adding permissions/bans and raw
+console commands remain available while running. Ten native checks, five frontend
+checks, TypeScript and Windows production Vite passed; the retained test count is
+unchanged. The combined filesystem case now also covers operator/ban name clashes,
+field and safety-copy preservation, no-op/corrupt/missing files and invalid list
+selectors. Focused source review found no required corrections. Native interaction
+and actual player admission/permissions remain open. Installer 0.36.0 is unchanged.
+
+The requirements 47–100 source audit also identified missing actionable background
+notices and structured recovery for ordinary action errors. These are recorded as
+NOTIFY-01 and ACTION-RECOVERY-01; existing crash reports and task inventories do not
+prove those requirements complete.

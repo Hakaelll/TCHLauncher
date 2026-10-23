@@ -34,6 +34,13 @@ reports that no file changed. Name-only removal must not replace this row action
 Retain the existing player-row materials, focus and reading styles. Native
 interaction and visual verification remain manual.
 
+Operator removal and player unbanning follow the same identity rule. Keep their
+UUID visible beside permission or ban details. Explain the stopped-server state
+near each relevant list and place the acknowledgement beside those controls,
+naming the list as well as the UUID and previous-copy filename. Group changes must
+not make the acknowledgement look like a change to a different list. Preserve
+existing row materials, head sprites, wrapped details and keyboard controls.
+
 ## Authority and use
 
 ### Operation and startup refinement
