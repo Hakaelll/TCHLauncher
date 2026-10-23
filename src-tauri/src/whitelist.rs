@@ -100,9 +100,42 @@ pub fn read_import(path: &Path) -> Result<Import, String> {
     })
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Removal { pub removed: bool, pub previous_file: Option<String> }
+
 /// Caller holds the stopped-server reservation until this operation finishes.
 pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
     let incoming = validate_identities(input)?;
+    let (added, previous_file) = update(server, |entries, existing| {
+        let mut added = 0;
+        for player in incoming {
+            let uuid = identity_uuid(&player)?;
+            if let std::collections::hash_map::Entry::Vacant(entry) = existing.entry(uuid) {
+                entry.insert(player.name.to_ascii_lowercase());
+                entries.push(serde_json::to_value(player).map_err(|error| error.to_string())?);
+                added += 1;
+            }
+        }
+        Ok(added)
+    })?;
+    Ok(Outcome::Saved { added, previous_file })
+}
+
+/// UUID selection avoids removing a different account with the same name.
+pub fn remove(server: &Server, uuid: &str) -> Result<Removal, String> {
+    let selected = Uuid::parse_str(uuid).map_err(|_| "UUID de lista blanca no válido")?;
+    if !selected.hyphenated().to_string().eq_ignore_ascii_case(uuid) { return Err("UUID de lista blanca no válido".into()); }
+    let canonical = selected.hyphenated().to_string();
+    let (removed, previous_file) = update(server, |entries, _| {
+        let before = entries.len();
+        entries.retain(|entry| !entry["uuid"].as_str().is_some_and(|uuid| uuid.eq_ignore_ascii_case(&canonical)));
+        Ok(before - entries.len())
+    })?;
+    Ok(Removal { removed: removed > 0, previous_file })
+}
+
+fn update(server: &Server, change: impl FnOnce(&mut Vec<serde_json::Value>, &mut HashMap<Uuid, String>) -> Result<usize, String>) -> Result<(usize, Option<String>), String> {
     let directory = Path::new(&server.directory);
     let path = directory.join("whitelist.json");
     let original = read_file(&path, 5_000_000)?;
@@ -118,16 +151,8 @@ pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
             if name != player.name.to_ascii_lowercase() { return Err("whitelist.json contiene un UUID con nombres distintos".into()); }
         }
     }
-    let mut added = 0;
-    for player in incoming {
-        let uuid = identity_uuid(&player)?;
-        if let std::collections::hash_map::Entry::Vacant(entry) = existing.entry(uuid) {
-            entry.insert(player.name.to_ascii_lowercase());
-            entries.push(serde_json::to_value(player).map_err(|error| error.to_string())?);
-            added += 1;
-        }
-    }
-    if added == 0 { return Ok(Outcome::Saved { added, previous_file: None }); }
+    let changed = change(&mut entries, &mut existing)?;
+    if changed == 0 { return Ok((0, None)); }
     let replacement = serde_json::to_vec_pretty(&entries).map_err(|error| error.to_string())?;
     if replacement.len() > 5_000_000 { return Err("La lista resultante supera el límite de 5 MB".into()); }
     let token = Uuid::new_v4();
@@ -141,9 +166,9 @@ pub fn merge(server: &Server, input: Vec<Identity>) -> Result<Outcome, String> {
             let mut safety = fs::OpenOptions::new().write(true).create_new(true).open(directory.join(name)).map_err(|error| error.to_string())?;
             safety.write_all(bytes).and_then(|_| safety.sync_all()).map_err(|error| error.to_string())?;
         }
-        if read_file(&path, 5_000_000)? != original { return Err("whitelist.json ha cambiado. Actualiza la lista antes de importar.".into()); }
+        if read_file(&path, 5_000_000)? != original { return Err("whitelist.json ha cambiado. Actualiza la lista antes de modificarla.".into()); }
         fs::rename(&temporary, &path).map_err(|error| error.to_string())?;
-        Ok(Outcome::Saved { added, previous_file })
+        Ok((changed, previous_file))
     })();
     if result.is_err() { let _ = fs::remove_file(&temporary); }
     result
@@ -222,5 +247,28 @@ mod tests {
         assert!(matches!(merge(&server, vec![Identity { name: "NewPlayer".into(), uuid: third.into() }]).unwrap(), Outcome::Saved { added: 1, previous_file: None }));
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(&target).unwrap()).unwrap()[0]["uuid"], third);
         assert!(!fs::read_dir(&directory).unwrap().any(|entry| entry.unwrap().path().extension().is_some_and(|ext| ext == "part")));
+        let same_name = format!(r#"[{{"name":"SameName","uuid":"{first}","keep":{{"permission":true}}}},{{"name":"SameName","uuid":"{second}"}},{{"name":"SameName","uuid":"{second}","duplicate":true}}]"#);
+        fs::write(&target, &same_name).unwrap();
+        let removed = remove(&server, second).unwrap();
+        assert!(removed.removed);
+        assert_eq!(fs::read(directory.join(removed.previous_file.unwrap())).unwrap(), same_name.as_bytes());
+        let remaining: Vec<serde_json::Value> = serde_json::from_slice(&fs::read(&target).unwrap()).unwrap();
+        assert_eq!(remaining, vec![serde_json::from_str::<Vec<serde_json::Value>>(&same_name).unwrap().remove(0)]);
+        let count = fs::read_dir(&directory).unwrap().count();
+        let unchanged = fs::read(&target).unwrap();
+        let absent = remove(&server, second).unwrap();
+        assert!(!absent.removed && absent.previous_file.is_none());
+        assert_eq!(fs::read(&target).unwrap(), unchanged);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
+        assert!(remove(&server, "SameName").is_err());
+        assert!(crate::players::command("whitelist_remove", Some("SameName"), None).is_err());
+        fs::write(&target, b"[{broken JSON").unwrap();
+        assert!(remove(&server, first).is_err());
+        assert_eq!(fs::read(&target).unwrap(), b"[{broken JSON");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), count);
+        fs::remove_file(&target).unwrap();
+        let absent = remove(&server, first).unwrap();
+        assert!(!absent.removed && absent.previous_file.is_none());
+        assert!(!target.exists());
     }
 }

@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'r
 import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
-import { api, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type WhitelistSelection, type WhitelistOutcome } from './api'
+import { api, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type WhitelistSelection, type WhitelistOutcome, type WhitelistRemoval } from './api'
 import {StartupProgress} from './StartupProgress'
 import {StorageMeter} from './StorageMeter'
 import {acceptStartupEvent,type StartupEvent} from './startupEvents'
@@ -336,6 +336,12 @@ function App() {
     return success?outcome:null
   }
 
+  const removeWhitelist=async(id:string,uuid:string):Promise<WhitelistRemoval|null>=>{
+    let outcome:WhitelistRemoval|null=null
+    const success=await act(async()=>{outcome=await api.removeWhitelistIdentity(id,uuid)})
+    return success?outcome:null
+  }
+
   const syncRestored=async(id:string)=>{
     const revision=(restoreSyncRevision.current[id]??0)+1;restoreSyncRevision.current[id]=revision
     setRestoreSync(current=>({...current,[id]:{loading:true,error:null}}))
@@ -485,7 +491,7 @@ function App() {
           {restoreSync[selected.id]&&<div className="restore-sync-notice"><p className={restoreSync[selected.id].error?'form-error':'field-help'} role={restoreSync[selected.id].error?'alert':'status'}>{restoreSync[selected.id].loading?t("Copia restaurada. Actualizando datos…"):restoreSync[selected.id].error}</p><button disabled={operationBusy||restoreSync[selected.id].loading} onClick={()=>void syncRestored(selected.id)}>{t("Actualizar datos")}</button></div>}
           {view === 'overview' && <Overview key={selected.id} server={selected} observedPhase={startupPhases[selected.id]?.phase} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} playersStale={!!playersError} logs={logs} backups={backups} backupsStatus={backupsError?t("No se pudieron actualizar las copias."):!backupsLoaded?t("Cargando copias…"):backupsLoading?t("Actualizando copias…"):null} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')} onSettings={()=>setView('settings')} onContent={()=>setView('content')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
-          {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} loading={playersLoading} readError={playersError} busy={busy} onRefresh={() => refreshPlayers(selected.id)} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={async () => { const success=await act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values) } });if(success&&selected.state!=='running')await refreshProperties(selected.id).catch(()=>{});return success }} onImportWhitelist={selection => importWhitelist(selected.id,selection)}/>}
+          {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} loading={playersLoading} readError={playersError} busy={busy} onRefresh={() => refreshPlayers(selected.id)} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={async () => { const success=await act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values) } });if(success&&selected.state!=='running')await refreshProperties(selected.id).catch(()=>{});return success }} onImportWhitelist={selection => importWhitelist(selected.id,selection)} onRemoveWhitelist={uuid => removeWhitelist(selected.id,uuid)}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={()=>refreshBackups(selected.id)}/>}
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }

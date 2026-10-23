@@ -172,6 +172,12 @@ only manual verification:
   filtering, dependencies, missing notes, escaped titles and English/Spanish labels;
   TypeScript, five frontend checks and Windows production Vite pass. Native toggle,
   keyboard and layout verification remain pending. Source is ahead of 0.35.0.
+- **WHITELIST-REMOVE-01 — REVIEW:** selected whitelist rows now remove the exact
+  UUID under a stopped-server reservation, preserving same-name accounts and
+  unrelated fields. The shared bounded file writer retains an original-byte copy;
+  absent UUIDs do not write files. The obsolete name-only removal command path is
+  rejected. Existing whitelist filesystem coverage includes removal without adding
+  a test case. Native row interaction and actual client access remain unverified.
 
 ## Reported issues needing host evidence
 

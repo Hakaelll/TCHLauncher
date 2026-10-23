@@ -24,6 +24,16 @@ submission for other engines. Original folders stay untouched, and the review
 asks users to stop the source server before copying. No additional modal, polling
 or animation is needed for this file review. Native visual checks remain manual.
 
+## Whitelist identity removal
+
+The whitelist row's remove action addresses its displayed UUID. Require a stopped
+server and show that requirement beside the list; disable rows without an identity
+or confirmed inventory. Keep the acknowledged UUID and safety-copy filename near
+the whitelist controls even if the following refresh fails. An already-absent UUID
+reports that no file changed. Name-only removal must not replace this row action.
+Retain the existing player-row materials, focus and reading styles. Native
+interaction and visual verification remain manual.
+
 ## Authority and use
 
 ### Operation and startup refinement

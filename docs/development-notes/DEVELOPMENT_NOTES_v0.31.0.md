@@ -1152,3 +1152,25 @@ gameplay verification. The source audit of original sections 32–46 found no fu
 missing production paths in those sections; their remaining native/host gates stay
 open. This follow-up is not included in installer 0.35.0.
 The final native compilation and all ten compact native checks also passed.
+
+## Remove the selected whitelist identity
+
+The focused source audit found a remaining mismatch: same-name accounts could be
+imported with distinct UUIDs, but both row buttons sent the same name-only removal
+command. Rows now submit their displayed UUID through a registered stopped-server
+command. A shared bounded writer handles merge and removal, preserving unrelated
+JSON objects and unknown fields, syncing an original-byte safety copy and checking
+the original again before a single adjacent-file replacement. Missing UUIDs are
+no-ops; corrupt or invalid lists are not rewritten. Duplicate records for the
+selected UUID are removed together. The legacy name-only removal action is gone.
+
+The UI explains stopping beside the whitelist, disables unconfirmed/UUID-less
+rows and retains the acknowledged UUID/safety filename near the list after refresh
+failure. A local owner suppresses unmounted feedback and duplicate submissions;
+the native reservation owns the mutation through completion. The existing combined
+whitelist check now covers same-name separation, duplicate records, preserved
+objects, original-byte copies, invalid input, corruption and absent-file no-ops.
+The retained test count remains 24. Ten native checks, five frontend checks and
+TypeScript pass; focused source review found no required corrections. Native row
+interaction and actual permission enforcement remain open. This fix is being
+included in the 0.36.0 package before delivery.

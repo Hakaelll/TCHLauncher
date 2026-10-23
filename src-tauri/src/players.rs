@@ -126,14 +126,13 @@ pub fn command(action: &str, target: Option<&str>, reason: Option<&str>) -> Resu
         return Ok(format!("whitelist {}", if action == "whitelist_on" { "on" } else { "off" }));
     }
     let target = target.ok_or("Introduce un jugador o una dirección IP")?.trim();
-    let player_action = matches!(action, "whitelist_add" | "whitelist_remove" | "op" | "deop" | "ban" | "pardon" | "kick");
+    let player_action = matches!(action, "whitelist_add" | "op" | "deop" | "ban" | "pardon" | "kick");
     let ip_action = matches!(action, "ban_ip" | "pardon_ip");
     if player_action && !valid_player(target) { return Err("El nombre debe tener entre 3 y 16 letras, números o guiones bajos".into()); }
     if ip_action && target.parse::<IpAddr>().is_err() { return Err("Introduce una dirección IPv4 o IPv6 válida".into()); }
     if !player_action && !ip_action { return Err("Acción de jugador no válida".into()); }
     let base = match action {
         "whitelist_add" => format!("whitelist add {target}"),
-        "whitelist_remove" => format!("whitelist remove {target}"),
         "op" => format!("op {target}"),
         "deop" => format!("deop {target}"),
         "ban" => format!("ban {target}"),

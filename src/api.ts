@@ -55,6 +55,7 @@ export type PlayersSnapshot = { online: string[]; known: KnownPlayer[]; whitelis
 export type WhitelistSelection = {kind:'names';names:string[]} | {kind:'identities';players:{name:string;uuid:string}[]}
 export type WhitelistImport = WhitelistSelection & {fileName:string}
 export type WhitelistOutcome = {mode:'commands';submitted:number} | {mode:'saved';added:number;previousFile:string|null}
+export type WhitelistRemoval = {removed:boolean;previousFile:string|null}
 export type CreateInput = { seed?:string; name: string; version: string; platform: 'vanilla' | 'paper' | 'fabric' | 'neoforge'; memoryMinMb: number; memoryMaxMb: number; maxPlayers: number; port: number; storageTargetGb: number; imagePath?: string | null }
 export type ImportInspection = {
   path: string; suggestedName: string; jarFiles: string[]; detectedVersion: string | null
@@ -184,6 +185,7 @@ export const api = {
   managePlayer: (id: string, action: string, target?: string, reason?: string) => invoke<void>('manage_player', { id, action, target: target || null, reason: reason || null }),
   pickWhitelistFile: () => invoke<WhitelistImport | null>('pick_whitelist_file'),
   importWhitelist: (id:string,selection:WhitelistSelection) => invoke<WhitelistOutcome>('import_whitelist', {id,selection}),
+  removeWhitelistIdentity: (id:string,uuid:string) => invoke<WhitelistRemoval>('remove_whitelist_identity', {id,uuid}),
   log: (id: string) => invoke<LogLine[]>('read_log', { id }),
   exportMemoryReport: (id: string) => invoke<string | null>('export_memory_report', { id }),
   exportLog: (id: string) => invoke<string | null>('export_log', { id }),

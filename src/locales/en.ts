@@ -1,5 +1,10 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Detén el servidor para quitar una identidad por UUID sin afectar a otra cuenta con el mismo nombre.": "Stop the server to remove an identity by UUID without affecting another account with the same name.",
+  "Se quitó el UUID {0}. Copia anterior: {1}": "Removed UUID {0}. Previous copy: {1}",
+  "Ese UUID ya no está en la lista blanca. No se modificaron archivos.": "That UUID is no longer whitelisted. No files were changed.",
+  "UUID de lista blanca no válido": "Invalid whitelist UUID",
+  "whitelist.json ha cambiado. Actualiza la lista antes de modificarla.": "whitelist.json has changed. Refresh the list before modifying it.",
   "Carpetas que se copiarán": "Folders to copy",
   "Detén el servidor de origen antes de copiar. Las carpetas originales se conservan.": "Stop the source server before copying. The original folders are preserved.",
   "Este mundo tiene dimensiones separadas de Paper. Elige un servidor Paper; no se convierten automáticamente a otros tipos": "This world has separate Paper dimensions. Choose a Paper server; dimensions are not automatically converted to other server types",
