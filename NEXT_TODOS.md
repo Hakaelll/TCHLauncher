@@ -13,6 +13,16 @@ remain deferred.
 
 - The maintainer reports that Windows preview 0.38.0 works well. Individual scenario
   steps and results were not supplied.
+- Installed 0.37.0 silently in an isolated directory, upgraded it to 0.38.0 and
+  uninstalled it successfully. Upgrade preserved the initialized database and a
+  marker; uninstall preserved the populated test library. Original installation,
+  database, WebView data and registry were restored after the probe.
+- The installed 0.38.0 executed its Windows Run command with `--autostart`, started
+  a selected real Vanilla 1.20.4 server and completed scheduled backup/restart,
+  stop and stopped-server backup. Both sessions reached Minecraft readiness;
+  both backup directories contained world/level.dat. Preferences/tasks were
+  seeded directly in the isolated database, so their UI/IPC and an actual Windows
+  login remain untested. No desktop interaction is claimed.
 - Real isolated Minecraft 1.21.4 lifecycles passed for Vanilla, Paper, Fabric with
   Lithium and NeoForge: managed Java/install, three ready/status/command/clean-stop
   sessions, backup/restore and restored boot. Restore checks level.dat bytes.
@@ -76,7 +86,7 @@ scenarios. Detailed observations remain in
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
 | NET-02 | REVIEW | Internet and router mapping | UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback implemented. Verify a physical router, shutdown cleanup, CGNAT feedback and real external clients. |
-| TASK-01 | REVIEW | Local scheduling and autostart | Persistent tasks, reservation/recovery and explicit OS/session preferences connected. Verify a real login and scheduled Java backup/restart/stop. |
+| TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. The temporary Run entry was restored. Verify preference/task UI/IPC and an actual Windows login. |
 | UX-01 | TODO | Native desktop QA | Review 1280×720, 1366×768 and 1920×1080; keyboard, screen reader, themes, reading font and reduced motion. No native UI automation is claimed. |
 | UX-TASKS-01 | REVIEW | Background operations | Measured task events and reconciliation connected. Verify native popover, navigation, cancellation and partial/error outcomes. |
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Verify actual transitions, interruption and focus stability. |
@@ -87,8 +97,8 @@ scenarios. Detailed observations remain in
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
-| REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.38.0 NSIS x64 generated with verified version and local checksum. Focused access-file checks, TypeScript and Windows frontend builds passed; dependencies and bundled legal resources are unchanged. Earlier world-publication process-kill and controlled Fabric mrpack evidence is recorded in the release notes. Broad engine checks were not repeated for packaging. Native install/upgrade and usage gates remain open. |
+| REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Verify interactive installer choices, OS login and broader production usage. Linux is deferred; unsigned Windows builds are previews. |
+| REL-02 | REVIEW | Current installer | 0.38.0 NSIS x64 passed isolated upgrade/uninstall and real scheduled Vanilla actions. Version/local checksum, focused access-file checks, TypeScript and Windows frontend builds were verified for packaging; dependencies and legal resources are unchanged. Interactive UI and broader usage gates remain open. |
 
 ## Implemented scope from earlier audits
 
@@ -111,8 +121,10 @@ the requested download checksum. These are not yet in installer 0.38.0.
    interaction evidence.
 2. Review keyboard/focus, resizing, readable text, theme and reduced-motion states
    at the three target desktop sizes. Native UI automation is excluded by design.
-3. Exercise close/cancel/background tray, scheduled actions and an actual OS login.
-4. Check clean install, upgrade and uninstall against preserved application data.
+3. Exercise close/cancel/background tray, scheduling/preferences UI and an actual
+   OS login. Real installed-app scheduled actions passed without UI interaction.
+4. Review interactive installation choices. Silent clean install, upgrade and
+   uninstall passed against isolated data; the original environment was restored.
 5. Check real LAN/Internet clients and account/skin identity on the affected host.
    Where router mapping is supported, verify temporary lease cleanup. Where it is
    unavailable, verify the manual fallback and accurate unsupported-state feedback.

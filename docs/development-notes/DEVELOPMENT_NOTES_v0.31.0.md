@@ -1511,3 +1511,46 @@ absent after the run. Log: artifacts/lifecycle/neoforge-1.20.1.log. The scenario
 passed in 174.89 seconds; this is a functional result, not a performance benchmark.
 No case, dependency or production change was added. Other engines, native selector
 scrolling, additional mods and actual Minecraft client play were not tested here.
+
+## Installed Windows acceptance, 2026-10-23
+
+The maintainer asked for direct testing, then excluded Computer Use. The checks
+below used installed executables, subprocesses, SQLite and saved files. They did
+not operate the desktop UI or replace tray/keyboard acceptance.
+
+The original Roaming and Local application folders were preserved by renaming
+them. The two installation registry keys were exported before testing. No existing
+server process was active. The original Downloads installation was left intact.
+
+- The published 0.37.0 NSIS installer completed a silent clean installation in
+  artifacts/native-acceptance/install with /NS to avoid replacing shortcuts.
+- The published 0.38.0 installer upgraded that installation. Both executable and
+  registered versions were correct. The initialized database hash and marker file
+  were unchanged. This upgrade database did not yet contain a test server.
+- A temporary fixture registered Vanilla 1.20.4 with an official SHA-1-verified
+  server JAR, existing Temurin 17 and previously recorded EULA consent. It bound
+  only 127.0.0.1. Startup selection and one-shot tasks were seeded in SQLite.
+- The installed 0.38.0 executed the temporary Run command with --autostart. Java
+  created the world and reached Done. The scheduled backup_restart saved a copy,
+  stopped Java cleanly and requested a new process, which also reached Done.
+  Scheduled stop reported Servidor detenido; a stopped-server backup then reported
+  Copia guardada. Both backup directories contained world/level.dat and nonzero
+  recorded sizes. No Minecraft client joined.
+- The initial fixture had incorrectly placed its JAR outside the server folder.
+  Backup rejected it and requested the server's restart. The fixture was corrected
+  before the successful run. This was a test setup error, not a production fix.
+- The 0.38.0 uninstaller exited successfully, removed its test executable and
+  uninstall registration, and preserved the database and marker. Application
+  processes were terminated only after the scheduler stopped Java in the passing
+  run; this does not verify the application's graceful tray-exit handler.
+- The temporary Run entry was restored in a finally block. Original application
+  folders and registry entries were restored. Original database/executable hashes
+  matched, the registered Downloads installation was again 0.38.0, and no test
+  TCHLauncher or Java process remained.
+
+Local evidence is under artifacts/native-acceptance: clean-install.json,
+upgrade.json, execution.json, minecraft-launcher.log, uninstall.json and
+restoration.json. The temporary probe is ignored and adds no retained test,
+dependency, production change or release. Large generated fixtures are removed
+after evidence capture. Interactive installation, preference/task UI and IPC,
+actual Windows logout/login, and close/cancel/background tray remain unverified.
