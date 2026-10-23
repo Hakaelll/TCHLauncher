@@ -1174,3 +1174,28 @@ The retained test count remains 24. Ten native checks, five frontend checks and
 TypeScript pass; focused source review found no required corrections. Native row
 interaction and actual permission enforcement remain open. This fix is being
 included in the 0.36.0 package before delivery.
+
+## Windows 0.36.0 package
+
+Package 0.36.0 includes per-project release notes, reviewed external Paper
+dimension families and the exact-UUID whitelist removal found during the final
+source audit. Package/Cargo/config versions match. Ten native checks, five frontend
+checks and TypeScript passed before the final optimized NSIS build. The first full
+native release build took 6m 47s after cache cleanup; the rebuild including the
+whitelist fix took 2m 00s. The initial package was superseded before delivery.
+
+The final installer is 6,812,804 bytes; the executable is 24,442,880 bytes. Both
+report 0.36.0 and have verified expected icon pixels. All four staged legal files
+match their source hashes and appear in the generated NSIS script. Regenerating
+the legal inventory left 349 entries and 616 notice texts, none missing, without
+dependency changes. Package SHA-256 and acceptance limits are in the foldered
+0.36.0 release notes. The artifact was generated locally, not installed or published.
+
+After artifact verification, cleanup removed 3,980,120,461 bytes of regenerable
+compiler/debug files and the obsolete 0.34.0 installer/checksum. Checked literal
+paths stayed inside the workspace, contained no redirected directories and were
+removed only after builds ended. The current executable and retained 0.35.0/0.36.0
+installer hashes were unchanged. Server data, worlds, downloaded runtimes, app data
+and dependencies were excluded. Ignored proof files are `artifacts/package-0.36.json`
+and `artifacts/cleanup-0.36.json`. Native installation, UI and client/physical-router
+acceptance gates remain open; the full original goal is not complete.
