@@ -1,86 +1,52 @@
-# TCHLauncher — current roadmap
+# TCHLauncher: remaining acceptance work
 
 Windows is the active platform. The full original manager objective remains open.
-`REVIEW` means implemented with evidence recorded, but the complete native/user
-flow is not yet verified. `TODO` identifies an outstanding gate; `DEFERRED` follows
-an explicit user instruction. These labels do not imply feature completion.
+`REVIEW` means implemented with recorded evidence, with the complete native/user
+flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
+follows an explicit maintainer instruction. These labels do not mean completion.
 
-## Current evidence
+Current source is newer than the published 0.38.0 Windows preview. GitHub releases
+attach only the installer; checksum files remain local. Linux and client launching
+remain deferred.
 
-- Maintainer feedback on Windows preview 0.38.0: the application works well.
-  Individual scenario steps and results were not supplied.
+## Evidence already available
 
-- Vanilla, Paper, Fabric with Lithium and NeoForge each passed a real isolated
-  Minecraft 1.21.4 lifecycle: managed Java/install, three ready/status/command/
-  graceful-stop sessions, tracked backup/restore and restored boot. Restore checks
-  level.dat bytes; this is not a full Minecraft client gameplay test.
-- Historical NeoForge 1.20.1-47.1.106 also passed a real Minecraft 1.20.1
-  lifecycle with managed Temurin 17: three ready/status/command/graceful-stop
-  sessions, tracked backup/restore, exact level.dat and MOTD restoration and a
-  restored-world boot. The existing scenario was parameterized, not duplicated.
-  Temporary data was removed. This covers the engine route, not native selector
-  scrolling, additional mods or a Minecraft client session.
-- Two real Vanilla instances also passed simultaneous ready states, distinct
-  PIDs/ports/directories, isolated commands/logs and independent graceful stops.
-- Vanilla 1.21.4 to 1.21.5 also passed a generated-world conversion and rollback:
-  all 20 original world-file hashes and JAR bytes restored, converted safety copy
-  preserved, managed Java reverified and three real ready/command/clean-stop sessions.
-- Fabric/Lithium world-plus-content ZIP also passes a real second-instance import
-  and boot: 23 manifest hashes verified, all 20 world files equal before boot and
-  the source unchanged. This follows the archive's manual content-copy instructions,
-  not an automatic combined-archive importer or native UI/client test.
-- Paper with managed Chunky also passed three real plugin enablements and
-  restored plugin JAR equality. This covers one plugin, not all plugin behavior.
-- Paper 1.21.4 also passes a populated three-dimension folder export/import into
-  a second instance: all 45 world-file hashes equal before boot, distinct blocks
-  verified through Minecraft commands in Overworld/Nether/End after boot, source
-  and exported files unchanged, and no replacement default world generated.
-  The existing Paper scenario now checks this without increasing the test count.
-- Source includes deferred server workflows/settings/console/backups, improved
-  operation/plot/catalog/history presentation and shared validation. Latest checks:
-  Five retained frontend tests, TypeScript and Windows production Vite passed.
-  Content reviews now publish their plan, kind and version catalog together;
-  failed replacement retains the previous complete review and obsolete replies
-  cannot replace it. These are frontend contract checks, not native modal QA.
-  Minecraft upgrades retain native warnings and expose failed metadata refresh
-  separately, with a read-only retry and blocked replanning until recovery.
-  Scheduled tasks now use the shared newest-read owner: failed reads retain
-  labeled unconfirmed rows and block changes until a successful retry.
-  Current and historical crash reports offer read-only recovery; nullable report
-  envelopes distinguish unread/failed observation from a confirmed absent report.
-  Latest native gate: ten passed, nine real Minecraft integrations ignored.
-  The compact suite has 24 cases overall, including import and permission-boundary
-  checks; it remains approximately 94.3% smaller than the original 422-case suite.
-  Retained cases prioritize recovery, data integrity and real engine scenarios;
-  retired low-level checks no longer provide current regression coverage.
-  Paper family checks cover distinct copied/exported dimension bytes, source
-  equality, interrupted publication, conflicts and ownership changes.
-- Ctrl+F selects a rendered eligible search; Players participates. Modrinth pauses
-  scheduling when hidden and preserves completed page/compatibility evidence.
-  Installed icon reads now pause when hidden and resume uncached files; inventory
-  sorting and catalog lookups no longer repeat per icon/result. Installed files
-  now render and read icons in pages of 24, with complete inventory search/counts.
-- LAN/router UI reads now share visibility scheduling: paused when hidden and
-  serialized while visible. Native lease maintenance remains independent; physical
-  router and actual Internet-play checks are still open.
-- Console rows retain identities at the 1,000-line limit and skip unchanged row
-  rendering; clock/log formatting is shared. Source/build checks cover identity
-  and locale behavior; native frame-time/RAM measurements remain pending.
-- Removed obsolete interface CSS and exact duplicate rules: Windows initial CSS
-  is 218.04 kB (35.66 kB gzip), down from 225.09 kB. Native comparison remains open.
-  Native keyboard and browsing behavior still require review.
-- Development compiler caches were removed: workspace logical size fell from
-  65.238 GiB to 297.9 MiB; installers/executable hashes unchanged. Dev/test symbols
-  and incremental caches are disabled; release profile remains unchanged.
-- Current packaged preview is 0.38.0, including reviewed known-player OP grants,
-  access-read guards, contextual task failures and command-palette folder/restart actions. See
-  [source evidence](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md)
-  and [release history](docs/release-notes/README.md).
+- The maintainer reports that Windows preview 0.38.0 works well. Individual scenario
+  steps and results were not supplied.
+- Real isolated Minecraft 1.21.4 lifecycles passed for Vanilla, Paper, Fabric with
+  Lithium and NeoForge: managed Java/install, three ready/status/command/clean-stop
+  sessions, backup/restore and restored boot. Restore checks level.dat bytes.
+- Historical NeoForge 1.20.1-47.1.106 also passed with managed Temurin 17, three
+  sessions, level.dat/MOTD restoration and restored boot. Its temporary library
+  was removed. This does not cover native selector scrolling or additional mods.
+- Two Vanilla instances passed simultaneous independent PIDs, ports, commands and
+  stops. Vanilla 1.21.4 to 1.21.5 conversion/rollback restored 20 original world-file
+  hashes and the JAR; this is separate from Minecraft client gameplay.
+- Real Fabric world/content archive import checked 23 manifest hashes, unchanged
+  source files and a second-instance boot. A controlled Fabric/Lithium `.mrpack`
+  additionally checked exact loader, optional/client exclusions, overrides,
+  protected settings, receipt/hashes and a real target session.
+- Paper's populated three-dimension export/import checked 45 world-file hashes
+  before boot and three distinct saved blocks through Minecraft commands after
+  boot. Paper/Chunky also passed real plugin enablement and restored JAR equality.
+- World-publication recovery passed eight real child-process kills at durable
+  publication/cleanup boundaries with exact synthetic dimension bytes, repeated
+  recovery and fixture removal. Power loss and pre-journal death remain unproven.
+- The compact retained suite has 24 cases: five frontend read/recovery checks,
+  ten native safety/recovery checks and nine opt-in real Minecraft scenarios.
+  Most former tests were removed at the maintainer's request. Old test counts
+  do not describe current regression coverage.
+- Recent focused checks cover shared access-file writes, UUID-selected OP grants,
+  task error/attempt reporting, NeoForge catalog interpretation and streamed
+  SHA-1/SHA-256/SHA-512 transfers. Frontend production builds and relevant ES/EN
+  React checks passed where recorded. No throughput/RAM improvement is claimed.
 
-GitHub releases attach only the Windows installer, as requested. Keep checksum
-files local; the digest may remain in the release notes.
+[Architecture](ARCHITECTURE.md) describes current owners and safeguards.
+[Integration setup](src-tauri/tests/fixtures/README.md) identifies retained engine
+scenarios. Detailed observations remain in
+[development notes](docs/development-notes/DEVELOPMENT_NOTES_v0.31.0.md).
 
-## Remaining work and acceptance evidence
+## Remaining acceptance by area
 
 | ID | Status | Area | Remaining acceptance evidence |
 | --- | --- | --- | --- |
@@ -124,158 +90,35 @@ files local; the digest may remain in the release notes.
 | REL-01 | TODO | Windows distribution | Verify clean install, upgrade/uninstall, OS login and production usage. Linux is deferred; unsigned Windows builds are previews. |
 | REL-02 | REVIEW | Current installer | 0.38.0 NSIS x64 generated with verified version and local checksum. Focused access-file checks, TypeScript and Windows frontend builds passed; dependencies and bundled legal resources are unchanged. Earlier world-publication process-kill and controlled Fabric mrpack evidence is recorded in the release notes. Broad engine checks were not repeated for packaging. Native install/upgrade and usage gates remain open. |
 
-## Implementation gaps from the current scope audit
+## Implemented scope from earlier audits
 
-The source audit at `ad4528d` identified missing paths beyond the native QA gates
-listed above. These remain required work, rather than implemented features awaiting
-only manual verification:
+The former implementation-gap entries now have source implementations and recorded
+checks. Their remaining native/client boundaries are represented in the table
+above. Keep these IDs for tracing history rather than treating their implementation
+notes as new tasks:
 
-- **WORLD-PAPER-01 — REVIEW:** Paper's overworld and separate Nether/End folders
-  share discovery across listing, duplicate, folder/ZIP export, activation and
-  deletion. Retained duplicate/export checks compare all dimension bytes and
-  unchanged source hashes. A real Paper restart now also verifies three distinct
-  saved blocks after family import. Native UI/client gameplay remain unverified;
-  older broader unit checks were retired.
-- **WORLD-PAPER-RECOVERY-01 — REVIEW:** trusted SQLite plans, ownership markers
-  and streamed fingerprints recover interruptions between dimension renames.
-  Startup attempts all plans; unavailable external destinations remain pending
-  without blocking unrelated servers. Internal pending copies block mutations
-  until recovery at application restart; background startup also recovers them.
-  Recovery never deletes visible world folders, and preserves modified files or
-  conflicting destinations for review. Retained checks exercise every durable
-  publication/cleanup boundary through unwinding and real Windows child-process
-  termination. Eight killed publication processes retain their durable plans;
-  recovery verifies all three dimension bytes, removes stages/ownership markers,
-  clears the journal and repeats without further changes. Test fixtures are
-  removed. This uses synthetic family data and the native publication code, not
-  a production app crash or power loss. A process killed before
-  the durable plan exists may leave hidden staging folders; pre-journal ordinary
-  failures clean their stages. Native recovery presentation remains unverified.
-- **IMPORT-PREVIEW-01 — REVIEW:** existing-server selection now previews valid world
-  folders, mod/plugin filenames, safe gameplay/access settings and permission-file
-  counts. Incomplete/unreadable inventory is labeled; private permission records
-  and arbitrary configuration values are not displayed. Category lists render
-  24 entries per page and the preview supports English/Spanish. Inspection limits
-  file reads, directory entries, world validations and warning count. Inventory
-  runs only for the preview, not internal copy or legacy-backup revalidation.
-  One combined filesystem check covers cross-layer output, unchanged source
-  bytes, invalid files, private-value exclusion, Windows folder casing and limits.
-  Native selection/review/copy/manage presentation remains unverified.
-- **WORLD-PAPER-IMPORT-01 — REVIEW:** external world selection detects adjacent
-  Paper Nether/End folders, previews each source/destination and reports total size.
-  Creation and World Manager submit the reviewed dimensions; native import rereads
-  that family and rejects changed dimensions, dimension-only selection, unsafe
-  folders, occupied destinations and non-Paper targets for split worlds. Imports
-  reuse staged family copying and trusted SQLite publication recovery. Original
-  folders remain unchanged; users must stop the external source server first.
-  Retained filesystem and React preview checks cover the new boundary; the real
-  Paper check also verifies imported dimension hashes and three saved blocks after
-  boot. Native picker/keyboard/layout and client gameplay remain unverified. No automatic
-  conversion between Paper's split folders and other engines is claimed.
-- **PLAYER-OFFLINE-01 — REVIEW:** standard whitelist JSON preserves explicit UUIDs
-  and merges against the current file under a stopped-server reservation. Existing
-  objects and unknown fields survive; same-name/different-UUID accounts stay
-  separate. A synced original-byte safety copy precedes a single adjacent-file
-  rename. Corrupt lists are preserved; no-op imports write nothing. TXT files use
-  the running session's command path so Minecraft resolves names, with no name-only
-  exclusion against cached identities. JSON requires stopping to avoid concurrent
-  Minecraft file writes. Review shows UUIDs/heads, prospective counts and exact
-  saved-versus-submitted results. One combined filesystem check passes; native
-  selection/review and actual Minecraft permission enforcement remain unverified.
-- **MOD-CHANGELOG-01 — REVIEW:** update review exposes notes for every changed
-  project, including required dependencies, and labels missing author notes.
-  Single-project review retains notes for all planned entries. Native disclosures
-  mount plain-text notes only while open. React server-render checks cover bulk
-  filtering, dependencies, missing notes, escaped titles and English/Spanish labels;
-  TypeScript, five frontend checks and Windows production Vite pass. Native toggle,
-  keyboard and layout verification remain pending. Included in installer 0.36.0.
-- **WHITELIST-REMOVE-01 — REVIEW:** selected whitelist rows now remove the exact
-  UUID under a stopped-server reservation, preserving same-name accounts and
-  unrelated fields. The shared bounded file writer retains an original-byte copy;
-  absent UUIDs do not write files. The obsolete name-only removal command path is
-  rejected. Existing whitelist filesystem coverage includes removal without adding
-  a test case. Native row interaction and actual client access remain unverified.
-- **ACCESS-REMOVE-01 — REVIEW:** operator removal and player unbanning now submit
-  the selected UUID through the same stopped-server writer as whitelist removal.
-  A closed native list enum selects only whitelist/ops/banned-players JSON files.
-  Unrelated records and unknown fields survive, original bytes receive a safety
-  copy, and missing identities write nothing. Name-only deop/pardon UI routes are
-  retired; raw console commands remain available. Operator/banned rows display UUIDs.
-  Ten native checks, five frontend checks, TypeScript and Windows production Vite
-  pass with the retained case count unchanged. An isolated Vanilla 1.21.4 probe
-  confirmed that the three direct UUID commands did not remove the selected test
-  profile, so no live-command UUID shortcut is assumed. Native row interaction and
-  actual client permissions remain unverified. Included in installer 0.37.0.
-- **NOTIFY-01 — REVIEW:** in-app notices identify unexpected server crashes and
-  failed tasks, plus successful tasks completed outside their visible workflow.
-  Open the console or the task's section directly. Terminal task IDs and crash
-  transitions suppress duplicates; initial snapshots do not replay past outcomes.
-  Keep eight dismissible notices and bounded session observations. Existing task
-  inventory and crash state remain available after dismissal. One-off observer
-  checks and actual React ES/EN rendering pass; five retained frontend checks,
-  TypeScript and Windows Vite pass. Native delivery, keyboard and layout remain
-  manual checks. No operating-system notification or new dependency was added.
-  Original requirement 76; included in installer 0.37.0.
-- **ACTION-RECOVERY-01 — REVIEW:** ordinary Start/Restart failures now retain the
-  requested server identity, the original reason, operation-specific review advice,
-  Settings/Console navigation and expandable raw technical evidence. Runtime
-  preparation failures before a task owns the error use the same presentation;
-  failed runtime tasks retain their existing retry controls with runtime review
-  advice and task-identifying technical details. Navigation never retries a
-  mutation. Removed-server actions are disabled, and refresh failure after runtime
-  work cannot overwrite an existing error. Existing generic, update and crash
-  diagnostics remain distinct; no error-string heuristic claims a root cause.
-  One-off actual React checks cover both languages, routes, context, escaping,
-  closed disclosures and unavailable servers. Five frontend cases, TypeScript and
-  Windows Vite pass. Native interaction/layout and real failure delivery remain
-  manual gates. Original requirement 49; included in installer 0.37.0.
+`WORLD-PAPER-01`, `WORLD-PAPER-RECOVERY-01`, `IMPORT-PREVIEW-01`, `WORLD-PAPER-IMPORT-01`, `PLAYER-OFFLINE-01`, `MOD-CHANGELOG-01`, `WHITELIST-REMOVE-01`, `ACCESS-REMOVE-01`, `NOTIFY-01`, `ACTION-RECOVERY-01`, `ACCESS-WRITER-01`, `OP-GRANT-01`, `PLAYER-ACTIONS-01`, `TASK-ERROR-01`, `GENERAL-ERROR-01`.
 
+The current source additionally includes general action-error guidance/log access,
+one NeoForge release parser for discovery and selection, and computation of only
+the requested download checksum. These are not yet in installer 0.38.0.
 
-- **ACCESS-WRITER-01 — REVIEW:** operator permission edits now use the shared
-  bounded access-file writer, removing their separate persistence path. The same
-  regular-file/reparse checks, 5 MB output bound, original-byte safety copy and
-  last-moment comparison now apply to operator edits as to whitelist/bans.
-  Exact selected UUID, duplicate rejection, expected permission checks and unknown
-  fields remain intact. The existing focused access-file case passes with edit,
-  stale/invalid input, duplicate, corrupt and absent-file coverage. No case or
-  dependency was added. Native UI review remains pending; included in installer 0.38.0.
+## Closure checks
 
-- **OP-GRANT-01 — REVIEW:** known-player rows now review operator grants by
-  selected UUID while stopped. Choose level and full-server bypass explicitly;
-  confirmation writes standard ops.json with the shared safety-copy writer.
-  Existing operator UUIDs are not overwritten, and same-name accounts stay separate.
-  Bounded file/identity validation and the stopped-server reservation apply to IPC.
-  The inline End-themed review retains acknowledgement across refresh failures,
-  blocks duplicate submissions and supports English/Spanish. The existing focused
-  native case and React rendering checks pass; no retained case or dependency was
-  added. Native interaction and actual client enforcement remain unverified.
-  Included in installer 0.38.0.
+1. Exercise native creation/import, first consent, managed download, readiness,
+   console command, stop/restart and backup/restore through the Windows UI. Record
+   the version and actual result; the existing engine runs do not replace native
+   interaction evidence.
+2. Review keyboard/focus, resizing, readable text, theme and reduced-motion states
+   at the three target desktop sizes. Native UI automation is excluded by design.
+3. Exercise close/cancel/background tray, scheduled actions and an actual OS login.
+4. Check clean install, upgrade and uninstall against preserved application data.
+5. Check real LAN/Internet clients and account/skin identity on the affected host.
+   Where router mapping is supported, verify temporary lease cleanup. Where it is
+   unavailable, verify the manual fallback and accurate unsupported-state feedback.
 
-- **PLAYER-ACTIONS-01 — REVIEW:** command and whitelist-toggle acknowledgements
-  survive a rejected follow-up read via the shared acknowledgedAction helper.
-  The component's operation owner also serializes live commands and file actions,
-  suppressing duplicate submissions and updates after unmount. Inventory-derived
-  controls now block during reads or failed observations; free-form live commands
-  remain available. Result counts are localized. Five retained frontend checks
-  and TypeScript pass; native interaction remains unverified. Included in installer 0.38.0.
-
-- **TASK-ERROR-01 — REVIEW:** task results distinguish server/content/modpack
-  installation, runtime preparation and engine updates, including cancellation.
-  Failed tasks retain their last observed attempt instead of resetting it to 1.
-  Every frontend task kind now has contextual recovery advice beside its original
-  error and technical details. Native terminal-state checks and React rendering
-  for all 17 kinds in English/Spanish pass; TypeScript passes. The temporary native
-  check was removed after execution, so the retained case count is unchanged.
-  Native presentation remains unverified; included in installer 0.38.0.
-
-- **GENERAL-ERROR-01 — REVIEW:** unclassified application action failures now
-  provide state-review guidance, a closed technical disclosure and application-log
-  access using the existing native command. A secondary folder-opening failure
-  stays local and preserves the original error. Request ownership blocks duplicate
-  opens; a new error remounts its own local state. Retired error-banner CSS was
-  removed and the existing short/reduced-motion path is shared. TypeScript and
-  actual React ES/EN rendering pass; native layout and folder interaction remain
-  manual. Original requirement 49; source is ahead of installer 0.38.0.
+No gate should be marked complete from a compiled button, an unobserved operation,
+a sample value or a broad claim about a different version/scenario.
 
 ## Reported issues needing host evidence
 
