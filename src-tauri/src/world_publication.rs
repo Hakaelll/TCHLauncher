@@ -320,17 +320,74 @@ mod tests {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| publish_with(&f.root, &f.server.id, &f.parent, &f.parts, &f.reserved, &mut |step| { if step == phase { panic!("simulated process interruption"); } })));
         assert!(result.is_err());
     }
+    const CHILD_ROOT: &str = "TCH_TEST_WORLD_PUBLICATION_CHILD";
+    #[derive(Serialize, Deserialize)]
+    struct KillRequest { server_id: String, phase: usize, stages: Vec<PathBuf> }
+    struct Child(std::process::Child);
+    impl Drop for Child {
+        fn drop(&mut self) { let _ = self.0.kill(); let _ = self.0.wait(); }
+    }
+    fn publication_child(root: &Path) {
+        let request: KillRequest = serde_json::from_slice(&fs::read(root.join("kill-request.json")).unwrap()).unwrap();
+        assert!(request.phase <= 7);
+        assert_eq!(request.stages.len(), 3);
+        let server = storage::get(root, &request.server_id).unwrap();
+        let parent = Path::new(&server.directory).canonicalize().unwrap();
+        let reserved: Vec<String> = ["copy", "copy_nether", "copy_the_end"].into_iter().map(String::from).collect();
+        let parts: Vec<_> = request.stages.into_iter().zip(&reserved)
+            .map(|(stage, name)| Part { stage, target: parent.join(name) }).collect();
+        let result = publish_with(root, &server.id, &parent, &parts, &reserved, &mut |step| {
+            if step == request.phase {
+                let mut signal = fs::File::create(root.join("publication-paused.part")).unwrap();
+                signal.write_all(step.to_string().as_bytes()).unwrap();
+                signal.sync_all().unwrap();
+                drop(signal);
+                fs::rename(root.join("publication-paused.part"), root.join("publication-paused")).unwrap();
+                loop { std::thread::park(); }
+            }
+        });
+        panic!("publication did not reach kill phase {}: {result:?}", request.phase);
+    }
+    fn kill_publication(f: &Fixture, phase: usize) {
+        let request = KillRequest { server_id: f.server.id.clone(), phase, stages: f.parts.iter().map(|part| part.stage.clone()).collect() };
+        fs::write(f.root.join("kill-request.json"), serde_json::to_vec(&request).unwrap()).unwrap();
+        let mut child = Child(std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "world_publication::tests::interrupted_family_publication_and_cleanup_recover_idempotently"])
+            .env(CHILD_ROOT, &f.root).stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        while !f.root.join("publication-paused").is_file() {
+            assert!(child.0.try_wait().unwrap().is_none(), "publication child exited before phase {phase}");
+            assert!(std::time::Instant::now() < deadline, "publication child did not reach phase {phase}");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        child.0.kill().unwrap();
+        assert!(!child.0.wait().unwrap().success());
+        assert_eq!(fs::read_to_string(f.root.join("publication-paused")).unwrap(), phase.to_string());
+        assert_eq!(records(&f.root).unwrap().len(), 1);
+        let published = phase.min(3);
+        assert_eq!(f.parts.iter().filter(|part| part.target.is_dir()).count(), published);
+        assert_eq!(f.parts.iter().filter(|part| part.stage.is_dir()).count(), 3 - published);
+    }
     #[test]
     fn interrupted_family_publication_and_cleanup_recover_idempotently() {
-        for phase in 0..=7 {
-            let f = fixture(); interrupt(&f, phase);
-            recover_server(&f.root, &f.server).unwrap();
-            assert!(recover_all(&f.root).is_empty());
-            assert!(!pending_server(&f.root, &f.server).unwrap());
-            for (index, part) in f.parts.iter().enumerate() {
-                assert_eq!(fs::read(part.target.join("level.dat")).unwrap(), format!("world-{index}").as_bytes());
-                assert!(!part.stage.exists());
-                assert_eq!(fs::read_dir(&part.target).unwrap().count(), 1);
+        if let Some(root) = std::env::var_os(CHILD_ROOT) { publication_child(Path::new(&root)); }
+        for kill in [false, true] {
+            for phase in 0..=7 {
+                let f = fixture();
+                if kill { kill_publication(&f, phase); } else { interrupt(&f, phase); }
+                recover_server(&f.root, &f.server).unwrap();
+                assert!(recover_all(&f.root).is_empty());
+                assert!(!pending_server(&f.root, &f.server).unwrap());
+                for (index, part) in f.parts.iter().enumerate() {
+                    assert_eq!(fs::read(part.target.join("level.dat")).unwrap(), format!("world-{index}").as_bytes());
+                    assert!(!part.stage.exists());
+                    assert_eq!(fs::read_dir(&part.target).unwrap().count(), 1);
+                }
+                let root = f.root.clone();
+                drop(f);
+                assert!(!root.exists(), "temporary publication fixture was not removed");
+                if kill { eprintln!("Recovered family after process kill at phase {phase}; bytes, journal, stages, markers and temporary cleanup verified"); }
             }
         }
         let f = fixture();

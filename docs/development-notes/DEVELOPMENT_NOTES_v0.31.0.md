@@ -1280,3 +1280,29 @@ retained frontend checks, TypeScript and Windows production Vite passed. No nati
 code/dependency changed and no retained test case was added. Native failure
 delivery, layout and keyboard interaction remain manual gates. No installer or
 GitHub release was generated; the current installer remains 0.36.0.
+
+## World publication after real process termination
+
+Extended the existing compact family-publication safety case with eight actual
+Windows child-process terminations. Each child runs the production publication
+code in the current test executable against a synthetic three-dimension fixture.
+An atomically published signal confirms the requested durable boundary before
+the parent kills and waits for its owned child. A guard also kills/waits if the
+boundary is not reached within 15 seconds or an assertion fails.
+
+The boundaries are prepared journal, each of three dimension renames, committed
+journal and each of three ownership-marker cleanup steps. Before recovery the
+parent confirms the surviving journal and expected number of visible/staged
+folders. Recovery then checks all three dimension payloads, absent stages and
+markers, cleared journal, repeat recovery and fixture deletion. Existing unwind,
+foreign-data, source-preserving copy/import and publication-failure checks remain.
+No retained test case or production behavior was added.
+
+The focused Windows check passed; the final compact native suite passed ten
+cases with nine real-Minecraft scenarios ignored. The final suite log records
+successful recovery/cleanup at phases 0 through 7. These checks exercise native
+publication code after process termination, not an installed application crash,
+a Minecraft client, pre-journal termination or power loss. Existing real Paper
+round-trip evidence remains separate. No frontend code/dependency changed, so
+frontend and Minecraft-engine checks were not repeated for this test-only change.
+No installer or GitHub release was generated.

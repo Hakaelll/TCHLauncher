@@ -32,3 +32,27 @@ investigating a failed scenario.
 These checks do not prove native UI, client gameplay, physical router support or
 Internet connection quality. The old standalone Java predicate/properties probes
 were retired with the large test-suite reduction.
+
+## World publication process termination
+
+The compact native safety case
+`world_publication::tests::interrupted_family_publication_and_cleanup_recover_idempotently`
+also starts the current test executable as a child process. It publishes a
+synthetic three-folder world family through the production publication code,
+signals a durable boundary, and waits. The parent terminates only its owned child
+and waits for exit before recovery. It checks all eight boundaries: prepared plan,
+three renames, committed plan and three ownership-marker cleanup steps.
+
+Recovery must preserve each dimension's bytes, remove staging folders/markers,
+clear the journal, succeed again without changes and remove temporary fixtures.
+The original unwind/conflict/copy checks remain in the same retained case; no
+additional test case was added. A child guard terminates and waits on failure,
+and the wait for a boundary has a 15-second deadline.
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml --offline --lib world_publication::tests::interrupted_family_publication_and_cleanup_recover_idempotently -- --exact --nocapture
+```
+
+This scenario needs no Java, Minecraft download or EULA acceptance. It verifies
+Windows process termination after the durable plan exists. It does not simulate
+power loss, a native application crash, or termination before journal creation.

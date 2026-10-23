@@ -131,8 +131,12 @@ only manual verification:
   until recovery at application restart; background startup also recovers them.
   Recovery never deletes visible world folders, and preserves modified files or
   conflicting destinations for review. Retained checks exercise every durable
-  publication/cleanup boundary and repeat recovery. These simulate interruption
-  through unwinding, not OS termination or power loss. A process killed before
+  publication/cleanup boundary through unwinding and real Windows child-process
+  termination. Eight killed publication processes retain their durable plans;
+  recovery verifies all three dimension bytes, removes stages/ownership markers,
+  clears the journal and repeats without further changes. Test fixtures are
+  removed. This uses synthetic family data and the native publication code, not
+  a production app crash or power loss. A process killed before
   the durable plan exists may leave hidden staging folders; pre-journal ordinary
   failures clean their stages. Native recovery presentation remains unverified.
 - **IMPORT-PREVIEW-01 — REVIEW:** existing-server selection now previews valid world
