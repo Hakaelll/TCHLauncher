@@ -1856,4 +1856,7 @@ export const english: Record<string,string> = {
   "Revisa el origen, el destino y el espacio disponible antes de repetir la copia del mundo.": "Check the source, destination and available space before copying the world again.",
   "Actualiza la lista de mundos y revisa las copias disponibles antes de repetir la acción.": "Refresh the world list and check available backups before repeating the action.",
   "Actualiza el inventario y comprueba el estado del archivo antes de repetir la acción.": "Refresh the inventory and check the file state before repeating the action.",
+  "Comprueba el estado actual antes de repetir la acción. Revisa el detalle técnico o los registros de la aplicación para obtener más información.": "Check the current state before repeating the action. Review the technical details or application logs for more information.",
+  "Abriendo registros…": "Opening logs…",
+  "No se pudieron abrir los registros: {0}": "Could not open logs: {0}",
 }

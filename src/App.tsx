@@ -43,7 +43,7 @@ import {CommandPalette} from './CommandPalette'
 import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
 import {AppNotices} from './AppNotices'
-import {ActionError,actionContext,type ActionContext,type ActionFailure} from './ActionError'
+import {ActionError,GeneralActionError,actionContext,type ActionContext,type ActionFailure} from './ActionError'
 import {createNoticeObserver,taskSection,type AppNotice} from './noticeEvents'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
@@ -501,7 +501,7 @@ function App() {
     </aside>
     <main className="main" ref={mainRef}>
       {actionRefreshError&&<div className="panel-read-state failed" role="alert"><div><strong>{t("Acción completada · datos sin actualizar")}</strong><p>{translatedMessage(actionRefreshError)}</p></div><button disabled={operationBusy} onClick={async()=>{try{await refresh();setActionRefreshError(null)}catch(cause){setActionRefreshError(errorText(cause))}}}>{t("Actualizar datos")}</button><button className="text-button" onClick={()=>setActionRefreshError(null)}>{t("Cerrar aviso")}</button></div>}
-      {error && typeof error!=='string' ? <ActionError failure={error} available={servers.some(server=>server.id===error.serverId)} onClose={()=>setError(null)} onReview={section=>openTask(error.serverId,section)}/> : error && <div className="error-banner" role="alert"><div><strong>{t("No se pudo completar la acción")}</strong><p>{translatedMessage(error)}</p></div><button onClick={() => setError(null)} aria-label={t("Cerrar error")}>×</button></div>}
+      {error && typeof error!=='string' ? <ActionError failure={error} available={servers.some(server=>server.id===error.serverId)} onClose={()=>setError(null)} onReview={section=>openTask(error.serverId,section)}/> : error && <GeneralActionError key={error} message={error} onClose={()=>setError(null)} onOpenLogs={api.openApplicationLogs}/>}
       {notice && <div className="notice-banner" role="status"><span>{translatedMessage(notice)}</span><button onClick={() => setNotice(null)} aria-label={t("Cerrar aviso")}>×</button></div>}
       {appearanceOpen ? <ApplicationSettings appearance={appearance} saved={appearanceSaved} onAppearance={changeAppearance} servers={servers} selectedId={selectedId} onSelect={setSelectedId} busy={operationBusy} progress={progressByServer} onPrepare={(id,reinstall)=>void runInstallation(id,reinstall?'runtime_reinstall':'runtime')} onChanged={refresh} onOpenServer={(server,section)=>{openServer(server);setView(section)}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       : creating ? <CreateView onCancel={openLibrary} onCreate={create} busy={operationBusy} systemMemory={systemMemory}/>

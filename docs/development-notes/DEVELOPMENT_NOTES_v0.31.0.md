@@ -1457,3 +1457,16 @@ restart. Command types require a server identity for server actions and dispatch
 is exhaustive. English/Spanish generator checks cover labels, filtering, distinct
 server IDs, active operations and state changes; TypeScript passed. No dependency,
 retained case, native Explorer/keyboard check or new installer was added.
+
+
+## General application error recovery
+
+The former string-only application banner now uses GeneralActionError with state
+review advice, raw escaped technical disclosure and Open application logs. Failed
+folder opening has separate local feedback, preserving the original failure;
+requests are serialized and each new message owns its own component state. Existing
+contextual startup errors are unchanged. Removed the unused error-banner selectors
+and shared existing notice motion with both error presentations. TypeScript and
+actual React ES/EN checks pass for guidance, the logs control, escaped content and
+closed disclosure. Native Explorer, keyboard and visual review remain pending;
+no retained case, dependency or new installer was added.

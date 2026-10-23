@@ -15,7 +15,7 @@ h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: 24px; line-height: 1.3; letter-spacing: -.025em; font-weight: 650; }
 h2 { margin: 0 0 6px; font-size: 16px; line-height: 1.4; font-weight: 630; }
 h3 { margin: 32px 0 16px; font-size: 15px; font-weight: 630; }
-button:where(:not(.server-choice,.icon-button,.server-row,.new-server-link,.text-button,.back-button,.player-tab,.tabs button,.wizard-steps button,.chart-switch button,.error-banner button,.notice-banner button)) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 9px 15px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-size: 13px; font-weight: 560; line-height: 1.3; white-space: nowrap; }
+button:where(:not(.server-choice,.icon-button,.server-row,.new-server-link,.text-button,.back-button,.player-tab,.tabs button,.wizard-steps button,.chart-switch button,.notice-banner button)) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 9px 15px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-size: 13px; font-weight: 560; line-height: 1.3; white-space: nowrap; }
 button:hover:not(:disabled) { background-color: var(--hover); }
 button.primary-button { background: var(--accent-wash); border-color: var(--accent-line); color: var(--accent); font-weight: 650; }
 button.primary-button:hover:not(:disabled) { background: var(--accent-wash); border-color: var(--accent-line); }
@@ -227,7 +227,7 @@ input.setting-toggle[type=checkbox] { position: relative; justify-self: end; wid
 .runtime-state { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--secondary); font-size: 12px; white-space: nowrap; }.runtime-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--surface-raised); }.runtime-state.ready {color: var(--secondary);}.runtime-state.ready::before {background: var(--surface-raised);}
 .runtime-path { display: flex; align-items: baseline; gap: 24px; margin: 18px 0; font-size: 12px; }.runtime-path > span { flex: none; color: var(--secondary); }.runtime-path code { overflow-wrap: anywhere; }
 .runtime-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-.error-banner, .notice-banner { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 12px var(--page-inset); font-size: 13px; overflow-wrap: anywhere; }.error-banner { border-bottom: 1px solid var(--line); background: var(--surface); color: var(--secondary); }.notice-banner { border-bottom: 1px solid var(--line); background: var(--surface); color: var(--secondary); }.error-banner p { margin: 4px 0 0; }.error-banner button, .notice-banner button { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 20px; }
+.notice-banner { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 12px var(--page-inset); font-size: 13px; overflow-wrap: anywhere; }.notice-banner { border-bottom: 1px solid var(--line); background: var(--surface); color: var(--secondary); }.notice-banner button { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 20px; }
 
 /* The native top layer stays centered independently of page scroll and transforms. */
 dialog.modal-dialog { position: fixed; inset: 0; width: min(440px,calc(100vw - 40px)); max-height: calc(100dvh - 40px); margin: auto; padding: 28px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); }
@@ -252,7 +252,6 @@ button.danger-outline-button:hover:not(:disabled) { background: var(--danger-was
 .server-row.active { background: var(--accent-wash); border-color: var(--accent-line); }
 .sidebar-collapsed .server-row.active::before { background: var(--accent); }
 .server-pin { position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 15px; height: 15px; background: var(--accent-wash); border: 1px solid var(--accent-line); border-radius: 50%; color: var(--accent); font-size: 8px; }
-.error-banner { background: var(--danger-wash); border-color: var(--danger-line); }
 .form-error,.network-error,.world-row-actions .danger { color: var(--danger); }
 .notice-banner { background: var(--success-wash); }
 .player-head { display: block; flex: none; width: 32px; height: 32px; border-radius: 3px; image-rendering: pixelated; }

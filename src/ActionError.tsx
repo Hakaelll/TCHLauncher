@@ -1,4 +1,6 @@
 import type {Server} from './api'
+import {useRef,useState} from 'react'
+import {errorText} from './format'
 import {localizedStatic,t,translatedMessage} from './locale'
 import './actionError.css'
 
@@ -13,6 +15,26 @@ const advice=localizedStatic({
   restart:'Comprueba el estado actual y la consola antes de volver a iniciar. El reinicio puede haberse detenido después de cerrar el proceso anterior.',
   runtime:'Comprueba el runtime en Configuración. Allí puedes verificar Java, reinstalar Temurin o elegir un ejecutable compatible.',
 })
+
+export function GeneralActionError({message,onClose,onOpenLogs}:{message:string;onClose:()=>void;onOpenLogs:()=>Promise<void>}){
+  const working=useRef(false)
+  const [opening,setOpening]=useState(false)
+  const [logsError,setLogsError]=useState<string|null>(null)
+  const openLogs=async()=>{
+    if(working.current)return
+    working.current=true;setOpening(true);setLogsError(null)
+    try{await onOpenLogs()}catch(cause){setLogsError(errorText(cause))}
+    finally{working.current=false;setOpening(false)}
+  }
+  return <section className="action-error" role="alert" aria-label={t('Error de la acción')}>
+    <div className="action-error-heading"><strong>{t('No se pudo completar la acción')}</strong><button className="action-error-close" onClick={onClose} aria-label={t('Cerrar error')}>×</button></div>
+    <p>{translatedMessage(message)}</p>
+    <p className="action-error-advice">{t('Comprueba el estado actual antes de repetir la acción. Revisa el detalle técnico o los registros de la aplicación para obtener más información.')}</p>
+    <div className="action-error-actions"><button disabled={opening} onClick={()=>void openLogs()}>{opening?t('Abriendo registros…'):t('Abrir logs de la aplicación')}</button></div>
+    {logsError&&<p className="form-error" role="alert">{t('No se pudieron abrir los registros: {0}',translatedMessage(logsError))}</p>}
+    <details><summary>{t('Detalle técnico')}</summary><pre tabIndex={0}>{JSON.stringify({message},null,2)}</pre></details>
+  </section>
+}
 
 export function ActionError({failure,available,onReview,onClose}:{
   failure:ActionFailure;available:boolean;onReview:(section:'settings'|'console')=>void;onClose:()=>void

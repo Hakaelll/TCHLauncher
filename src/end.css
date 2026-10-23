@@ -136,7 +136,7 @@ button:where(:not(.server-row,.rail-library,.rail-add,.rail-import,.rail-collaps
 .library-cover,.library-name,.library-menu,.library-create,.library-import,.library-pack,
 .text-button,.back-button,.player-tab,.icon-button,.server-sections button,.wizard-steps button,
 .library-layout button,.chart-switch button,.content-mode button,.server-context-menu button,
-.error-banner button,.notice-banner button)) {
+.notice-banner button)) {
   border:1px solid var(--control-edge);
   border-bottom-color:var(--surface-deep);
   border-radius:2px;
@@ -168,7 +168,7 @@ button.primary-button, .command-form button {
   .library-cover,.library-name,.library-menu,.library-create,.library-import,.library-pack,
   .text-button,.back-button,.player-tab,.icon-button,.server-sections button,.wizard-steps button,
   .library-layout button,.chart-switch button,.content-mode button,.server-context-menu button,
-  .error-banner button,.notice-banner button)):hover:not(:disabled),
+  .notice-banner button)):hover:not(:disabled),
   button.primary-button:hover:not(:disabled),.command-form button:hover:not(:disabled) {
     background:var(--control-hover);
     border-color:var(--accent);
@@ -390,7 +390,6 @@ dialog.modal-dialog { background:var(--surface); border:1px solid var(--control-
 dialog.modal-dialog h2 { font-size:18px; font-weight:400; }
 dialog.modal-dialog::backdrop { background:#060b0ddb; }
 .modal-caption { color:var(--secondary); }
-.error-banner { background:var(--danger-wash); color:#ffc0ba; border-color:var(--danger-line); }
 .notice-banner { background:var(--success-wash); color:#c0eed8; }
 .inline-note { background:var(--surface); color:var(--secondary); border-radius:3px; }
 .form-error,.network-error { color:var(--danger); }

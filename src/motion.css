@@ -8,7 +8,7 @@ button:active:not(:disabled,.server-row,.server-sections button,.wizard-steps bu
 .server-context-menu { transform-origin:top left; animation:menu-enter var(--motion-micro) var(--motion-enter); }
 .modal-dialog[open] { animation:dialog-enter var(--motion-standard) var(--motion-enter); }
 .modal-dialog::backdrop { animation:backdrop-enter var(--motion-micro) var(--motion-ease); }
-.notice-banner,.error-banner { animation:notice-enter var(--motion-standard) var(--motion-enter); }
+.notice-banner,.action-error { animation:notice-enter var(--motion-standard) var(--motion-enter); }
 .setting-toggle::before { transition:transform var(--motion-standard) var(--motion-ease); }
 .wizard-steps button span { transition:background-color var(--motion-standard) var(--motion-ease),color var(--motion-standard) var(--motion-ease); }
 .install-progress progress::-webkit-progress-value,.resource-meter progress::-webkit-progress-value { transition:width var(--motion-standard) var(--motion-ease); }

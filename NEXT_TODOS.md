@@ -259,6 +259,15 @@ only manual verification:
   check was removed after execution, so the retained case count is unchanged.
   Native presentation remains unverified; included in installer 0.38.0.
 
+- **GENERAL-ERROR-01 — REVIEW:** unclassified application action failures now
+  provide state-review guidance, a closed technical disclosure and application-log
+  access using the existing native command. A secondary folder-opening failure
+  stays local and preserves the original error. Request ownership blocks duplicate
+  opens; a new error remounts its own local state. Retired error-banner CSS was
+  removed and the existing short/reduced-motion path is shared. TypeScript and
+  actual React ES/EN rendering pass; native layout and folder interaction remain
+  manual. Original requirement 49; source is ahead of installer 0.38.0.
+
 ## Reported issues needing host evidence
 
 - Internet-only connection stalls without observed CPU/RAM spikes: capture host
