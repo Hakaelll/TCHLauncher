@@ -7,6 +7,9 @@ an explicit user instruction. These labels do not imply feature completion.
 
 ## Current evidence
 
+- Maintainer feedback on Windows preview 0.38.0: the application works well.
+  Individual scenario steps and results were not supplied.
+
 - Vanilla, Paper, Fabric with Lithium and NeoForge each passed a real isolated
   Minecraft 1.21.4 lifecycle: managed Java/install, three ready/status/command/
   graceful-stop sessions, tracked backup/restore and restored boot. Restore checks

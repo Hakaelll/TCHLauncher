@@ -38,7 +38,7 @@ Resource packs and shaders are **client content**. Listing them in discovery doe
 
 ## Getting started on Windows
 
-1. Download a Windows installer from [Releases](https://github.com/Hakaelll/TCHLauncher/releases), when available, and install it.
+1. Download a Windows installer from [Releases](https://github.com/Hakaelll/TCHLauncher/releases) and install it.
 2. Choose **New server** or **Import server**. Keep a separate copy of an existing server before importing it in place.
 3. Choose the Minecraft version, server type, world and resource limits.
 4. Read and explicitly accept the Minecraft EULA at the first download. The application remembers that acceptance for subsequent setup.
