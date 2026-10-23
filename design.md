@@ -460,6 +460,10 @@ native outcome; an acknowledged exit remains busy through cleanup. No generated
 progress, automatic force kill or success animation replaces observed process
 state. Native window/tray/focus review remains pending.
 
+If an operation becomes busy during a dialog's exit animation, cancel that exit
+and retain the visible confirmation. Ignore completion callbacks from cancelled
+animations. A later close remains available after the operation finishes.
+
 ## Installed inventory workbench
 
 Keep log-state filters independent from Modrinth/local origin, with real counts,

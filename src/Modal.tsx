@@ -21,9 +21,16 @@ export function Modal({children,labelledBy,describedBy,className = '',busy = fal
     if(busy || closeAnimation.current)return
     const dialog=dialogRef.current
     if(!dialog || reducedMotion()){closeHandler.current();return}
-    closeAnimation.current=dialog.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.985)'}],{duration:motion.interaction,easing:motion.exit,fill:'forwards'})
-    closeAnimation.current.finished.then(()=>closeHandler.current()).catch(()=>{})
+    const animation=dialog.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.985)'}],{duration:motion.interaction,easing:motion.exit,fill:'forwards'})
+    closeAnimation.current=animation
+    animation.finished.then(()=>{if(closeAnimation.current===animation)closeHandler.current()}).catch(()=>{})
   }
+
+  useLayoutEffect(()=>{
+    if(!busy)return
+    closeAnimation.current?.cancel();closeAnimation.current=null
+    backdropPressed.current=false
+  },[busy])
 
   useLayoutEffect(() => {
     const dialog = dialogRef.current

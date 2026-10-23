@@ -1554,3 +1554,19 @@ restoration.json. The temporary probe is ignored and adds no retained test,
 dependency, production change or release. Large generated fixtures are removed
 after evidence capture. Interactive installation, preference/task UI and IPC,
 actual Windows logout/login, and close/cancel/background tray remain unverified.
+
+## Dialog exit interrupted by an operation
+
+The shared Modal previously completed an exit using the state from the close
+request, even when an operation became busy before the animation finished. An
+isolated React page reproduced the failure in Chromium headless: the confirmation
+closed while aria-busy was true. Modal now cancels the exit when busy changes and
+ignores animation completion callbacks that no longer own the current exit.
+
+The same component check passes after the fix, including Escape while busy,
+closing after the operation finishes, opener focus restoration and reduced-motion
+closing. It uses no desktop interaction or Computer Use. This does not verify the
+native tray/close flow. Local before/after logs and result JSON are under
+artifacts/modal-acceptance*. Temporary fixture sources are removed after checking;
+no dependency or retained test is added. Source remains ahead of installer 0.38.0.
+TypeScript and the Windows-targeted frontend production build also passed.
