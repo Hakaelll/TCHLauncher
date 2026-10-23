@@ -69,7 +69,7 @@ export type ImageSelection = { path: string; data: string }
 export type DeletePreview = { managedFiles: boolean; directory: string; backupCount: number }
 export type DeleteOutcome = { retainedDirectory: string | null; cleanupWarnings: string[] }
 export type World = { name: string; sizeBytes: number; active: boolean; iconData: string | null; dimensions: string[] }
-export type WorldInspection = { path: string; suggestedName: string; sizeBytes: number }
+export type WorldInspection = { path: string; suggestedName: string; sizeBytes: number; dimensions: string[] }
 export type NetworkSnapshot = {
   localIp: string | null
   configuredIp: string | null
@@ -197,7 +197,7 @@ export const api = {
   restoreBackup: (id: string, backupId: string) => invoke<void>('restore_backup', { id, backupId }),
   worlds: (id: string) => invoke<World[]>('list_worlds', { id }),
   pickWorldFolder: () => invoke<WorldInspection | null>('pick_world_folder'),
-  importWorld: (id: string, path: string, name: string) => invoke<World>('import_world', { id, path, name }),
+  importWorld: (id: string, source: WorldInspection, name: string) => invoke<World>('import_world', { id, path:source.path, name, dimensions:source.dimensions }),
   duplicateWorld: (id: string, name: string, newName: string) => invoke<World>('duplicate_world', { id, name, newName }),
   exportWorld: (id: string, name: string, includeContent=false, includeConfig=true) => invoke<string | null>('export_world', { id, name, includeContent, includeConfig }),
   setActiveWorld: (id: string, name: string) => invoke<Backup | null>('set_active_world', { id, name }),

@@ -1,4 +1,5 @@
 mod backup;
+mod world_import;
 mod stop_backup;
 mod startup;
 mod shutdown;
@@ -774,21 +775,22 @@ async fn list_worlds(engine: State<'_, Engine>, id: String) -> Result<Vec<world:
 }
 
 #[tauri::command]
-async fn pick_world_folder() -> Result<Option<world::WorldInspection>, String> {
+async fn pick_world_folder() -> Result<Option<world_import::Inspection>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let Some(path) = rfd::FileDialog::new().pick_folder() else { return Ok(None); };
-        world::inspect(&path).map(Some)
+        world_import::inspect(&path).map(Some)
     }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn import_world(app: AppHandle, engine: State<'_, Engine>, id: String, path: String, name: String) -> Result<world::WorldInfo, String> {
+async fn import_world(app: AppHandle, engine: State<'_, Engine>, id: String, path: String, name: String, dimensions: Vec<String>) -> Result<world::WorldInfo, String> {
     let guard = engine.reserve_stopped(&id)?;
     let server = storage::get(&engine.root, &id)?;
     let jobs=engine.installations.clone();
+    let root=engine.root.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard=guard;
-        file_tasks::import_world(&server, &PathBuf::from(path), &name, &jobs, move|progress|{let _=app.emit("install-progress",progress);})
+        file_tasks::import_world(&root, &server, &PathBuf::from(path), &name, &dimensions, &jobs, move|progress|{let _=app.emit("install-progress",progress);})
     }).await.map_err(|e| e.to_string())?;
     if result.is_ok() { engine.invalidate_size(&id); }
     result

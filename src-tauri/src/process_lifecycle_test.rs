@@ -388,7 +388,7 @@ fn fabric_world_and_mods_export_import_then_real_boot() {
     crate::install::install(&library.root,&target,&task(&target.id,"install")).unwrap();
     let target=storage::get(&library.root,&target.id).unwrap();let target_dir=Path::new(&target.directory);
     properties::write(&target_dir.join("server.properties"),[("server-ip".into(),"127.0.0.1".into()),("view-distance".into(),"3".into()),("simulation-distance".into(),"3".into())].into()).unwrap();
-    crate::file_tasks::import_world(&target,&extracted.join("worlds/world"),"Shared world",&jobs,|_|{}).unwrap();
+    crate::file_tasks::import_world(&library.root,&target,&extracted.join("worlds/world"),"Shared world",&[],&jobs,|_|{}).unwrap();
     crate::file_tasks::set_active_world(&library.root,&target,"Shared world",&jobs,|_|{}).unwrap();
     for folder in ["mods","config","defaultconfigs"] {
         if extracted.join(folder).exists(){backup::copy_tree(&extracted.join(folder),&target_dir.join(folder)).unwrap();assert_eq!(file_hashes(&extracted.join(folder)),file_hashes(&target_dir.join(folder)));}

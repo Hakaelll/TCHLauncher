@@ -1093,3 +1093,34 @@ escaped author titles and closed-body omission. A separate source review found
 no required corrections. These checks do not prove native disclosure interaction,
 keyboard scrolling or visual layout. No additional retained tests were added.
 Installer 0.35.0 remains unchanged; this follow-up is source-only.
+
+## Reviewed external Paper world families
+
+The world picker now inspects the selected primary folder plus adjacent Paper
+Nether/End folders. Both creation and World Manager show the complete source and
+destination names with the total family size. The exact reviewed dimension names
+travel with the selection through the typed frontend API. Native import repeats
+detection and refuses a changed family, unsafe sources, dimension-only selection,
+occupied destinations or split Paper worlds targeting a different engine.
+
+Import now shares the staged copier and trusted SQLite publication recovery used
+by duplicate/export. The old separate single-folder copier was removed. World
+activation metadata is read before publication so a failed properties read cannot
+turn a completed copy into a reported failure. Original files are not modified.
+The user must stop the source server before copying; there is no cross-engine
+dimension conversion or automatic combined-archive extraction in this change.
+
+The existing combined publication test now also exercises reviewed external
+family import, dimension hashes, unchanged sources, stale/missing reviews, wrong
+engines, destination conflicts and cleanup after rejected journal persistence.
+The retained test count is unchanged. One-off React rendering checks cover three
+dimension rows, destination renaming, standalone worlds, escaped names and bilingual
+incompatibility feedback. Native picker interaction, keyboard/layout and real
+Paper restarts with imported dimensions remain manual acceptance gates. This
+follow-up has not been packaged into installer 0.35.0.
+
+Verification: ten native checks and five frontend checks pass, as do TypeScript,
+React render fixtures and Windows production Vite. Nine real Minecraft scenarios
+were not rerun. Native compilation required the ordinary unsandboxed build path
+after Visual Studio's archiver could not overwrite its generated archive in the
+restricted environment. A focused source review found no required corrections.

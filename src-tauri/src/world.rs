@@ -21,14 +21,6 @@ pub struct WorldInfo {
     pub icon_data: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WorldInspection {
-    pub path: String,
-    pub suggested_name: String,
-    pub size_bytes: u64,
-}
-
 fn valid_name(name: &str) -> Result<(), String> {
     if name.is_empty() || name.chars().count() > 64 || name.starts_with(['.', ' '])
         || name.ends_with(['.', ' '])
@@ -54,7 +46,7 @@ fn valid_folder_name(name: &str) -> Result<(), String> {
     }
 }
 
-fn plain(meta: &fs::Metadata) -> bool {
+pub(crate) fn plain(meta: &fs::Metadata) -> bool {
     if meta.file_type().is_symlink() { return false; }
     #[cfg(windows)] {
         use std::os::windows::fs::MetadataExt;
@@ -115,7 +107,7 @@ fn active_name(server: &Server) -> Result<String, String> {
 
 pub(crate) fn is_world(server:&Server,name:&str)->bool {checked_world(server,name).is_ok()}
 
-const DIMENSION_SUFFIXES: [&str; 2] = ["_nether", "_the_end"];
+pub(crate) const DIMENSION_SUFFIXES: [&str; 2] = ["_nether", "_the_end"];
 
 fn paired_parent(server: &Server, name: &str) -> Option<String> {
     if server.platform != "paper" { return None; }
@@ -147,7 +139,7 @@ pub(crate) fn world_family(server: &Server, name: &str) -> Result<Vec<(String, P
     Ok(family)
 }
 
-fn world_info(name: String, family: &[(String, PathBuf)], active: bool) -> WorldInfo {
+pub(crate) fn world_info(name: String, family: &[(String, PathBuf)], active: bool) -> WorldInfo {
     let icon = family[0].1.join("icon.png");
     let icon_data = fs::symlink_metadata(&icon).ok()
         .filter(|meta| meta.is_file() && plain(meta))
@@ -172,52 +164,6 @@ pub fn list(server: &Server) -> Result<Vec<WorldInfo>, String> {
     }
     worlds.sort_by(|a, b| b.active.cmp(&a.active).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
     Ok(worlds)
-}
-
-pub fn inspect(path: &Path) -> Result<WorldInspection, String> {
-    let source = path.canonicalize().map_err(|e| format!("No se pudo abrir la carpeta: {e}"))?;
-    if !source.is_dir() { return Err("Selecciona una carpeta de mundo".into()); }
-    valid_level_dat(&source)?;
-    let suggested_name = source.file_name().and_then(|name| name.to_str()).unwrap_or("Mundo importado").to_string();
-    Ok(WorldInspection { path: source.to_string_lossy().into_owned(), suggested_name, size_bytes: backup::size(&source) })
-}
-
-fn copy_as_inner(source: &Path, root: &Path, name: &str, paper: bool, task: Option<&crate::download::DownloadTask>) -> Result<PathBuf, String> {
-    check_destination(root, name, paper)?;
-    let target = root.join(name);
-    let stage = root.join(format!(".tch-world-{}.part", Uuid::new_v4()));
-    let result = (|| {
-        let action=match task.map(|task|task.kind()){Some("world_duplicate")=>"Duplicando archivos del mundo",Some("world_export")=>"Exportando archivos del mundo",_=>"Importando archivos del mundo"};
-        if let Some(task)=task { backup::copy_tree_tracked(source,&stage,task,action)?; }
-        else { backup::copy_tree(source, &stage)?; }
-        if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando la copia del mundo","verifying"); }
-        valid_level_dat(&stage)?;
-        check_destination(root, name, paper)?;
-        if let Some(task)=task { task.begin_publication("Guardando la copia del mundo")?; }
-        check_destination(root, name, paper)?;
-        fs::rename(&stage, &target).map_err(|e| e.to_string())?;
-        Ok(target)
-    })();
-    if result.is_err() { let _ = fs::remove_dir_all(&stage); }
-    result
-}
-
-
-pub fn import_tracked(server: &Server, source: &Path, name: &str, task: &crate::download::DownloadTask) -> Result<WorldInfo, String> {
-    import_inner(server, source, name, Some(task))
-}
-
-fn import_inner(server: &Server, source: &Path, name: &str, task: Option<&crate::download::DownloadTask>) -> Result<WorldInfo, String> {
-    if let Some(task)=task { task.cancellation.check()?; task.report("Comprobando la carpeta del mundo","preparing"); }
-    let source_path = source.canonicalize().map_err(|e|format!("No se pudo abrir la carpeta: {e}"))?;
-    let source = source_path.as_path();
-    if !source.is_dir() { return Err("Selecciona una carpeta de mundo".into()); }
-    valid_level_dat(source)?;
-    let root = server_root(server)?;
-    if root.starts_with(source) { return Err("Elige una carpeta de mundo, no la carpeta completa del servidor".into()); }
-    let active = name == active_name(server)?;
-    let target = copy_as_inner(source, &root, name, server.platform == "paper", task)?;
-    Ok(world_info(name.into(), &[(name.into(), target)], active))
 }
 
 fn absent(path: &Path) -> Result<(), String> {
@@ -263,9 +209,13 @@ fn checked_tree(path: &Path) -> Result<(), String> {
 }
 
 fn copy_family(root: &Path, server: &Server, name: &str, new_name: &str, parent: &Path, task: Option<&crate::download::DownloadTask>) -> Result<Vec<(String, PathBuf)>, String> {
-    valid_name(new_name)?;
     let family = world_family(server, name)?;
-    for (_, source) in &family {
+    copy_sources(root, server, &family, name, new_name, parent, task)
+}
+
+pub(crate) fn copy_sources(root: &Path, server: &Server, family: &[(String, PathBuf)], name: &str, new_name: &str, parent: &Path, task: Option<&crate::download::DownloadTask>) -> Result<Vec<(String, PathBuf)>, String> {
+    valid_name(new_name)?;
+    for (_, source) in family {
         if parent.starts_with(source) { return Err("Elige una carpeta de destino fuera del mundo".into()); }
         checked_tree(source)?;
     }
@@ -280,7 +230,7 @@ fn copy_family(root: &Path, server: &Server, name: &str, new_name: &str, parent:
         for (source, _, _, stage) in &parts {
             if let Some(task) = task {
                 task.cancellation.check()?;
-                backup::copy_tree_tracked(source, stage, task, if task.kind() == "world_export" { "Exportando archivos del mundo" } else { "Duplicando archivos del mundo" })?;
+                backup::copy_tree_tracked(source, stage, task, match task.kind() { "world_export" => "Exportando archivos del mundo", "world_import" => "Importando archivos del mundo", _ => "Duplicando archivos del mundo" })?;
                 task.cancellation.check()?;
                 task.report("Comprobando la copia del mundo", "verifying");
             } else { backup::copy_tree(source, stage)?; }

@@ -6,6 +6,7 @@ import { useListMotion } from './motion'
 import {ActionMenu,type MenuTarget} from './ActionMenu'
 import { Modal } from './Modal'
 import { api, type Server, type World, type WorldInspection } from './api'
+import {WorldImportPreview} from './WorldImportPreview'
 
 function WorldIcon({world}: {world: World}) {
   return world.iconData
@@ -74,10 +75,9 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
   }
   const importSelected = (event: FormEvent) => {
     event.preventDefault()
-    if (!selection) return
-    const path = selection.path
+    if (!selection||(selection.dimensions.length>0&&server.platform!=='paper')) return
     const name = importName.trim()
-    run(async () => { await api.importWorld(server.id,path,name) },t("Se importó «{0}».", name),false,()=>setSelection(null))
+    run(async () => { await api.importWorld(server.id,selection,name) },t("Se importó «{0}».", name),false,()=>setSelection(null))
   }
   const duplicateSelected = (event: FormEvent) => {
     event.preventDefault()
@@ -118,7 +118,7 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
     {error && <p className="world-message error" role="alert">{translatedMessage(error)}</p>}
     {notice && <p className="world-message" role="status">{translatedMessage(notice)}</p>}
     {!stopped && <p className="inline-note">{t("Detén el servidor para importar, duplicar, exportar o cambiar mundos. Puedes abrir una carpeta mientras está en marcha.")}</p>}
-    {selection && <form className="world-import" onSubmit={importSelected}><div className="world-import-summary"><strong>{t("Mundo seleccionado")}</strong><span>{sizeLabel(selection.sizeBytes)} · {selection.path}</span></div><label className="form-row" htmlFor="world-import-name"><span>{t("Nombre en este servidor")}</span><input id="world-import-name" required maxLength={64} value={importName} onChange={event => setImportName(event.target.value)}/></label><div className="world-import-actions"><button type="button" className="text-button" onClick={() => setSelection(null)}>{t("Cancelar")}</button><button className="primary-button" disabled={busy || !stopped || loading || !!inventory.error || !importName.trim()}>{t("Importar copia")}</button></div><p>{t("El mundo original se conserva en su ubicación.")}</p></form>}
+    {selection && <form className="world-import" onSubmit={importSelected}><div className="world-import-summary"><strong>{t("Mundo seleccionado")}</strong><span>{sizeLabel(selection.sizeBytes)} · {selection.path}</span></div><label className="form-row" htmlFor="world-import-name"><span>{t("Nombre en este servidor")}</span><input id="world-import-name" disabled={busy} required maxLength={64} value={importName} onChange={event => setImportName(event.target.value)}/></label><WorldImportPreview source={selection} name={importName} platform={server.platform}/><div className="world-import-actions"><button type="button" className="text-button" disabled={busy} onClick={() => setSelection(null)}>{t("Cancelar")}</button><button className="primary-button" disabled={busy || !stopped || loading || !!inventory.error || !importName.trim() || (selection.dimensions.length>0&&server.platform!=='paper')}>{t("Importar copia")}</button></div><p>{t("El mundo original se conserva en su ubicación.")}</p></form>}
     <div className="world-list-heading"><span>{loading ? t("Cargando mundos…") : !inventory.data ? t("Mundos sin confirmar") : `${worlds.length} ${worlds.length === 1 ? t("mundo") : t("mundos")}`}</span>{inventory.data&&<span>{worlds.some(world => world.active) ? t("Principal primero") : t("Sin mundo principal generado")}</span>}</div>
     {!loading && !inventory.error && inventory.data!==null && !worlds.length && <div className="world-empty"><strong>{t("Aún no hay mundos en este servidor.")}</strong><p>{t("Inícialo para generar uno nuevo o importa una carpeta que contenga un `level.dat` de Minecraft Java.")}</p></div>}
     <div className="world-list" ref={listRef}>{worlds.map(world => <div className={`world-row ${world.active ? 'active' : ''}`} key={world.name} data-layout-id={world.name} onContextMenu={event=>{if(event.target instanceof Element&&event.target.closest('form,input,textarea'))return;const trigger=event.currentTarget.querySelector<HTMLButtonElement>('[data-world-menu]');if(trigger){event.preventDefault();setMenu({name:world.name,x:event.clientX,y:event.clientY,trigger})}}}>

@@ -381,7 +381,7 @@ function App() {
     catch(cause){if(progressRef.current[id]?.stage!=='failed' && errorText(cause)!=='Instalación cancelada')setError(errorText(cause))}
     finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().catch(cause=>setError(errorText(cause)))}
   }
-  const create = async(input:CreateInput,worldSource?:string)=>{
+  const create = async(input:CreateInput,worldSource?:Parameters<typeof api.importWorld>[1])=>{
     let id:string|null=null
     const ready=await act(async()=>{const server=await api.create(input);setCreating(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(server.id);setView('overview');await refresh();if(worldSource)await api.importWorld(server.id,worldSource,'world');id=server.id})
     if(ready && id)await runInstallation(id)

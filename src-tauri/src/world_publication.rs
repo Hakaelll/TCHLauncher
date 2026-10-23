@@ -362,10 +362,43 @@ mod tests {
         }
         assert!(jobs.lock().unwrap().is_empty());
         assert!(records(&f.root).unwrap().is_empty());
+        let selected = crate::world_import::inspect(&exported).unwrap();
+        assert_eq!(selected.dimensions, ["world_nether", "world_the_end"]);
+        assert_eq!(selected.size_bytes, sources.iter().map(|(path, _)| crate::backup::size(path)).sum::<u64>());
+        assert!(crate::world_import::inspect(&export.join("world_nether")).is_err());
+        let imported = crate::file_tasks::import_world(&f.root, &f.server, &exported, "imported", &selected.dimensions, &jobs, |_| {}).unwrap();
+        assert_eq!(imported.dimensions, ["imported_nether", "imported_the_end"]);
+        for (index, (_, digest)) in sources.iter().enumerate() {
+            assert_eq!(fingerprint(&f.parent.join(names[index].replacen("world", "imported", 1)), "").unwrap(), *digest);
+        }
+        assert!(crate::file_tasks::import_world(&f.root, &f.server, &exported, "unreviewed", &[], &jobs, |_| {}).is_err());
+        assert!(!f.parent.join("unreviewed").exists());
+        let mut vanilla = f.server.clone(); vanilla.platform = "vanilla".into();
+        assert!(crate::file_tasks::import_world(&f.root, &vanilla, &exported, "wrong-engine", &selected.dimensions, &jobs, |_| {}).is_err());
+        assert!(!f.parent.join("wrong-engine").exists());
+        fs::rename(export.join("world_the_end"), export.join("removed-end")).unwrap();
+        assert!(crate::file_tasks::import_world(&f.root, &f.server, &exported, "changed", &selected.dimensions, &jobs, |_| {}).is_err());
+        assert!(!f.parent.join("changed").exists());
+        fs::rename(export.join("removed-end"), export.join("world_the_end")).unwrap();
+        fs::write(f.parent.join("occupied_nether"), b"foreign data").unwrap();
+        assert!(crate::file_tasks::import_world(&f.root, &f.server, &exported, "occupied", &selected.dimensions, &jobs, |_| {}).is_err());
+        assert_eq!(fs::read(f.parent.join("occupied_nether")).unwrap(), b"foreign data");
+        assert!(!f.parent.join("occupied").exists());
+        for (index, (_, digest)) in sources.iter().enumerate() {
+            assert_eq!(fingerprint(&export.join(names[index]), "").unwrap(), *digest);
+        }
+        let single = export.join("standalone"); fs::create_dir(&single).unwrap();
+        fs::write(single.join("level.dat"), &level).unwrap();
+        assert!(crate::world_import::inspect(&single).unwrap().dimensions.is_empty());
+        let plain = crate::file_tasks::import_world(&f.root, &vanilla, &single, "plain", &[], &jobs, |_| {}).unwrap();
+        assert!(plain.dimensions.is_empty());
+        assert_eq!(fs::read(f.parent.join("plain/level.dat")).unwrap(), level);
         let stages_before = fs::read_dir(&f.parent).unwrap().filter(|entry| entry.as_ref().unwrap().file_name().to_string_lossy().starts_with(".tch-world-")).count();
         storage::connect(&f.root).unwrap().execute_batch("CREATE TRIGGER reject_world_copy BEFORE INSERT ON application_settings WHEN NEW.key LIKE 'world-copy:%' BEGIN SELECT RAISE(ABORT,'fixture failure'); END;").unwrap();
         assert!(crate::file_tasks::duplicate_world(&f.root, &f.server, "world", "failed", &jobs, |_| {}).is_err());
+        assert!(crate::file_tasks::import_world(&f.root, &f.server, &exported, "failed-import", &selected.dimensions, &jobs, |_| {}).is_err());
         assert!(!f.parent.join("failed").exists());
+        assert!(!f.parent.join("failed-import").exists());
         assert_eq!(fs::read_dir(&f.parent).unwrap().filter(|entry| entry.as_ref().unwrap().file_name().to_string_lossy().starts_with(".tch-world-")).count(), stages_before);
         assert!(jobs.lock().unwrap().is_empty());
         assert!(records(&f.root).unwrap().is_empty());

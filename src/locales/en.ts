@@ -1,5 +1,10 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Carpetas que se copiarán": "Folders to copy",
+  "Detén el servidor de origen antes de copiar. Las carpetas originales se conservan.": "Stop the source server before copying. The original folders are preserved.",
+  "Este mundo tiene dimensiones separadas de Paper. Elige un servidor Paper; no se convierten automáticamente a otros tipos": "This world has separate Paper dimensions. Choose a Paper server; dimensions are not automatically converted to other server types",
+  "Las dimensiones del mundo han cambiado. Vuelve a elegir la carpeta antes de importar": "The world dimensions have changed. Choose the folder again before importing",
+  "Nombre de carpeta de mundo no válido": "Invalid world folder name",
   "Cambios por proyecto": "Changes by project",
   "Dependencia obligatoria": "Required dependency",
   "Sin notas publicadas": "No release notes",

@@ -43,8 +43,8 @@ pub fn create_backup(root:&Path,id:&str,jobs:&Registry,emit:impl Fn(Progress)+Se
     registered(id,jobs,emit,|task|backup::create_tracked(root,id,task))
 }
 
-pub fn import_world(server:&crate::model::Server,source:&Path,name:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<crate::world::WorldInfo,String>{
-    registered_kind(&server.id,"world_import",jobs,emit,|task|crate::world::import_tracked(server,source,name,task))
+pub fn import_world(root:&Path,server:&crate::model::Server,source:&Path,name:&str,dimensions:&[String],jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<crate::world::WorldInfo,String>{
+    registered_kind(&server.id,"world_import",jobs,emit,|task|crate::world_import::import(root,server,source,name,dimensions,task))
 }
 
 pub fn import_server(root:&Path,input:crate::model::ImportServer,id:&str,jobs:&Registry,emit:impl Fn(Progress)+Send+Sync+'static)->Result<crate::model::Server,String>{

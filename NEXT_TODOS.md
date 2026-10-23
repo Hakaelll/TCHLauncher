@@ -138,10 +138,16 @@ only manual verification:
   One combined filesystem check covers cross-layer output, unchanged source
   bytes, invalid files, private-value exclusion, Windows folder casing and limits.
   Native selection/review/copy/manage presentation remains unverified.
-- **WORLD-PAPER-IMPORT-01 — TODO:** review external Paper dimension siblings before
-  importing a selected world folder. The picker still copies that one chosen folder;
-  importing an existing complete server preserves all siblings. A reviewed family
-  import is needed to avoid requiring manual sibling copies after a folder/ZIP export.
+- **WORLD-PAPER-IMPORT-01 — REVIEW:** external world selection detects adjacent
+  Paper Nether/End folders, previews each source/destination and reports total size.
+  Creation and World Manager submit the reviewed dimensions; native import rereads
+  that family and rejects changed dimensions, dimension-only selection, unsafe
+  folders, occupied destinations and non-Paper targets for split worlds. Imports
+  reuse staged family copying and trusted SQLite publication recovery. Original
+  folders remain unchanged; users must stop the external source server first.
+  Retained filesystem and React preview checks cover the new boundary; native
+  picker/keyboard/layout and real Paper gameplay remain unverified. No automatic
+  conversion between Paper's split folders and other engines is claimed.
 - **PLAYER-OFFLINE-01 — REVIEW:** standard whitelist JSON preserves explicit UUIDs
   and merges against the current file under a stopped-server reservation. Existing
   objects and unknown fields survive; same-name/different-UUID accounts stay

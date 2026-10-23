@@ -8,8 +8,9 @@ import {useEffect,useRef,useState} from 'react'
 import {api,type CreateInput,type Version,type WorldInspection} from './api'
 import {MovingIndicator,AnimatedValue,useNavigationMotion} from './motion'
 import worldIllustration from './assets/choice-world.png'
+import {WorldImportPreview} from './WorldImportPreview'
 
-export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;onCreate:(input:CreateInput,worldSource?:string)=>Promise<void>;busy:boolean;systemMemory:number}) {
+export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>void;onCreate:(input:CreateInput,worldSource?:WorldInspection)=>Promise<void>;busy:boolean;systemMemory:number}) {
   const steps = [t("Identidad"),t("Versión"),t("Mundo"),t("Capacidad"),t("Revisar")] as const
   const [step,setStep] = useState(0)
   const wizardRef=useRef<HTMLDivElement>(null)
@@ -32,8 +33,9 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
   const memorySliderMax = Math.min(65536,Math.max(input.memoryMaxMb,systemMemoryMb || 16384))
   const invalidCapacity = !isCapacityValid(input)
   const invalidSeed=worldMode==='new'&&(new TextEncoder().encode(input.seed??'').length>1024||/[\u0000-\u001f\u007f]/.test(input.seed??''))
-  const readyToCreate = !invalidSeed && !!input.name.trim() && !!input.version && !versionError && !versionLoading && !invalidCapacity && (worldMode === 'new' || !!worldSource)
-  const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError && !versionLoading : step === 2 ? !invalidSeed && (worldMode === 'new' || !!worldSource) : step === 3 ? !invalidCapacity : readyToCreate
+  const incompatibleWorld=worldMode==='existing'&&!!worldSource?.dimensions.length&&input.platform!=='paper'
+  const readyToCreate = !invalidSeed && !incompatibleWorld && !!input.name.trim() && !!input.version && !versionError && !versionLoading && !invalidCapacity && (worldMode === 'new' || !!worldSource)
+  const canAdvance = step === 0 ? !!input.name.trim() : step === 1 ? !!input.version && !versionError && !versionLoading : step === 2 ? !invalidSeed && !incompatibleWorld && (worldMode === 'new' || !!worldSource) : step === 3 ? !invalidCapacity : readyToCreate
   const loadVersions = () => setCatalogRevision(value=>value+1)
   useEffect(() => {
     let active=true;setVersionLoading(true);setVersionError(null)
@@ -66,7 +68,7 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
       const next = step + 1
       moveStep(next)
       setFurthestStep(current => Math.max(current,next))
-    } else onCreate({...input,seed:worldMode==='new'?input.seed:''},worldMode === 'existing' ? worldSource?.path : undefined)
+    } else onCreate({...input,seed:worldMode==='new'?input.seed:''},worldMode === 'existing' ? worldSource??undefined : undefined)
   }
   return <div className="form-page">
     <div className="form-heading wizard-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/>  {t("Servidores")}</button><div className="wizard-title-row"><h1>{t("Nuevo servidor")}</h1><span className="wizard-counter">{t("Paso")} {step + 1}  {t("de")} {steps.length}</span></div></div>
@@ -86,7 +88,7 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Elige un mundo")}</h2><p>{t("Genera uno nuevo o importa un mundo de Minecraft Java.")}</p></div>
       <div className="world-choice"><label><input type="radio" name="world-mode" checked={worldMode === 'new'} onChange={() => setWorldMode('new')}/><span><strong>{t("Mundo nuevo")}</strong><small>{t("Minecraft lo generará en el primer inicio.")}</small></span></label><label><input type="radio" name="world-mode" checked={worldMode === 'existing'} onChange={() => setWorldMode('existing')}/><span><strong>{t("Usar un mundo existente")}</strong><small>{t("Se copiará a este servidor; el original se conserva.")}</small></span></label></div>
       {worldMode === 'new' && <div className="world-generation"><label htmlFor="new-world-seed"><strong>{t("Semilla del mundo")}</strong><span className="field-optional">{t("Opcional")}</span></label><input id="new-world-seed" type="text" value={input.seed??''} disabled={busy} aria-invalid={invalidSeed} aria-describedby="new-world-seed-help" placeholder={t("Aleatoria si la dejas vacía")} onChange={event=>setInput({...input,seed:event.target.value})}/><p id="new-world-seed-help" className={invalidSeed?'form-error':'field-help'}>{invalidSeed?t("Usa hasta 1024 bytes, sin saltos de línea ni caracteres de control."):t("Número o texto. Se usará al generar el mundo en su primer inicio.")}</p></div>}
-      {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld}>{t("Elegir carpeta del mundo")}</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldError && <p className="form-error" role="alert">{translatedMessage(worldError)}</p>}</div>}
+      {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld}>{t("Elegir carpeta del mundo")}</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldSource&&<WorldImportPreview source={worldSource} name="world" platform={input.platform}/>}{worldError && <p className="form-error" role="alert">{translatedMessage(worldError)}</p>}</div>}
       </>}
       {step === 3 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Capacidad del servidor")}</h2><p>{t("Reserva memoria para el sistema y para jugar.")}</p></div>

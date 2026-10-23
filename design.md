@@ -12,6 +12,18 @@ reduced-motion preferences remain consistent with the content manager. Existing
 review tokens, backup requirements and install actions remain unchanged. Native
 layout and keyboard verification remain manual.
 
+## World import review
+
+Creation and the World Manager share an inline folder review. Each row identifies
+the primary world, Nether or End with a small square material mark, the original
+folder name and its destination name. Renaming updates the whole family preview.
+The source summary reports total family size. The review wraps filenames and
+reflows destination names below the source on narrow windows. Split Paper worlds
+require a Paper destination; keep that explanation beside the preview and prevent
+submission for other engines. Original folders stay untouched, and the review
+asks users to stop the source server before copying. No additional modal, polling
+or animation is needed for this file review. Native visual checks remain manual.
+
 ## Authority and use
 
 ### Operation and startup refinement
