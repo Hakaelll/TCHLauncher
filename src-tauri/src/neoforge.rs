@@ -11,46 +11,19 @@ const MAX_TEXT: u64 = 128 * 1024;
 
 use crate::jvm::java_path;
 
-fn stable_parts(version: &str) -> Option<Vec<u32>> {
-    let parts = version.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>, _>>().ok()?;
-    (parts.len() == 3 && parts[0] >= 20).then_some(parts)
-}
-
-fn minecraft_version(parts: &[u32]) -> String {
-    if parts[0] < 26 {
-        if parts[1] == 0 { format!("1.{}", parts[0]) } else { format!("1.{}.{}", parts[0], parts[1]) }
-    } else if parts[1] == 0 { parts[0].to_string() } else { format!("{}.{}", parts[0], parts[1]) }
-}
-
-fn releases(data: &Value) -> Result<Vec<String>, String> {
-    Ok(data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?.iter()
-        .filter_map(Value::as_str).filter(|version| stable_parts(version).is_some()).map(str::to_owned).collect())
-}
-
-fn select_loader(data: &Value, minecraft: &str) -> Result<String, String> {
-    releases(data)?.into_iter().filter_map(|version| {
-        let parts = stable_parts(&version)?;
-        (minecraft_version(&parts) == minecraft).then_some((parts, version))
-    }).max_by(|a,b| a.0.cmp(&b.0)).map(|(_,version)|version)
-        .ok_or_else(|| format!("NeoForge no tiene una versión estable para Minecraft {minecraft}"))
-}
 pub fn stable_loaders(data:&Value,minecraft:&str)->Result<Vec<String>,String> {
     Ok(crate::neoforge_release::stable(data,minecraft)?.into_iter().map(|release|release.version).collect())
 }
 
 pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Result<String,String> {
-    if minecraft=="1.20.1"{
-        let available=stable_loaders(data,minecraft)?;
-        return match requested {
-            Some(version) if available.iter().any(|value|value==version)=>Ok(version.into()),
-            Some(version)=>Err(format!("NeoForge {version} no está disponible para Minecraft {minecraft}")),
-            None=>available.into_iter().next().ok_or_else(||format!("NeoForge no tiene una versión estable para Minecraft {minecraft}")),
-        };
-    }
-    let Some(version)=requested else {return select_loader(data,minecraft);};
-    crate::fabric::validate_version(version)?;
-    let parts=stable_parts(version.split('-').next().unwrap_or_default()).ok_or("Versión NeoForge solicitada no compatible")?;
-    if minecraft_version(&parts)!=minecraft || !data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?.iter().any(|entry|entry.as_str()==Some(version)) {
+    let Some(version)=requested else {
+        return stable_loaders(data,minecraft)?.into_iter().next()
+            .ok_or_else(||format!("NeoForge no tiene una versión estable para Minecraft {minecraft}"));
+    };
+    let release=crate::neoforge_release::Release::selected(version).ok_or("Versión NeoForge solicitada no compatible")?;
+    let entries=data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?;
+    if entries.len()>100_000{return Err("El catálogo NeoForge supera el límite de versiones".into());}
+    if release.minecraft!=minecraft||!entries.iter().any(|entry|entry.as_str()==Some(version)) {
         return Err(format!("NeoForge {version} no está disponible para Minecraft {minecraft}"));
     }
     Ok(version.into())
@@ -59,8 +32,7 @@ pub fn requested_loader(data:&Value,minecraft:&str,requested:Option<&str>)->Resu
 pub fn versions(task: &DownloadTask, minecraft: Vec<VersionInfo>) -> Result<Vec<VersionInfo>, String> {
     let data = task.json(CATALOG, "Consultando versiones NeoForge")?;
     let legacy=task.json(catalog_url("1.20.1"),"Consultando NeoForge histórico")?;
-    let mut supported: HashSet<_> = releases(&data)?.iter().filter_map(|version|stable_parts(version))
-        .map(|parts|minecraft_version(&parts)).collect();
+    let mut supported: HashSet<_> = crate::neoforge_release::releases(&data)?.map(|release|release.minecraft).collect();
     if !stable_loaders(&legacy,"1.20.1")?.is_empty(){supported.insert("1.20.1".into());}
     Ok(minecraft.into_iter().filter(|version|supported.contains(&version.id)).collect())
 }

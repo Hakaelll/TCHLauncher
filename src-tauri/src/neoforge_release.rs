@@ -42,10 +42,13 @@ fn numbers(version:&str)->Option<Vec<u32>>{
     let values=version.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;
     (values.len()==3).then_some(values)
 }
-pub fn stable(data:&Value,minecraft:&str)->Result<Vec<Release>,String>{
+pub fn releases(data:&Value)->Result<impl Iterator<Item=Release>+'_,String>{
     let entries=data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?;
     if entries.len()>100_000{return Err("El catálogo NeoForge supera el límite de versiones".into());}
-    let mut releases=entries.iter().filter_map(Value::as_str).filter_map(Release::parse).filter(|release|release.minecraft==minecraft).collect::<Vec<_>>();
+    Ok(entries.iter().filter_map(Value::as_str).filter_map(Release::parse))
+}
+pub fn stable(data:&Value,minecraft:&str)->Result<Vec<Release>,String>{
+    let mut releases=releases(data)?.filter(|release|release.minecraft==minecraft).collect::<Vec<_>>();
     releases.sort_by(|a,b|b.numbers.cmp(&a.numbers));releases.dedup_by(|a,b|a.version==b.version);
     Ok(releases)
 }

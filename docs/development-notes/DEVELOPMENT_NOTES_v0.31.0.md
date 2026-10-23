@@ -1470,3 +1470,17 @@ and shared existing notice motion with both error presentations. TypeScript and
 actual React ES/EN checks pass for guidance, the logs control, escaped content and
 closed disclosure. Native Explorer, keyboard and visual review remain pending;
 no retained case, dependency or new installer was added.
+
+
+## Shared NeoForge catalog interpretation
+
+Removed the duplicate modern version parser from neoforge.rs. Catalog discovery,
+stable loader lists and requested loader identity now use neoforge_release, with
+bounded entries/version strings and numeric ordering. Release iteration avoids an
+extra catalog vector; sorting is limited to the requested Minecraft family.
+Existing historical 1.20.1 identity and catalog-selected prereleases remain valid.
+A temporary focused native check passed numeric ordering, deduplication, stable
+versus explicit prerelease selection, wrong/absent versions, legacy identities,
+26.x mapping and catalog bounds. The check was removed after execution; no retained
+case or dependency was added. This is parser/selection evidence, not a new real
+legacy installer run or native selector review. Source follows installer 0.38.0.
