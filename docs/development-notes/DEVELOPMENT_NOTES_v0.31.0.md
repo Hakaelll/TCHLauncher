@@ -1428,3 +1428,19 @@ its current callback normally resolves after publishing that error. Result count
 now translate to English. Five existing frontend cases and TypeScript pass;
 the acknowledgement case includes a failed read and a read-only retry with exactly
 one mutation. No new case/dependency, native UI check or installer was added.
+
+
+## Task-specific recovery messages
+
+Consolidated DownloadTask terminal publication into one result match. Installation,
+Java, modpack and update failures/cancellations now name their actual operation;
+existing world/content/backup results keep their labels. Failure publication keeps
+the latest attempt number and original reason. InstallProgress now supplies local,
+operation-specific recovery advice for all 17 task kinds, with exhaustive TypeScript
+coverage and English/Spanish copy. No error-string heuristic infers a root cause.
+
+A temporary native check passed real DownloadTask publication for attempt-3 failures
+and loader cancellation; its source/log remain ignored under artifacts, and its
+module was removed from production source. Actual React rendering passed all kinds
+in both languages with escaped technical content. TypeScript passed. No retained
+case, dependency, broad engine run, native UI claim or new release was added.

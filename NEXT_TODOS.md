@@ -250,6 +250,15 @@ only manual verification:
   remain available. Result counts are localized. Five retained frontend checks
   and TypeScript pass; native interaction remains unverified. Source follows 0.37.0.
 
+- **TASK-ERROR-01 — REVIEW:** task results distinguish server/content/modpack
+  installation, runtime preparation and engine updates, including cancellation.
+  Failed tasks retain their last observed attempt instead of resetting it to 1.
+  Every frontend task kind now has contextual recovery advice beside its original
+  error and technical details. Native terminal-state checks and React rendering
+  for all 17 kinds in English/Spanish pass; TypeScript passes. The temporary native
+  check was removed after execution, so the retained case count is unchanged.
+  Native presentation remains unverified; source follows installer 0.37.0.
+
 ## Reported issues needing host evidence
 
 - Internet-only connection stalls without observed CPU/RAM spikes: capture host

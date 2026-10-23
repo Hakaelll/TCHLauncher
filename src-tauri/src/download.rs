@@ -85,76 +85,32 @@ impl DownloadTask {
     }
 
     pub fn finish(&self, result: &Result<(), String>) {
-        if matches!(self.kind.as_str(),"world_activate"|"world_delete"){
-            let (success,cancelled,failed)=if self.kind=="world_delete"{("Mundo eliminado","Eliminación cancelada","No se pudo eliminar el mundo")}else{("Mundo principal actualizado","Cambio de mundo cancelado","No se pudo cambiar el mundo principal")};
-            match result{
-                Ok(())=>self.report(success,"completed"),
-                Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),
-                Err(error)=>self.progress(failed,"failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if matches!(self.kind.as_str(),"world_duplicate"|"world_export"){
-            let (success,cancelled,failed)=if self.kind=="world_export"{("Exportación completada","Exportación cancelada","No se pudo exportar el mundo")}else{("Mundo duplicado","Duplicado cancelado","No se pudo duplicar el mundo")};
-            match result{
-                Ok(())=>self.report(success,"completed"),
-                Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),
-                Err(error)=>self.progress(failed,"failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="content_remove"{
-            match result{
-                Ok(())=>self.report("Contenido retirado","completed"),
-                Err(error) if error==CANCELLED=>self.report("Retirada cancelada","cancelled"),
-                Err(error)=>self.progress("No se pudo retirar el contenido","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="content_toggle"{
-            match result{
-                Ok(())=>self.report("Estado del contenido actualizado","completed"),
-                Err(error) if error==CANCELLED=>self.report("Cambio de contenido cancelado","cancelled"),
-                Err(error)=>self.progress("No se pudo cambiar el estado del contenido","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="server_import"{
-            match result{
-                Ok(())=>self.report("Servidor importado","completed"),
-                Err(error) if error==CANCELLED=>self.report("Importación cancelada","cancelled"),
-                Err(error)=>self.progress("No se pudo importar el servidor","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="world_import"{
-            match result{
-                Ok(())=>self.report("Mundo importado","completed"),
-                Err(error) if error==CANCELLED=>self.report("Importación cancelada","cancelled"),
-                Err(error)=>self.progress("No se pudo importar el mundo","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="restore"{
-            match result{
-                Ok(())=>self.report("Copia restaurada","completed"),
-                Err(error) if error==CANCELLED=>self.report("Restauración cancelada","cancelled"),
-                Err(error)=>self.progress("No se pudo restaurar la copia","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
-        if self.kind=="backup" {
-            match result {
-                Ok(())=>self.report("Copia guardada","completed"),
-                Err(error) if error==CANCELLED=>self.report("Copia cancelada","cancelled"),
-                Err(error)=>self.progress("No se pudo guardar la copia","failed",0,None,None,1,Some(error.clone())),
-            }
-            return;
-        }
+        let (success,cancelled,failed)=match self.kind.as_str(){
+            "world_delete"=>("Mundo eliminado","Eliminación cancelada","No se pudo eliminar el mundo"),
+            "world_activate"=>("Mundo principal actualizado","Cambio de mundo cancelado","No se pudo cambiar el mundo principal"),
+            "world_export"=>("Exportación completada","Exportación cancelada","No se pudo exportar el mundo"),
+            "world_duplicate"=>("Mundo duplicado","Duplicado cancelado","No se pudo duplicar el mundo"),
+            "world_import"=>("Mundo importado","Importación cancelada","No se pudo importar el mundo"),
+            "server_import"=>("Servidor importado","Importación cancelada","No se pudo importar el servidor"),
+            "content_remove"=>("Contenido retirado","Retirada cancelada","No se pudo retirar el contenido"),
+            "content_toggle"=>("Estado del contenido actualizado","Cambio de contenido cancelado","No se pudo cambiar el estado del contenido"),
+            "backup"=>("Copia guardada","Copia cancelada","No se pudo guardar la copia"),
+            "restore"=>("Copia restaurada","Restauración cancelada","No se pudo restaurar la copia"),
+            "install"=>("Instalación completada","Instalación cancelada","No se pudo instalar el servidor"),
+            "content_install"=>("Contenido instalado","Instalación de contenido cancelada","No se pudo instalar el contenido"),
+            "pack_install"=>("Modpack instalado","Instalación de modpack cancelada","No se pudo instalar el modpack"),
+            "loader_update"=>("Loader actualizado","Actualización de loader cancelada","No se pudo actualizar el loader"),
+            "minecraft_update"=>("Minecraft actualizado","Actualización de Minecraft cancelada","No se pudo actualizar Minecraft"),
+            "runtime"|"runtime_reinstall"=>("Java preparado","Preparación de Java cancelada","No se pudo preparar Java"),
+            _=>("Tarea completada","Tarea cancelada","No se pudo completar la tarea"),
+        };
         match result {
-            Ok(()) => self.report(if self.kind == "install" {"Instalación completada"} else if self.kind == "content_install" {"Contenido instalado"} else if self.kind=="pack_install" {"Modpack instalado"} else if self.kind=="loader_update" {"Loader actualizado"} else if self.kind=="minecraft_update" {"Minecraft actualizado"} else {"Java preparado"},"completed"),
-            Err(error) if error == CANCELLED => self.report("Instalación cancelada","cancelled"),
-            Err(error) => self.progress("No se pudo instalar","failed",0,None,None,1,Some(error.clone())),
+            Ok(())=>self.report(success,"completed"),
+            Err(error) if error==CANCELLED=>self.report(cancelled,"cancelled"),
+            Err(error)=>{
+                let attempt=self.latest.lock().map(|progress|progress.attempt).unwrap_or(1);
+                self.progress(failed,"failed",0,None,None,attempt,Some(error.clone()));
+            }
         }
     }
 
