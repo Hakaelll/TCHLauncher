@@ -1415,3 +1415,16 @@ Actual React ES/EN rendering checks cover the displayed UUID, level default, run
 state and existing-operator status. TypeScript and Windows Vite passed. No new
 retained test case or dependency. Native interaction and actual Minecraft access
 remain manual gates; no new installer or release was generated.
+
+
+## Player action acknowledgements and read guards
+
+Commands and whitelist toggles now retain native acknowledgement if their refresh
+callback rejects, so a sent form can clear without repeating its command. The
+existing component owner serializes mutations and ignores late completion after
+unmount. Inventory-based actions block during pending/failed reads, including OP
+settings and whitelist import. The shared read hook still owns read error display;
+its current callback normally resolves after publishing that error. Result counts
+now translate to English. Five existing frontend cases and TypeScript pass;
+the acknowledgement case includes a failed read and a read-only retry with exactly
+one mutation. No new case/dependency, native UI check or installer was added.

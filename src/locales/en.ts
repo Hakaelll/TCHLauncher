@@ -1831,4 +1831,5 @@ export const english: Record<string,string> = {
   "Operador": "Operator",
   "Permisos guardados": "Permissions saved",
   "Los comandos requieren el servidor iniciado. En Conocidos puedes preparar la lista blanca y los permisos OP por UUID.": "Commands require a running server. In Known players, you can prepare the whitelist and OP permissions by UUID.",
+  "{0} resultados": "{0} results",
 }

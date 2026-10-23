@@ -1,6 +1,7 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {createServerRead} from '../src/serverRead.ts'
+import {acknowledgedAction} from '../src/acknowledgedAction.ts'
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
 
 test('nullable crash reports distinguish an unread inventory, absent history and failed observation',async()=>{
@@ -56,6 +57,15 @@ test('native acknowledgement invalidates an older read and survives failed synch
   assert.deepEqual(state.data,[{id:'one',enabled:true}]);assert.equal(state.error,'read failed')
   const retry=reader.refresh();pending[2].resolve([{id:'one',enabled:true,lastResult:'Started'}]);await retry
   assert.equal(state.error,null);assert.equal(state.data[0].lastResult,'Started')
+  let sent=0,read=0
+  const result=await acknowledgedAction(async()=>{sent++;return true},async success=>{
+    assert.equal(success,true);read++;throw new Error('players unavailable')
+  })
+  assert.deepEqual(result,{value:true,refreshError:'players unavailable'})
+  assert.equal(sent,1);assert.equal(read,1)
+  const readRetry=await acknowledgedAction(async()=>{read++;return []},async()=>{})
+  assert.deepEqual(readRetry,{value:[],refreshError:null});assert.equal(sent,1)
+
 })
 test('acknowledgements cannot populate a different selection or a disposed panel',()=>{
   let state

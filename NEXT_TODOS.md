@@ -242,6 +242,14 @@ only manual verification:
   added. Native interaction and actual client enforcement remain unverified.
   Source is ahead of installer 0.37.0.
 
+- **PLAYER-ACTIONS-01 — REVIEW:** command and whitelist-toggle acknowledgements
+  survive a rejected follow-up read via the shared acknowledgedAction helper.
+  The component's operation owner also serializes live commands and file actions,
+  suppressing duplicate submissions and updates after unmount. Inventory-derived
+  controls now block during reads or failed observations; free-form live commands
+  remain available. Result counts are localized. Five retained frontend checks
+  and TypeScript pass; native interaction remains unverified. Source follows 0.37.0.
+
 ## Reported issues needing host evidence
 
 - Internet-only connection stalls without observed CPU/RAM spikes: capture host
