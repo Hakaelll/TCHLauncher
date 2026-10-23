@@ -1,5 +1,10 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Abrir consola": "Open console",
+  "Notificaciones": "Notifications",
+  "Ver resultado": "View result",
+  "Tarea fallida: {0}": "Task failed: {0}",
+  "Tarea completada: {0}": "Task completed: {0}",
   "Sin límite de jugadores": "Bypasses player limit",
   "UUID de jugador no válido": "Invalid player UUID",
   "{0} no contiene una lista válida: {1}": "{0} does not contain a valid list: {1}",

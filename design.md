@@ -571,3 +571,17 @@ only that requests were sent. No-op imports explicitly say no files changed.
 A failed refresh retains the acknowledged result and clears the import draft.
 The review retains pagination/search, theme materials and readable UUID wrapping.
 Native visual and keyboard verification remain manual.
+
+## Background outcome notices
+
+Use compact End surface notices at the bottom right, with a semantic error edge,
+a server name and one navigation action. Crashes open Console; task outcomes open
+the corresponding manager section. Keep long server names and labels wrapped.
+Successful tasks notify only outside the visible task workflow or while the window
+is hidden/unfocused. Failures and observed crashes remain dismissible without a
+timeout. Do not replay historical snapshots, duplicate terminal events or announce
+cancellation as success. Keep eight notices with bounded scrolling; the existing
+task inventory and crash state retain their own records. No focus stealing or
+automatic retry. Use a polite live region and translated labels. Entry lasts 140 ms
+and respects system/application reduced motion. Native layout and keyboard QA
+remain manual. These are in-app notices, not operating-system notifications.

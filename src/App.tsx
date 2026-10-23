@@ -42,6 +42,8 @@ import { recordSample, type MetricSample } from './telemetry'
 import {CommandPalette} from './CommandPalette'
 import {launcherCommands,type LauncherCommand} from './commands'
 import {BackgroundTasks} from './BackgroundTasks'
+import {AppNotices} from './AppNotices'
+import {createNoticeObserver,taskSection,type AppNotice} from './noticeEvents'
 import {dismissTask,isTaskActive,reconcileTasks} from './taskState'
 
 const CreateView=deferredPanel<ComponentProps<typeof import('./CreateView').CreateView>>(t("Nuevo servidor"),()=>import('./CreateView').then(module=>({default:module.CreateView})))
@@ -130,6 +132,18 @@ function App() {
   const progressRef=useRef<Record<string,Progress>>({})
   const progressRevision=useRef(0)
   const [taskSyncError,setTaskSyncError]=useState<string|null>(null)
+  const [appNotices,setAppNotices]=useState<AppNotice[]>([])
+  const [noticeObserver]=useState(createNoticeObserver)
+  const noticeContext=useRef({serverId:selectedId,view,visible:false})
+  noticeContext.current={serverId:selectedId,view,visible:!libraryOpen&&!creating&&!importing&&!appearanceOpen&&!packOpen}
+  const receiveNotice=useCallback((item:AppNotice|null)=>{
+    if(item)setAppNotices(current=>[...current.filter(existing=>existing.id!==item.id),item].slice(-8))
+  },[])
+  const observeTask=useCallback((task:Progress,source:'event'|'snapshot'='event')=>{
+    const context=noticeContext.current
+    const background=document.hidden||!document.hasFocus()||!context.visible||context.serverId!==task.serverId||context.view!==taskSection(task.kind)
+    receiveNotice(noticeObserver.task(task,background,source))
+  },[noticeObserver,receiveNotice])
   const activeInstallationIds=new Set([...installingIds,...Object.values(progressByServer).filter(isTaskActive).map(item=>item.serverId)])
   const busy=operationBusy || activeInstallationIds.has(selectedId ?? '')
   const progress=selectedId ? progressByServer[selectedId] ?? null : null
@@ -214,6 +228,7 @@ function App() {
     api.systemMemory().then(setSystemMemory).catch(() => {})
     const listeners = [
       listen<{ serverId: string; state: ServerState }>('server-state', event => {
+        receiveNotice(noticeObserver.state(event.payload.serverId,event.payload.state))
         if(event.payload.state==='starting'){
           setStartupPhases(current=>{const next={...current};delete next[event.payload.serverId];return next})
           metricsGeneration.current[event.payload.serverId]=(metricsGeneration.current[event.payload.serverId]??0)+1
@@ -223,7 +238,7 @@ function App() {
         if(event.payload.serverId===selectedRef.current&&['stopped','crashed','error'].includes(event.payload.state))void refreshPlayers(event.payload.serverId)
       }),
       listen<StartupEvent>('server-startup',event=>setStartupPhases(current=>acceptStartupEvent(current,event.payload))),
-      listen<Progress>('install-progress', event => {progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
+      listen<Progress>('install-progress', event => {observeTask(event.payload);progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
       listen<LogLine>('server-log', event => {
         if (event.payload.serverId === selectedRef.current) logBatch.current?.push(event.payload)
       }),
@@ -236,7 +251,7 @@ function App() {
       }),
     ]
     return () => { listeners.forEach(p => p.then(unlisten => unlisten()).catch(() => {})) }
-  }, [refresh])
+  }, [refresh,noticeObserver,receiveNotice,observeTask])
 
   useEffect(()=>{
     if(!isTauri())return
@@ -246,14 +261,14 @@ function App() {
       try{
         const snapshot=await api.installationProgress()
         if(!active)return
-        if(revision===progressRevision.current){progressRef.current=reconcileTasks(progressRef.current,snapshot);setProgressByServer(progressRef.current)}
+        if(revision===progressRevision.current){snapshot.forEach(task=>observeTask(task,'snapshot'));progressRef.current=reconcileTasks(progressRef.current,snapshot);setProgressByServer(progressRef.current)}
         setTaskSyncError(null)
       }catch(cause){if(active)setTaskSyncError(errorText(cause))}
       finally{if(active)timer=window.setTimeout(()=>void sync(),3000)}
     }
     void sync()
     return()=>{active=false;window.clearTimeout(timer)}
-  },[])
+  },[observeTask])
 
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])
   useEffect(() => {
@@ -423,6 +438,7 @@ function App() {
   const selectedName = selected?.name ?? t("Servidores")
   const openLibrary=()=>{setAppearanceOpen(false);setLibraryOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip()}
   const openServer=(server:Server)=>{setAppearanceOpen(false);setLibraryOpen(false);setCreating(false);setImporting(false);setSelectedId(server.id);setView('overview')}
+  const openTask=(serverId:string,section:View)=>{const server=servers.find(item=>item.id===serverId);if(!server)return;openServer(server);setView(section)}
   const openCreate=()=>{setAppearanceOpen(false);setImporting(false);setCreating(true);hideSidebarTooltip()}
   const openImport=()=>{setAppearanceOpen(false);setCreating(false);setImporting(true);hideSidebarTooltip()}
   const openMenu=(server:Server,trigger:HTMLButtonElement,x:number,y:number)=>{const target={server,trigger,x,y};menuTargetRef.current=target;setMenuTarget(target)}
@@ -447,6 +463,7 @@ function App() {
     }
   }
   return <div className={`shell auto-rail ${sidebarCollapsed ? 'sidebar-collapsed' : 'rail-expanded'}`}>
+    <AppNotices notices={appNotices} servers={servers} onDismiss={id=>setAppNotices(current=>current.filter(item=>item.id!==id))} onOpen={item=>{openTask(item.serverId,item.type==='crash'?'console':taskSection(item.task.kind));setAppNotices(current=>current.filter(notice=>notice.id!==item.id))}}/>
     {paletteOpen&&<CommandPalette commands={commands} onClose={()=>setPaletteOpen(false)} onExecute={executeCommand}/>}
     <aside className="server-rail" aria-label={t("Servidores")} onPointerEnter={event=>{if(event.pointerType!=='touch')setRailHovered(true)}} onPointerLeave={()=>setRailHovered(false)} onPointerDown={()=>setRailKeyboardFocus(false)} onFocusCapture={event=>{if(event.target.matches(':focus-visible'))setRailKeyboardFocus(true)}} onKeyDownCapture={event=>{if(event.key==='Tab')setRailKeyboardFocus(true)}} onBlurCapture={event=>{if(!(event.relatedTarget instanceof Node)||!event.currentTarget.contains(event.relatedTarget))setRailKeyboardFocus(false)}}>
       <button className={`rail-library ${libraryOpen && !creating && !importing && !appearanceOpen?'active':''}`} onClick={openLibrary} aria-label={t("Mis servidores")} title={t("Mis servidores")}><span className="brand-emblem"><img src={launcherEmblem} alt=""/></span><strong className="rail-brand-name">TCHLauncher</strong></button>
@@ -457,7 +474,7 @@ function App() {
       </nav>
       <button className="rail-add" onClick={openCreate} aria-label={t("Nuevo servidor")} title={t("Nuevo servidor")}><Icon name="plus" size={19}/><span>{t("Nuevo servidor")}</span></button>
       <button className="rail-import" onClick={openImport} aria-label={t("Importar servidor")} title={t("Importar servidor")}><Icon name="folder" size={18}/><span>{t("Importar servidor")}</span></button>
-      <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>{const server=servers.find(item=>item.id===task.serverId);if(!server)return;openServer(server);if((task.kind==='backup'||task.kind==='restore'))setView('backups');if((task.kind==='world_import'||task.kind==='world_duplicate'||task.kind==='world_export'||task.kind==='world_activate'||task.kind==='world_delete'))setView('worlds');if(task.kind==='content_install'||task.kind==='content_remove'||task.kind==='content_toggle')setView('content');if(task.kind==='loader_update'||task.kind==='minecraft_update')setView('settings')}} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
+      <BackgroundTasks tasks={progressByServer} servers={servers} error={taskSyncError} onOpenChange={setRailTasksOpen} onOpen={task=>openTask(task.serverId,taskSection(task.kind))} onDismiss={task=>{progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>
       <button className="rail-startup" onClick={()=>setStartupOpen(true)} aria-label={t("Inicio automático")} title={t("Inicio automático")}><SectionIcon name="settings"/><span>{t("Inicio automático")}</span></button>
       <button className={`rail-settings ${appearanceOpen?'active':''}`} onClick={()=>{setAppearanceOpen(true);setCreating(false);setImporting(false);hideSidebarTooltip();closeMenu()}} aria-current={appearanceOpen?'page':undefined} aria-label={t("Ajustes")} title={t("Ajustes")}><SectionIcon name="appearance"/><span>{t("Ajustes")}</span></button>
       <span className="rail-version">v{appVersion}</span>

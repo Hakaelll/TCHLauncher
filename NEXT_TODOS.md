@@ -190,10 +190,16 @@ only manual verification:
   confirmed that the three direct UUID commands did not remove the selected test
   profile, so no live-command UUID shortcut is assumed. Native row interaction and
   actual client permissions remain unverified. Source is ahead of installer 0.36.0.
-- **NOTIFY-01 — TODO:** unexpected crashes on another server and relevant background
-  task results need restrained actionable global notices, with server/task identity
-  and deduplication. Existing event handlers update state/task inventories but do
-  not notify the user outside the selected workflow. Original requirement 76.
+- **NOTIFY-01 — REVIEW:** in-app notices identify unexpected server crashes and
+  failed tasks, plus successful tasks completed outside their visible workflow.
+  Open the console or the task's section directly. Terminal task IDs and crash
+  transitions suppress duplicates; initial snapshots do not replay past outcomes.
+  Keep eight dismissible notices and bounded session observations. Existing task
+  inventory and crash state remain available after dismissal. One-off observer
+  checks and actual React ES/EN rendering pass; five retained frontend checks,
+  TypeScript and Windows Vite pass. Native delivery, keyboard and layout remain
+  manual checks. No operating-system notification or new dependency was added.
+  Original requirement 76; source is ahead of installer 0.36.0.
 - **ACTION-RECOVERY-01 — TODO:** ordinary startup/runtime action errors still use
   the generic dismissible string banner. Add a concrete recovery action and
   expandable technical evidence for actionable failures; retain richer existing

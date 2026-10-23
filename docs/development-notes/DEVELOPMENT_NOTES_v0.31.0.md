@@ -1233,3 +1233,25 @@ The requirements 47–100 source audit also identified missing actionable backgr
 notices and structured recovery for ordinary action errors. These are recorded as
 NOTIFY-01 and ACTION-RECOVERY-01; existing crash reports and task inventories do not
 prove those requirements complete.
+
+## Actionable background outcomes
+
+Added session-only global in-app notices for observed crashes and failed tasks.
+Successful tasks notify when their server/section is not visible or the window is
+hidden/unfocused. Notices open the console or relevant task section and never
+retry a mutation. Task navigation is shared with the existing background inventory.
+
+The observer suppresses repeated terminal IDs, initial historical snapshots and
+cancelled tasks. Crash observations reset after a different state, allowing a new
+crash to notify. Session maps retain at most 128 entries each; the visible queue
+retains eight notices without auto-dismiss timers. Task/crash records remain in
+their existing managers. The theme-aware square surface has a 140 ms entry with
+system/application reduced-motion support, translated controls and a polite live
+region. No dependency, native change or retained test case was added.
+
+One-off actual observer checks and React ES/EN rendering passed for duplicate
+suppression, foreground silence, background completion, failures, cancellation,
+repeat crashes, section routing, escaped names and removed-server actions. Five
+retained frontend checks, TypeScript and Windows production Vite passed. Native
+window delivery, layout and keyboard interaction remain unverified. No release
+was built or published; installer 0.36.0 remains unchanged.
