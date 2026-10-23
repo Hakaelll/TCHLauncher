@@ -152,8 +152,13 @@ only manual verification:
   Minecraft file writes. Review shows UUIDs/heads, prospective counts and exact
   saved-versus-submitted results. One combined filesystem check passes; native
   selection/review and actual Minecraft permission enforcement remain unverified.
-- **MOD-CHANGELOG-01 — TODO:** bulk update review must expose available changelogs
-  for each changed project. Current review shows only the first main entry's notes.
+- **MOD-CHANGELOG-01 — REVIEW:** update review exposes notes for every changed
+  project, including required dependencies, and labels missing author notes.
+  Single-project review retains notes for all planned entries. Native disclosures
+  mount plain-text notes only while open. React server-render checks cover bulk
+  filtering, dependencies, missing notes, escaped titles and English/Spanish labels;
+  TypeScript, five frontend checks and Windows production Vite pass. Native toggle,
+  keyboard and layout verification remain pending. Source is ahead of 0.35.0.
 
 ## Reported issues needing host evidence
 

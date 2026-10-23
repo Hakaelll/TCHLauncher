@@ -1,0 +1,15 @@
+.content-release-notes { margin-top:22px; border-top:1px solid var(--line); padding-top:18px; }
+.content-release-notes h3 { margin:0 0 10px; font:12px/1.8 var(--font-display); color:var(--ink); }
+.content-release { border-bottom:1px solid var(--line); }
+.content-release summary { display:list-item; padding:12px 8px; color:var(--secondary); cursor:pointer; font-size:12px; line-height:1.8; overflow-wrap:anywhere; transition:background 140ms ease-out,color 140ms ease-out; }
+.content-release summary::marker { color:var(--accent); }
+.content-release-name { color:var(--ink); font-weight:600; }
+.content-release-version { margin-left:10px; color:var(--accent); font-variant-numeric:tabular-nums; }
+.content-release summary small { display:inline-block; margin-left:12px; font-size:11px; color:var(--secondary); }
+.content-release-text { margin:0 8px 14px; padding:14px; max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; scrollbar-gutter:stable; color:var(--secondary); background:var(--surface-deep); font:12px/1.8 var(--font-reading); }
+.content-release-text:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.content-release > .field-help { margin:0 8px 14px; }
+@media(hover:hover) and (pointer:fine) { .content-release summary:hover { background:var(--surface-raised); color:var(--ink); } }
+@media(max-width:600px) { .content-release summary small { display:block; margin-left:0; } }
+html[data-motion="reduced"] .content-release summary { transition:none; }
+@media(prefers-reduced-motion:reduce) { .content-release summary { transition:none; } }

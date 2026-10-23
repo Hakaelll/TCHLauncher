@@ -11,6 +11,8 @@ import {DisabledContentView} from './DisabledContentView'
 import {useServerRead} from './useServerRead'
 import {contentOperation} from './contentOperation'
 import {prepareContent,type ContentRequest,type PreparedContent} from './contentReview'
+import {ContentChangelogs} from './ContentChangelogs'
+import './contentReview.css'
 const actionLabels=localizedStatic({install:'Añadir',update:'Actualizar',present:'Ya instalado'})
 const environmentLabels:Record<string,string>=localizedStatic({client_and_server:'Cliente y servidor',client_only_server_optional:'Cliente necesario · servidor opcional',server_only:'Solo servidor',server_only_client_optional:'Servidor · cliente opcional',dedicated_server_only:'Servidor dedicado',client_or_server:'Cliente o servidor',client_or_server_prefers_both:'Cliente y servidor recomendados'})
 export function ContentManager({server,progress,logs,onConsole,onInstalled,onDismissProgress,onImportPack}:{server:Server;progress:Progress|null;logs:LogLine[];onConsole:(query:string)=>void;onInstalled:()=>Promise<void>;onDismissProgress:()=>void;onImportPack:()=>void}) {
@@ -142,7 +144,7 @@ export function ContentManager({server,progress,logs,onConsole,onInstalled,onDis
       {review.plan.incompatible.length>0&&<details className="content-dependencies"><summary>{t("Incompatibilidades declaradas (")}{review.plan.incompatible.length})</summary>{review.plan.incompatible.map((dependency,index)=><p key={index}>{dependency.file_name??dependency.project_id??dependency.version_id??t("Archivo incompatible")}</p>)}</details>}
       {review.warnings.map(warning=><p className="inline-note" key={warning}>{translatedMessage(warning)}</p>)}
       {review.changes.some(change=>change.action==='update')&&<p className="content-backup-note">{t("Se guardará una copia del servidor antes de actualizar.")}</p>}
-      {main?.version.changelog&&<details className="content-changelog"><summary>{t("Cambios de esta versión")}</summary><div>{main.version.changelog}</div></details>}
+      {selection&&<ContentChangelogs selection={selection}/>}
       {reviewError&&<p className="form-error" role="alert">{translatedMessage(reviewError)}</p>}
       <div className="dialog-actions"><button data-modal-close disabled={locked}>{t("Cancelar")}</button>{reviewError?<button disabled={locked||!stopped} onClick={()=>{if(bulk)void prepare({kind:'updates'});else if(main)void prepare({kind:'project',projectId:main.project.id,versionId:main.version.id})}}>{t("Revisar de nuevo")}</button>:<button className="primary-button" disabled={locked||!stopped||changes.length===0} onClick={()=>void install()}>{installing?t("Instalando…"):preparing?t("Revisando…"):changes.length===0?t("Ya instalado"):t("Instalar {0} {1}", changes.length, changes.length===1?t("archivo"):t("archivos"))}</button>}</div>
     </Modal>}

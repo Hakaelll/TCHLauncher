@@ -1,5 +1,17 @@
 # TCHLauncher - End / Obsidian visual system (0.15.1)
 
+## Content release notes
+
+The installation review groups release notes by project and exact planned version.
+Bulk updates include changed dependencies and omit already-present entries;
+individual reviews retain the complete planned set. Native disclosures show the
+project, version, required-dependency label and missing-notes status before opening.
+Author text mounts only while open, stays plain text and scrolls within a named,
+keyboard-focusable reading region. Theme surfaces, short hover transitions and
+reduced-motion preferences remain consistent with the content manager. Existing
+review tokens, backup requirements and install actions remain unchanged. Native
+layout and keyboard verification remain manual.
+
 ## Authority and use
 
 ### Operation and startup refinement

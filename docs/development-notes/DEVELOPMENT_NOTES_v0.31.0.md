@@ -1075,3 +1075,21 @@ remains as fallback. Compiler-cache cleanup removed 3,962,938,326 bytes and obso
 hashes match before/after cleanup. Cleanup excluded application data, libraries,
 servers, worlds and downloaded runtimes. Native installation, UI and gameplay
 verification remain pending; this is an unsigned locally generated preview.
+
+## Release notes for every reviewed project
+
+The content review previously displayed only its first main project's changelog.
+It now lists each changed project and required dependency in a bulk review, while
+individual reviews retain all planned entries. Each disclosure identifies the
+exact reviewed version and explicitly labels unavailable author notes. Note bodies
+mount only while open, use plain text and have bounded, focusable scrolling.
+Deferred content CSS owns the theme styling; obsolete changelog rules were removed.
+No backend, dependency, network request, polling or installation guard changed.
+
+Verification: TypeScript, five retained frontend checks and Windows production
+Vite pass. One-off React server-render fixtures cover multiple projects, changed
+dependencies, unchanged-entry exclusion, missing notes, English/Spanish labels,
+escaped author titles and closed-body omission. A separate source review found
+no required corrections. These checks do not prove native disclosure interaction,
+keyboard scrolling or visual layout. No additional retained tests were added.
+Installer 0.35.0 remains unchanged; this follow-up is source-only.

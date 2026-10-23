@@ -1,5 +1,10 @@
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Cambios por proyecto": "Changes by project",
+  "Dependencia obligatoria": "Required dependency",
+  "Sin notas publicadas": "No release notes",
+  "Notas de {0}": "Release notes for {0}",
+  "El autor no ha publicado notas para esta versión.": "The author has not published release notes for this version.",
   "La lista ya contiene esos UUID. No se modificaron archivos.": "The list already contains those UUIDs. No files were changed.",
   "Importar {0} identidades": "Import {0} identities",
   "Enviar {0} nombres": "Send {0} names",

@@ -210,9 +210,8 @@ dialog.content-review-dialog { width:min(620px,calc(100vw - 40px)); }
 .content-review-changes .content-change-action { margin:0; font-size:11px; padding:4px 7px; border-radius:4px; white-space:nowrap; background: var(--mist); }
 .content-review-changes .content-change-action.install { color: var(--success); background: var(--success-wash); }
 .content-review-changes .content-change-action.update { color: var(--metric-blue); background: var(--metric-blue-wash); }
-.content-dependencies,.content-changelog { font-size:12px; margin-top:18px; }
-.content-dependencies summary,.content-changelog summary { cursor:pointer; font-weight:600; }
-.content-changelog > div { white-space:pre-wrap; overflow-wrap:anywhere; max-height:200px; overflow:auto; margin-top:12px; color: var(--secondary); line-height:1.7; }
+.content-dependencies { font-size:12px; margin-top:18px; }
+.content-dependencies summary { cursor:pointer; font-weight:600; }
 .content-backup-note { font-size:12px; color: var(--metric-blue); }
 @media(max-width:1100px) { .content-results { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:650px) { .content-version-label { grid-template-columns:1fr; gap:8px; } .content-empty { padding:40px 8px; } }
