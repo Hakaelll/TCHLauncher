@@ -13,6 +13,11 @@ client launching remain deferred.
 
 - The maintainer reports that Windows preview 0.38.0 works well. Individual scenario
   steps and results were not supplied.
+- For 0.39.0, the maintainer explicitly confirms all four requested scenarios:
+  hide to tray and restore with an active server, stop and exit, startup after a
+  Windows login, and a friend's connection from the Internet. This is user-reported
+  acceptance, not an automated observation. Router protocol/lease cleanup, account
+  identity and the later tray-language change are outside that report's scope.
 - Installed 0.37.0 silently in an isolated directory, upgraded it to 0.38.0 and
   uninstalled it successfully. Upgrade preserved the initialized database and a
   marker; uninstall preserved the populated test library. Original installation,
@@ -21,8 +26,8 @@ client launching remain deferred.
   a selected real Vanilla 1.20.4 server and completed scheduled backup/restart,
   stop and stopped-server backup. Both sessions reached Minecraft readiness;
   both backup directories contained world/level.dat. Preferences/tasks were
-  seeded directly in the isolated database, so their UI/IPC and an actual Windows
-  login remain untested. No desktop interaction is claimed.
+  seeded directly in the isolated database, so that probe did not exercise their
+  UI/IPC or an actual Windows login. No desktop interaction is claimed for it.
 - Real isolated Minecraft 1.21.4 lifecycles passed for Vanilla, Paper, Fabric with
   Lithium and NeoForge: managed Java/install, three ready/status/command/clean-stop
   sessions, backup/restore and restored boot. Restore checks level.dat bytes.
@@ -66,7 +71,7 @@ scenarios. Detailed observations remain in
 | CORE-04 | REVIEW | Properties and capacity | Shared integer limits and recoverable file/SQLite saves implemented. Verify native edits and actual version-specific gameplay rules. |
 | CORE-05 | REVIEW | Backup and restore | Tracked real world restore and restored boot pass for all four engines; level.dat byte equality checked. Verify native restore/retention and interruption. |
 | BACKUP-STOP-01 | REVIEW | Copy after clean stop | Real Paper exit produces one durable copy without replay; startup-stop is excluded. Verify native observer, immediate restart and window exit. |
-| CORE-06 | REVIEW | Close with active processes | Stop, keep in background and cancel paths implemented. Verify native close/tray lifecycle and process ownership. |
+| CORE-06 | REVIEW | Close with active processes | Maintainer confirms 0.39.0 hide/restore with an active server and stop/exit. Cancel, failure feedback and multiple-server close outcomes still need direct interaction evidence. |
 | CORE-07 | REVIEW | Measured telemetry | CPU, resident RAM, heap, I/O, uptime, storage and startup observations connected. Real Paper TPS response verified across three sessions; verify native plots. |
 | CRASH-DIAG-01 | REVIEW | Crash evidence | Bounded durable session reports and real Java failure/relaunch verified. Verify native recovery actions and actual Minecraft crash cases. |
 | CORE-08 | REVIEW | Download cancellation and retries | Temporary publication, validation and retries implemented. Verify native cancellation/retry and interrupted installs; HTTP Range resume is not implemented. |
@@ -85,8 +90,8 @@ scenarios. Detailed observations remain in
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Verify connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
-| NET-02 | REVIEW | Internet and router mapping | UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback implemented. Verify a physical router, shutdown cleanup, CGNAT feedback and real external clients. |
-| TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. The temporary Run entry was restored. Verify preference/task UI/IPC and an actual Windows login. |
+| NET-02 | REVIEW | Internet and router mapping | Maintainer confirms a friend's Internet connection on 0.39.0. UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback are implemented; physical-router protocol/cleanup and CGNAT feedback remain unverified. |
+| TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. Maintainer confirms actual Windows-login startup on 0.39.0. Preference/task UI and error recovery still need direct evidence. |
 | UX-01 | TODO | Native desktop QA | Review 1280×720, 1366×768 and 1920×1080; keyboard, screen reader, themes, reading font and reduced motion. No native UI automation is claimed. |
 | UX-TASKS-01 | REVIEW | Background operations | Measured task events and reconciliation connected. Verify native popover, navigation, cancellation and partial/error outcomes. |
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |
@@ -97,7 +102,7 @@ scenarios. Detailed observations remain in
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
-| REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Verify interactive installer choices, OS login and broader production usage. Linux is deferred; unsigned Windows builds are previews. |
+| REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
 | REL-02 | REVIEW | Current installer | 0.39.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native builds passed. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; interactive UI and broader usage gates remain open. |
 
 ## Implemented scope from earlier audits
@@ -121,13 +126,15 @@ download checksum, and cancellation of interrupted dialog exits.
    interaction evidence.
 2. Review keyboard/focus, resizing, readable text, theme and reduced-motion states
    at the three target desktop sizes. Native UI automation is excluded by design.
-3. Exercise close/cancel/background tray, scheduling/preferences UI and an actual
-   OS login. Real installed-app scheduled actions passed without UI interaction.
+3. Exercise close cancellation/failure handling and scheduling/preferences UI.
+   Background tray, stop/exit and actual login startup passed in the maintainer's
+   0.39.0 report. Real installed-app scheduled actions also passed independently.
 4. Review interactive installation choices. Silent clean install, upgrade and
    uninstall passed against isolated data; the original environment was restored.
-5. Check real LAN/Internet clients and account/skin identity on the affected host.
-   Where router mapping is supported, verify temporary lease cleanup. Where it is
-   unavailable, verify the manual fallback and accurate unsupported-state feedback.
+5. Check a separate LAN client and account/skin identity on the affected host.
+   A friend's Internet connection passed in the maintainer's 0.39.0 report. Where
+   router mapping is supported, verify temporary lease cleanup; otherwise verify
+   the manual fallback and accurate unsupported-state feedback.
 
 No gate should be marked complete from a compiled button, an unobserved operation,
 a sample value or a broad claim about a different version/scenario.

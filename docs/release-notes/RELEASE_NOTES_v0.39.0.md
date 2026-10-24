@@ -30,10 +30,14 @@ and uninstall checks, plus selected-server autostart and scheduled real Vanilla
 backup/restart/stop. Original application data and registration were restored.
 These observations do not establish installer acceptance for every newer build.
 
-This remains an unsigned Windows x64 preview. Interactive desktop/tray behavior,
-an actual Windows login, broader Minecraft client gameplay and physical-router
-Internet use still require acceptance. The full manager objective remains open.
-Linux and Minecraft client launching remain deferred.
+The maintainer subsequently confirmed four 0.39.0 scenarios: hiding to the tray and
+restoring with a server active, stopping and exiting, startup after a Windows
+login, and a friend's connection from the Internet. These are user-reported
+results. They do not establish router protocol/lease cleanup, account identity,
+all desktop layouts or every interactive workflow.
+
+This remains an unsigned Windows x64 preview. The full manager objective remains
+open. Linux and Minecraft client launching remain deferred.
 
 Only `TCHLauncher_0.39.0_x64-setup.exe` is attached to the GitHub release. Checksum
 files remain local.

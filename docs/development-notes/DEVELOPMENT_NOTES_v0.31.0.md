@@ -1584,5 +1584,15 @@ A temporary focused native check passed label mapping and invalid-locale rejecti
 The full native test target compiled, including command registration and menu types.
 TypeScript, the Windows frontend build and an IPC payload/rejection check passed.
 The temporary test was removed;
-the existing retained suite is unchanged. Actual Windows tray interaction remains
-unverified. This source change follows published installer 0.39.0.
+the existing retained suite is unchanged. The new translated labels have not been
+inspected in the actual Windows menu. This source change follows installer 0.39.0.
+
+## Maintainer acceptance for 0.39.0
+
+In response to the four named acceptance scenarios, the maintainer reported
+"Lo he probado y funciona todo". Record user-reported passes for tray hide/restore
+with an active server, stop/exit, startup after a Windows login and an external
+friend's connection. The report supplies no router method/lease evidence, client
+identity details or resolution/accessibility review. It also predates packaging
+the later tray-language change. Keep those boundaries open without requesting
+the same four tests again. No additional execution or release was needed.
