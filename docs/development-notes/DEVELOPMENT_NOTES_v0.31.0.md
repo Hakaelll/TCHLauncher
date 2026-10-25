@@ -1699,3 +1699,17 @@ artifacts/minecraft-audit-result.json.
 The policy follows Fabric's metadata and dependency-override documentation:
 https://docs.fabricmc.net/develop/loader/fabric-mod-json
 https://docs.fabricmc.net/players/troubleshooting/dependency-overrides
+
+## Windows 0.40.0 package
+
+Packaged the accumulated tray/localization, telemetry, storage/deletion recovery
+and Fabric inventory changes as Windows preview 0.40.0. All four source version
+entries agree. TypeScript, the Windows frontend production build and the optimized
+native build passed. The native linker emitted its library-creation informational
+message. Embedded executable/installer icons match the application emblem and
+both product versions are 0.40.0. The NSIS installer is 6,867,997 bytes; its local
+hash and package metadata are recorded in artifacts/package-0.40.json.
+
+The release attaches only the installer. Native visual/interaction acceptance
+and client/router observations are not inferred from packaging or earlier user
+reports. Dependency versions and bundled legal resources are unchanged.

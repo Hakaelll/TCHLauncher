@@ -5,10 +5,10 @@ Windows is the active platform. The full original manager objective remains open
 flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
 follows an explicit maintainer instruction. These labels do not mean completion.
 
-Current source adds native tray-language synchronization, library translation
-fixes, preservation of partial telemetry samples and accessible capacity-control
-labels, storage-warning refresh recovery and deletion acknowledgement/session cleanup
-after published 0.39.0. Chart history retains only its plotted scalar values.
+Version 0.40.0 packages native tray-language synchronization, library translation
+fixes, preservation of partial telemetry samples, accessible capacity-control
+labels, storage-warning refresh recovery and deletion acknowledgement/session cleanup.
+Chart history retains only its plotted scalar values.
 Fabric inventory now flags recognized Minecraft requirement mismatches against
 configured stable releases, without overrides or experimental-version inference.
 GitHub releases attach only the installer; checksum files remain local. Linux and
@@ -108,7 +108,7 @@ scenarios. Detailed observations remain in
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.39.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native builds passed. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; interactive UI and broader usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.40.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native builds passed. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; the maintainer's 0.39.0 acceptance remains scoped to that build. Interactive UI and broader usage gates remain open. |
 
 ## Implemented scope from earlier audits
 
