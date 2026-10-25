@@ -443,6 +443,11 @@ from the card as well as its menu button. Stable item keys preserve existing lis
 continuity; hover arrow movement is short, non-repeating and respects reduced motion.
 Keyboard controls and narrow layouts remain available; native visual review is pending.
 
+Library headings, result totals and accessible Manage action names follow the
+selected language. Translate the singular/plural noun before substituting it into
+a summary; server names remain verbatim. Empty/populated library captures have
+been reviewed in an isolated Chromium fixture at the three target desktop sizes.
+
 ## Startup preference recovery
 
 Application autostart and individual server startup remain independent sections.

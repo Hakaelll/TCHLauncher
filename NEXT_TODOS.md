@@ -5,7 +5,8 @@ Windows is the active platform. The full original manager objective remains open
 flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
 follows an explicit maintainer instruction. These labels do not mean completion.
 
-Current source adds native tray-language synchronization after published 0.39.0.
+Current source adds native tray-language synchronization and library translation
+fixes after published 0.39.0.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
@@ -92,7 +93,7 @@ scenarios. Detailed observations remain in
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
 | NET-02 | REVIEW | Internet and router mapping | Maintainer confirms a friend's Internet connection on 0.39.0. UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback are implemented; physical-router protocol/cleanup and CGNAT feedback remain unverified. |
 | TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. Maintainer confirms actual Windows-login startup on 0.39.0. Preference/task UI and error recovery still need direct evidence. |
-| UX-01 | TODO | Native desktop QA | Review 1280×720, 1366×768 and 1920×1080; keyboard, screen reader, themes, reading font and reduced motion. No native UI automation is claimed. |
+| UX-01 | TODO | Native desktop QA | Isolated headless library captures cover empty/populated states at 1280×720, 1366×768 and 1920×1080 with no horizontal overflow or clipped actions. ES/EN counts and action labels pass. Full native screens, keyboard, screen reader, themes, reading font and reduced motion remain open; fixture rendering does not establish native acceptance. |
 | UX-TASKS-01 | REVIEW | Background operations | Measured task events and reconciliation connected. Verify native popover, navigation, cancellation and partial/error outcomes. |
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |
 | UX-KEY-01 | REVIEW | Commands and search shortcuts | Ctrl+K/Ctrl+N connected; Ctrl+F skips hidden/inert/disabled searches and includes Players. The palette now opens server folders without navigating and restarts running servers through the existing lifecycle. Commands are revalidated against current state before execution. Verify native keyboard paths and modals. |

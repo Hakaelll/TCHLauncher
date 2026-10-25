@@ -1596,3 +1596,19 @@ friend's connection. The report supplies no router method/lease evidence, client
 identity details or resolution/accessibility review. It also predates packaging
 the later tray-language change. Keep those boundaries open without requesting
 the same four tests again. No additional execution or release was needed.
+
+## Library layout and English counts
+
+An isolated React/Chromium fixture captured empty and populated libraries at
+1280x720, 1366x768 and 1920x1080 using current styles/assets and long sample names.
+No horizontal overflow or actions clipped outside the main column were observed.
+The captures exposed untranslated plural counts in the heading/footer and Manage
+action names. These now use the existing locale function and two English entries.
+The check failed before the correction and passed afterwards, including English
+singular/plural and Spanish plural summaries. TypeScript passed.
+
+Evidence remains in artifacts/library-review.json, before/after logs and six PNGs.
+The fixture used illustrative server records and an empty rail; it does not verify
+native IPC, the real sidebar, other screens or desktop interaction. Its sources
+and generated Vite cache were removed afterwards. No retained test or dependency
+was added. This change follows installer 0.39.0.
