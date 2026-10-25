@@ -245,6 +245,11 @@ fn normalize_icon(bytes:&[u8])->Result<String,String> {
 pub fn audit(server:&Server)->Result<Audit,String> {
     let files=content_storage::list(server)?;
     let base=Path::new(&server.directory);
+    let version_parts:Vec<_>=server.version.split('.').collect();
+    // Experimental Minecraft IDs need loader normalization; overrides can replace requirements.
+    let review_minecraft=server.platform=="fabric"&&(2..=3).contains(&version_parts.len())
+        &&version_parts.iter().all(|part|!part.is_empty()&&part.bytes().all(|c|c.is_ascii_digit())&&part.parse::<i32>().is_ok())
+        &&matches!(fs::symlink_metadata(base.join("config/fabric_loader_dependencies.json")),Err(error) if error.kind()==std::io::ErrorKind::NotFound);
     let (loaded,log_modified_at,log_note)=if server.platform=="fabric" {
         match read_log(base) {
             Ok((log,at))=>match listed_mods(&log) {
@@ -260,6 +265,13 @@ pub fn audit(server:&Server)->Result<Audit,String> {
         let mut issues=vec![];
         let descriptor=match inspect(&path,&server.platform){Ok(value)=>value,Err(error)=>{issues.push(error);Descriptor::default()}};
         if descriptor.environment.as_deref()==Some("client") {issues.push("Solo cliente: Fabric no lo carga en un servidor dedicado".into());}
+        if review_minecraft&&descriptor.environment.as_deref()!=Some("client") {
+            if let Some(requirement)=descriptor.dependencies.iter().find(|dependency|dependency.id=="minecraft"&&dependency.kind=="depends") {
+                if crate::fabric_version::matches(&server.version,&requirement.alternatives)==Some(false) {
+                    issues.push(format!("Minecraft configurado {} no cumple el requisito del mod: {}. Revisa la versión del servidor o del archivo.",server.version,requirement.alternatives.join(" o ")));
+                }
+            }
+        }
         if let Some(note)=&descriptor.note {issues.push(note.clone());}
         for id in &descriptor.ids {owners.entry(id.clone()).or_default().push(checks.len());}
         let modified=fs::metadata(&path).ok().and_then(|v|v.modified().ok()).and_then(|v|v.duration_since(std::time::UNIX_EPOCH).ok()).map(|v|v.as_millis() as u64);

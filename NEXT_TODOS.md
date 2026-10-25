@@ -9,6 +9,8 @@ Current source adds native tray-language synchronization, library translation
 fixes, preservation of partial telemetry samples and accessible capacity-control
 labels, storage-warning refresh recovery and deletion acknowledgement/session cleanup
 after published 0.39.0. Chart history retains only its plotted scalar values.
+Fabric inventory now flags recognized Minecraft requirement mismatches against
+configured stable releases, without overrides or experimental-version inference.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
@@ -84,7 +86,7 @@ scenarios. Detailed observations remain in
 | LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 and historical 1.20.1 / 47.1.106 lifecycles pass, including managed Java, three command/stop sessions and restored-world boot. Verify native flows and an actual modded client session. |
 | MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. NeoForge catalog and loader selection now share the bounded release parser, including the existing 1.20.1 artifact identity; numeric/prerelease/size checks pass. Historical 1.20.1 installation and lifecycle pass. Verify native selection/scrolling and snapshots. |
 | MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Real Vanilla 1.21.4 to 1.21.5 world conversion/rollback passed; all 20 world-file hashes restored before boot. Verify native flow, other engines/content migrations and client gameplay. |
-| MOD-01 | IN_PROGRESS | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
+| MOD-01 | IN_PROGRESS | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Main Fabric JARs now show advisory Minecraft requirement mismatches for configured stable releases; real local JAR audit checks cover OR alternatives and excluded uncertain cases. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric candidate checks remain conservative, not a global solver. |
 | PACK-01 | REVIEW | Modpack import | Reviewed selection and staged publication implemented. Real Fabric 1.21.4/Lithium mrpack install and boot passed, including exact loader, override precedence, excluded client/optional files and protected settings. Completed imports retain acknowledgement if library refresh fails; retry refreshes data only. Complex third-party packs and native/client outcomes remain open. |
 | IMPORT-01 | IN_PROGRESS | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Acknowledged servers remain visible and continue preparation after a library refresh failure. Verify real renamed/legacy/custom launchers through native import. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |

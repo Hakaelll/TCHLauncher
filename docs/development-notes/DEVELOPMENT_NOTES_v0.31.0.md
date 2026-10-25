@@ -1676,3 +1676,26 @@ process isolation and history bounds. No measured RAM reduction is claimed.
 TypeScript and the Windows frontend production build are recorded for this batch.
 Temporary checks are removed; results remain under artifacts/server-delete-ack-check.log
 and artifacts/compact-telemetry-check.log. No dependency or retained test was added.
+
+## Fabric Minecraft requirement warnings
+
+The installed inventory now compares main Fabric JAR depends.minecraft ranges
+with the configured stable numeric release. A recognized mismatch becomes an
+advisory issue beside the file, using the existing warning presentation. It does
+not block startup, alter JARs or claim that the configured version was observed
+inside a running process. Client-only files, experimental IDs, unknown syntax,
+and present/unreadable dependency overrides do not produce this inference.
+The existing Fabric predicate comparator is reused; no dependency was added.
+
+A focused native check ran the production audit over real local ZIP/JAR metadata.
+It failed before the change and passed afterwards for eight cases: mismatch,
+matching OR alternative, unknown syntax, client-only content, prerelease ID,
+overrides, 26.1 release naming and non-Fabric content. TypeScript and the English
+version/range message passed. This proves inventory behavior for controlled JARs,
+not native UI, broad modpack compatibility or client gameplay. Temporary test
+source was removed and the retained suite is unchanged. Evidence is recorded in
+artifacts/minecraft-audit-result.json.
+
+The policy follows Fabric's metadata and dependency-override documentation:
+https://docs.fabricmc.net/develop/loader/fabric-mod-json
+https://docs.fabricmc.net/players/troubleshooting/dependency-overrides

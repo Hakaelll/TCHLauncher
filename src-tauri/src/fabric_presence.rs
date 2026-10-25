@@ -119,5 +119,5 @@ pub(crate) fn review_at(base:&Path,content:&Path,files:&[InstalledContent])->Rev
             }
         }
     }
-    Review{issues,blocking,note:if complete{"Dependencias Fabric: presencia y rangos reconocidos revisados para mods principales y proveedores incluidos obligatorios sin alternativas. Java, Minecraft, versión del loader y selección entre candidatos alternativos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
+    Review{issues,blocking,note:if complete{"Dependencias Fabric: presencia y rangos reconocidos revisados para mods principales y proveedores incluidos obligatorios sin alternativas. Java, versión del loader y selección entre candidatos alternativos no comprobados; esto no confirma la carga."}else{"Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión."}.into()}
 }

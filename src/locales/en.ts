@@ -679,7 +679,7 @@ export const english: Record<string,string> = {
   "Archivo cambiado": "Changed file",
   "Modificado fuera del launcher": "Modified outside the launcher",
   "Dependencias declaradas": "Declared dependencies",
-  "Requisitos del archivo. Las alternativas separadas por «o» son rangos admitidos. En Fabric se comprueban rangos reconocidos entre mods principales cuando los metadatos están completos. Java, Minecraft, versión del loader y selección de archivos incluidos no se verifican aquí; no confirma la carga.": "File requirements. Alternatives separated by “or” are accepted ranges. For Fabric, recognized ranges between main mods are checked when metadata is complete. Java, Minecraft, loader version and bundled file selection are not verified here; this does not confirm loading.",
+  "Requisitos del archivo. Las alternativas separadas por «o» son rangos admitidos. En Fabric se revisan rangos entre mods y el requisito de Minecraft de los JAR principales para versiones estables configuradas, sin overrides. Java, el loader y la selección de archivos incluidos siguen a cargo de Fabric. Los avisos no confirman la carga.": "File requirements. Alternatives separated by \"or\" are accepted ranges. For Fabric, ranges between mods and the Minecraft requirement of main JARs are reviewed for configured stable versions, without overrides. Java, the loader and bundled file selection remain Fabric's responsibility. Warnings do not confirm loading.",
   "Mensajes relacionados": "Related messages",
   "El registro menciona este archivo o mod. Puede involucrar una dependencia; no confirma por sí solo la causa del problema.": "The log mentions this file or mod. A dependency may be involved; this alone does not confirm the cause.",
   "Ver en consola": "View in console",
@@ -1468,7 +1468,7 @@ export const english: Record<string,string> = {
   "Dependencia obligatoria sin proveedor encontrado: {0} (requerida por {1}). Rango declarado: {2}": "Required dependency has no provider found: {0} (required by {1}). Declared range: {2}",
   "Ninguna versión encontrada de {0} cumple el requisito de {1}: {2}. Encontradas: {3}": "No found version of {0} meets the requirement of {1}: {2}. Found: {3}",
   "{0} declara {1} con {2} en el rango {3}": "{0} declares {1} with {2} in range {3}",
-  "Dependencias Fabric: presencia y rangos reconocidos revisados para mods principales y proveedores incluidos obligatorios sin alternativas. Java, Minecraft, versión del loader y selección entre candidatos alternativos no comprobados; esto no confirma la carga.": "Fabric dependencies: presence and recognized ranges reviewed for main mods and uniquely required bundled providers. Java, Minecraft, loader version and selection between alternative candidates are not checked; this does not confirm loading.",
+  "Dependencias Fabric: presencia y rangos reconocidos revisados para mods principales y proveedores incluidos obligatorios sin alternativas. Java, versión del loader y selección entre candidatos alternativos no comprobados; esto no confirma la carga.": "Fabric dependencies: presence and recognized ranges reviewed for main mods and uniquely required bundled providers. Java, loader version and selection between alternative candidates are not checked; this does not confirm loading.",
   "Dependencias Fabric: revisión incompleta por metadatos/JAR incluidos no legibles, límites de lectura o overrides. No se deducen dependencias ausentes ni incompatibilidades de versión.": "Fabric dependencies: incomplete review due to unreadable metadata/bundled JARs, reading limits or overrides. Missing dependencies and version incompatibilities are not inferred.",
   "La fuente de descarga no utiliza HTTPS": "Download source does not use HTTPS",
   "No se pudo consultar {0}: {1}": "Could not query {0}: {1}",
@@ -1862,4 +1862,5 @@ export const english: Record<string,string> = {
   "Comprueba el estado actual antes de repetir la acción. Revisa el detalle técnico o los registros de la aplicación para obtener más información.": "Check the current state before repeating the action. Review the technical details or application logs for more information.",
   "Abriendo registros…": "Opening logs…",
   "No se pudieron abrir los registros: {0}": "Could not open logs: {0}",
+  "Minecraft configurado {0} no cumple el requisito del mod: {1}. Revisa la versión del servidor o del archivo.": "Configured Minecraft {0} does not meet this mod requirement: {1}. Check the server or file version.",
 }

@@ -184,7 +184,11 @@ inventory and observed log evidence without equating a present JAR with gameplay
 metadata with shared traversal budgets. [fabric_version.rs](src-tauri/src/fabric_version.rs)
 compares recognized Fabric predicates. Incomplete evidence, dependency overrides
 and unknown syntax suppress negative conclusions. This is not Fabric's global
-candidate solver and does not prove Java/Minecraft/loader predicates or gameplay.
+candidate solver and does not prove Java/loader predicates or gameplay.
+The inventory separately compares main Fabric JAR Minecraft requirements with
+configured numeric stable releases. Unknown predicates, experimental version IDs,
+client-only JARs and dependency overrides do not produce a mismatch warning.
+This is an advisory comparison with launcher configuration, not a boot check.
 
 [modpack.rs](src-tauri/src/modpack.rs) and [pack_install.rs](src-tauri/src/pack_install.rs)
 validate `.mrpack` selections, allowed download origins, hashes, server overrides
