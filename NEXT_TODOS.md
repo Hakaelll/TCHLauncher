@@ -6,7 +6,8 @@ flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
 follows an explicit maintainer instruction. These labels do not mean completion.
 
 Current source adds native tray-language synchronization, library translation
-fixes and preservation of partial telemetry samples after published 0.39.0.
+fixes, preservation of partial telemetry samples and accessible capacity-control
+labels after published 0.39.0.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
@@ -101,7 +102,7 @@ scenarios. Detailed observations remain in
 | APP-LOG-01 | REVIEW | Launcher diagnostics | Bounded rotated local JSONL logs implemented. Verify native folder opening and OS-session error reporting. |
 | UX-02 | REVIEW | Server image | Launcher and Minecraft server-icon.png use the selected image. Verify native crop/remove and the Minecraft multiplayer list. |
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |
-| UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Verify native flow, validation, focus and narrow layouts. |
+| UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
 | REL-02 | REVIEW | Current installer | 0.39.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native builds passed. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; interactive UI and broader usage gates remain open. |

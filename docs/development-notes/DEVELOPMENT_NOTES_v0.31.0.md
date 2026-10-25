@@ -1627,3 +1627,17 @@ removed after recording its result in artifacts/partial-telemetry-check.log.
 No native build, desktop interaction, dependency or retained test was added.
 This source correction follows installer 0.39.0 and does not establish the cause
 of the previously reported gameplay connection stalls or resident RAM growth.
+
+## Accessible capacity controls
+
+Shared sliders now reference their translated visible label instead of a fixed
+Spanish aria-label. Numeric fields expose their unit as a description; range
+controls include MB, GB or percent in their accessible value. Unitless player
+controls keep the native numeric value. This reaches creation, imports, server
+settings and storage warnings without changing limits or save behavior.
+
+An isolated React static-markup check failed before the correction and passed
+for ES/EN with MB, GB, percent and unitless inputs afterwards. TypeScript passed.
+The result is recorded in artifacts/slider-accessibility-check.log; temporary
+check sources were removed. This does not verify assistive-technology interaction
+on Windows. No new dependency or retained test was added.
