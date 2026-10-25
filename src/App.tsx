@@ -438,12 +438,19 @@ function App() {
   }
 
   const removeServer = async (server: Server): Promise<DeleteOutcome> => {
-    setError(null); setNotice(null); setBusy(true)
+    setError(null); setNotice(null); setActionRefreshError(null); setBusy(true)
     try {
-      const outcome = await api.deleteServer(server.id)
-      mainRef.current?.scrollTo({top:0,left:0})
-      if(selectedRef.current===server.id){setSelectedId(null);setView('overview')}
-      await refresh()
+      const {value:outcome,refreshError}=await acknowledgedAction(()=>api.deleteServer(server.id),async()=>{
+        setServers(current=>current.filter(item=>item.id!==server.id))
+        setMetricsHistory(current=>{const next={...current};delete next[server.id];return next})
+        setStartupPhases(current=>{const next={...current};delete next[server.id];return next})
+        setMetrics(current=>current?.serverId===server.id?null:current)
+        const next={...progressRef.current};delete next[server.id];progressRevision.current++;progressRef.current=next;setProgressByServer(next)
+        mainRef.current?.scrollTo({top:0,left:0})
+        if(selectedRef.current===server.id){setSelectedId(null);setView('overview');setLogs([]);setMetricsError(null)}
+        await refresh()
+      })
+      setActionRefreshError(refreshError)
       setNotice(outcome.cleanupWarnings.length
         ? t("Se quitó «{0}» de la biblioteca. Algunos archivos no se pudieron limpiar: {1}{2}", server.name, outcome.cleanupWarnings.join(' '), outcome.retainedDirectory ? ` La carpeta original sigue en ${outcome.retainedDirectory}.` : '')
         : outcome.retainedDirectory

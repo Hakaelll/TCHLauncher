@@ -1653,3 +1653,26 @@ before the fix and passed afterwards for initial retry, clean/dirty refresh,
 read failure and disposal. TypeScript passed. This callback check does not prove
 native UI interaction. Temporary check source was removed after recording
 artifacts/storage-refresh-check.log. No dependency or retained test was added.
+
+## Deletion acknowledgement and session data
+
+A native deletion could succeed and then be reported as failed when the library
+refresh rejected. The server also remained in the local list. Deletion now uses
+the existing acknowledged-action contract, removes the confirmed server and its
+chart history, startup phase and task record immediately, and reports a later
+read failure through the read-only refresh banner. A rejected deletion preserves
+all local records. Current metrics/logs are cleared when the deleted server was
+selected. The task revision invalidates snapshots begun before this cleanup.
+
+A direct execution of the production deletion callback reproduced the refresh
+rejection before the fix and passed afterwards for native failure and successful
+deletion with either refresh result, preserving another server's records. No
+native deletion or desktop interaction was performed by this check.
+
+Chart samples now copy only their eight scalar fields, avoiding references to
+unused heap/TPS objects and error strings from the full metrics response. Focused
+checks cover the retained field set, partial readings, disk rate, memory gaps,
+process isolation and history bounds. No measured RAM reduction is claimed.
+TypeScript and the Windows frontend production build are recorded for this batch.
+Temporary checks are removed; results remain under artifacts/server-delete-ack-check.log
+and artifacts/compact-telemetry-check.log. No dependency or retained test was added.

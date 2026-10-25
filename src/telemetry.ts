@@ -9,7 +9,8 @@ export function recordSample(history: MetricSample[],metrics: Metrics): MetricSa
   const sameProcess = last?.serverId === metrics.serverId && last.pid === metrics.pid
   if (sameProcess && metrics.sampledAt <= last.sampledAt) return history
   const retained = sameProcess ? history.filter(sample => sample.sampledAt >= metrics.sampledAt - HISTORY_MS) : []
-  return [...retained,{...metrics,heapUsedBytes:metrics.heap?.usedBytes??null}].slice(-65)
+  const {serverId,sampledAt,pid,memoryBytes,cpuPercent,diskReadBytes,diskWrittenBytes}=metrics
+  return [...retained,{serverId,sampledAt,pid,memoryBytes,cpuPercent,diskReadBytes,diskWrittenBytes,heapUsedBytes:metrics.heap?.usedBytes??null}].slice(-65)
 }
 
 export function diskRate(history: MetricSample[],key: 'diskReadBytes' | 'diskWrittenBytes'): number | null {
