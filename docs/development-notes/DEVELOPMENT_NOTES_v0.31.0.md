@@ -1612,3 +1612,18 @@ The fixture used illustrative server records and an empty rail; it does not veri
 native IPC, the real sidebar, other screens or desktop interaction. Its sources
 and generated Vite cache were removed afterwards. No retained test or dependency
 was added. This change follows installer 0.39.0.
+
+## Partial telemetry readings
+
+The history recorder rejected every sample without resident RAM, discarding valid
+CPU and disk counters from the same observation. It now accepts timestamped
+samples from a live PID independently of RAM availability. The existing plot
+segmentation leaves a memory gap and retains the continuous CPU readings.
+
+A focused executable check failed before the change and passed afterwards. It
+checked missing RAM, CPU continuity, disk rate, memory gaps, stale observations,
+two-minute retention and PID changes. TypeScript passed. The temporary check was
+removed after recording its result in artifacts/partial-telemetry-check.log.
+No native build, desktop interaction, dependency or retained test was added.
+This source correction follows installer 0.39.0 and does not establish the cause
+of the previously reported gameplay connection stalls or resident RAM growth.

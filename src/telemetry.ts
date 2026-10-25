@@ -4,7 +4,7 @@ export const HISTORY_MS = 120_000
 export type MetricSample = Pick<Metrics,'serverId' | 'sampledAt' | 'pid' | 'memoryBytes' | 'cpuPercent' | 'diskReadBytes' | 'diskWrittenBytes'> & {heapUsedBytes?:number|null}
 
 export function recordSample(history: MetricSample[],metrics: Metrics): MetricSample[] {
-  if (metrics.pid == null || metrics.memoryBytes == null || !Number.isFinite(metrics.sampledAt)) return history
+  if (metrics.pid == null || !Number.isFinite(metrics.sampledAt)) return history
   const last = history.at(-1)
   const sameProcess = last?.serverId === metrics.serverId && last.pid === metrics.pid
   if (sameProcess && metrics.sampledAt <= last.sampledAt) return history
