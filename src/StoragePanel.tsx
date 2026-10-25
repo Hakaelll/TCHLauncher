@@ -21,7 +21,7 @@ export function StoragePanel({server,busy}:{server:Server;busy:boolean}){
   },[server.id])
   const refresh=async()=>{
     setLoading(true);setError(null)
-    try{const value=await api.storageUsage(server.id);if(mounted.current){setUsage(value);setSaved(value.warningPercent)}}catch(error){if(mounted.current)setError(errorText(error))}finally{if(mounted.current)setLoading(false)}
+    try{const value=await api.storageUsage(server.id);if(mounted.current){setUsage(value);setDraft(draft=>saved===null||draft===saved?value.warningPercent:draft);setSaved(value.warningPercent)}}catch(error){if(mounted.current)setError(errorText(error))}finally{if(mounted.current)setLoading(false)}
   }
   const save=async()=>{
     if(!Number.isInteger(draft)||draft<1||draft>100)return

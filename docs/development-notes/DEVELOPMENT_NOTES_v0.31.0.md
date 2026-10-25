@@ -1641,3 +1641,15 @@ for ES/EN with MB, GB, percent and unitless inputs afterwards. TypeScript passed
 The result is recorded in artifacts/slider-accessibility-check.log; temporary
 check sources were removed. This does not verify assistive-technology interaction
 on Windows. No new dependency or retained test was added.
+
+## Storage warning refresh recovery
+
+Refreshing storage measurements now updates an untouched warning control to the
+stored percentage, including the first successful retry after an initial read
+failure. Unsaved edits remain intact. Previously the saved baseline changed but
+the input retained its old value, falsely appearing edited and ready to overwrite
+the stored warning. A direct execution of the production refresh callback failed
+before the fix and passed afterwards for initial retry, clean/dirty refresh,
+read failure and disposal. TypeScript passed. This callback check does not prove
+native UI interaction. Temporary check source was removed after recording
+artifacts/storage-refresh-check.log. No dependency or retained test was added.

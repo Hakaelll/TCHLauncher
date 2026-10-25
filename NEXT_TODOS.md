@@ -7,7 +7,7 @@ follows an explicit maintainer instruction. These labels do not mean completion.
 
 Current source adds native tray-language synchronization, library translation
 fixes, preservation of partial telemetry samples and accessible capacity-control
-labels after published 0.39.0.
+labels and storage-warning refresh recovery after published 0.39.0.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
@@ -91,7 +91,7 @@ scenarios. Detailed observations remain in
 | WORLD-01 | IN_PROGRESS | World operations and combined export | Real Fabric/Lithium ZIP export/import and populated Paper three-dimension folder export/import pass. Paper checks 45 world-file hashes before boot and three saved blocks after boot. Verify native/client round trips and broader content. |
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Verify connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
-| STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Verify native access failures, large worlds and threshold feedback. |
+| STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Refresh now reconciles untouched warning controls with stored values, including recovery from an initial read failure, while preserving unsaved edits; direct callback checks pass. Verify native access failures, large worlds and threshold feedback. |
 | NET-02 | REVIEW | Internet and router mapping | Maintainer confirms a friend's Internet connection on 0.39.0. UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback are implemented; physical-router protocol/cleanup and CGNAT feedback remain unverified. |
 | TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. Maintainer confirms actual Windows-login startup on 0.39.0. Preference/task UI and error recovery still need direct evidence. |
 | UX-01 | TODO | Native desktop QA | Isolated headless library captures cover empty/populated states at 1280×720, 1366×768 and 1920×1080 with no horizontal overflow or clipped actions. ES/EN counts and action labels pass. Full native screens, keyboard, screen reader, themes, reading font and reduced motion remain open; fixture rendering does not establish native acceptance. |
