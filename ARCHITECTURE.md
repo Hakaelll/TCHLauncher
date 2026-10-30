@@ -5,6 +5,12 @@ React presents the workspace; a Tauri/Rust engine owns processes, file changes,
 downloads and native integrations. SQLite stores launcher metadata. Minecraft
 worlds, configuration and content remain ordinary files.
 
+The desktop binary calls `tchlauncher_lib::run()` through an `rlib`. The build
+does not request C-compatible `staticlib` or `cdylib` outputs; there is no mobile
+or foreign-language consumer in the current Windows scope.
+See [Rust library formats](https://doc.rust-lang.org/reference/linkage.html) and
+[Tauri desktop entry points](https://v2.tauri.app/start/project-structure/).
+
 This document describes the current design. [The roadmap](NEXT_TODOS.md) records
 acceptance evidence and remaining work. Historical iteration notes belong under
 [development notes](docs/development-notes/), not in the current architecture.

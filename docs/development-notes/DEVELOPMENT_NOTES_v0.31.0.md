@@ -1763,3 +1763,21 @@ zones, missing/custom/permanent expiry and escaped stored text. TypeScript and
 the Windows frontend build passed. Temporary checks and generated files were
 removed; no dependency or retained test was added. This does not establish native
 assistive-technology interaction. Source follows installer 0.40.0.
+
+## Windows 0.41 packaging
+
+The desktop entry point consumes tchlauncher_lib through Rust linkage. No source
+or packaging script consumes a C-compatible static or dynamic library. Cargo now
+requests only rlib, avoiding two unused library outputs. This follows Rust's
+documented linkage formats and Tauri's desktop entry-point structure. It does not
+establish a smaller installer, faster build or lower application/server RAM use.
+
+Version 0.41.0 groups the post-0.40 session-identity warning, advisory memory
+starting points and labeled ban records into the next Windows preview. The
+accepted visual direction remains unchanged. Release assets remain installer only.
+
+TypeScript, Windows frontend production build, five retained frontend tests and
+optimized native NSIS packaging passed. The application library produces rlib and
+rmeta without staticlib/cdylib outputs. Executable/setup versions are 0.41.0 and
+embedded icons match the emblem. Installer size is 6,867,051 bytes. No native UI
+interaction or gameplay is claimed for this build.
