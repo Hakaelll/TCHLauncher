@@ -19,6 +19,21 @@ and empty lists, existing navigation and Escape. Hook effects/DOM focus and nati
 assistive-technology interaction are outside that isolated check. TypeScript and
 the Windows frontend production build pass; no new installer is generated.
 
+The shared properties reader now recognizes colon/whitespace separators, escaped
+keys and backslash-continued logical records. Its writer replaces the complete
+changed record and preserves unrelated original bytes, including mixed line
+endings and an unterminated final line. Trailing continuation markers are isolated
+before adding or replacing records so the next setting is not absorbed. A
+colon-separated port fails before the fix; actual `read`/`parse`/`prepare` checks now pass separators, comments, duplicate
+precedence, continued keys/values, no-op byte equality, seed/world Unicode,
+validation and unchanged source files. Short malformed Unicode escapes are no
+longer silently decoded. Other values retain the editor's existing raw-escape
+representation; this is not full `java.util.Properties` conformance. The grammar
+reference is [Java's Properties documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Properties.html#load(java.io.Reader)).
+Full offline native `cargo check --lib` passes. Two sandbox builds first failed
+with MSVC LNK1114/access-denied while replacing a dependency archive; the same
+check passed outside the sandbox. No UI/client outcome or new installer is claimed.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.

@@ -7,12 +7,49 @@ pub fn read(path: &Path) -> Result<BTreeMap<String,String>, String> {
     Ok(parse(&raw))
 }
 
+fn property_space(c:char)->bool { matches!(c,' '|'\t'|'\u{000c}') }
+fn continued(line:&str)->bool { line.bytes().rev().take_while(|c|*c==b'\\').count()%2==1 }
+
+// Keep each logical property's original bytes so unrelated edits preserve its layout.
+fn entries(raw:&str)->impl Iterator<Item=(&str,Option<(String,String)>)> {
+    let mut offset=0;
+    std::iter::from_fn(move || {
+        if offset==raw.len(){return None;}
+        let start=offset;
+        let mut logical=String::new();
+        let mut first=true;
+        loop {
+            let length=raw[offset..].find(['\r','\n']).unwrap_or(raw.len()-offset);
+            let end=offset+length;
+            let line=raw[offset..end].trim_start_matches(property_space);
+            offset=end;
+            if raw.as_bytes().get(offset)==Some(&b'\r'){offset+=1;}
+            if raw.as_bytes().get(offset)==Some(&b'\n'){offset+=1;}
+            if first&&(line.is_empty()||line.starts_with(['#','!'])){
+                return Some((&raw[start..offset],None));
+            }
+            first=false;
+            logical.push_str(line);
+            let more=continued(&logical);
+            if more {logical.pop();}
+            if !more||offset==raw.len(){break;}
+        }
+        let mut escaped=false;
+        let split=logical.char_indices().find_map(|(index,c)|{
+            if !escaped&&(matches!(c,'='|':')||property_space(c)){return Some(index);}
+            escaped=!escaped&&c=='\\';None
+        }).unwrap_or(logical.len());
+        let key=decode_value(&logical[..split]);
+        let mut value=logical[split..].trim_start_matches(property_space);
+        if value.starts_with(['=',':']){value=&value[1..];}
+        value=value.trim_start_matches(property_space);
+        let value=if matches!(key.as_str(),"level-seed"|"level-name"){decode_value(value)}else{value.into()};
+        Some((&raw[start..offset],Some((key,value))))
+    })
+}
+
 pub(crate) fn parse(raw:&str)->BTreeMap<String,String>{
-    raw.lines().filter_map(|line| {
-        let line = line.trim_start();
-        if line.is_empty() || line.starts_with(['#','!']) { return None; }
-        line.split_once('=').map(|(k,v)| (k.trim().into(),if matches!(k.trim(),"level-seed"|"level-name") {decode_value(v)}else{v.trim().into()}))
-    }).collect()
+    entries(raw).filter_map(|(_,entry)|entry).collect()
 }
 
 pub fn validate_seed(seed:&str)->Result<(),String>{
@@ -24,11 +61,11 @@ fn encode_value(seed:&str)->String {
     out
 }
 fn decode_value(raw:&str)->String {
-    let mut chars=raw.trim_start().chars();let mut units=Vec::new();
+    let mut chars=raw.chars();let mut units=Vec::new();
     while let Some(c)=chars.next(){
         if c!='\\'{units.extend(c.encode_utf16(&mut [0;2]).iter().copied());continue;}
         match chars.next(){
-            Some('u')=>{let digits:String=chars.by_ref().take(4).collect();match u16::from_str_radix(&digits,16){Ok(unit)=>units.push(unit),Err(_)=>return raw.into()}},
+            Some('u')=>{let digits:String=chars.by_ref().take(4).collect();match u16::from_str_radix(&digits,16){Ok(unit) if digits.len()==4=>units.push(unit),_=>return raw.into()}},
             Some(c)=>{let decoded=match c{'t'=>'\t','n'=>'\n','r'=>'\r','f'=>'\u{000c}',_=>c};units.extend(decoded.encode_utf16(&mut [0;2]).iter().copied());},
             None=>return raw.into(),
         }
@@ -80,17 +117,30 @@ pub(crate) fn prepare(path: &Path, mut updates: BTreeMap<String,String>) -> Resu
     }
     let newline=if raw.contains("\r\n") {"\r\n"}else{"\n"};
     let mut found = std::collections::HashSet::new();
-    let mut lines = Vec::new();
-    for line in raw.lines() {
-        if let Some((key,_)) = line.split_once('=') {
-            if let Some(value) = updates.get(key.trim()) {
-                lines.push(format!("{}={}",key.trim(),if matches!(key.trim(),"level-seed"|"level-name"){encode_value(value)}else{value.clone()})); found.insert(key.trim().to_string()); continue;
+    let mut output=String::with_capacity(raw.len());
+    for (source,entry) in entries(&raw) {
+        if let Some((key,_))=entry {
+            if let Some(value)=updates.get(&key) {
+                let ending=if source.ends_with("\r\n"){"\r\n"}else if source.ends_with('\n'){"\n"}else if source.ends_with('\r'){"\r"}else{""};
+                output.push_str(&format!("{key}={}{ending}",if matches!(key.as_str(),"level-seed"|"level-name"){encode_value(value)}else{value.clone()}));
+                if !ending.is_empty()&&!matches!(key.as_str(),"level-seed"|"level-name")&&continued(value){output.push_str(ending);}
+                found.insert(key);continue;
             }
         }
-        lines.push(line.into());
+        output.push_str(source);
     }
-    for (key,value) in updates { if !found.contains(&key) { lines.push(format!("{key}={}",if matches!(key.as_str(),"level-seed"|"level-name"){encode_value(&value)}else{value})); } }
-    Ok(format!("{}{newline}",lines.join(newline)))
+    for (key,value) in updates {
+        if !found.contains(&key) {
+            if !output.is_empty()&&!output.ends_with(['\r','\n']){
+                let more=continued(&output);output.push_str(newline);
+                if more {output.push_str(newline);}
+            }
+            let value=if matches!(key.as_str(),"level-seed"|"level-name"){encode_value(&value)}else{value};
+            output.push_str(&format!("{key}={value}{newline}"));
+            if continued(&value){output.push_str(newline);}
+        }
+    }
+    Ok(output)
 }
 
 pub fn write(path: &Path, updates: BTreeMap<String,String>) -> Result<(), String> {
