@@ -1708,6 +1708,8 @@ export const english: Record<string,string> = {
   "Seguimiento activo": "Following output",
   "Seguimiento pausado": "Following paused",
   "Las nuevas líneas siguen llegando.": "New lines continue to arrive.",
+  "1 línea nueva en la vista.": "1 new line in the view.",
+  "{0} líneas nuevas en la vista.": "{0} new lines in the view.",
   "Dejar de seguir": "Pause following",
   "Ir a las últimas líneas": "Jump to latest lines",
   "Enter para enviar. Flechas para recuperar comandos de esta sesión.": "Enter to send. Arrow keys to recall commands from this session.",

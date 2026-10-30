@@ -69,6 +69,11 @@ A standalone check compiles the actual shared Rust function, fails before the
 change and passes after it for Unicode limits, blanks, controls and trimming.
 Creation/import/rename callers retain the same validator. Full application
 packaging and native name entry are not exercised by this check.
+Paused console following now counts newly arrived lines retained in the current
+filtered view. Disk history and other servers do not inflate the count; repeated
+pause gestures preserve its boundary and resuming clears it. Actual callbacks
+and ES/EN follow-control markup pass focused checks; TypeScript/frontend build
+pass. Native scroll and focus interaction remain manual.
 
 ## Evidence already available
 
