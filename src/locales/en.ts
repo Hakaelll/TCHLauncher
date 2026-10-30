@@ -1136,6 +1136,7 @@ export const english: Record<string,string> = {
   "Esperando la lectura del almacenamiento.": "Waiting for a storage reading.",
   "Medido a las": "Measured at",
   "· se actualiza cada minuto.": "· refreshed every minute.",
+  "· revisión cada 5 min mientras el servidor está activo.": "· checked every 5 min while the server is active.",
   "enlaces simbólicos no incluidos.": "symbolic links excluded.",
   "No se pudo medir el almacenamiento": "Could not measure storage",
   "Revisar almacenamiento": "Review storage",

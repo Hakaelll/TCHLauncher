@@ -21,6 +21,16 @@ TypeScript/frontend builds; animation/icon presentation and native layout remain
 outside that check. Process collection was reviewed and already targets only the
 Java PID, with bounded session entries; no runtime performance gain is claimed.
 
+Automatic folder-size cache success lifetimes are now five minutes with an
+active process and one minute while stopped; errors retry after fifteen seconds.
+Path changes and explicit invalidation still force a read, and detailed manual
+storage inspection is unchanged. The meter labels the active/stopped cadence
+beside the actual sample time. Actual cache code passes deterministic age and
+counted metadata-boundary checks; ES/EN meter markup, TypeScript/frontend build
+and full offline native Cargo check pass. The standalone cache probe substitutes
+the clock/measurement boundaries; it is not a directory or gameplay benchmark.
+No claim is made that the reported Internet stalls are resolved.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from

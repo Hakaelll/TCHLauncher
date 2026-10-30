@@ -14,12 +14,12 @@ struct CachedSize{path:PathBuf,when:Instant,sample:SizeSample}
 pub struct SizeCache{entries:Mutex<HashMap<String,Arc<Mutex<Option<CachedSize>>>>>}
 impl SizeCache{
     pub fn invalidate(&self,id:&str){if let Ok(mut entries)=self.entries.lock(){entries.remove(id);}}
-    pub fn sample(&self,id:&str,path:&Path)->Result<SizeSample,String>{
+    pub fn sample(&self,id:&str,path:&Path,active:bool)->Result<SizeSample,String>{
         let entry=self.entries.lock().map_err(|_|"No se pudo consultar la caché de almacenamiento")?.entry(id.into()).or_default().clone();
         // A scan holds only this server's cell; other servers remain independent.
         let mut cached=entry.lock().map_err(|_|"No se pudo medir el almacenamiento")?;
         if let Some(previous)=cached.as_ref(){
-            let ttl=if previous.sample.result.is_ok(){60}else{15};
+            let ttl=if previous.sample.result.is_err(){15}else if active{300}else{60};
             if previous.path==path&&previous.when.elapsed()<Duration::from_secs(ttl){return Ok(previous.sample.clone());}
         }
         let result=measure_size(path);
