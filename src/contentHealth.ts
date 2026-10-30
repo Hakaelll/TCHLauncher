@@ -4,6 +4,7 @@ export type ContentSignal = {level:'error'|'warn'; message:string; timestamp:str
 const escape=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
 
 type ContentDiagnostic = Readonly<{message:string;raw:string;level:'error'|'warn';timestamp:string|null}>
+const emptyDiagnostics:readonly ContentDiagnostic[]=Object.freeze([])
 
 /** Parse severity/continuation rules once for the complete inventory, not once per JAR. */
 export function prepareContentDiagnostics(logs:readonly LogLine[]):readonly ContentDiagnostic[] {
@@ -27,11 +28,12 @@ export function prepareContentDiagnostics(logs:readonly LogLine[]):readonly Cont
     if(!severity&&!continuation&&!/^(?:Caused by: |[\w.$]+(?:Exception|Error):|Mixin (?:apply|transformation).*failed)/i.test(message))continue
     diagnostics.push({message,raw,level:level as 'error'|'warn',timestamp:log.timestamp})
   }
-  return diagnostics
+  return diagnostics.length?diagnostics:emptyDiagnostics
 }
 
 /** An explicit reference associates a diagnostic with a file; it doesn't prove causation. */
 export function contentSignalsFromDiagnostics(file:InstalledContent,check:ContentCheck|undefined,diagnostics:readonly ContentDiagnostic[]):ContentSignal[] {
+  if(!diagnostics.length)return []
   const signals:ContentSignal[]=[]
   let latestError:ContentSignal|undefined
   const ids=[...new Set([check?.descriptor.id,...check?.descriptor.ids??[]].filter((id):id is string=>!!id&&id.length<=64))]

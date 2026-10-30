@@ -31,6 +31,13 @@ and full offline native Cargo check pass. The standalone cache probe substitutes
 the clock/measurement boundaries; it is not a directory or gameplay benchmark.
 No claim is made that the reported Internet stalls are resolved.
 
+Quiet content-log updates now reuse a frozen empty diagnostic list, allowing
+unchanged inventory rows to retain their memoized result. Empty diagnostics skip
+all per-file pattern construction. Production-function checks cover identity,
+constructor counts, actual Paper associations, unrelated names and preserved
+static inventory warnings; TypeScript/frontend build pass. This is deterministic
+work avoidance, not a measured CPU/RAM reduction or native interaction check.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from
