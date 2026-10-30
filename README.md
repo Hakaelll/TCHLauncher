@@ -103,6 +103,11 @@ the listed generated caches. It preserves the release executable, installers,
 source assets, installed project dependencies and the application library. It rejects redirected
 paths and reports logical file bytes rather than disk allocation.
 
+Installer retention is separate: keep the current installer and one previous
+local preview for rollback, then remove superseded local copies after checking
+their build records. Published versions remain available from GitHub Releases.
+The cache cleaner itself never prunes installers.
+
 For a complete reset, `cargo clean --manifest-path src-tauri/Cargo.toml` also
 removes locally generated installers. Copy installers you want to keep outside
 `target/` before using that command.
