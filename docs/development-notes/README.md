@@ -4,8 +4,8 @@ Engineering records, test evidence and pending native checks.
 
 ## Changes packaged in 0.44.0
 
-The changes below are included in the local 0.44.0 Windows installer. Publication
-is explicitly requested; verification limits remain attached to each observation.
+The changes below are included in the published 0.44.0 Windows preview.
+Verification limits remain attached to each observation.
 The reference audit also removed the unused single-file diagnostic wrapper.
 
 

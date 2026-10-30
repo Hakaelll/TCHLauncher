@@ -1,7 +1,8 @@
 # TCHLauncher 0.44.0
 
-Windows x64 preview. The installer is unsigned. The release attaches only the EXE;
-checksums remain local.
+[Windows x64 preview](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.44.0).
+The installer is unsigned and is the only attached release asset; checksums remain local.
+Packaged source commit: `2dfe13f0a7c83a796539d0c5da394326e362327e`.
 
 ## Performance views and backup history
 

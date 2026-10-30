@@ -14,11 +14,11 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 Latest packaged milestone: **0.44.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.44.0.md).
 
-The [published Windows preview is 0.43.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.43.0).
-Version 0.44.0 is packaged for publication at the maintainer's explicit request.
+The [published Windows preview is 0.44.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.44.0),
+published at the maintainer's explicit request.
 The release attaches only the unsigned EXE installer; checksums stay local.
-GitHub releases group three or four version milestones. Newer source changes are
-listed separately in the [development notes](docs/development-notes/README.md).
+GitHub releases normally group three or four version milestones. Implementation
+evidence and remaining checks are in the [development notes](docs/development-notes/README.md).
 
 TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. The maintainer accepts the current visual design. Further keyboard/accessibility checks, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
 
