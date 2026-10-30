@@ -38,6 +38,16 @@ constructor counts, actual Paper associations, unrelated names and preserved
 static inventory warnings; TypeScript/frontend build pass. This is deterministic
 work avoidance, not a measured CPU/RAM reduction or native interaction check.
 
+Import preview and configuration now share the existing supported properties
+reader. `!` comments no longer become editable settings; duplicate keys use their
+last effective value before preview validation. Saving omits unchanged values,
+retaining their original escapes/duplicate entries. Preparation reads one snapshot,
+returns it verbatim for no-op changes and keeps CRLF when editing CRLF files.
+Actual native read/preview/prepare checks reproduce the prior comment and
+preservation failures, then pass with private values omitted, unchanged source
+files and invalid changed ports/booleans/keys/seeds still rejected. The native test
+target compiles; no UI/server-boot or full Java-properties grammar claim is made.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from

@@ -141,14 +141,11 @@ fn inventory(root: &Path) -> Inventory {
     inventory.plugins = content(root, "plugins", &mut inventory.warnings);
     match read(root, "server.properties") {
         Ok(Some(bytes)) => match String::from_utf8(bytes) {
-            Ok(text) => for line in text.lines().filter(|line| !line.trim_start().starts_with(['#', '!'])) {
-                if let Some((key, value)) = line.split_once('=') {
-                    let (key, value) = (key.trim(), value.trim());
-                    match property_value(key, value) {
-                        Some(true) => { inventory.properties.insert(key.into(), value.into()); }
-                        Some(false) => { inventory.properties.remove(key); warn(&mut inventory.warnings, "server.properties"); }
-                        None => (),
-                    }
+            Ok(text) => for (key,value) in crate::properties::parse(&text) {
+                match property_value(&key, &value) {
+                    Some(true) => { inventory.properties.insert(key, value); }
+                    Some(false) => warn(&mut inventory.warnings, "server.properties"),
+                    None => (),
                 }
             },
             Err(_) => warn(&mut inventory.warnings, "server.properties"),

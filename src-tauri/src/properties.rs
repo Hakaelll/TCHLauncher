@@ -4,11 +4,15 @@ use std::path::Path;
 
 pub fn read(path: &Path) -> Result<BTreeMap<String,String>, String> {
     let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    Ok(raw.lines().filter_map(|line| {
+    Ok(parse(&raw))
+}
+
+pub(crate) fn parse(raw:&str)->BTreeMap<String,String>{
+    raw.lines().filter_map(|line| {
         let line = line.trim_start();
-        if line.is_empty() || line.starts_with('#') { return None; }
+        if line.is_empty() || line.starts_with(['#','!']) { return None; }
         line.split_once('=').map(|(k,v)| (k.trim().into(),if k.trim()=="level-seed" {decode_seed(v)}else{v.trim().into()}))
-    }).collect())
+    }).collect()
 }
 
 pub fn validate_seed(seed:&str)->Result<(),String>{
@@ -46,19 +50,15 @@ pub fn read_for_editor(path:&Path,version:&str)->Result<BTreeMap<String,String>,
 }
 
 pub(crate) fn prepare(path: &Path, mut updates: BTreeMap<String,String>) -> Result<String, String> {
-    let current = read(path)?;
-    // Preserve original imported seed escapes byte-for-byte on unrelated edits.
-    // A decoded unchanged seed may legitimately contain escaped control characters.
-    if current.get("level-seed").is_some_and(|seed|updates.get("level-seed")==Some(seed)) {
-        updates.remove("level-seed");
-    }
+    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let current = parse(&raw);
+    // Preserve unchanged source values, including escapes and duplicate entries.
+    updates.retain(|key,value|current.get(key)!=Some(value));
+    if updates.is_empty() { return Ok(raw); }
     for (key,value) in &updates {
         if key.is_empty() || key.len() > 80 || !key.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c,'-'|'.'|'_')) || value.contains(['\r','\n']) || value.len() > 1024 {
             return Err(format!("Propiedad no válida: {key}"));
         }
-        // Imported legacy values must not block an unrelated edit. Validate values
-        // the user changes, while preserving all unchanged server-owned settings.
-        if current.get(key) == Some(value) { continue; }
         match key.as_str() {
             "level-seed" => validate_seed(value)?,
             "server-port" | "query.port" | "rcon.port" => check_range(key,value,1,65535)?,
@@ -78,7 +78,7 @@ pub(crate) fn prepare(path: &Path, mut updates: BTreeMap<String,String>) -> Resu
             _ => (),
         }
     }
-    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let newline=if raw.contains("\r\n") {"\r\n"}else{"\n"};
     let mut found = std::collections::HashSet::new();
     let mut lines = Vec::new();
     for line in raw.lines() {
@@ -90,7 +90,7 @@ pub(crate) fn prepare(path: &Path, mut updates: BTreeMap<String,String>) -> Resu
         lines.push(line.into());
     }
     for (key,value) in updates { if !found.contains(&key) { lines.push(format!("{key}={}",if key=="level-seed"{encode_seed(&value)}else{value})); } }
-    Ok(format!("{}\n",lines.join("\n")))
+    Ok(format!("{}{newline}",lines.join(newline)))
 }
 
 pub fn write(path: &Path, updates: BTreeMap<String,String>) -> Result<(), String> {
