@@ -19,5 +19,6 @@ export function useServerProperties(id:string|null,serverState:ServerState|undef
   const refresh=useCallback(async(serverId?:string,replace=false)=>{await manager.current?.refresh(serverId,replace)},[])
   const edit=useCallback((values:Record<string,string>)=>manager.current?.edit(values),[])
   const acknowledge=useCallback((serverId:string,values:Record<string,string>)=>manager.current?.acknowledge(serverId,values),[])
-  return {...(snapshot.serverId===id?snapshot:{...emptyPropertiesDraft(),serverId:id}),refresh,edit,acknowledge}
+  const discard=useCallback(()=>manager.current?.discard(),[])
+  return {...(snapshot.serverId===id?snapshot:{...emptyPropertiesDraft(),serverId:id}),refresh,edit,acknowledge,discard}
 }

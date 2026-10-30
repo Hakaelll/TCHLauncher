@@ -2,17 +2,22 @@ export type PropertiesDraft={serverId:string|null;values:Record<string,string>;l
 export const emptyPropertiesDraft=():PropertiesDraft=>({serverId:null,values:{},loaded:false,loading:false,dirty:false,error:null})
 
 export function createPropertiesDraft(read:(id:string)=>Promise<Record<string,string>>,publish:(value:PropertiesDraft)=>void){
-  let state=emptyPropertiesDraft(),revision=0,active=true
+  let state=emptyPropertiesDraft(),revision=0,active=true,saved:Record<string,string>|null=null
   const update=(value:PropertiesDraft)=>{state=value;publish(value)}
   return {
-    select(serverId:string|null){revision++;update({...emptyPropertiesDraft(),serverId})},
+    select(serverId:string|null){revision++;saved=null;update({...emptyPropertiesDraft(),serverId})},
     edit(values:Record<string,string>){
       if(!active||!state.loaded)return
       revision++;update({...state,values:{...values},dirty:true,loading:false})
     },
     acknowledge(serverId:string,values:Record<string,string>){
       if(!active||state.serverId!==serverId)return
+      saved={...values}
       revision++;update({...state,values:{...values},dirty:false,loading:false,loaded:true,error:null})
+    },
+    discard(){
+      if(!active||!state.loaded||!saved)return
+      revision++;update({...state,values:{...saved},dirty:false,loading:false})
     },
     async refresh(serverId=state.serverId,replace=false){
       if(!active||!serverId||state.serverId!==serverId||state.dirty&&!replace)return
@@ -21,6 +26,7 @@ export function createPropertiesDraft(read:(id:string)=>Promise<Record<string,st
       try{
         const values=await read(serverId)
         if(!active||revision!==ticket||state.serverId!==serverId)return
+        saved={...values}
         update({...state,values:{...values},loaded:true,loading:false,dirty:false,error:null})
       }catch(cause){
         if(!active||revision!==ticket||state.serverId!==serverId)return

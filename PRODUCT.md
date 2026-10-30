@@ -30,6 +30,10 @@ Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 iteraciones/versiones antes de publicar otra release en GitHub.
 La 0.41.0 queda como compilación local sin publicar; la última release es 0.40.0.
 
+El usuario asume la validación manual pendiente. Se indican las pruebas no
+realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa
+Computer Use ni se repiten solicitudes de capturas o aceptación visual.
+
 ## Brand Commitments
 
 TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El usuario proporcionó el emblema voxel dorado. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.

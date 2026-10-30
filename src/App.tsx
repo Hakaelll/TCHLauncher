@@ -180,7 +180,7 @@ function App() {
   const [restoreSync,setRestoreSync]=useState<Record<string,{loading:boolean;error:string|null}>>({})
   const restoreSyncRevision=useRef<Record<string,number>>({})
   const [restoreTarget,setRestoreTarget]=useState<{serverId:string;backup:Backup}|null>(null)
-  const {values:props,loaded:propsLoaded,loading:propsLoading,error:propsError,dirty:propsDirty,edit:setProps,refresh:refreshProperties,acknowledge:acknowledgeProperties}=useServerProperties(selectedId,servers.find(server=>server.id===selectedId)?.state)
+  const {values:props,loaded:propsLoaded,loading:propsLoading,error:propsError,dirty:propsDirty,edit:setProps,refresh:refreshProperties,acknowledge:acknowledgeProperties,discard:discardProperties}=useServerProperties(selectedId,servers.find(server=>server.id===selectedId)?.state)
   const [capacityDirty,setCapacityDirty]=useState(false)
   const capacityDirtyRef=useRef(false)
   const capacityServer=useRef<string|null>(null)
@@ -387,6 +387,13 @@ function App() {
     const failures=results.flatMap((result,index)=>result.status==='rejected'?[`${labels[index]}: ${errorText(result.reason)}`]:[])
     setRestoreSync(current=>{const next={...current};if(failures.length)next[id]={loading:false,error:t("La copia se restauró, pero faltan datos por actualizar. {0}", failures.join(' · '))};else delete next[id];return next})
   }
+  const discardSettings=()=>{
+    if(!selected||selectedRef.current!==selected.id||busy||propsLoading||!propsLoaded)return
+    discardProperties()
+    capacityDirtyRef.current=false;setCapacityDirty(false)
+    setMemory({min:selected.memoryMinMb,max:selected.memoryMaxMb})
+    setStorageTarget(selected.storageTargetGb)
+  }
   const saveSettings=async(id:string)=>{
     if(!propsLoaded||propsLoading||propsError)return
     const values={...props};const capacity={...memory};const target=storageTarget
@@ -548,7 +555,7 @@ function App() {
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
           {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
           {view === 'backups' && <BackupsView key={selected.id} server={selected} copies={backups} loaded={backupsLoaded} loading={backupsLoading} error={backupsError} busy={busy} reasons={backupReason} onCreate={()=>void createCopy(selected.id)} onRefresh={()=>refreshBackups(selected.id)} onRestore={backup=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}/>}
-          {view === 'settings' && <ServerSettings key={selected.id} onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
+          {view === 'settings' && <ServerSettings key={selected.id} onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onDiscard={discardSettings} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>
       </>}
     </main>

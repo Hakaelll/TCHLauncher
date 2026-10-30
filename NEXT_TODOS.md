@@ -8,6 +8,10 @@ The maintainer has accepted the current visual design; visual approval is no
 longer a completion blocker. Accessibility and functional checks remain scoped
 to their own evidence.
 
+The maintainer owns pending manual validation and explicitly asks that its absence
+not block implementation. Report unverified behavior without claiming a pass;
+continue actionable work without repeated acceptance or screenshot requests.
+
 Version 0.40.0 packages native tray-language synchronization, library translation
 fixes, preservation of partial telemetry samples, accessible capacity-control
 labels, storage-warning refresh recovery and deletion acknowledgement/session cleanup.
@@ -31,6 +35,9 @@ yet include this change.
 Installed-content diagnostics also recognize exact named Paper event failures
 and scheduled-task exception messages. Focused production-logic checks cover
 status/query propagation and exclude chat, commands, INFO and similar-name matches.
+Settings now offer Discard changes for unsaved properties and capacity, restoring
+the last read/acknowledged values without writing server files. Focused state and
+callback checks pass; native interaction is handed to the maintainer for review.
 
 ## Evidence already available
 

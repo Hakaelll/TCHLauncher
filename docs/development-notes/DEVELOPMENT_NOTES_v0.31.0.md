@@ -1814,3 +1814,16 @@ including exact/escaped names, chat/command/INFO exclusions and retained warning
 levels. TypeScript and the Windows frontend build passed. Temporary checks are
 removed; no dependency, retained test, version bump or release is added. A live
 plugin failure and native UI interaction were not exercised.
+
+## Discard unsaved settings
+
+Settings now expose Discard changes beside Save while properties or capacity are
+dirty. The property draft restores a copied read/acknowledged baseline; App resets
+memory and storage targets from the selected server's last received metadata.
+This is local draft handling, with no file write, IPC mutation or restart. Pending
+read/selection revisions and read errors retain their existing safeguards. The
+header wraps with existing End controls and the action is translated in ES/EN.
+Focused state/callback checks, TypeScript and the frontend production build passed.
+Native interaction is for maintainer validation. As explicitly requested, pending
+manual validation is reported without blocking further implementation. No release
+or dependency was added; temporary checks and generated frontend files are removed.

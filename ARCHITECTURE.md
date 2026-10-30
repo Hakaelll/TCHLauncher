@@ -66,6 +66,10 @@ observations. Selection and request revisions reject obsolete replies. Failed
 reads retain labeled previous data. `useServerRead` owns visible read errors;
 its public refresh callback currently absorbs the rejection after publication.
 Property and backup hooks have their own revision/dirty-draft handling.
+The property draft keeps a copied read/acknowledged baseline for explicit discard.
+Discard restores that baseline and invalidates obsolete reads while retaining
+read errors; it does not write Minecraft files. Settings also reset unsaved memory
+and storage targets to the selected server's last received metadata.
 
 [acknowledgedAction.ts](src/acknowledgedAction.ts) separates a successful native
 mutation from a failed follow-up read. Relevant workflows retain acknowledgement

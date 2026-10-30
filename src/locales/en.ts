@@ -342,6 +342,7 @@ export const english: Record<string,string> = {
   "Si administras la carpeta actual, los cambios y las restauraciones afectarán a los archivos originales.": "Managing the current folder means changes and restores affect the original files.",
   "Personaliza la apariencia y los ajustes del servidor.": "Customize the server's appearance and settings.",
   "Guardar cambios": "Save changes",
+  "Descartar cambios": "Discard changes",
   "Imagen del servidor": "Server image",
   "La misma imagen en el launcher y en la lista de Minecraft. Se adapta a 64 × 64. PNG, JPG o WebP, hasta 2 MB.": "The same image in the launcher and Minecraft server list. Resized to 64 × 64. PNG, JPG or WebP, up to 2 MB.",
   "Cambiar imagen": "Change image",
