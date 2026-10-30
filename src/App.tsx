@@ -173,7 +173,9 @@ function App() {
   useEffect(()=>{
     const batch=createLogBatch<LogLine>(1000,lines=>{const incoming=lines.map(line=>({...line,arrival:++logArrival.current}));setLogs(current=>appendConsoleLines(current,incoming))})
     logBatch.current=batch
-    return()=>{batch.dispose();if(logBatch.current===batch)logBatch.current=null}
+    const visibility=()=>batch.setPaused(document.hidden)
+    visibility();document.addEventListener('visibilitychange',visibility)
+    return()=>{document.removeEventListener('visibilitychange',visibility);batch.dispose();if(logBatch.current===batch)logBatch.current=null}
   },[])
   useEffect(()=>{logBatch.current?.reset()},[selectedId])
   const {copies:backups,loaded:backupsLoaded,loading:backupsLoading,error:backupsError,refresh:refreshBackups}=useBackupList(selectedId)

@@ -34,6 +34,18 @@ Full offline native `cargo check --lib` passes. Two sandbox builds first failed
 with MSVC LNK1114/access-denied while replacing a dependency archive; the same
 check passed outside the sandbox. No UI/client outcome or new installer is claimed.
 
+Console batches now pause React publication while the document reports hidden.
+The existing 1,000-line ring keeps only the latest entries, then resumes normal
+batch publication on visibility return. Reset/disposal invalidate cancelled
+callbacks; switching servers still clears queued lines. The actual App effect
+fails the hidden-publication check before the change and passes afterward, with
+retained order/arrival identities and visibility-listener cleanup. Pure buffer
+checks also cover overflow, repeated resume and stale-timer races. Browser
+visibility/timers are substituted in that check; Windows tray behavior and an
+actual CPU/RAM saving are not established. TypeScript and the Windows frontend
+production build pass. Native server logging, scheduling and state events are
+unchanged; no network/gameplay improvement or new installer is claimed.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.
