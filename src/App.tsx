@@ -264,7 +264,7 @@ function App() {
 
   useEffect(()=>{
     if(!isTauri())return
-    let active=true;let timer=0
+    let active=true
     const sync=async()=>{
       const revision=progressRevision.current
       try{
@@ -273,10 +273,9 @@ function App() {
         if(revision===progressRevision.current){snapshot.forEach(task=>observeTask(task,'snapshot'));progressRef.current=reconcileTasks(progressRef.current,snapshot);setProgressByServer(progressRef.current)}
         setTaskSyncError(null)
       }catch(cause){if(active)setTaskSyncError(errorText(cause))}
-      finally{if(active)timer=window.setTimeout(()=>void sync(),3000)}
     }
-    void sync()
-    return()=>{active=false;window.clearTimeout(timer)}
+    const stop=startVisibilityPolling(sync,3000,{hiddenMs:15000,immediate:true})
+    return()=>{active=false;stop()}
   },[observeTask])
 
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])

@@ -53,6 +53,11 @@ Disabled content now shares the installed inventory pagination, showing up to 24
 files per page with translated navigation, filter reset and shrinking-list
 clamping. Focus/scroll requests and ES/EN markup pass isolated checks; TypeScript
 and the frontend build pass. Native interaction remains maintainer-owned.
+Task reconciliation now uses the existing visibility-aware scheduler: three
+seconds while visible, fifteen while hidden and a refresh on return. Progress
+events stay active. A focused actual-effect check covers stale snapshots,
+non-overlap, error recovery and disposal; TypeScript/frontend build pass. Native
+tray interaction remains manual; no measured CPU or RAM reduction is claimed.
 
 ## Evidence already available
 
