@@ -12,73 +12,17 @@ The maintainer owns pending manual validation and explicitly asks that its absen
 not block implementation. Report unverified behavior without claiming a pass;
 continue actionable work without repeated acceptance or screenshot requests.
 
-Version 0.40.0 packages native tray-language synchronization, library translation
-fixes, preservation of partial telemetry samples, accessible capacity-control
-labels, storage-warning refresh recovery and deletion acknowledgement/session cleanup.
-Chart history retains only its plotted scalar values.
-Fabric inventory now flags recognized Minecraft requirement mismatches against
-configured stable releases, without overrides or experimental-version inference.
-Version 0.41.0 also distinguishes configured direct authentication from
-local-type UUIDs displayed for connected players in a running session.
-It adds advisory local RAM starting points and labeled player/IP ban metadata.
-The Windows desktop build requests only its Rust library, omitting unused
-C-compatible static and dynamic library outputs.
-The 0.42.0 installer remains local and unpublished. The maintainer now requests
-three or four iterations between GitHub releases; commits and push continue.
-GitHub releases attach only the installer; checksum files remain local. Linux and
-client launching remain deferred.
+## Build and publication state
 
-Version 0.42.0 fixes console Copy view to use the displayed
-message rather than prepend another header to the original raw log line. A focused
-callback check and the Windows frontend build pass.
-Installed-content diagnostics also recognize exact named Paper event failures
-and scheduled-task exception messages. Focused production-logic checks cover
-status/query propagation and exclude chat, commands, INFO and similar-name matches.
-Settings now offer Discard changes for unsaved properties and capacity, restoring
-the last read/acknowledged values without writing server files. Focused state and
-callback checks pass; native interaction is handed to the maintainer for review.
-Paper world/content export now lets users omit plugin data/configuration folders
-while retaining enabled and disabled plugin JARs. Real isolated ZIP creation,
-manifest hashes and unchanged source files pass both configuration choices.
-Settings preflight changed known numeric properties against their field bounds,
-reveal the first invalid field even when filtered out and request ES/EN feedback.
-Unchanged imported values are preserved; manual browser/native review is delegated.
-Server settings also edit the local display name with native persistence and
-acknowledgement-safe refresh. IDs, folders and Minecraft properties remain intact;
-isolated SQLite/file checks and frontend failure-path checks pass.
-Source after the local 0.42.0 build restores a minimized main window before
-focusing it from the tray or close/startup recovery paths. Cargo check passes;
-native window interaction is delegated and this change is not yet packaged.
-Disabled content now shares the installed inventory pagination, showing up to 24
-files per page with translated navigation, filter reset and shrinking-list
-clamping. Focus/scroll requests and ES/EN markup pass isolated checks; TypeScript
-and the frontend build pass. Native interaction remains maintainer-owned.
-Task reconciliation now uses the existing visibility-aware scheduler: three
-seconds while visible, fifteen while hidden and a refresh on return. Progress
-events stay active. A focused actual-effect check covers stale snapshots,
-non-overlap, error recovery and disposal; TypeScript/frontend build pass. Native
-tray interaction remains manual; no measured CPU or RAM reduction is claimed.
-Network actions now discard late public-IP and clipboard feedback after a
-server change or disposal. Repeated copies cancel the previous feedback timer;
-public-IP requests have an in-flight guard. The actual-handler check reproduces
-the stale reply before the fix and passes afterward; TypeScript/frontend build
-pass. Native clipboard and window interaction remain manual.
-Server display names now share the HTML maxlength unit in native validation,
-so 64 accented or CJK characters remain valid regardless of UTF-8 byte length.
-A standalone check compiles the actual shared Rust function, fails before the
-change and passes after it for Unicode limits, blanks, controls and trimming.
-Creation/import/rename callers retain the same validator. Full application
-packaging and native name entry are not exercised by this check.
-Paused console following now counts newly arrived lines retained in the current
-filtered view. Disk history and other servers do not inflate the count; repeated
-pause gestures preserve its boundary and resuming clears it. Actual callbacks
-and ES/EN follow-control markup pass focused checks; TypeScript/frontend build
-pass. Native scroll and focus interaction remain manual.
-One-off scheduled tasks now surface failed, cancelled or interrupted outcomes
-in their main state instead of a generic Completed label. Existing running,
-scheduled, recurring and invalid-state priorities remain intact. The production
-helper check fails before and passes after in ES/EN; TypeScript/frontend build
-pass. Scheduler execution/persistence are unchanged; native review is manual.
+- Latest published preview: 0.40.0.
+- Latest local Windows installer: 0.42.0, unsigned and unpublished.
+- Source changes after that installer are listed in the
+  [unpackaged source record](docs/development-notes/README.md#source-after-the-local-0420-installer).
+  They require a future installer before the maintainer can review them together.
+- Wait three or four iterations between GitHub releases. Attach only the EXE;
+  keep checksums local. Commit and push continue independently.
+- Packaged changes belong in the [release notes](docs/release-notes/README.md),
+  rather than another chronological list here.
 
 ## Evidence already available
 
