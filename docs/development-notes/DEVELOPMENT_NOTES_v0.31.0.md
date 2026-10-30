@@ -1852,3 +1852,15 @@ unknown properties retain native validation; no new IPC command or rule table wa
 added. Focused production-rule/callback checks and ES/EN React markup passed, as
 did TypeScript and the frontend build. Browser feedback itself was simulated;
 native interaction remains for maintainer validation without blocking work.
+
+## Reusable Windows build-cache cleanup
+
+The PowerShell cleaner previews an explicit generated-cache allowlist with
+WhatIf, checks all target paths before deletion and preserves release executables,
+installers, source assets and installed project dependencies. Active builds block
+actual deletion. A real junction probe was rejected with its sentinel unchanged;
+the cleanup then removed 18,345,848 logical bytes of intermediate artwork and old
+verification downloads. All 336 protected files retained their hashes and a second
+run removed nothing. The workspace inventory skipped redirected entries, so it is
+not an installed-size or physical-disk measurement. No application build or release
+was needed for this maintenance command.

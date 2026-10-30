@@ -96,7 +96,15 @@ NSIS installers are generated under `src-tauri/target/release/bundle/nsis/`. Bui
 
 `src-tauri/target/` contains regenerable compiler output, not installed servers or the application's download size. Repeated debug builds can accumulate large caches. Development and test builds disable debug symbols and incremental caches by default to limit disk usage; recompilation can take longer. Release settings are unaffected.
 
-After stopping Cargo and the development application, `cargo clean --manifest-path src-tauri/Cargo.toml` removes compiler output, **including locally generated installers**. Copy any installers you want to keep outside `target/` first. It does not remove source files or the user's application library.
+After stopping builds and the development application, preview cache cleanup with
+`./scripts/clean_build_cache.ps1 -WhatIf`, then run it without `-WhatIf` to remove
+the listed generated caches. It preserves the release executable, installers,
+source assets, installed project dependencies and the application library. It rejects redirected
+paths and reports logical file bytes rather than disk allocation.
+
+For a complete reset, `cargo clean --manifest-path src-tauri/Cargo.toml` also
+removes locally generated installers. Copy installers you want to keep outside
+`target/` before using that command.
 
 For source-level debugging, enable symbols explicitly with `cargo build --manifest-path src-tauri/Cargo.toml --config profile.dev.debug=2`. These symbols use additional disk space.
 
