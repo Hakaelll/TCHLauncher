@@ -47,5 +47,11 @@ belong to the maintainer. This build does not establish that reported Internet
 stalls, RAM growth, missing mod behavior or Minehut account identity are resolved.
 No measured RAM, CPU or network improvement is claimed.
 
+Silent installation of 0.40.0, upgrade to 0.43.0 and uninstallation of 0.43.0
+also passed in an isolated project folder. A user-owned fixture survived both
+upgrade and uninstall. The original executable/database hashes and exported
+registry keys were unchanged after restoration. The application was not launched;
+interactive installer choices and gameplay were not exercised by this probe.
+
 No external service or dependency was added. Temporary probes and generated build
 caches are removed after packaging; checksums stay local and are not release assets.
