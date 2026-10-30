@@ -4,8 +4,8 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after the local 0.42.0 installer
 
-These commits are in source and are not included in the local 0.42.0 installer.
-They do not represent a new published release. Remaining native interaction and
+These changes are included in the local 0.43.0 installer and were absent from
+0.42.0. Neither build is published on GitHub. Remaining native interaction and
 host-specific checks belong to the maintainer and do not block implementation.
 Focused check receipts are local under `artifacts/`; they are not a claim that
 all Windows interactions or Minecraft gameplay have passed.
@@ -31,8 +31,8 @@ that the reported game-connection stalls are resolved. Native use remains manual
 
 Relevant frontend changes passed TypeScript and production builds. Temporary
 probe sources and generated caches were removed; retained regression tests were
-not expanded. Packaged changes through 0.42.0 are in its
-[release notes](../release-notes/RELEASE_NOTES_v0.42.0.md).
+not expanded. Packaged changes through 0.43.0 are in its
+[release notes](../release-notes/RELEASE_NOTES_v0.43.0.md).
 
 ## Earlier records
 
