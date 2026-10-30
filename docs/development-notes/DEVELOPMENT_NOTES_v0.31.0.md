@@ -1747,3 +1747,19 @@ Focused local-rule checks, actual ES/EN component rendering, TypeScript and the
 Windows frontend production build passed. This does not measure workload needs
 or establish lower RAM use. Temporary checks and generated frontend files were
 removed; no dependency or retained test was added. Source follows installer 0.40.0.
+
+## Readable player and IP ban records
+
+Native player/IP bans already contained reason, source, creation and expiry,
+but the view combined them into one truncated unlabeled line. Both record types
+now share a native disclosure with a visible expiry summary and labeled values.
+The summary includes the player/IP as hidden context for keyboard/assistive
+navigation. Dates and stored reason/source remain verbatim; forever is localized
+as no expiry and absent expiry is not inferred to be permanent. No active/expired
+status is guessed from custom date strings. Pardon and file operations are unchanged.
+
+Actual ES/EN component rendering checks cover metadata, preserved values/time
+zones, missing/custom/permanent expiry and escaped stored text. TypeScript and
+the Windows frontend build passed. Temporary checks and generated files were
+removed; no dependency or retained test was added. This does not establish native
+assistive-technology interaction. Source follows installer 0.40.0.

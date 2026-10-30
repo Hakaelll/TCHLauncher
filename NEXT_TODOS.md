@@ -16,6 +16,7 @@ Fabric inventory now flags recognized Minecraft requirement mismatches against
 configured stable releases, without overrides or experimental-version inference.
 Source after 0.40.0 also distinguishes configured direct authentication from
 local-type UUIDs displayed for connected players in a running session.
+It adds advisory local RAM starting points and labeled player/IP ban metadata.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
@@ -107,6 +108,7 @@ scenarios. Detailed observations remain in
 | TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. Maintainer confirms actual Windows-login startup on 0.39.0. Preference/task UI and error recovery still need direct evidence. |
 | UX-01 | DONE | Visual design acceptance | The maintainer explicitly accepts the current application appearance. Earlier isolated library captures cover three desktop sizes. General visual approval no longer requires screenshots. Keyboard and assistive-technology behavior are tracked separately. |
 | UX-ACCESS-01 | REVIEW | Keyboard and accessibility | Shared labels, ES/EN control markup, modal focus recovery and reduced-motion component checks passed. Broader keyboard paths and screen-reader interaction remain unverified; the maintainer's visual approval does not establish them. |
+| PLAYER-BANS-01 | REVIEW | Ban metadata | Player and IP records show a visible expiry summary and labeled reason, source, creation date and expiry details. Missing expiry remains unknown; the native forever sentinel is localized. Values/time zones remain verbatim and pardon actions are unchanged. ES/EN component checks, TypeScript and the frontend build pass. |
 | RAM-ADVICE-01 | REVIEW | Local memory guidance | Creation, server settings and modpack import show an advisory starting heap based on physical RAM, server type and configured slots. Rules reserve at least 2 GiB or 25% for other work, omit unsupported estimates and never change saved memory. Local rule and ES/EN component checks pass. Real workload needs depend on content; no measured RAM reduction is claimed. |
 | UX-TASKS-01 | REVIEW | Background operations | Measured task events and reconciliation connected. Verify native popover, navigation, cancellation and partial/error outcomes. |
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |

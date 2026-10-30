@@ -107,6 +107,14 @@ html[data-motion="reduced"] .startup-progress * { transition:none; }
 .players-view .player-row-info strong { font:13px/1.8 var(--font-display); }
 .players-view .player-row-info small { line-height:1.7; }
 .players-view .player-row button { min-height:36px; }
+.banned-entry { border-bottom:1px solid var(--line); }
+.players-view .banned-entry .player-row { border-bottom:0; }
+.ban-details { margin:0 12px 14px 66px; color:var(--secondary); font:12px/1.7 var(--font-reading); }
+.ban-details summary { padding:6px 0; cursor:pointer; overflow-wrap:anywhere; }
+.ban-details summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.ban-details .data-list>div { display:grid; grid-template-columns:minmax(70px,.3fr) minmax(0,1fr); }
+.ban-details .data-list dd { white-space:pre-wrap; }
+@media(max-width:650px) { .ban-details { margin-left:12px; } }
 .players-view .player-tabs { gap:4px; padding:4px 4px 0; background:var(--surface); border:1px solid var(--line); }
 .players-view .player-tabs button { margin:0; padding:12px 14px; border-bottom-color:transparent; font:11px/1.7 var(--font-display); }
 .players-view .player-tabs button.active { background:var(--accent-wash); color:var(--ink); box-shadow:inset 0 2px 0 var(--control-edge); }
