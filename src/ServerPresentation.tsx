@@ -1,6 +1,5 @@
 import type {Server} from './api'
 
-export {fmtBytes} from './format'
 export const platformName = (platform:Server['platform']) => ({vanilla:'Vanilla',paper:'Paper',fabric:'Fabric',neoforge:'NeoForge'})[platform]
 
 export function Icon({name, size = 18}: {name: 'plus' | 'folder' | 'arrow' | 'back' | 'server' | 'check' | 'search'; size?: number}) {

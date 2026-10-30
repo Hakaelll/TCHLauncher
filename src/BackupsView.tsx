@@ -1,9 +1,10 @@
+import {fmtBytes} from './format'
 import {useEffect,useId,useMemo,useRef,useState} from 'react'
 import {listWindow} from './listWindow'
 import type {Backup,Server} from './api'
 import {getLanguage,t,translatedMessage,formatDate} from './locale'
 import {BackupPolicyPanel} from './BackupPolicyPanel'
-import {Icon,fmtBytes} from './ServerPresentation'
+import {Icon} from './ServerPresentation'
 import {useListMotion} from './motion'
 import './backups.css'
 

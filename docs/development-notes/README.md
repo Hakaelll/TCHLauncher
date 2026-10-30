@@ -2,6 +2,14 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Source after 0.44.0
+
+Size-format callers now import the existing formatter directly instead of routing
+through the visual server component. The pass-through export is removed; the
+formatter and displayed values are unchanged. TypeScript and the Windows frontend
+production build pass. This import-only cleanup has no new installer and makes no
+measured application-size or runtime-performance claim.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.
