@@ -415,7 +415,8 @@ fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::downlo
 
 fn checked_name(name:&str)->Result<&str,String>{
     let name=name.trim();
-    if name.is_empty() || name.len() > 64 || name.chars().any(char::is_control) {
+    // Match HTML maxlength units rather than UTF-8 byte length.
+    if name.is_empty() || name.encode_utf16().count() > 64 || name.chars().any(char::is_control) {
         return Err("El nombre debe tener entre 1 y 64 caracteres, sin saltos de línea".into());
     }
     Ok(name)

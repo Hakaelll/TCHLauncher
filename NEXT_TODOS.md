@@ -63,6 +63,12 @@ server change or disposal. Repeated copies cancel the previous feedback timer;
 public-IP requests have an in-flight guard. The actual-handler check reproduces
 the stale reply before the fix and passes afterward; TypeScript/frontend build
 pass. Native clipboard and window interaction remain manual.
+Server display names now share the HTML maxlength unit in native validation,
+so 64 accented or CJK characters remain valid regardless of UTF-8 byte length.
+A standalone check compiles the actual shared Rust function, fails before the
+change and passes after it for Unicode limits, blanks, controls and trimming.
+Creation/import/rename callers retain the same validator. Full application
+packaging and native name entry are not exercised by this check.
 
 ## Evidence already available
 
