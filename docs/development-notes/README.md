@@ -10,6 +10,15 @@ formatter and displayed values are unchanged. TypeScript and the Windows fronten
 production build pass. This import-only cleanup has no new installer and makes no
 measured application-size or runtime-performance claim.
 
+Shared server/world/content action menus now support timed type-ahead: prefixes,
+repeated-letter cycling and accent-insensitive matching skip disabled actions.
+Arrow/Home/End navigation resets the prefix; composition and modified shortcuts
+are left alone. Typing only moves focus and never executes an action. Focused
+production callback checks cover Spanish/English labels, timeout reset, disabled
+and empty lists, existing navigation and Escape. Hook effects/DOM focus and native
+assistive-technology interaction are outside that isolated check. TypeScript and
+the Windows frontend production build pass; no new installer is generated.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.
