@@ -46,6 +46,19 @@ actual CPU/RAM saving are not established. TypeScript and the Windows frontend
 production build pass. Native server logging, scheduling and state events are
 unchanged; no network/gameplay improvement or new installer is claimed.
 
+Memory reports now discard the former process session before applying timestamp
+or resident-memory availability checks. A new session, PID or uptime reset cannot
+leave the previous session visible after a clock rollback or an unavailable first
+RAM reading. Missing RAM alone still preserves samples from the same session and
+does not allocate a history for a never-sampled server. The App also clears only
+the starting server's chart history, avoiding mixtures when a PID is reused.
+Production recording/callback probes reproduce both failures before correction
+and pass after it; native recording is extracted with model/serialization
+boundaries substituted. TypeScript, the Windows frontend build and full offline
+native Cargo check pass. No actual clock change, Windows PID reuse or Minecraft
+restart is exercised by those probes. Heap collection remains read-only; this
+fix does not establish a memory leak, lower Java RAM use or solve Internet stalls.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.

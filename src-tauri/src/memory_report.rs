@@ -17,16 +17,19 @@ pub struct Sample {
 pub struct History(Mutex<BTreeMap<String,VecDeque<Sample>>>);
 impl History {
     pub fn record(&self,m:&Metrics,session:&str) {
-        let (Some(pid),Some(uptime),Some(resident))=(m.pid,m.uptime_seconds,m.memory_bytes) else{return;};
+        let (Some(pid),Some(uptime))=(m.pid,m.uptime_seconds) else{return;};
         let Ok(mut histories)=self.0.lock() else{return;};
+        if let Some(samples)=histories.get_mut(&m.server_id){
+            if let Some(last)=samples.back(){
+                if last.session!=session||last.pid!=pid||uptime<last.uptime_seconds{samples.clear();}
+                else if m.sampled_at<=last.sampled_at{return;}
+            }
+        }
+        let Some(resident)=m.memory_bytes else{return;};
         if !histories.contains_key(&m.server_id)&&histories.len()>=32 {
             if let Some(oldest)=histories.iter().min_by_key(|(_,samples)|samples.back().map(|s|s.sampled_at)).map(|(id,_)|id.clone()){histories.remove(&oldest);}
         }
         let samples=histories.entry(m.server_id.clone()).or_default();
-        if let Some(last)=samples.back(){
-            if m.sampled_at<=last.sampled_at{return;}
-            if last.session!=session||last.pid!=pid||uptime<last.uptime_seconds{samples.clear();}
-        }
         samples.push_back(Sample{session:session.into(),sampled_at:m.sampled_at,pid,uptime_seconds:uptime,resident_bytes:resident,
             heap_used_bytes:m.heap.as_ref().map(|h|h.used_bytes),heap_committed_bytes:m.heap.as_ref().map(|h|h.committed_bytes),collector_events:m.heap.as_ref().map(|h|h.collections)});
         while samples.len()>MAX_SAMPLES||samples.front().is_some_and(|s|m.sampled_at.saturating_sub(s.sampled_at)>WINDOW_MS){samples.pop_front();}

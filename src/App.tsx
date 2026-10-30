@@ -244,6 +244,7 @@ function App() {
           setStartupPhases(current=>{const next={...current};delete next[event.payload.serverId];return next})
           metricsGeneration.current[event.payload.serverId]=(metricsGeneration.current[event.payload.serverId]??0)+1
           setMetrics(current=>current?.serverId===event.payload.serverId?null:current)
+          setMetricsHistory(current=>{const next={...current};delete next[event.payload.serverId];return next})
         }
         setServers(items => items.map(item => item.id === event.payload.serverId ? { ...item, state: event.payload.state } : item))
         if(event.payload.serverId===selectedRef.current&&['stopped','crashed','error'].includes(event.payload.state))void refreshPlayers(event.payload.serverId)
