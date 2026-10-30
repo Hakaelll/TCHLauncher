@@ -16,9 +16,7 @@ const categoryLabels=new Map([...categories,...pluginCategories,...resourceCateg
 
 type AvailabilityState={value?:ContentAvailability;error?:string}
 
-function ProjectIcon({url,title}:{url:string|null;title:string}) {
-  const [image,setImage]=useState<string|null>(null)
-  useEffect(()=>{let active=true;setImage(null);if(url)api.contentIcon(url).then(value=>{if(active)setImage(value)}).catch(()=>{});return()=>{active=false}},[url])
+function ProjectIcon({image,title}:{image:string|undefined;title:string}) {
   return <span className="content-project-icon" aria-hidden="true">{image?<img src={image} alt="" loading="lazy"/>:<span>{title.slice(0,1).toUpperCase()}</span>}</span>
 }
 
@@ -30,6 +28,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
   const [opening,setOpening]=useState<string|null>(null)
   const [query,setQuery]=useState(''),[term,setTerm]=useState(''),[category,setCategory]=useState(''),[sort,setSort]=useState('relevance'),[allVersions,setAllVersions]=useState(false),[offset,setOffset]=useState(0),[reload,setReload]=useState(0)
   const [results,setResults]=useState<ContentSearch|null>(null),[searching,setSearching]=useState(false),[error,setError]=useState<string|null>(null),[availability,setAvailability]=useState<Record<string,AvailabilityState>>({})
+  const [icons,setIcons]=useState<Record<string,string>>({})
   const generation=useRef(0),loadedKey=useRef('')
   const key=JSON.stringify([server.id,server.version,server.platform,term,category,sort,allVersions,offset,reload,kind])
   const loader=server.platform==='paper'?'Paper':server.platform==='fabric'?'Fabric':'NeoForge'
@@ -39,7 +38,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     if(loadedKey.current===key&&results)return()=>{generation.current++}
     const sequence=++generation.current;let alive=true
     const current=()=>alive&&sequence===generation.current
-    setSearching(true);setError(null);setResults(null);setAvailability({});setOpening(null)
+    setSearching(true);setError(null);setResults(null);setAvailability({});setIcons({});setOpening(null)
     void api.searchContent(server.id,term,offset,{category,sort,allVersions,projectKind:kind}).then(value=>{
       if(!current())return
       loadedKey.current=key;setResults(value);setSearching(false)
@@ -61,6 +60,16 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     },current)
     return()=>{alive=false}
   // Capture the current cache when resuming; each reply must not restart workers.
+  },[active,results,key])
+  useEffect(()=>{
+    if(!active||!results||loadedKey.current!==key)return
+    let alive=true
+    void checkPage(results.hits.filter(project=>project.icon_url&&!icons[project.project_id]),async project=>{
+      if(!project.icon_url)return
+      try{const value=await api.contentIcon(project.icon_url);if(alive)setIcons(previous=>({...previous,[project.project_id]:value}))}catch{}
+    },()=>alive)
+    return()=>{alive=false}
+  // Preserve completed icons when reopening; replies must not restart the queue.
   },[active,results,key])
   const filter=(update:()=>void)=>{update();setOffset(0)}
   const submit=(event:FormEvent)=>{event.preventDefault();filter(()=>setTerm(query.trim()));setReload(value=>value+1)}
@@ -90,7 +99,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     <div className="content-results">{visibleResults?.hits.map(project=>{
       const status=availability[project.project_id],release=status?.value,installed=installedProjects.has(project.project_id),beta=release?.channel&&release.channel!=='release'
       return <article className={`content-project ${installed?'is-installed':''}`} key={project.project_id}>
-        <ProjectIcon url={project.icon_url} title={project.title}/><div className="content-project-body"><div className="content-project-title"><h3>{project.title}</h3>{installed&&<span className="content-installed-badge">{t("Instalado")}</span>}</div><span className="content-author">{t("Por {0}",project.author)}</span><p>{project.description}</p><div className="content-tags">{project.categories.filter(value=>value!==server.platform).slice(0,3).map(value=><span key={value}>{translatedMessage(categoryLabels.get(value)??value)}</span>)}{project.downloads!=null&&<span className="content-download-count"><ContentGlyph kind="download"/>{formatNumber(project.downloads,{notation:'compact'})}  {t("descargas")}</span>}</div></div>
+        <ProjectIcon image={icons[project.project_id]} title={project.title}/><div className="content-project-body"><div className="content-project-title"><h3>{project.title}</h3>{installed&&<span className="content-installed-badge">{t("Instalado")}</span>}</div><span className="content-author">{t("Por {0}",project.author)}</span><p>{project.description}</p><div className="content-tags">{project.categories.filter(value=>value!==server.platform).slice(0,3).map(value=><span key={value}>{translatedMessage(categoryLabels.get(value)??value)}</span>)}{project.downloads!=null&&<span className="content-download-count"><ContentGlyph kind="download"/>{formatNumber(project.downloads,{notation:'compact'})}  {t("descargas")}</span>}</div></div>
         <div className="content-project-footer">{!installable?<><div className={`content-availability ${project.versions.includes(server.version)?'compatible':'unavailable'}`}><strong>{project.versions.includes(server.version)?t("El proyecto anuncia {0}",server.version):t("No anuncia {0}", server.version)}</strong><span>{kind==='modpack'?t("Revisa el motor y los archivos para servidor."):t("Contenido para el cliente de Minecraft.")}</span></div><button disabled={locked||opening!==null} onClick={()=>void openProject(project.project_id)}>{opening===project.project_id?t("Abriendo…"):t("Ver publicaciones")}<ContentGlyph kind="external"/></button></>:<><div className={`content-availability ${status?.error?'unknown':release?.versionId?beta?'experimental':'compatible':release?'unavailable':'checking'}`}><strong>{status?.error?t("Sin comprobar"):!release?t("Comprobando versión…"):release.versionId?`${server.version} · ${loader}${beta?` · ${release.channel}`:''}`:t("Sin versión de servidor para {0}", server.version)}</strong><span>{status?.error?status.error:release?.versionId?t("Publicación {0}", release.versionNumber):release?t("No se instalará un archivo de otra versión."):t("Comprobando versión, cargador y entorno.")}</span></div>{status?.error?<button disabled={locked} onClick={()=>void retry(project.project_id)}>{t("Recomprobar")}</button>:<button disabled={!stopped||locked||!release?.versionId} onClick={()=>{if(release?.versionId)onPrepare(project.project_id,release.versionId)}}>{preparing===project.project_id?t("Revisando…"):installed?t("Revisar versión"):beta?t("Revisar beta"):t("Revisar instalación")}</button>}</>}</div>
       </article>
     })}</div>

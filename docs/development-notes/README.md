@@ -21,6 +21,14 @@ all Windows interactions or Minecraft gameplay have passed.
 | `3175e1c` | Show new matching lines while console following is paused. | Actual callbacks, arrival helpers and ES/EN control markup; native scrolling untested. |
 | `cd45f49` | Distinguish failed/cancelled/interrupted one-off tasks from Completed. | Production helper before/after in ES/EN with active/recurring priorities; scheduling and persistence unchanged. |
 
+Discovery icon loading now uses the existing four-worker page queue instead of
+one independent request per card. Completed icons survive reopening the current
+page. Leaving the page stops new work and ignores late replies; already-started
+IPC calls can finish. Actual effect checks compare 24 simultaneous old card
+requests with four workers, including missing URLs, failures and reopening.
+This is a deterministic API-boundary check, not a network/RAM benchmark or proof
+that the reported game-connection stalls are resolved. Native use remains manual.
+
 Relevant frontend changes passed TypeScript and production builds. Temporary
 probe sources and generated caches were removed; retained regression tests were
 not expanded. Packaged changes through 0.42.0 are in its
