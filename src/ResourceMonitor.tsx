@@ -6,7 +6,7 @@ import {api,type Metrics,type Server} from './api'
 import { useEffect,useState,useRef } from 'react'
 import { AnimatedLine, AnimatedValue } from './motion'
 import { diskRate, HISTORY_MS, seriesSegments, type MetricSample } from './telemetry'
-import {chartSamples,inspectionSamples,stepSample,memoryDomain,measured,type ChartMetric} from './chartData'
+import {chartSamples,inspectionSamples,stepSample,memoryDomain,cpuDomain,measured,type ChartMetric} from './chartData'
 
 const bytesLabel = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`
 
@@ -14,10 +14,12 @@ type MonitorProps={server:Server;metrics:Metrics|null;history:MetricSample[];err
 function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorProps & {metric:'memoryBytes'|'cpuPercent';windowMs:number}) {
   const [hoverTime,setHoverTime]=useState<number|null>(null)
   const [showProcess,setShowProcess]=useState(true),[showHeap,setShowHeap]=useState(true)
+  const [autoCpu,setAutoCpu]=useState(true)
   const memory=metric==='memoryBytes'
   const samples=chartSamples(history,server.id,metrics?.pid,windowMs)
   const peakValues=samples.map(sample=>sample[metric]).filter(measured)
-  const maximum=memory?memoryDomain(samples,server.memoryMaxMb*1024**2):Math.max(100,...peakValues)
+  const peak=peakValues.length?Math.max(...peakValues):null
+  const maximum=memory?memoryDomain(samples,server.memoryMaxMb*1024**2):cpuDomain(peak,autoCpu)
   const latestTime = samples.at(-1)?.sampledAt ?? 0
   const x = (sample: MetricSample) => 12 + (sample.sampledAt - latestTime + windowMs) / windowMs * 476
   const y = (sample: MetricSample,key:ChartMetric=metric) => 142 - Math.min(1,(sample[key] ?? 0) / maximum) * 128
@@ -35,8 +37,8 @@ function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorPro
   const area=(segment:MetricSample[],key:ChartMetric)=>[`${x(segment[0])},142`,...segment.flatMap((sample,i)=>i===0?[`${x(sample)},${y(sample,key)}`]:[`${x(sample)},${y(segment[i-1],key)}`,`${x(sample)},${y(sample,key)}`]),`${x(segment[segment.length-1])},142`].join(' ')
 
   return <section className={`resource-chart ${metric === 'memoryBytes' ? 'memory' : 'cpu'}`} aria-label={metric === 'memoryBytes' ? t("Memoria del proceso Java") : t("CPU del proceso Java")}>
-    <div className="chart-heading"><PixelIcon kind={memory?'memory':'cpu'}/><div><h3>{memory?t("Memoria"):'CPU'}</h3><p>{memory?t("RAM residente del proceso Java"):t("Uso del proceso Java")}</p></div>{memory&&<span className="chart-axis-note">{t("Escala automática")}</span>}</div>
-    <div className="monitor-reading"><strong><AnimatedValue key={`${server.id}:${metrics?.pid}`} value={latest} format={format}/></strong><small><span>{t("Pico del intervalo")}</span><b>{peakValues.length?format(Math.max(...peakValues)):'—'}</b></small></div>
+    <div className="chart-heading"><PixelIcon kind={memory?'memory':'cpu'}/><div><h3>{memory?t("Memoria"):'CPU'}</h3><p>{memory?t("RAM residente del proceso Java"):t("Uso del proceso Java")}</p></div>{(memory||autoCpu)&&<span className="chart-axis-note">{t("Escala automática")}</span>}</div>
+    <div className="monitor-reading"><strong><AnimatedValue key={`${server.id}:${metrics?.pid}`} value={latest} format={format}/></strong><small><span>{t("Pico del intervalo")}</span><b>{peak===null?'—':format(peak)}</b></small></div>
     <div className="chart-sample-reading" aria-live={hovered?'polite':'off'}><time>{selected?formatTime(selected.sampledAt):'—'}</time><span>{hovered?t("Muestra seleccionada"):t("Última muestra")}</span>{memory&&showProcess&&<strong className="process-sample">{t("RAM")} {measured(selected?.memoryBytes)?bytesLabel(selected!.memoryBytes!):'—'}</strong>}{memory&&showHeap&&<strong className="heap-sample">{t("Heap")} {measured(selected?.heapUsedBytes)?bytesLabel(selected!.heapUsedBytes!):'—'}</strong>}{!memory&&<strong className="cpu-sample">{measured(selected?.cpuPercent)?format(selected!.cpuPercent!):'—'}</strong>}</div>
 
     <div className="monitor-chart">
@@ -54,7 +56,7 @@ function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorPro
       {!inspectable.length&&<p className="chart-empty"><strong>{error?t("Lectura no disponible"):memory&&!showProcess?t("Heap no disponible"):metrics?.pid?t("Recogiendo muestras…"):t("Esperando al servidor")}</strong><span>{metrics?.pid?t("Las lecturas aparecerán aquí."):t("Inicia el servidor para medir su rendimiento.")}</span></p>}
     </div>
     <div className="chart-times"><span>−{windowMs/1000} s</span><span>−{windowMs/2000} s</span><span>{t("Última muestra")}</span></div>
-    <div className="chart-legend" role={memory?'group':undefined} aria-label={memory?t("Series de memoria visibles"):undefined}>{memory?<><button className="process-legend" aria-pressed={showProcess} disabled={showProcess&&(!showHeap||!hasHeap)} onClick={()=>setShowProcess(value=>!value)}>{t("RAM del proceso")}</button><button className="heap-legend" aria-pressed={showHeap} disabled={!showProcess||!hasHeap} onClick={()=>setShowHeap(value=>!value)}>{t("Heap usado")}{!hasHeap&&<span>{t("no disponible")}</span>}</button></>:<span className="process-legend">{t("CPU del proceso")}</span>}<small>{t("Flechas para explorar")}</small></div>
+    <div className="chart-legend" role={memory?'group':undefined} aria-label={memory?t("Series de memoria visibles"):undefined}>{memory?<><button className="process-legend" aria-pressed={showProcess} disabled={showProcess&&(!showHeap||!hasHeap)} onClick={()=>setShowProcess(value=>!value)}>{t("RAM del proceso")}</button><button className="heap-legend" aria-pressed={showHeap} disabled={!showProcess||!hasHeap} onClick={()=>setShowHeap(value=>!value)}>{t("Heap usado")}{!hasHeap&&<span>{t("no disponible")}</span>}</button></>:<><span className="process-legend">{t("CPU del proceso")}</span><button aria-label={t("Escala automática de CPU")} aria-pressed={autoCpu} onClick={()=>setAutoCpu(value=>!value)}>{autoCpu?t("Escala automática"):t("Escala 0–100 %")}</button></>}<small>{t("Flechas para explorar")}</small></div>
     {error && <p className="network-error" role="status">{translatedMessage(error)}</p>}
   </section>
 }

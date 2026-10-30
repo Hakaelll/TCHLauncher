@@ -1703,6 +1703,8 @@ export const english: Record<string,string> = {
   "Qué incluye el diagnóstico": "What the diagnostic includes",
   "{0} durante los últimos {1} segundos. Valor actual: {2}. Usa las flechas para explorar las muestras.": "{0} over the last {1} seconds. Current value: {2}. Use the arrow keys to inspect samples.",
   "Escala automática": "Automatic scale",
+  "Escala automática de CPU": "Automatic CPU scale",
+  "Escala 0–100 %": "0–100% scale",
   "Filtrar categorías del log": "Filter log categories",
   "Salida del servidor": "Server output",
   "Seguimiento activo": "Following output",

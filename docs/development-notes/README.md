@@ -13,6 +13,14 @@ pass, as do TypeScript and the frontend build. Policy/icon/motion presentation
 was outside that isolated check; native interaction remains manual. This is not
 a measured RAM/speed improvement and is not yet in the local installer.
 
+CPU charts now default to a labeled automatic percentage axis, rounded in five
+percentage-point steps with a 5% floor and 100% ceiling. A pressed-state control
+switches back to a fixed 0–100% axis. Sample values, peaks and collection remain
+unchanged. Actual domain/helper, ES/EN chart markup and toggle checks pass with
+TypeScript/frontend builds; animation/icon presentation and native layout remain
+outside that check. Process collection was reviewed and already targets only the
+Java PID, with bounded session entries; no runtime performance gain is claimed.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from

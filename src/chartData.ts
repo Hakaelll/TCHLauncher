@@ -27,3 +27,9 @@ export function memoryDomain(samples:MetricSample[],configuredBytes:number):numb
   for(const sample of samples)peak=Math.max(peak,measured(sample.memoryBytes)?sample.memoryBytes:0,measured(sample.heapUsedBytes)?sample.heapUsedBytes:0)
   return peak>0?peak*1.1:Math.max(configuredBytes,1)
 }
+
+/** Keep real percentage units while making low CPU activity readable. */
+export function cpuDomain(peak:number|null,automatic:boolean):number {
+  if(!automatic||peak===null)return 100
+  return Math.max(5,Math.min(100,Math.ceil(peak*1.1/5)*5))
+}
