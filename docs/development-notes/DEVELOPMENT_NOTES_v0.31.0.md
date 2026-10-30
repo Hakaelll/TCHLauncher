@@ -1781,3 +1781,9 @@ optimized native NSIS packaging passed. The application library produces rlib an
 rmeta without staticlib/cdylib outputs. Executable/setup versions are 0.41.0 and
 embedded icons match the emblem. Installer size is 6,867,051 bytes. No native UI
 interaction or gameplay is claimed for this build.
+
+Before publication, the maintainer requested three or four development iterations
+between GitHub releases. No 0.41.0 GitHub release was created. The installer remains
+local; 0.40.0 remains the published preview. Commits and push continue between
+releases. Generated build/cache cleanup removed 1,930,905,463 logical bytes while
+preserving the executable and both 0.40/0.41 installers with unchanged hashes.

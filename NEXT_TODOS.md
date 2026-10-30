@@ -19,6 +19,8 @@ local-type UUIDs displayed for connected players in a running session.
 It adds advisory local RAM starting points and labeled player/IP ban metadata.
 The Windows desktop build requests only its Rust library, omitting unused
 C-compatible static and dynamic library outputs.
+The 0.41.0 installer remains local and unpublished. The maintainer now requests
+three or four iterations between GitHub releases; commits and push continue.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 

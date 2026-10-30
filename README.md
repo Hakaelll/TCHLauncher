@@ -14,6 +14,10 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 Latest development milestone: **0.41.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.41.0.md).
 
+The 0.41.0 installer is a local build, not a published release. The latest
+[published preview is 0.40.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.40.0).
+Releases group three or four development iterations.
+
 TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. The maintainer accepts the current visual design. Further keyboard/accessibility checks, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
 
 Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launching and Microsoft account integration are outside the current scope.

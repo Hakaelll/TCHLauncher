@@ -1,5 +1,8 @@
 # TCHLauncher 0.41.0
 
+Local development build, not published on GitHub. At the maintainer's request,
+the next release will group three or four development iterations.
+
 ## Player and capacity details
 
 - Authentication guidance now flags local-type UUIDs observed among connected
@@ -29,8 +32,8 @@ identity warnings and ban details. These checks do not establish results on the
 affected player's remote server or replace native interaction and gameplay.
 
 This is an unsigned Windows x64 preview. Linux and Minecraft client launching
-remain deferred. Only the installer is attached to the GitHub release; checksum
-files remain local.
+remain deferred. Future GitHub releases attach only the installer; checksum
+files remain local. No GitHub release was created for 0.41.0.
 
 TypeScript, the Windows frontend production build, the five retained frontend
 data-lifecycle tests and the optimized native NSIS build passed. The generated

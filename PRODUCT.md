@@ -26,6 +26,10 @@ Aplicación de escritorio para Windows 10/11. Linux está aplazado por petición
 
 Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como fuente de verdad del estado. Aceptación explícita de la EULA. Funciones incompletas registradas en `NEXT_TODOS.md`.
 
+Los commits y el push continúan entre iteraciones. Por petición del usuario,
+se acumulan 3 o 4 iteraciones/versiones antes de publicar otra release en GitHub.
+La 0.41.0 queda como compilación local sin publicar; la última release es 0.40.0.
+
 ## Brand Commitments
 
 TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El usuario proporcionó el emblema voxel dorado. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
