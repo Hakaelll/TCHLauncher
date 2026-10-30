@@ -37,10 +37,10 @@ fn plain(meta: &fs::Metadata) -> bool {
     true
 }
 
-fn collect(root: &Path, folder: &Path, prefix: &str, entries: &mut Vec<Entry>, task: &DownloadTask) -> Result<(), String> {
+fn collect(root: &Path, folder: &Path, prefix: &str, jars_only: bool, entries: &mut Vec<Entry>, task: &DownloadTask) -> Result<(), String> {
     let meta=fs::symlink_metadata(folder).map_err(|e|e.to_string())?;
     if !plain(&meta) || !meta.is_dir() { return Err("La exportación no admite enlaces ni carpetas redirigidas".into()); }
-    for item in walkdir::WalkDir::new(folder).follow_links(false) {
+    for item in walkdir::WalkDir::new(folder).follow_links(false).max_depth(if jars_only {1} else {usize::MAX}) {
         task.cancellation.check()?;
         let item=item.map_err(|e|e.to_string())?;
         let meta=fs::symlink_metadata(item.path()).map_err(|e|e.to_string())?;
@@ -51,6 +51,10 @@ fn collect(root: &Path, folder: &Path, prefix: &str, entries: &mut Vec<Entry>, t
         if !actual.starts_with(root) { return Err("Un archivo sale de la carpeta del servidor".into()); }
         let relative=item.path().strip_prefix(folder).map_err(|e|e.to_string())?
             .to_str().ok_or("Un archivo tiene un nombre no compatible con ZIP")?.replace('\\',"/");
+        if jars_only {
+            let filename=relative.to_ascii_lowercase();
+            if !filename.ends_with(".jar")&&!filename.ends_with(".jar.disabled") {continue;}
+        }
         let name=format!("{prefix}/{relative}");
         crate::modpack::relative_path(&name)?;
         if entries.len()>=100_000 { return Err("La exportación supera 100.000 archivos".into()); }
@@ -79,14 +83,14 @@ pub fn export(server: &Server, name: &str, destination: &Path, include_config: b
     let mut entries=Vec::new();
     let worlds: Vec<_> = family.iter().map(|(name, _)| name.clone()).collect();
     for (part, folder) in &family {
-        collect(&root,folder,&format!("worlds/{part}"),&mut entries,task)?;
+        collect(&root,folder,&format!("worlds/{part}"),false,&mut entries,task)?;
     }
     let content=if server.platform=="paper" {"plugins"} else {"mods"};
     let mut folders=vec![content];
     if include_config { folders.extend(["config","defaultconfigs"]); }
     for folder in &folders {
         match fs::symlink_metadata(root.join(folder)) {
-            Ok(_)=>collect(&root,&root.join(folder),folder,&mut entries,task)?,
+            Ok(_)=>collect(&root,&root.join(folder),folder,server.platform=="paper"&&!include_config&&*folder=="plugins",&mut entries,task)?,
             Err(e) if e.kind()==std::io::ErrorKind::NotFound=>(),
             Err(e)=>return Err(e.to_string()),
         }
@@ -135,7 +139,7 @@ pub fn export(server: &Server, name: &str, destination: &Path, include_config: b
         zip.start_file("tch-export.json",options).map_err(|e|e.to_string())?;
         zip.write_all(&serde_json::to_vec_pretty(&manifest).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
         zip.start_file("README.txt",options).map_err(|e|e.to_string())?;
-        zip.write_all(format!("TCHLauncher world + content export\nMinecraft: {}\nServer type: {}\nWorld: {}\n\nExtract this ZIP. Create a stopped server with the same Minecraft version and server type. Import worlds/{name}/ using Worlds > Import world. Keep the extracted sibling folders together: for Paper, review the detected Nether/End folders before importing. The application copies the reviewed family together and applies any chosen destination name to every dimension. Select the imported world as the primary world. Copy {content}/ and, if included, config/ and defaultconfigs/ to that server's folder before starting it. Disabled files remain disabled. Client-required mods must also be installed by each player.\n\nThis is not a complete server backup. It does not include Java, the server launcher, server.properties, EULA acceptance, logs or launcher accounts. World player data and any included mod/plugin configuration remain in this archive. tch-export.json lists the files and their SHA-256 hashes.\n",server.version,server.platform,name).as_bytes()).map_err(|e|e.to_string())?;
+        zip.write_all(format!("TCHLauncher world + content export\nMinecraft: {}\nServer type: {}\nWorld: {}\n\nExtract this ZIP. Create a stopped server with the same Minecraft version and server type. Import worlds/{name}/ using Worlds > Import world. Keep the extracted sibling folders together: for Paper, review the detected Nether/End folders before importing. The application copies the reviewed family together and applies any chosen destination name to every dimension. Select the imported world as the primary world. Copy {content}/ and, if included, config/ and defaultconfigs/ to that server's folder before starting it. Disabled files remain disabled. When configuration is excluded, Paper includes only top-level .jar and .jar.disabled plugin files, without plugin data folders. Client-required mods must also be installed by each player.\n\nThis is not a complete server backup. It does not include Java, the server launcher, server.properties, EULA acceptance, logs or launcher accounts. World player data and any included mod/plugin configuration remain in this archive. tch-export.json lists the files and their SHA-256 hashes.\n",server.version,server.platform,name).as_bytes()).map_err(|e|e.to_string())?;
         let file=zip.finish().map_err(|e|e.to_string())?;file.sync_all().map_err(|e|e.to_string())?;drop(file);
         task.begin_publication("Guardando ZIP de mundo y contenido")?;
         if previous_metadata.is_some() {

@@ -38,6 +38,9 @@ status/query propagation and exclude chat, commands, INFO and similar-name match
 Settings now offer Discard changes for unsaved properties and capacity, restoring
 the last read/acknowledged values without writing server files. Focused state and
 callback checks pass; native interaction is handed to the maintainer for review.
+Paper world/content export now lets users omit plugin data/configuration folders
+while retaining enabled and disabled plugin JARs. Real isolated ZIP creation,
+manifest hashes and unchanged source files pass both configuration choices.
 
 ## Evidence already available
 

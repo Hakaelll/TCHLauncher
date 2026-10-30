@@ -157,6 +157,10 @@ before copying or restoring.
 ZIP exports with hashes and a restoration guide. Exports preserve disabled content
 and reject links, redirected paths and destinations within the source server.
 They include selected world/player/configuration data, but are not full backups.
+For Paper, excluding configuration exports only top-level `.jar` and
+`.jar.disabled` plugin files; plugin data directories are not traversed. Including
+configuration retains plugin folders plus `config` and `defaultconfigs`.
+World files and the existing Fabric/NeoForge content selection are unchanged.
 
 ## Configuration, backups and updates
 

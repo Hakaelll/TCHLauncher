@@ -1827,3 +1827,16 @@ Focused state/callback checks, TypeScript and the frontend production build pass
 Native interaction is for maintainer validation. As explicitly requested, pending
 manual validation is reported without blocking further implementation. No release
 or dependency was added; temporary checks and generated frontend files are removed.
+
+## Optional Paper plugin data in world exports
+
+The Paper export configuration control now includes plugin data folders as well
+as config/defaultconfigs. Turning it off exports top-level enabled/disabled JARs
+without traversing plugin subdirectories. The checked default retains the former
+complete plugin-folder behavior. World selection and modded content are unchanged.
+ES/EN guidance and the archive README describe the choice. A focused native check
+created both ZIP variants from isolated synthetic files, verified exact membership,
+manifest sizes/hashes and unchanged sources. The complete native test target
+compiled; TypeScript and the frontend build passed. The temporary check was
+removed without increasing the retained suite. Native interaction/gameplay remain
+for maintainer validation and do not block implementation. No release was made.
