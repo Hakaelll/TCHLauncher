@@ -3,7 +3,7 @@
 input,select,textarea { caret-color:var(--accent); }
 button.primary-button { color: var(--ink); background: var(--accent); border-color: var(--accent); font-weight:550; }
 button.primary-button:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
-.server-rail { display:flex; flex-direction:column; align-items:center; min-width:0; overflow:hidden; padding:18px 7px 12px; background: var(--rail); color: var(--rail-text); }
+.server-rail { display:flex; flex-direction:column; align-items:center; min-width:0; overflow:hidden; padding:18px 7px 12px; color: var(--rail-text); }
 .server-rail button { border: 0; color: inherit; }
 .server-rail .rail-library { display:grid; place-items:center; flex:none; width:40px; height:40px; min-height:0; padding:0; margin-bottom:20px; border-radius:11px; background: var(--hover); }
 .server-rail .rail-library.active { background: var(--hover); }
@@ -19,11 +19,11 @@ button.primary-button:hover:not(:disabled) { background: var(--accent-hover); bo
 .server-rail .server-row.active .server-artwork { outline: 2px solid var(--line); outline-offset:1px; }
 .server-rail .server-row:hover .server-artwork { border-color: var(--line); }
 .server-rail .state-dot,.server-rail .server-row.active .state-dot { border-color: var(--rail); }
-.server-rail .rail-add { display:grid; place-items:center; flex:none; width:36px; height:36px; min-height:0; margin-top:16px; padding:0; background: var(--hover); border-radius:50%; color: var(--secondary); }
+.server-rail .rail-add { display:grid; place-items:center; flex:none; width:36px; height:36px; min-height:0; margin-top:16px; padding:0; border-radius:50%; color: var(--secondary); }
 .server-rail button:hover:not(:disabled) { background: var(--hover); }
 .moving-indicator { position:absolute; pointer-events:none; left:0; top:0; transform-origin:0 0; }
 .section-active-indicator { z-index:0; width:100%; background: var(--surface); border-radius:5px; }
-.rail-active-indicator { width:3px; left:0; background: var(--surface); border-radius:2px; }
+.rail-active-indicator { background: var(--surface); border-radius:2px; }
 .page-head { padding-block:30px 25px; }
 .page-identity h1 { font-size:26px; letter-spacing:-.025em; }
 .page-context { font-size:12px; }
@@ -70,7 +70,7 @@ button.primary-button:hover:not(:disabled) { background: var(--accent-hover); bo
 .stage-copy h2 { font-size:16px; }
 .stage-copy p { font-size:12px; }
 .stage-stats { gap:12px; padding:0; border: 0; border-radius:0; background: transparent; }
-.stage-stats > div { padding:16px 18px; border: 1px solid var(--line); border-radius:7px; background: var(--surface); }
+.stage-stats > div { padding:16px 18px; border: 1px solid var(--line); border-radius:7px; }
 .stage-stats > div:first-child { border: 1px solid var(--line); }
 .stage-stats strong { font-size:18px; }
 .stage-stats span { font-size:11px; }

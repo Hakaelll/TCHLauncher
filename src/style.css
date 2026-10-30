@@ -22,7 +22,7 @@ button.primary-button:hover:not(:disabled) { background: var(--accent-wash); bor
 button svg { flex: none; }
 .text-button, .back-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-height: 34px; padding: 6px 9px; border: 0; border-radius: var(--radius); background: transparent; font-size: 13px; font-weight: 560; }
 .back-button { margin: -6px 0 20px -9px; color: var(--secondary); }
-button.danger-button { background: var(--surface-raised); border-color: var(--control-edge); color: var(--ink); }
+button.danger-button { background: var(--surface-raised); border-color: var(--control-edge); }
 button.danger-button:hover:not(:disabled) { background: var(--surface-raised); border-color: var(--control-edge); }
 button.danger-outline-button { flex: none; border-color: var(--line); color: var(--ink); }
 button.danger-outline-button:hover:not(:disabled) { background: var(--surface); border-color: var(--control-edge); }
