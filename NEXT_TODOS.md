@@ -14,14 +14,14 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
-- Latest published preview: 0.40.0.
-- Latest local Windows installer: 0.43.0, unsigned and unpublished.
+- Latest published preview: [0.43.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.43.0).
+- Latest local Windows installer: 0.43.0, unsigned; also published as a preview.
 - [Newer source changes](docs/development-notes/README.md#unpackaged-source-after-the-local-0430-installer)
   are not yet included in that installer.
 - This installer includes the
   [source follow-ups after 0.42.0](docs/development-notes/README.md#source-after-the-local-0420-installer).
   Native interaction and affected-host validation remain scoped below.
-- Wait three or four iterations between GitHub releases. Attach only the EXE;
+- Wait three or four version milestones between GitHub releases, next 0.46/0.47. Attach only the EXE;
   keep checksums local. Commit and push continue independently.
 - Packaged changes belong in the [release notes](docs/release-notes/README.md),
   rather than another chronological list here.
@@ -126,7 +126,7 @@ scenarios. Detailed observations remain in
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.43.0 local NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native packaging passed. Focused feature evidence is recorded above and in the version notes. Dependencies/legal resources are unchanged. No GitHub release was published; 0.40.0 remains the published preview. The maintainer owns remaining manual interaction and gameplay validation without blocking implementation. |
+| REL-02 | REVIEW | Current installer | 0.43.0 local NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native packaging passed. Focused feature evidence is recorded above and in the version notes. Dependencies/legal resources are unchanged. 0.43.0 is published as a Windows preview with only its EXE attached; checksums stay local. The maintainer owns remaining manual interaction and gameplay validation without blocking implementation. |
 
 ## Implemented scope from earlier audits
 

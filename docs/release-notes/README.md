@@ -2,7 +2,7 @@
 
 User-facing changes and verification limits for Windows previews.
 
-- [0.43.0, unpublished local build](RELEASE_NOTES_v0.43.0.md)
+- [0.43.0, Windows preview](RELEASE_NOTES_v0.43.0.md)
 - [0.42.0, unpublished local build](RELEASE_NOTES_v0.42.0.md)
 - [0.41.0, unpublished local build](RELEASE_NOTES_v0.41.0.md)
 - [0.40.0](RELEASE_NOTES_v0.40.0.md)

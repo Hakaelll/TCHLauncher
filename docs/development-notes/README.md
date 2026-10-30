@@ -34,7 +34,8 @@ No claim is made that the reported Internet stalls are resolved.
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from
-0.42.0. Neither build is published on GitHub. Remaining native interaction and
+0.42.0. Version 0.43.0 is now a published Windows preview; 0.42.0 remains local.
+Remaining native interaction and
 host-specific checks belong to the maintainer and do not block implementation.
 Focused check receipts are local under `artifacts/`; they are not a claim that
 all Windows interactions or Minecraft gameplay have passed.

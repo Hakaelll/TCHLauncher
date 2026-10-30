@@ -1,7 +1,9 @@
 # TCHLauncher 0.43.0
 
-Local Windows development build. This version is not published on GitHub;
-0.40.0 remains the published preview.
+[Windows x64 preview](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.43.0).
+The installer is unsigned and is the only attached release asset.
+It contains source through `c204b27212561f54baeb2fac9fa16440e354571d`;
+later source changes are not included.
 
 ## Console and scheduled tasks
 

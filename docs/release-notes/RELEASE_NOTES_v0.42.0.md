@@ -1,7 +1,7 @@
 # TCHLauncher 0.42.0
 
 Local Windows development build. No GitHub release is published for this version;
-0.40.0 remains the latest published preview.
+At build time, 0.40.0 was the published preview.
 
 ## Settings
 

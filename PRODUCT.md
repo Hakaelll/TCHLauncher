@@ -27,8 +27,10 @@ Aplicación de escritorio para Windows 10/11. Linux está aplazado por petición
 Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como fuente de verdad del estado. Aceptación explícita de la EULA. Funciones incompletas registradas en `NEXT_TODOS.md`.
 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
-se acumulan 3 o 4 iteraciones/versiones antes de publicar otra release en GitHub.
-La 0.43.0 queda como compilación local sin publicar; la última release es 0.40.0.
+se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
+La 0.43.0 está publicada como preview de Windows, solo con el EXE adjunto.
+La siguiente publicación corresponde como pronto a la 0.46.0 o 0.47.0, salvo
+instrucción posterior del usuario; los commits no cuentan como versiones.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa
