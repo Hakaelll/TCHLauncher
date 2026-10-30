@@ -1728,3 +1728,22 @@ ES/EN and the excluded cases. TypeScript passed. This source change follows the
 0.40.0 installer and does not prove that the affected host's login/skin problem is
 resolved. Temporary checks were removed; the retained suite is unchanged. Results
 remain in artifacts/authentication-session-check.log.
+
+## Visual acceptance and local memory guidance
+
+The maintainer explicitly accepted the current appearance: "tu sigue que visualmente
+esta bien". General visual approval is now recorded as DONE and no longer depends
+on screenshots. Keyboard/accessibility and functional outcomes retain their own
+evidence boundaries. The roadmap, README and product context reflect that scope.
+
+Original requirement 11 also requested local RAM recommendations; capacity views
+previously exposed physical RAM and oversubscription warnings only. Creation,
+server settings and modpack import now share an advisory starting-point rule.
+It reserves at least 2 GiB or 25% of physical RAM, uses platform/slot heuristics,
+omits unsupported estimates and changes no configuration automatically. The
+current validation limits, Java profiles and collection behavior are unchanged.
+
+Focused local-rule checks, actual ES/EN component rendering, TypeScript and the
+Windows frontend production build passed. This does not measure workload needs
+or establish lower RAM use. Temporary checks and generated frontend files were
+removed; no dependency or retained test was added. Source follows installer 0.40.0.

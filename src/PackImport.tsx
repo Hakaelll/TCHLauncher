@@ -4,6 +4,7 @@ import {listen} from '@tauri-apps/api/event'
 import {api,type PackInspection,type Progress,type Server} from './api'
 import {Modal} from './Modal'
 import {SliderField} from './SliderField'
+import {MemoryAdvice} from './MemoryAdvice'
 import {InstallProgress} from './InstallProgress'
 import {useNavigationMotion} from './motion'
 import {acknowledgedAction} from './acknowledgedAction'
@@ -71,6 +72,7 @@ export function PackImport({systemMemory,resumeId,onClose,onInstalled}:Props) {
     {pack&&step===2&&!installedId.current&&<div className="pack-capacity"><label>{t("Nombre del servidor")}<input maxLength={80} value={name} disabled={locked} onChange={event=>setName(event.target.value)}/></label>
       <fieldset disabled={locked}><SliderField id="pack-ram" label={t("RAM máxima")} value={ram} min={1024} max={Math.min(65536,Math.max(4096,Math.floor(systemMemory/1024/1024)))} maxInput={65536} step={512} unit="MB" onChange={setRam}/>
       <SliderField id="pack-players" label={t("Jugadores máximos")} value={players} min={1} max={100} maxInput={1000} step={1} onChange={setPlayers}/></fieldset>
+      <MemoryAdvice physicalBytes={systemMemory} modded={pack.loader==='fabric'||pack.loader==='neoforge'} maxPlayers={players}/>
       {consent===false&&<label className="pack-consent"><input type="checkbox" checked={accepted} disabled={busy} onChange={event=>setAccepted(event.target.checked)}/><span>{t("He leído y acepto la")} <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">{t("EULA de Minecraft")}</a>{t(". Se guardará en este equipo.")}</span></label>}
       {consent===null&&<p role="status">{t("Comprobando la aceptación de la EULA…")}</p>}
     </div>}

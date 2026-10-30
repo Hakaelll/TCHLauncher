@@ -32,7 +32,7 @@ TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, cont
 
 ## Evidence on Hand
 
-La especificación original, el design.md, las pautas de movimiento, referencias Minecraft/Minehut y capturas del launcher fueron proporcionados por el usuario, junto con un logo. La revisión visual nativa la realiza el usuario; no se usan computer use ni subagentes.
+La especificación original, el design.md, las pautas de movimiento, referencias Minecraft/Minehut y capturas del launcher fueron proporcionados por el usuario, junto con un logo. El usuario ha aceptado el aspecto visual actual. Las comprobaciones funcionales y de accesibilidad conservan su alcance propio; no se usan computer use ni subagentes.
 
 ## Product Principles
 

@@ -4,6 +4,9 @@ Windows is the active platform. The full original manager objective remains open
 `REVIEW` means implemented with recorded evidence, with the complete native/user
 flow still awaiting acceptance. `TODO` means an outstanding gate. `DEFERRED`
 follows an explicit maintainer instruction. These labels do not mean completion.
+The maintainer has accepted the current visual design; visual approval is no
+longer a completion blocker. Accessibility and functional checks remain scoped
+to their own evidence.
 
 Version 0.40.0 packages native tray-language synchronization, library translation
 fixes, preservation of partial telemetry samples, accessible capacity-control
@@ -18,6 +21,9 @@ client launching remain deferred.
 
 ## Evidence already available
 
+- The maintainer explicitly accepts the current visual appearance: "tu sigue que
+  visualmente esta bien". This closes the general visual-design review. It does
+  not assert screen-reader behavior, every keyboard path or affected-host outcomes.
 - The maintainer reports that Windows preview 0.38.0 works well. Individual scenario
   steps and results were not supplied.
 - For 0.39.0, the maintainer explicitly confirms all four requested scenarios:
@@ -99,7 +105,9 @@ scenarios. Detailed observations remain in
 | STORAGE-USAGE-01 | REVIEW | Storage readings and warnings | Bounded cached directory measurements and targets implemented. Refresh now reconciles untouched warning controls with stored values, including recovery from an initial read failure, while preserving unsaved edits; direct callback checks pass. Verify native access failures, large worlds and threshold feedback. |
 | NET-02 | REVIEW | Internet and router mapping | Maintainer confirms a friend's Internet connection on 0.39.0. UPnP/NAT-PMP discovery, temporary leases, renewal/cleanup and manual fallback are implemented; physical-router protocol/cleanup and CGNAT feedback remain unverified. |
 | TASK-01 | REVIEW | Local scheduling and autostart | Installed 0.38.0 passed selected-server autostart and scheduled real Vanilla backup/restart, stop and stopped-server backup. Maintainer confirms actual Windows-login startup on 0.39.0. Preference/task UI and error recovery still need direct evidence. |
-| UX-01 | TODO | Native desktop QA | Isolated headless library captures cover empty/populated states at 1280×720, 1366×768 and 1920×1080 with no horizontal overflow or clipped actions. ES/EN counts and action labels pass. Full native screens, keyboard, screen reader, themes, reading font and reduced motion remain open; fixture rendering does not establish native acceptance. |
+| UX-01 | DONE | Visual design acceptance | The maintainer explicitly accepts the current application appearance. Earlier isolated library captures cover three desktop sizes. General visual approval no longer requires screenshots. Keyboard and assistive-technology behavior are tracked separately. |
+| UX-ACCESS-01 | REVIEW | Keyboard and accessibility | Shared labels, ES/EN control markup, modal focus recovery and reduced-motion component checks passed. Broader keyboard paths and screen-reader interaction remain unverified; the maintainer's visual approval does not establish them. |
+| RAM-ADVICE-01 | REVIEW | Local memory guidance | Creation, server settings and modpack import show an advisory starting heap based on physical RAM, server type and configured slots. Rules reserve at least 2 GiB or 25% for other work, omit unsupported estimates and never change saved memory. Local rule and ES/EN component checks pass. Real workload needs depend on content; no measured RAM reduction is claimed. |
 | UX-TASKS-01 | REVIEW | Background operations | Measured task events and reconciliation connected. Verify native popover, navigation, cancellation and partial/error outcomes. |
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |
 | UX-KEY-01 | REVIEW | Commands and search shortcuts | Ctrl+K/Ctrl+N connected; Ctrl+F skips hidden/inert/disabled searches and includes Players. The palette now opens server folders without navigating and restarts running servers through the existing lifecycle. Commands are revalidated against current state before execution. Verify native keyboard paths and modals. |
@@ -131,8 +139,10 @@ download checksum, and cancellation of interrupted dialog exits.
    console command, stop/restart and backup/restore through the Windows UI. Record
    the version and actual result; the existing engine runs do not replace native
    interaction evidence.
-2. Review keyboard/focus, resizing, readable text, theme and reduced-motion states
-   at the three target desktop sizes. Native UI automation is excluded by design.
+2. General visual design is accepted by the maintainer. Review remaining keyboard,
+   focus, screen-reader and reduced-motion behavior where evidence is still absent.
+   Native UI automation remains excluded; do not reopen the screenshot request as
+   a prerequisite for accepting the appearance.
 3. Exercise close cancellation/failure handling and scheduling/preferences UI.
    Background tray, stop/exit and actual login startup passed in the maintainer's
    0.39.0 report. Real installed-app scheduled actions also passed independently.

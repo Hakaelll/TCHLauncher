@@ -155,6 +155,13 @@ properties. [server_settings.rs](src-tauri/src/server_settings.rs) coordinates
 combined properties, memory and storage-target publication. The frontend keeps
 unsaved drafts and distinguishes conflicts from successful saves.
 
+[capacity.ts](src/capacity.ts) also provides advisory starting heaps for creation,
+server settings and modpack import. It uses 2 GiB for Vanilla/Paper or 4 GiB for
+modded servers, plus 512 MiB per ten configured slots above ten, capped at 8 GiB.
+The suggestion leaves at least 2 GiB or 25% of physical RAM for other work. It is
+omitted when that baseline cannot fit, memory is unknown or slots exceed 100.
+These are local heuristics, not measured requirements; saved JVM limits are unchanged.
+
 [backup.rs](src-tauri/src/backup.rs) owns full server copies, metadata snapshots,
 restore validation and recovery. Restore stages files and coordinates the directory
 change with SQLite; a damaged snapshot cannot become an arbitrary path. Retention
