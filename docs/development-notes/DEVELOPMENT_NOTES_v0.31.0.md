@@ -1799,3 +1799,18 @@ ES/EN feedback, denied clipboard access and stale-view feedback. Only the clipbo
 boundary was simulated; no native UI interaction is claimed. TypeScript and the
 Windows frontend production build passed. This source change follows local 0.41.0;
 no version bump or GitHub release was made.
+
+## Paper runtime plugin references
+
+Installed-content diagnostics now associate exact plugin names in Paper event
+failures and scheduled-task exceptions with the existing card status and console
+query. These messages need not contain the JAR filename. Rules follow Paper's
+[event logger](https://github.com/PaperMC/Paper/blob/main/paper-server/src/main/java/io/papermc/paper/plugin/manager/PaperEventManager.java)
+and [scheduler logger](https://github.com/PaperMC/Paper/blob/main/paper-server/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java).
+Repeated identity/title candidates share one compiled pattern. Severity, existing
+references and exclusions remain intact; association does not prove causation.
+A focused production-logic check failed before the fix and passed afterward,
+including exact/escaped names, chat/command/INFO exclusions and retained warning
+levels. TypeScript and the Windows frontend build passed. Temporary checks are
+removed; no dependency, retained test, version bump or release is added. A live
+plugin failure and native UI interaction were not exercised.

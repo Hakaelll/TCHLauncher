@@ -35,11 +35,16 @@ export function contentSignalsFromDiagnostics(file:InstalledContent,check:Conten
   const signals:ContentSignal[]=[]
   let latestError:ContentSignal|undefined
   const ids=[...new Set([check?.descriptor.id,...check?.descriptor.ids??[]].filter((id):id is string=>!!id&&id.length<=64))]
-  const names=[...ids,check?.descriptor.name,file.title].filter((name):name is string=>!!name&&name.length<=128&&!name.endsWith('.jar'))
+  const names=[...new Set([...ids,check?.descriptor.name,file.title].filter((name):name is string=>!!name&&name.length<=128&&!name.endsWith('.jar')))]
   // Compile per file, not per line: live logs can contain 1,000 rows per inventory item.
   const filePattern=new RegExp(`(?<![a-z0-9_.-])${escape(file.filename)}(?![a-z0-9_.-])`,'i')
   const idPatterns=ids.map(id=>({id,logger:new RegExp(`(?:\\[${escape(id)}(?:/[^\\]]+)?\\]|from mod\\s+['\"]?${escape(id)}(?![a-z0-9_.-])|provided by\\s+['\"]?${escape(id)}(?![a-z0-9_.-]))`,'i'),named:new RegExp(`mod\\s+['\"][^'\"]+['\"]\\s+\\(${escape(id)}\\)`,'i')}))
-  const namePatterns=names.map(name=>({name,pattern:new RegExp(`(?:(?:mod|plugin)\\s+|(?:while|when)\\s+(?:enabling|loading|disabling)\\s+)(?:['\"]${escape(name)}['\"]|${escape(name)}(?![a-z0-9_.-]))`,'i')}))
+  const namePatterns=names.map(name=>{
+    const literal=escape(name)
+    const named=`(?:(?:mod|plugin)\\s+|(?:while|when)\\s+(?:enabling|loading|disabling)\\s+)(?:['\"]${literal}['\"]|${literal}(?![a-z0-9_.-]))`
+    const paper=`^(?:Could not pass event \\S+ to ${literal}(?: v[^\\r\\n]+)?|Task #\\d+ for ${literal} v[^\\r\\n]+ generated an exception)$`
+    return {name,pattern:new RegExp(`${named}|${paper}`,'i')}
+  })
   for(const {message,raw,level,timestamp} of diagnostics) {
     let reference=filePattern.test(message)?file.filename:null
     for(const {id,logger,named} of idPatterns){

@@ -28,6 +28,9 @@ Source after the local 0.41.0 build fixes console Copy view to use the displayed
 message rather than prepend another header to the original raw log line. A focused
 callback check and the Windows frontend build pass; the local installer does not
 yet include this change.
+Installed-content diagnostics also recognize exact named Paper event failures
+and scheduled-task exception messages. Focused production-logic checks cover
+status/query propagation and exclude chat, commands, INFO and similar-name matches.
 
 ## Evidence already available
 
