@@ -1840,3 +1840,15 @@ manifest sizes/hashes and unchanged sources. The complete native test target
 compiled; TypeScript and the frontend build passed. The temporary check was
 removed without increasing the retained suite. Native interaction/gameplay remain
 for maintainer validation and do not block implementation. No release was made.
+
+## Numeric settings feedback before save
+
+Save now checks changed known numeric properties against their existing field
+bounds and integer syntax. An invalid field becomes the search result and receives
+localized browser validity feedback. Editing clears that feedback. The property
+snapshot exposes its existing copied saved values for comparison and discard,
+preserving unchanged imported values just as the native writer does. Advanced
+unknown properties retain native validation; no new IPC command or rule table was
+added. Focused production-rule/callback checks and ES/EN React markup passed, as
+did TypeScript and the frontend build. Browser feedback itself was simulated;
+native interaction remains for maintainer validation without blocking work.

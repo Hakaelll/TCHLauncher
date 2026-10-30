@@ -41,6 +41,9 @@ callback checks pass; native interaction is handed to the maintainer for review.
 Paper world/content export now lets users omit plugin data/configuration folders
 while retaining enabled and disabled plugin JARs. Real isolated ZIP creation,
 manifest hashes and unchanged source files pass both configuration choices.
+Settings preflight changed known numeric properties against their field bounds,
+reveal the first invalid field even when filtered out and request ES/EN feedback.
+Unchanged imported values are preserved; manual browser/native review is delegated.
 
 ## Evidence already available
 

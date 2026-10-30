@@ -39,6 +39,15 @@ const settingsGroups: {title:string;description:string;fields:SettingField[]}[] 
 ])
 export const knownSettings = new Set(settingsGroups.flatMap(group => group.fields.map(field => field.key)))
 
+export function invalidNumericSetting(values:Record<string,string>,savedValues:Record<string,string>){
+  return settingsGroups.flatMap(group=>group.fields).find(field=>{
+    const value=values[field.key]
+    if(field.kind!=='number'||value===undefined||value===savedValues[field.key])return false
+    const number=Number(value)
+    return !/^\+?\d+$/.test(value)||!Number.isSafeInteger(number)||number<(field.min??0)||number>(field.max??Number.MAX_SAFE_INTEGER)
+  })
+}
+
 export function SettingsPropertyGroups({values,onChange,version,query=''}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void;version:string;query?:string}) {
   const update = (key: string, value: string) => onChange({...values,[key]:value})
   const groups=settingsGroups.map(group=>({...group,fields:group.fields.filter(field=>Object.hasOwn(values,field.key)&&settingsMatch(query,group.title,field.key,field.label,field.description))})).filter(group=>group.fields.length)
@@ -51,7 +60,7 @@ export function SettingsPropertyGroups({values,onChange,version,query=''}: {valu
       const boolean=field.kind==='toggle'&&['true','false'].includes(value)
       const unmatched=field.kind==='choice'&&!options?.some((option,index)=>option.value===value||['gamemode','difficulty'].includes(field.key)&&String(index)===value)
       return <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{translatedMessage(field.label)}</strong><small>{translatedMessage(field.description)}</small></span>
-        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || t("(vacío)")}  {t("· Valor actual")}</option>}{options?.map((option,index)=><option key={option.value} value={['gamemode','difficulty'].includes(field.key)&&/^[0-3]$/.test(value)?String(index):option.value}>{translatedMessage(option.label)}</option>)}</select>:<input type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>update(field.key,event.target.value)}/>}
+        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || t("(vacío)")}  {t("· Valor actual")}</option>}{options?.map((option,index)=><option key={option.value} value={['gamemode','difficulty'].includes(field.key)&&/^[0-3]$/.test(value)?String(index):option.value}>{translatedMessage(option.label)}</option>)}</select>:<input data-setting-key={field.key} type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>{event.currentTarget.setCustomValidity('');update(field.key,event.target.value)}}/>}
       </label>
     })}</div>
   </section>)}</div>
