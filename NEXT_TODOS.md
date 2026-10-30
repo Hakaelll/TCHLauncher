@@ -49,6 +49,10 @@ isolated SQLite/file checks and frontend failure-path checks pass.
 Source after the local 0.42.0 build restores a minimized main window before
 focusing it from the tray or close/startup recovery paths. Cargo check passes;
 native window interaction is delegated and this change is not yet packaged.
+Disabled content now shares the installed inventory pagination, showing up to 24
+files per page with translated navigation, filter reset and shrinking-list
+clamping. Focus/scroll requests and ES/EN markup pass isolated checks; TypeScript
+and the frontend build pass. Native interaction remains maintainer-owned.
 
 ## Evidence already available
 

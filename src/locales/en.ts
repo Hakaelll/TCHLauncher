@@ -1784,6 +1784,7 @@ export const english: Record<string,string> = {
   "La propiedad ya existe. Modifica su valor en la lista.": "This property already exists. Edit its value in the list.",
   "El valor debe ocupar como máximo 1024 bytes y no contener saltos de línea.": "The value must fit within 1024 bytes and contain no line breaks.",
   "Páginas de archivos instalados": "Installed file pages",
+  "Páginas de archivos desactivados": "Disabled file pages",
   "Archivos {0}–{1} de {2}": "Files {0}–{1} of {2}",
   "{0} archivos en total": "{0} files in total",
   "No se pudieron actualizar los datos del servidor: {0}": "Server data could not be refreshed: {0}",
