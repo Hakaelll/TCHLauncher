@@ -1863,4 +1863,6 @@ export const english: Record<string,string> = {
   "Abriendo registros…": "Opening logs…",
   "No se pudieron abrir los registros: {0}": "Could not open logs: {0}",
   "Minecraft configurado {0} no cumple el requisito del mod: {1}. Revisa la versión del servidor o del archivo.": "Configured Minecraft {0} does not meet this mod requirement: {1}. Check the server or file version.",
+  "UUID de tipo local observado": "Local-type UUID observed",
+  "Se muestran jugadores con UUID de tipo local, aunque los archivos indican autenticación directa. Si cambiaste estos ajustes, reinicia; si persiste, revisa la conexión y el proxy.": "Displayed players have a local-type UUID, although the files indicate direct authentication. If you changed these settings, restart; if this persists, check the connection and proxy.",
 }

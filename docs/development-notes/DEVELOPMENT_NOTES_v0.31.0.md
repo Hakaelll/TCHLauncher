@@ -1713,3 +1713,18 @@ hash and package metadata are recorded in artifacts/package-0.40.json.
 The release attaches only the installer. Native visual/interaction acceptance
 and client/router observations are not inferred from packaging or earlier user
 reports. Dependency versions and bundled legal resources are unchanged.
+
+## Configured authentication and observed local UUIDs
+
+The identity panel now shows a review notice when saved files indicate direct
+authentication but displayed connected players have local-type UUIDs while the
+server is running. It reuses the existing UUID-format heuristic and does not
+claim a cause, verify a Microsoft account or merge identities. Historical UUIDs,
+unknown UUIDs and stopped snapshots do not trigger the notice; proxy/offline/read
+failure guidance retains priority. Both new messages have English translations.
+
+A React static-render check failed before the change and passed afterwards for
+ES/EN and the excluded cases. TypeScript passed. This source change follows the
+0.40.0 installer and does not prove that the affected host's login/skin problem is
+resolved. Temporary checks were removed; the retained suite is unchanged. Results
+remain in artifacts/authentication-session-check.log.

@@ -11,6 +11,8 @@ labels, storage-warning refresh recovery and deletion acknowledgement/session cl
 Chart history retains only its plotted scalar values.
 Fabric inventory now flags recognized Minecraft requirement mismatches against
 configured stable releases, without overrides or experimental-version inference.
+Source after 0.40.0 also distinguishes configured direct authentication from
+local-type UUIDs displayed for connected players in a running session.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
