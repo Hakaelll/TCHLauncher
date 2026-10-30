@@ -16,6 +16,8 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 - Latest published preview: 0.40.0.
 - Latest local Windows installer: 0.43.0, unsigned and unpublished.
+- [Newer source changes](docs/development-notes/README.md#unpackaged-source-after-the-local-0430-installer)
+  are not yet included in that installer.
 - This installer includes the
   [source follow-ups after 0.42.0](docs/development-notes/README.md#source-after-the-local-0420-installer).
   Native interaction and affected-host validation remain scoped below.

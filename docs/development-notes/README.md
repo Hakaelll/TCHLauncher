@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Unpackaged source after the local 0.43.0 installer
+
+Backup history now reuses the shared 50-row window and existing pagination
+controls. Search/reason changes reset the page, shrinking lists clamp it and
+page changes request focus on the translated result count. Restore receives the
+original selected record; busy/read-error/running-server guards stay in place.
+Focused ES/EN React markup, production callbacks/filtering and page helper checks
+pass, as do TypeScript and the frontend build. Policy/icon/motion presentation
+was outside that isolated check; native interaction remains manual. This is not
+a measured RAM/speed improvement and is not yet in the local installer.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from
