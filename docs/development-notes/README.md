@@ -2,7 +2,12 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Unpackaged source after the local 0.43.0 installer
+## Changes packaged in 0.44.0
+
+The changes below are included in the local 0.44.0 Windows installer. Publication
+is explicitly requested; verification limits remain attached to each observation.
+The reference audit also removed the unused single-file diagnostic wrapper.
+
 
 Backup history now reuses the shared 50-row window and existing pagination
 controls. Search/reason changes reset the page, shrinking lists clamp it and
@@ -11,7 +16,7 @@ original selected record; busy/read-error/running-server guards stay in place.
 Focused ES/EN React markup, production callbacks/filtering and page helper checks
 pass, as do TypeScript and the frontend build. Policy/icon/motion presentation
 was outside that isolated check; native interaction remains manual. This is not
-a measured RAM/speed improvement and is not yet in the local installer.
+a measured RAM/speed improvement.
 
 CPU charts now default to a labeled automatic percentage axis, rounded in five
 percentage-point steps with a 5% floor and 100% ceiling. A pressed-state control

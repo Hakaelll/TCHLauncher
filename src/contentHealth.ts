@@ -67,11 +67,6 @@ export function contentSignalsFromDiagnostics(file:InstalledContent,check:Conten
   return signals.reverse()
 }
 
-/** Convenience entry for callers matching a single file. */
-export function contentSignals(file:InstalledContent,check:ContentCheck|undefined,logs:readonly LogLine[]):ContentSignal[] {
-  return contentSignalsFromDiagnostics(file,check,prepareContentDiagnostics(logs))
-}
-
 export function contentStatus(check:ContentCheck|undefined,signals:ContentSignal[]):'error'|'warning'|'observed'|'unknown' {
   if(signals.some(signal=>signal.level==='error'))return 'error'
   if(signals.length||check?.issues.length||check?.listedInLog===false)return 'warning'
