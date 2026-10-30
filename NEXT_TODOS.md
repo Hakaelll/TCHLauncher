@@ -23,15 +23,14 @@ local-type UUIDs displayed for connected players in a running session.
 It adds advisory local RAM starting points and labeled player/IP ban metadata.
 The Windows desktop build requests only its Rust library, omitting unused
 C-compatible static and dynamic library outputs.
-The 0.41.0 installer remains local and unpublished. The maintainer now requests
+The 0.42.0 installer remains local and unpublished. The maintainer now requests
 three or four iterations between GitHub releases; commits and push continue.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
-Source after the local 0.41.0 build fixes console Copy view to use the displayed
+Version 0.42.0 fixes console Copy view to use the displayed
 message rather than prepend another header to the original raw log line. A focused
-callback check and the Windows frontend build pass; the local installer does not
-yet include this change.
+callback check and the Windows frontend build pass.
 Installed-content diagnostics also recognize exact named Paper event failures
 and scheduled-task exception messages. Focused production-logic checks cover
 status/query propagation and exclude chat, commands, INFO and similar-name matches.
@@ -148,7 +147,7 @@ scenarios. Detailed observations remain in
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.37.0, upgrade to 0.38.0 and uninstall passed with data preservation and original-environment restoration. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.41.0 NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend, five retained frontend data-lifecycle tests and optimized native build passed. Rust desktop linkage produces only rlib/rmeta for the application library. Dependencies/legal resources are unchanged. The predecessor 0.38.0 passed isolated upgrade/uninstall and real scheduled Vanilla actions; the maintainer's 0.39.0 acceptance remains scoped to that build. Interactive UI and broader usage gates remain open. |
+| REL-02 | REVIEW | Current installer | 0.42.0 local NSIS x64 generated with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized native packaging passed. Focused feature evidence is recorded above and in the version notes. Dependencies/legal resources are unchanged. No GitHub release was published; 0.40.0 remains the published preview. The maintainer owns remaining manual interaction and gameplay validation without blocking implementation. |
 
 ## Implemented scope from earlier audits
 

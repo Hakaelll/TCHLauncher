@@ -1876,3 +1876,13 @@ An isolated native SQLite/file check passed persistence, validation and unchange
 server-file cases; actual frontend callbacks passed write/refresh failure paths.
 TypeScript and the frontend build passed. The temporary native probe is removed;
 manual Windows interaction is delegated and no release is published.
+
+## Local Windows 0.42 installer
+
+Version 0.42.0 packages the accumulated settings, rename, console, Paper export,
+diagnostic and cleanup changes. TypeScript, the frontend production build and
+optimized native NSIS packaging passed. Executable/setup versions are 0.42.0 and
+embedded icons match the emblem. The local installer is 6,860,850 bytes. Dependencies
+and legal resources are unchanged. No GitHub release or upload was performed;
+0.40.0 remains the published preview. Manual interaction/gameplay validation stays
+with the maintainer and does not block continued implementation.

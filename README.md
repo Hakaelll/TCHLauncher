@@ -12,9 +12,9 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 ## Project status
 
-Latest development milestone: **0.41.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.41.0.md).
+Latest development milestone: **0.42.0** — [changes and verification](docs/release-notes/RELEASE_NOTES_v0.42.0.md).
 
-The 0.41.0 installer is a local build, not a published release. The latest
+The 0.42.0 installer is a local build, not a published release. The latest
 [published preview is 0.40.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.40.0).
 Releases group three or four development iterations.
 
