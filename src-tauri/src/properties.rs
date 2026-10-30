@@ -11,19 +11,19 @@ pub(crate) fn parse(raw:&str)->BTreeMap<String,String>{
     raw.lines().filter_map(|line| {
         let line = line.trim_start();
         if line.is_empty() || line.starts_with(['#','!']) { return None; }
-        line.split_once('=').map(|(k,v)| (k.trim().into(),if k.trim()=="level-seed" {decode_seed(v)}else{v.trim().into()}))
+        line.split_once('=').map(|(k,v)| (k.trim().into(),if matches!(k.trim(),"level-seed"|"level-name") {decode_value(v)}else{v.trim().into()}))
     }).collect()
 }
 
 pub fn validate_seed(seed:&str)->Result<(),String>{
     if seed.len()>1024||seed.chars().any(char::is_control){return Err("La semilla debe tener hasta 1024 bytes y no incluir saltos de línea ni caracteres de control".into());}Ok(())
 }
-fn encode_seed(seed:&str)->String {
+fn encode_value(seed:&str)->String {
     let mut out=String::new();
     for unit in seed.encode_utf16(){match unit{32=>out.push_str("\\ "),92=>out.push_str("\\\\"),33..=126=>out.push(char::from_u32(unit as u32).unwrap()),_=>out.push_str(&format!("\\u{unit:04x}"))}}
     out
 }
-fn decode_seed(raw:&str)->String {
+fn decode_value(raw:&str)->String {
     let mut chars=raw.trim_start().chars();let mut units=Vec::new();
     while let Some(c)=chars.next(){
         if c!='\\'{units.extend(c.encode_utf16(&mut [0;2]).iter().copied());continue;}
@@ -84,12 +84,12 @@ pub(crate) fn prepare(path: &Path, mut updates: BTreeMap<String,String>) -> Resu
     for line in raw.lines() {
         if let Some((key,_)) = line.split_once('=') {
             if let Some(value) = updates.get(key.trim()) {
-                lines.push(format!("{}={}",key.trim(),if key.trim()=="level-seed"{encode_seed(value)}else{value.clone()})); found.insert(key.trim().to_string()); continue;
+                lines.push(format!("{}={}",key.trim(),if matches!(key.trim(),"level-seed"|"level-name"){encode_value(value)}else{value.clone()})); found.insert(key.trim().to_string()); continue;
             }
         }
         lines.push(line.into());
     }
-    for (key,value) in updates { if !found.contains(&key) { lines.push(format!("{key}={}",if key=="level-seed"{encode_seed(&value)}else{value})); } }
+    for (key,value) in updates { if !found.contains(&key) { lines.push(format!("{key}={}",if matches!(key.as_str(),"level-seed"|"level-name"){encode_value(&value)}else{value})); } }
     Ok(format!("{}{newline}",lines.join(newline)))
 }
 

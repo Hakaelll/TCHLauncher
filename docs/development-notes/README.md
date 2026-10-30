@@ -48,6 +48,14 @@ preservation failures, then pass with private values omitted, unchanged source
 files and invalid changed ports/booleans/keys/seeds still rejected. The native test
 target compiles; no UI/server-boot or full Java-properties grammar claim is made.
 
+World names now share the existing seed string escaping codec for `level-name`
+reads and writes. A native fixture with accented/CJK folder names confirms import
+preview and active-world detection agree. Real selection creates a safety backup,
+preserves the previous properties and world bytes, and performs no extra backup
+when the selected world is already active. Unrelated seed/MOTD escapes remain
+verbatim. The native test target passes; fixtures contain minimal NBT and do not
+establish a Minecraft boot, UI outcome or complete properties grammar support.
+
 ## Source after the local 0.42.0 installer
 
 These changes are included in the local 0.43.0 installer and were absent from
