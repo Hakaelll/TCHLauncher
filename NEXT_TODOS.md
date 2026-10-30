@@ -58,6 +58,11 @@ seconds while visible, fifteen while hidden and a refresh on return. Progress
 events stay active. A focused actual-effect check covers stale snapshots,
 non-overlap, error recovery and disposal; TypeScript/frontend build pass. Native
 tray interaction remains manual; no measured CPU or RAM reduction is claimed.
+Network actions now discard late public-IP and clipboard feedback after a
+server change or disposal. Repeated copies cancel the previous feedback timer;
+public-IP requests have an in-flight guard. The actual-handler check reproduces
+the stale reply before the fix and passes afterward; TypeScript/frontend build
+pass. Native clipboard and window interaction remain manual.
 
 ## Evidence already available
 

@@ -1,7 +1,7 @@
 import {errorText} from './format'
 import {startVisibilityPolling} from './visibilityPolling'
 import {translatedMessage,localizedStatic,t} from './locale.ts'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, type NetworkSnapshot, type Server } from './api'
 import {RouterPanel} from './RouterPanel'
 import {NatPmpPanel} from './NatPmpPanel'
@@ -23,30 +23,37 @@ export function NetworkPanel({server}: {server: Server}) {
   const [checkingPublic,setCheckingPublic] = useState(false)
   const [copied,setCopied] = useState(false)
 
+  const session=useRef({active:true,copy:0,checking:false,timer:0})
+
   useEffect(() => {
-    let active = true
-    setNetwork(null); setStatusError(null); setActionError(null); setPublicIp(null); setCopied(false)
+    const current={active:true,copy:0,checking:false,timer:0};session.current=current
+    setNetwork(null); setStatusError(null); setActionError(null); setPublicIp(null); setCopied(false); setCheckingPublic(false)
     const refresh = () => api.networkStatus(server.id)
-      .then(value => { if (active) { setNetwork(value); setStatusError(null) } })
-      .catch(cause => { if (active) { setNetwork(null); setStatusError(errorText(cause)) } })
+      .then(value => { if (current.active) { setNetwork(value); setStatusError(null) } })
+      .catch(cause => { if (current.active) { setNetwork(null); setStatusError(errorText(cause)) } })
     const stop=startVisibilityPolling(refresh,5000,{immediate:true})
-    return () => { active = false; stop() }
+    return () => { current.active = false; window.clearTimeout(current.timer); stop() }
   },[server.id])
 
   const copy = async () => {
     if (!network?.lanAddress) return
+    const current=session.current,sequence=++current.copy
+    window.clearTimeout(current.timer)
     setCopied(false); setActionError(null)
     try {
       await navigator.clipboard.writeText(network.lanAddress)
+      if(!current.active||sequence!==current.copy)return
       setCopied(true)
-      window.setTimeout(() => setCopied(false),2500)
-    } catch { setActionError(t("No se pudo copiar automáticamente. Selecciona la dirección para copiarla.")) }
+      current.timer=window.setTimeout(() => {if(current.active&&sequence===current.copy)setCopied(false)},2500)
+    } catch { if(current.active&&sequence===current.copy)setActionError(t("No se pudo copiar automáticamente. Selecciona la dirección para copiarla.")) }
   }
   const checkPublic = async () => {
-    setCheckingPublic(true); setActionError(null)
-    try { setPublicIp(await api.publicIp()) }
-    catch (cause) { setActionError(errorText(cause)) }
-    finally { setCheckingPublic(false) }
+    const current=session.current
+    if(!current.active||current.checking)return
+    current.checking=true;setCheckingPublic(true);setActionError(null)
+    try { const value=await api.publicIp();if(current.active)setPublicIp(value) }
+    catch (cause) { if(current.active)setActionError(errorText(cause)) }
+    finally { current.checking=false;if(current.active)setCheckingPublic(false) }
   }
 
   return <section className="connection-section" aria-labelledby="network-title">
