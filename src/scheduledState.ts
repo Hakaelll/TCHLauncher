@@ -13,6 +13,9 @@ export function scheduledState(task:ScheduledTask){
   if(task.invalid)return t("Datos inválidos")
   if(task.running)return t("En ejecución")
   if(task.enabled)return t("Programada")
-  if(task.lastAt!==null&&task.intervalMinutes===null)return t("Finalizada")
+  if(task.lastAt!==null&&task.intervalMinutes===null){
+    const result=scheduledResult(task.lastResult)
+    return result.tone==='error'||result.tone==='warning'?result.label:t("Finalizada")
+  }
   return t("Pausada")
 }

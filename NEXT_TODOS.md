@@ -74,6 +74,11 @@ filtered view. Disk history and other servers do not inflate the count; repeated
 pause gestures preserve its boundary and resuming clears it. Actual callbacks
 and ES/EN follow-control markup pass focused checks; TypeScript/frontend build
 pass. Native scroll and focus interaction remain manual.
+One-off scheduled tasks now surface failed, cancelled or interrupted outcomes
+in their main state instead of a generic Completed label. Existing running,
+scheduled, recurring and invalid-state priorities remain intact. The production
+helper check fails before and passes after in ES/EN; TypeScript/frontend build
+pass. Scheduler execution/persistence are unchanged; native review is manual.
 
 ## Evidence already available
 
