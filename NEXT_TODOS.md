@@ -24,6 +24,11 @@ three or four iterations between GitHub releases; commits and push continue.
 GitHub releases attach only the installer; checksum files remain local. Linux and
 client launching remain deferred.
 
+Source after the local 0.41.0 build fixes console Copy view to use the displayed
+message rather than prepend another header to the original raw log line. A focused
+callback check and the Windows frontend build pass; the local installer does not
+yet include this change.
+
 ## Evidence already available
 
 - The maintainer explicitly accepts the current visual appearance: "tu sigue que

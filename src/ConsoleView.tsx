@@ -87,7 +87,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const copy = async () => {
     const current=scope.current
     try {
-      await navigator.clipboard.writeText(visible.map(item => `${clockTime(item.timestamp,true)}  ${item.level.toUpperCase()}  ${item.line}`).join('\n'))
+      await navigator.clipboard.writeText(visible.map(item => `${clockTime(item.timestamp,true)}  ${item.level.toUpperCase()}  ${item.message}`).join('\n'))
       if(currentScope(current))setNotice(t("{0} líneas copiadas.", visible.length))
     } catch {if(currentScope(current))setNotice(t("No se pudo copiar. Selecciona las líneas y usa Ctrl+C."))}
   }

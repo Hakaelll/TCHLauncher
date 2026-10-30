@@ -1787,3 +1787,15 @@ between GitHub releases. No 0.41.0 GitHub release was created. The installer rem
 local; 0.40.0 remains the published preview. Commits and push continue between
 releases. Generated build/cache cleanup removed 1,930,905,463 logical bytes while
 preserving the executable and both 0.40/0.41 installers with unchanged hashes.
+
+## Console clipboard fidelity
+
+Copy view previously prepended the displayed time/category to the original raw
+line, duplicating Minecraft headers. It now copies the same parsed message shown
+by ConsoleRow. Raw log export and stored lines remain unchanged. A temporary check
+of the actual copy callback reproduced the duplicate header before the change and
+passed afterward for chat delimiters, stack indentation, unchanged source data,
+ES/EN feedback, denied clipboard access and stale-view feedback. Only the clipboard
+boundary was simulated; no native UI interaction is claimed. TypeScript and the
+Windows frontend production build passed. This source change follows local 0.41.0;
+no version bump or GitHub release was made.
