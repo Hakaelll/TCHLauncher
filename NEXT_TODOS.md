@@ -46,6 +46,9 @@ Unchanged imported values are preserved; manual browser/native review is delegat
 Server settings also edit the local display name with native persistence and
 acknowledgement-safe refresh. IDs, folders and Minecraft properties remain intact;
 isolated SQLite/file checks and frontend failure-path checks pass.
+Source after the local 0.42.0 build restores a minimized main window before
+focusing it from the tray or close/startup recovery paths. Cargo check passes;
+native window interaction is delegated and this change is not yet packaged.
 
 ## Evidence already available
 

@@ -1155,6 +1155,7 @@ async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
+        if window.is_minimized().unwrap_or(false) { let _ = window.unminimize(); }
         let _ = window.set_focus();
     }
 }
