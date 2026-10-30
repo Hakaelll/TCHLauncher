@@ -46,6 +46,9 @@ servers, backups and settings. Internal server IDs are UUIDs, independent of nam
 The library contains `database/tchlauncher.sqlite`, managed `servers/<uuid>`,
 `runtimes`, `backups/<uuid>` and caches. Imported servers can instead reference an
 explicitly selected external directory.
+Display-name changes update only the SQLite name through a validated command;
+IDs, directories and Minecraft MOTD remain unchanged. The UI applies the returned
+name before refreshing the library, preserving acknowledgement after read failure.
 
 `server.properties`, `eula.txt`, access JSON files, worlds, mods, plugins and logs
 retain Minecraft formats. A storage target is a warning threshold, not a disk

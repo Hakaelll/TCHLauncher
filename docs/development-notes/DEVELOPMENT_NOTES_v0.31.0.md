@@ -1864,3 +1864,15 @@ verification downloads. All 336 protected files retained their hashes and a seco
 run removed nothing. The workspace inventory skipped redirected entries, so it is
 not an installed-size or physical-disk measurement. No application build or release
 was needed for this maintenance command.
+
+## Rename a server in settings
+
+The Name and image section now edits the local display name through a typed
+native command. Creation and rename share name validation. SQLite updates only
+the matching name column; the acknowledgement updates the frontend before its
+read-only refresh. IDs, directories, Minecraft MOTD and active frontend state are
+preserved. ES/EN inline controls focus the editor and return focus when it closes.
+An isolated native SQLite/file check passed persistence, validation and unchanged
+server-file cases; actual frontend callbacks passed write/refresh failure paths.
+TypeScript and the frontend build passed. The temporary native probe is removed;
+manual Windows interaction is delegated and no release is published.

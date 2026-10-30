@@ -44,6 +44,9 @@ manifest hashes and unchanged source files pass both configuration choices.
 Settings preflight changed known numeric properties against their field bounds,
 reveal the first invalid field even when filtered out and request ES/EN feedback.
 Unchanged imported values are preserved; manual browser/native review is delegated.
+Server settings also edit the local display name with native persistence and
+acknowledgement-safe refresh. IDs, folders and Minecraft properties remain intact;
+isolated SQLite/file checks and frontend failure-path checks pass.
 
 ## Evidence already available
 

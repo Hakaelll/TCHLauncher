@@ -157,6 +157,7 @@ export const api = {
   versions: (platform:Server['platform']='vanilla',experimental=false) => invoke<Version[]>('get_versions',{platform,experimental}),
   create: (input: CreateInput) => invoke<Server>('create_server', { input,seed:input.seed??null }),
   setPinned: (id:string,pinned:boolean) => invoke<void>('set_server_pinned',{id,pinned}),
+  renameServer: (id:string,name:string) => invoke<string>('rename_server',{id,name}),
   pickImportFolder: () => invoke<string | null>('pick_import_folder'),
   pickServerImage: () => invoke<ImageSelection | null>('pick_server_image'),
   setServerImage: (id: string, path: string) => invoke<Server>('set_server_image', { id, path }),

@@ -26,7 +26,7 @@ Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launchin
 
 | Area | Available functionality |
 | --- | --- |
-| Servers | Vanilla, Paper, Fabric and NeoForge; create or import by copy/in place, with a read-only preview of worlds, content, settings and access-file counts |
+| Servers | Vanilla, Paper, Fabric and NeoForge; create, rename or import by copy/in place, with a read-only preview of worlds, content, settings and access-file counts |
 | Setup | Version selection, world seed, game settings and resources before first launch; managed Eclipse Temurin runtimes |
 | Process control | Startup tracking, console commands, graceful shutdown and a separately confirmed forced stop |
 | Worlds | Import, duplicate, select, delete and export; share a world and its mods or plugins in one ZIP |

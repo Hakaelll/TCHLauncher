@@ -80,6 +80,13 @@ pub fn set_pinned(root: &Path,id: &str,pinned: bool) -> Result<(),String> {
     Ok(())
 }
 
+pub fn rename_server(root:&Path,id:&str,name:&str)->Result<String,String>{
+    let name=checked_name(name)?;
+    let changed=connect(root)?.execute("UPDATE servers SET name=?2 WHERE id=?1",params![id,name]).map_err(|e|e.to_string())?;
+    if changed==0{return Err("No se encontró el servidor".into());}
+    Ok(name.to_owned())
+}
+
 pub fn get(root: &Path, id: &str) -> Result<Server, String> {
     let db = connect(root)?;
     db.query_row(&format!("{SERVER_SELECT} WHERE id=?1"), [id], row_server)
@@ -406,11 +413,16 @@ fn import_inner(root:&Path,input:ImportServer,id:&str,task:Option<&crate::downlo
     Ok(server)
 }
 
-fn validate(input: &CreateServer) -> Result<(), String> {
-    let name = input.name.trim();
+fn checked_name(name:&str)->Result<&str,String>{
+    let name=name.trim();
     if name.is_empty() || name.len() > 64 || name.chars().any(char::is_control) {
         return Err("El nombre debe tener entre 1 y 64 caracteres, sin saltos de línea".into());
     }
+    Ok(name)
+}
+
+fn validate(input: &CreateServer) -> Result<(), String> {
+    checked_name(&input.name)?;
     if !matches!(input.platform.as_str(), "vanilla" | "paper" | "fabric" | "neoforge") {
         return Err("Esta plataforma aún no tiene instalación compatible".into());
     }
