@@ -4,6 +4,15 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.47.0
 
+LAN and NAT-PMP clipboard feedback belongs to the exact address and most recent
+copy request. A changed address cannot inherit Copied or a clipboard error from
+the former value. Copy retries clear only copy feedback; public-IP and router
+operation failures remain visible. Disposed replies are ignored, and the existing
+LAN acknowledgement timer remains. Actual component checks reproduce both former
+stale labels and cover delayed replies, failures, request order, disposal and
+ES/EN markup with controlled clipboard/network/hook/timer boundaries. TypeScript
+and the Windows frontend build pass; OS clipboard/router use was not exercised.
+
 Download reads retain the response buffer instead of cloning every chunk into a
 second owned vector. Existing byte limits, checksums, cancellation and publication
 remain in the same consumers. Production transfers against a loopback HTTP server

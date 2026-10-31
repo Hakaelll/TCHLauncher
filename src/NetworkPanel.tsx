@@ -21,13 +21,13 @@ export function NetworkPanel({server}: {server: Server}) {
   const [actionError,setActionError] = useState<string|null>(null)
   const [publicIp,setPublicIp] = useState<string|null>(null)
   const [checkingPublic,setCheckingPublic] = useState(false)
-  const [copied,setCopied] = useState(false)
+  const [copyResult,setCopyResult] = useState<{address:string;kind:'copied'|'failed'}|null>(null)
 
   const session=useRef({active:true,copy:0,checking:false,timer:0})
 
   useEffect(() => {
     const current={active:true,copy:0,checking:false,timer:0};session.current=current
-    setNetwork(null); setStatusError(null); setActionError(null); setPublicIp(null); setCopied(false); setCheckingPublic(false)
+    setNetwork(null); setStatusError(null); setActionError(null); setPublicIp(null); setCopyResult(null); setCheckingPublic(false)
     const refresh = () => api.networkStatus(server.id)
       .then(value => { if (current.active) { setNetwork(value); setStatusError(null) } })
       .catch(cause => { if (current.active) { setNetwork(null); setStatusError(errorText(cause)) } })
@@ -39,13 +39,13 @@ export function NetworkPanel({server}: {server: Server}) {
     if (!network?.lanAddress) return
     const current=session.current,sequence=++current.copy
     window.clearTimeout(current.timer)
-    setCopied(false); setActionError(null)
+    setCopyResult(null)
     try {
       await navigator.clipboard.writeText(network.lanAddress)
       if(!current.active||sequence!==current.copy)return
-      setCopied(true)
-      current.timer=window.setTimeout(() => {if(current.active&&sequence===current.copy)setCopied(false)},2500)
-    } catch { if(current.active&&sequence===current.copy)setActionError(t("No se pudo copiar automáticamente. Selecciona la dirección para copiarla.")) }
+      setCopyResult({address:network.lanAddress,kind:'copied'})
+      current.timer=window.setTimeout(() => {if(current.active&&sequence===current.copy)setCopyResult(null)},2500)
+    } catch { if(current.active&&sequence===current.copy)setCopyResult({address:network.lanAddress,kind:'failed'}) }
   }
   const checkPublic = async () => {
     const current=session.current
@@ -56,14 +56,16 @@ export function NetworkPanel({server}: {server: Server}) {
     finally { current.checking=false;if(current.active)setCheckingPublic(false) }
   }
 
+  const copyFeedback=copyResult&&copyResult.address===network?.lanAddress?copyResult.kind:null
   return <section className="connection-section" aria-labelledby="network-title">
     <div className="section-heading"><div><h2 id="network-title" tabIndex={-1}>{t("Conexión")}</h2><p>{t("Comparte la dirección con quien juegue en tu misma red.")}</p></div></div>
     {statusError && <p className="network-error" role="alert">{translatedMessage(statusError)}</p>}
     {actionError && <p className="network-error" role="alert">{translatedMessage(actionError)}</p>}
     <div className="connection-address">
       <span>{t("En tu red local")}</span>
-      {network?.lanAddress ? <div className="network-address-row"><input className="network-address-value" aria-label={t("Dirección LAN")} readOnly value={network.lanAddress} onFocus={event => event.currentTarget.select()}/><button type="button" onClick={copy}>{copied ? t("Copiada") : t("Copiar")}</button></div> : <strong className="network-unavailable">{network ? t("No detectada") : t("Detectando…")}</strong>}
+      {network?.lanAddress ? <div className="network-address-row"><input className="network-address-value" aria-label={t("Dirección LAN")} readOnly value={network.lanAddress} onFocus={event => event.currentTarget.select()}/><button type="button" onClick={copy}>{copyFeedback==='copied' ? t("Copiada") : t("Copiar")}</button></div> : <strong className="network-unavailable">{network ? t("No detectada") : t("Detectando…")}</strong>}
     </div>
+    {copyFeedback==='failed'&&<p className="network-error" role="alert">{t("No se pudo copiar automáticamente. Selecciona la dirección para copiarla.")}</p>}
     <dl className="data-list network-facts"><div><dt>{t("IP local")}</dt><dd>{network?.localIp || '—'}</dd></div><div><dt>{t("Puerto TCP")}</dt><dd>{network?.port ?? '—'}</dd></div><div><dt>{t("Estado local")}</dt><dd>{network ? stateLabels[network.portState] : t("Comprobando…")}</dd></div><div><dt>{t("En este equipo")}</dt><dd>{network?.localAddress || '—'}</dd></div></dl>
     {network?.configuredIp && <p className="muted-note">{t("El servidor está configurado para escuchar en")} {network.configuredIp}{t(". Si esta dirección es de loopback, otros equipos no podrán entrar.")}</p>}
     {!network?.lanAddress && network && <p className="muted-note">{t("Comprueba que el ordenador esté conectado a la red y que el servidor no esté limitado a una dirección local.")}</p>}
