@@ -2,6 +2,14 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Update blockers after 0.57.0
+
+Minecraft update blockers now use the existing native-message translator at
+render time. The actual list-item callback reproduces the untranslated English
+case, then passes ES/EN switching and unchanged unknown-detail checks in static
+React rendering. TypeScript and the frontend build pass. No native update or
+interactive UI is exercised; the temporary probe is removed.
+
 ## Windows 0.57 package
 
 Source `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b` produces the unsigned
