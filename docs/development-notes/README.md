@@ -2,6 +2,27 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Real custom Java and JVM lifecycle after 0.53.0
+
+Current native engine code runs Vanilla 1.21.4 with an existing external Java 21
+selected through production runtime inspection/candidate validation and persisted
+with the storage owner. No managed Java is downloaded. Java 17 and a corrupt
+executable are rejected while the saved valid path remains unchanged.
+
+A checked custom JVM profile writes a real GC log during startup. An invalid VM
+option is rejected without replacing that profile. The Java path and arguments
+survive reload/restart; restoring the recommended profile produces another clean
+session without writing to the custom GC log. All three sessions reach readiness,
+answer a loopback Minecraft status request and console command, then stop cleanly.
+
+The run uses a fresh temporary library, seed 42, loopback binding, the official
+SHA-1-verified Vanilla download and a copy of existing explicit EULA consent.
+The test event collector replaces Tauri presentation. Temporary world data and
+the temporary test are removed; existing Java executable and retained 0.52/0.53
+package hashes are unchanged. No retained test or dependency is added. This
+verifies native functions and Java/Minecraft behavior, not the native file picker,
+Tauri command reservation, other loaders, UI interaction or Internet gameplay.
+
 ## Storage and retention message localization after 0.53.0
 
 Storage measurements use the existing translated message for skipped symbolic
