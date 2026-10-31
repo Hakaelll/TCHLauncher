@@ -1,4 +1,4 @@
-import {translatedMessage,localizedStatic,t} from './locale.ts'
+import {getLanguage,translatedMessage,localizedStatic,t} from './locale.ts'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {listWindow} from './listWindow'
 import type { Server } from './api'
@@ -21,7 +21,8 @@ export function ServerLibrary({servers,onCreate,onImport,onPack,onSelect,onMenu}
   const [page,setPage]=useState(0)
   const listId=useId(),resultRef=useRef<HTMLParagraphElement>(null)
   const list=useRef<HTMLDivElement>(null)
-  const filtered=useMemo(()=>libraryWindow(servers,query,filter,order),[servers,query,filter,order])
+  const language=getLanguage()
+  const filtered=useMemo(()=>libraryWindow(servers,query,filter,order,language),[servers,query,filter,order,language])
   const pageWindow=listWindow(filtered,page)
   useEffect(()=>{setPage(pageWindow.page)},[pageWindow.page])
   const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}

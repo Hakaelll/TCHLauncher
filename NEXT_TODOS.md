@@ -14,6 +14,8 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.56 library name ordering follows the selected language. Scoped ES/EN
+  helper checks and frontend compilation pass; native/rendered use is untested.
 - Latest published preview: [0.54.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0), grouping the
   0.52, 0.53 and 0.54 milestones. Only the unsigned Windows x64 EXE is attached;
   GitHub asset size/digest and its source tag are verified.

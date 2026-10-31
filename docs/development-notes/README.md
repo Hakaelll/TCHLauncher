@@ -2,6 +2,15 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Library name-order locale after 0.56.0
+
+Name ordering follows the selected language instead of always using Spanish.
+The library memo includes language so existing rows reorder when it changes.
+Actual helper checks reproduce the English ñ-order mismatch and preserve Spanish,
+numeric names, search, other ordering modes and source identity. TypeScript and
+the frontend build pass. No native/rendered UI is checked; temporary probe removed.
+The local 0.56 installer is unchanged.
+
 ## Local Windows 0.56.0 package
 
 Unsigned local x64 installer from `44aeb3d4ce3b4e3b3a911a0da6d63c525f931856`, 6,882,989 bytes.
