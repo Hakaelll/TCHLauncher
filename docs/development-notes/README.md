@@ -4,6 +4,16 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.47.0
 
+Download reads retain the response buffer instead of cloning every chunk into a
+second owned vector. Existing byte limits, checksums, cancellation and publication
+remain in the same consumers. Production transfers against a loopback HTTP server
+pass SHA-1/256/512, no-hash, mismatch, cancellation and partial-cleanup checks.
+The first fixture run exposed an inherited nonblocking Windows socket; explicitly
+making the accepted test socket blocking fixes that fixture race. No production
+failure was suppressed. Full native test compilation passes, including JSON/text
+buffer consumers. The temporary check was removed; retained tests and dependencies
+are unchanged. This does not measure CPU/RAM gains or exercise HTTPS/native UI.
+
 Console following skips animation when already at its target. The paused-view
 counter counts matching arrivals directly instead of allocating another filtered
 array. Actual prior/current effect checks reproduce the idle frame and preserve

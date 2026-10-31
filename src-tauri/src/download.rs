@@ -194,10 +194,10 @@ impl DownloadTask {
         response.error_for_status().map_err(Failure::http)
     }
 
-    async fn chunk(&self,response: &mut Response) -> Result<Option<Vec<u8>>,Failure> {
+    async fn chunk(&self,response: &mut Response) -> Result<Option<impl std::ops::Deref<Target=[u8]>>,Failure> {
         tokio::select! {
             _ = self.cancellation.wait() => Err(Failure::local(CANCELLED)),
-            result = response.chunk() => result.map(|chunk| chunk.map(|bytes| bytes.to_vec())).map_err(Failure::http),
+            result = response.chunk() => result.map_err(Failure::http),
         }
     }
 
