@@ -50,6 +50,11 @@ Server artwork is limited to 2 MB, 4096 × 4096 dimensions and bounded decode al
 
 Skin profiles are resolved by UUID through Mojang services. Texture downloads accept the official texture host without redirects and use bounded responses and image decoding. Offline and online UUIDs are different identities; a name match alone is not proof of account ownership.
 
+Content-icon and skin-head cache reads reject redirected cache folders and
+non-regular entries. Cached PNGs have bounded byte, dimension and decode limits.
+Writes use owned temporary files, synchronization and checked replacement rather
+than writing through the destination. Process-local cache I/O is serialized.
+
 Content descriptors, compatibility checks and console warnings are diagnostic aids. A listed mod is not proof that Minecraft loaded it, and a log association is not proof that the named mod caused a failure.
 
 ### Networking and privacy

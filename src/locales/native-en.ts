@@ -981,4 +981,9 @@ export const nativeEnglish:Record<string,string>={
   "Incorporando el servidor a la biblioteca": "Adding the server to the library",
   "Incorporando la carpeta a la biblioteca": "Adding the folder to the library",
   "{0}; archivo anterior conservado en {1} ({2})": "{0}; previous file preserved at {1} ({2})",
+  "La carpeta de imágenes en caché no es segura": "The cached image folder is unsafe",
+  "La imagen en caché no es un archivo normal": "The cached image is not a regular file",
+  "No se pudo acceder a la caché de imágenes": "Could not access the image cache",
+  "Imagen en caché demasiado grande": "Cached image is too large",
+  "Identificador de imagen en caché no válido": "Invalid cached image identifier",
 }

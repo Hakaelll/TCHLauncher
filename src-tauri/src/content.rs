@@ -10,10 +10,9 @@ pub fn icon(root:&std::path::Path,raw:&str)->Result<String,String> {
     use base64::Engine;
     let url=reqwest::Url::parse(raw).map_err(|_|"Icono no válido")?;
     if url.scheme()!="https" || url.host_str()!=Some("cdn.modrinth.com") || !url.username().is_empty() || url.password().is_some() || url.port().is_some() {return Err("Origen de icono no válido".into());}
-    let cache=root.join("content-icons");let key=format!("{:x}",Sha256::digest(raw.as_bytes()));let path=cache.join(format!("{key}.png"));
-    if let Ok(meta)=std::fs::symlink_metadata(&path) {
-        if meta.is_file() && !meta.file_type().is_symlink() && meta.len()<100000 {return Ok(format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(std::fs::read(path).map_err(|e|e.to_string())?)));}
-    }
+    let key=format!("{:x}",Sha256::digest(raw.as_bytes()));
+    let cache=crate::image_cache::CachedImage::new(root,crate::image_cache::Kind::Content,&key)?;
+    if let Some((_,data))=cache.read()? {return Ok(format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(data)));}
     let client=reqwest::blocking::Client::builder().user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")," (https://github.com/Hakaelll/TCHLauncher)"))
         .timeout(std::time::Duration::from_secs(20)).redirect(reqwest::redirect::Policy::none()).build().map_err(|e|e.to_string())?;
     let response=client.get(url).send().and_then(|r|r.error_for_status()).map_err(|e|e.to_string())?;
@@ -21,7 +20,7 @@ pub fn icon(root:&std::path::Path,raw:&str)->Result<String,String> {
     let mut reader=image::ImageReader::new(Cursor::new(data)).with_guessed_format().map_err(|e|e.to_string())?;
     let mut limits=image::Limits::default();limits.max_image_width=Some(2048);limits.max_image_height=Some(2048);limits.max_alloc=Some(32_000_000);reader.limits(limits);
     let image=reader.decode().map_err(|e|e.to_string())?.thumbnail(96,96);let mut output=Cursor::new(vec![]);image.write_to(&mut output,image::ImageFormat::Png).map_err(|e|e.to_string())?;
-    let data=output.into_inner();std::fs::create_dir_all(&cache).map_err(|e|e.to_string())?;std::fs::write(path,&data).map_err(|e|e.to_string())?;
+    let data=output.into_inner();cache.write(&data)?;
     Ok(format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(data)))
 }
 

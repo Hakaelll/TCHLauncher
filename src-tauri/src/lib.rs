@@ -52,6 +52,7 @@ mod properties;
 mod server_settings;
 mod runtime;
 mod skin;
+mod image_cache;
 mod storage;
 mod storage_usage;
 mod world;

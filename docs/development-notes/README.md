@@ -2,6 +2,31 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Cached-image validation and publication after 0.51.0
+
+Skin heads and content icons now share bounded cached-PNG reads and temporary
+publication. Cache directories must resolve to their expected canonical paths;
+non-regular entries are rejected. Invalid, oversized or over-dimensioned PNGs are
+cache misses. Files are written through a uniquely owned temporary file, synced,
+and passed through checked replacement. A short shared I/O lock prevents this
+process's concurrent cache writers from racing replacement. Existing paths,
+namespace limits, skin freshness/backoff and remote-source policies remain intact.
+
+A temporary native case reproduces both old public icon/head calls following
+Windows junctions and returning invalid PNG bytes from outside their cache folder.
+The corrected public calls reject those real junctions before network work.
+The same case verifies missing/corrupt/oversized PNG handling, valid content/head
+round trips, replacement, concurrent complete-image writes, rejected non-file
+paths, preserved fixture bytes and absence of temporary-write leftovers. The full
+native test target compiles. Five ES/EN native messages, TypeScript and the
+Windows frontend build pass. Temporary code, junctions and fixture folders are
+removed without changing server libraries or adding retained tests/dependencies.
+
+These checks do not measure cache performance, drive native UI, contact Mojang or
+Modrinth, simulate power loss or prove defenses against adversarial concurrent
+filesystem swaps. Total disk-cache eviction is not added in this change. The
+published 0.51 installer is unchanged.
+
 ## Windows filesystem recovery advice after 0.51.0
 
 General action, server start/restart/runtime and failed task notices now share

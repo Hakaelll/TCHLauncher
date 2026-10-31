@@ -284,6 +284,12 @@ session-observed login UUIDs. Pending observations are bounded and expire; ambig
 or unobserved identities remain unknown. Same-name accounts are never merged by
 name. [skin.rs](src-tauri/src/skin.rs) retrieves validated Mojang textures by UUID,
 crops the head/hat and caches bounded images. Missing evidence gets a neutral head.
+[image_cache.rs](src-tauri/src/image_cache.rs) owns shared cached-image validation
+and publication for skins and Modrinth icons. Namespaces retain their current
+paths and image limits. A truncated/oversized/non-PNG entry is a cache miss;
+redirected folders and non-regular entries are rejected. Owned temporary writes
+are synchronized before checked replacement, with short process-local I/O locking.
+Skin freshness and failure-backoff rules remain in the skin owner.
 
 [access_lists.rs](src-tauri/src/access_lists.rs) owns stopped-server whitelist/OP/
 ban-file mutations. Its bounded writer preserves other records and unknown fields,
