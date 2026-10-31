@@ -1884,4 +1884,7 @@ export const english: Record<string,string> = {
   "Fecha del bloqueo": "Ban date",
   "RAM máxima orientativa para empezar: {0}. No es una medición; ajústala según el mundo y el contenido.": "Suggested maximum RAM to start: {0}. This is not a measurement; adjust it for your world and content.",
   "Se muestran jugadores con UUID de tipo local, aunque los archivos indican autenticación directa. Si cambiaste estos ajustes, reinicia; si persiste, revisa la conexión y el proxy.": "Displayed players have a local-type UUID, although the files indicate direct authentication. If you changed these settings, restart; if this persists, check the connection and proxy.",
+  "Entorno Fabric no válido": "Invalid Fabric environment",
+  "Solo cliente: Fabric no lo carga en un servidor dedicado": "Client only: Fabric does not load it on a dedicated server",
+  "El JAR es solo de cliente y no se cargará en el servidor": "This JAR is only for clients and will not load on the server",
 }

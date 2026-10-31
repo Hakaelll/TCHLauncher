@@ -89,14 +89,12 @@ pub(crate) fn inspect_fabric(value:&serde_json::Value)->Result<Descriptor,String
     let id=text(&value,"id").filter(|id|fabric_id(id)).ok_or("Identificador Fabric no válido")?;
     let version=text(&value,"version").ok_or("Versión Fabric no válida")?;
     let environment=match value.get("environment") {
-        None=>"*",
-        Some(v) if v.is_array()=>{
-            let values=v.as_array().unwrap();
-            if values.is_empty()||values.len()>3||values.iter().any(|v|!matches!(v.as_str(),Some("*"|"client"|"server"))) {return Err("Entorno Fabric no válido".into());}
-            let client=values.iter().any(|v|v.as_str()==Some("client"));let server=values.iter().any(|v|v.as_str()==Some("server"));
-            if values.iter().any(|v|v.as_str()==Some("*"))||(client&&server) {"*"}else if server {"server"}else{"client"}
-        },
-        Some(v)=>v.as_str().filter(|v|matches!(*v,"*"|"client"|"server")).ok_or("Entorno Fabric no válido")?,
+        None=>"*".to_string(),
+        Some(v)=>v.as_str().ok_or("Entorno Fabric no válido")?.to_ascii_lowercase(),
+    };
+    let environment=match environment.as_str(){
+        ""|"*"=>"*","client"=>"client","server"=>"server",
+        _=>return Err("Entorno Fabric no válido".into()),
     };
     let minecraft=value.get("depends").and_then(|v|v.get("minecraft")).map(|v|v.as_str().map(str::to_string).unwrap_or_else(||v.to_string())).filter(|v|v.len()<=256);
     Ok(Descriptor {ids:vec![id.clone()],id:Some(id),name:text(&value,"name"),version:Some(version),environment:Some(environment.into()),minecraft,note:None,logo:None,api_version:None,dependencies:fabric_dependencies(&value)?})

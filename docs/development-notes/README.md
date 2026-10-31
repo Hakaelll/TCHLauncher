@@ -59,6 +59,21 @@ native Cargo check pass. No actual clock change, Windows PID reuse or Minecraft
 restart is exercised by those probes. Heap collection remains read-only; this
 fix does not establish a memory leak, lower Java RAM use or solve Internet stalls.
 
+Fabric schema-1 environment parsing now follows the supported string contract:
+missing/empty means universal, client/server names are case-insensitive, and
+arrays or other JSON types are rejected. This removes the previous array union
+inference and false rejection of accepted string variants. The reference is
+[Fabric Loader 0.19.5's metadata parser](https://github.com/FabricMC/fabric-loader/blob/0.19.5/src/main/java/net/fabricmc/loader/impl/metadata/V1ModMetadataParser.java).
+A focused native test fails before on an accepted environment array, then passes
+string/default/invalid-type cases and actual JAR metadata inspection. Synthetic
+provider/consumer/client JARs also pass the existing dependency review: the alias
+satisfies the consumer and the client-only parent is excluded. This is metadata
+inspection, not Minecraft loading or a real backpack-mod check. The temporary
+unit and fixtures are removed; retained test counts are unchanged. Three existing
+environment/client-only messages now translate in ES/EN through the actual locale
+module. TypeScript and the Windows frontend production build pass. No installer
+or GitHub release is generated.
+
 ## Changes packaged in 0.44.0
 
 The changes below are included in the published 0.44.0 Windows preview.
