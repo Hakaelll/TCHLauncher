@@ -306,6 +306,7 @@ fn choose(source: &impl Source, project: &Project, minecraft: &str, loader: &str
 
 struct Resolver<'a, S> {
     source: &'a S, minecraft: &'a str, loader: &'a str,
+    pinned: HashMap<String, ContentVersion>,
     chosen: HashMap<String, String>, files: HashMap<String, String>,
     entries: Vec<PlannedContent>, optional: Vec<Dependency>, incompatible: Vec<Dependency>,
 }
@@ -318,7 +319,11 @@ impl<S: Source> Resolver<'_, S> {
             if version_id.is_some_and(|id| id != chosen) { return Err(format!("Se requieren versiones diferentes de {}", project.title)); }
             return Ok(()); // Also terminates cycles before recursively visiting dependencies.
         }
-        let version = choose(self.source, &project, self.minecraft, self.loader, version_id)?;
+        let version = if let Some(pinned) = self.pinned.remove(&project.id) {
+            if version_id.is_some_and(|id| id != pinned.id) { return Err(format!("Se requieren versiones diferentes de {}", project.title)); }
+            compatible(&pinned, &project, self.minecraft, self.loader)?;
+            pinned
+        } else { choose(self.source, &project, self.minecraft, self.loader, version_id)? };
         let file = selected_file(&version)?;
         if let Some(other) = self.files.insert(file.filename.to_lowercase(), project.title.clone()) {
             return Err(format!("{} y {other} usan el mismo nombre de archivo", project.title));
@@ -366,7 +371,20 @@ pub fn updates(task:&DownloadTask,server:&Server)->Result<ContentPlan,String> {
 }
 
 fn resolve_many(source: &impl Source, minecraft: &str, loader: &str, projects: &[(&str,Option<&str>)]) -> Result<ContentPlan, String> {
-    let mut resolver = Resolver {source, minecraft, loader, chosen: HashMap::new(), files: HashMap::new(), entries: vec![], optional: vec![], incompatible: vec![]};
+    if projects.len() > 128 { return Err("El árbol de dependencias supera el límite de revisión".into()); }
+    let mut pinned: HashMap<String, ContentVersion> = HashMap::new();
+    // Root selections must also constrain dependencies visited before that root.
+    for (_, version) in projects {
+        if let Some(id) = version {
+            let version = source.version(id)?;
+            if version.id != *id { return Err("El inventario no coincide con Modrinth".into()); }
+            if let Some(previous) = pinned.get(&version.project_id) {
+                if previous.id != version.id { return Err(format!("Se requieren versiones diferentes de {}", version.project_id)); }
+            }
+            pinned.insert(version.project_id.clone(), version);
+        }
+    }
+    let mut resolver = Resolver {source, minecraft, loader, pinned, chosen: HashMap::new(), files: HashMap::new(), entries: vec![], optional: vec![], incompatible: vec![]};
     for (project,version) in projects {resolver.visit(project,*version,false,0)?;}
     for dependency in &resolver.incompatible {
         let conflict = if let Some(id) = &dependency.version_id { resolver.chosen.values().any(|chosen| chosen == id) }

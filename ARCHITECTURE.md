@@ -234,6 +234,10 @@ are not established by the existing Vanilla upgrade scenario.
 version selection and dependency plans. Paper plugins remain distinct from mods;
 client resource packs/shaders are not installed as server mods. Plans identify
 required dependencies, optional entries and declared conflicts before installation.
+Combined plans preload explicit root versions and reuse those selections during
+dependency traversal. A later root cannot be displaced by an earlier unpinned
+dependency; exact version conflicts still reject the plan. Preloaded metadata
+is consumed by the plan without fetching or cloning it again during traversal.
 
 [content_storage.rs](src-tauri/src/content_storage.rs) owns staged content writes,
 receipts, hashes, enable/disable, removal and recovery. Bulk changes use safety

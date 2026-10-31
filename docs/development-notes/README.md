@@ -4,6 +4,20 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.46.0
 
+Combined content plans now preload explicit root versions before traversing
+dependencies. A dependency without an exact version uses the reviewed root
+selection instead of independently selecting the latest release. Previously,
+visiting that dependency first could select a stable release and then reject a
+valid plan containing a selected beta. Exact conflicts still fail.
+Preloaded versions are reused, including canonical project IDs when a root uses
+a slug. Version identity, compatibility, files and graph limits remain checked.
+The isolated production-resolver check reproduces the ordering failure and
+covers root order, aliases, cycles, conflicts, invalid compatibility/identity and
+the root-count bound. Catalog, compatibility and artifact boundaries use local
+fixtures; it does not install mods or establish gameplay behavior. The full
+offline native library check passes. The temporary probe source and binaries
+were removed, without adding retained tests or application dependencies.
+
 The shared progress panel now mounts its cancellation state by task UUID. A new
 task no longer inherits a pending cancellation or cancellation error from the
 previous task, including a late reply to the previous cancellation request.
