@@ -35,18 +35,18 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Command recall survives navigation within the app session, keeping up to 50
   acknowledged sends per server in memory. Scoped callback/helper and frontend
   checks pass; native commands/deletion/keyboard are not exercised by the probe.
-- Latest published preview: [0.54.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0), grouping the
-  0.52, 0.53 and 0.54 milestones. Only the unsigned Windows x64 EXE is attached;
+- Latest published preview: [0.57.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.57.0), grouping the
+  0.55, 0.56 and 0.57 milestones. Only the unsigned Windows x64 EXE is attached;
   GitHub asset size/digest and its source tag are verified.
-- Published/package source: `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`. See the
-  [0.54.0 changes](docs/release-notes/RELEASE_NOTES_v0.54.0.md). TypeScript,
+- Published/package source: `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`. See the
+  [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Latest local installer: 0.57.0, unsigned and prepared for publication, from
+- Latest local installer: 0.57.0, unsigned and published, from
   `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`. See the
   [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). Five retained frontend
   tests, TypeScript, production frontend, optimized offline NSIS packaging,
-  versions and embedded icons pass. GitHub remains on published 0.54.0.
+  versions and embedded icons pass. GitHub publishes the same verified package.
 - Local retention keeps 0.56/0.57; checksums stay local. Protected generated-cache
   cleanup removes 2,151,068,244 logical bytes and preserves package/executable
   hashes. The obsolete local 0.55 installer is verified and removed. File lengths
@@ -249,7 +249,7 @@ not establish unobserved native interaction or client outcomes.
 | JVM-01 | REVIEW | JVM settings | Current engine runs three real Vanilla 1.21.4 sessions using existing external Java 21. Checked custom arguments produce an actual GC log, persist through restart and reject an invalid option without replacing the saved profile. Restoring the recommended profile permits another clean session without writing the custom log. Post-0.53 custom option verification uses the server working directory, matching launch; a real Java case covers relative GC output, invalid profile preservation, missing directories, unchanged global CWD and plain version inspection. Native settings interaction and other loaders remain manual validation. |
 | JAVA-01 | REVIEW | Custom runtime | Production inspection/candidate validation and storage persist existing external Java 21; Java 17 and a corrupt executable are rejected with the valid path preserved. Three isolated real Vanilla 1.21.4 ready/status/command/clean-stop sessions pass without managed Java download. Temporary world data is removed and existing executable/package hashes are unchanged. Native picker, Tauri command reservation/UI and other engines remain unverified. |
 | LOAD-01 | REVIEW | Fabric | Real 1.21.4 / Loader 0.19.5 lifecycle with installed Lithium and restored mod bytes passes. Verify native imports/updates and client mod behavior. |
-| LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158 and historical 1.20.1 / 47.1.106 lifecycles pass, including managed Java, three command/stop sessions and restored-world boot. Verify native flows and an actual modded client session. |
+| LOAD-02 | REVIEW | NeoForge | Real 1.21.4 / 21.4.158, historical 1.20.1 / 47.1.106 and annual 26.3 / 26.3.0.100 lifecycles pass with managed Java, three status/command/clean-stop sessions and restored-world boot. Annual parser and loader-update comparison checks pass; exact experimental selection is preserved. Verify native flows, full loader-update operation and an actual modded client session. |
 | MC-VERSIONS-01 | REVIEW | Version catalog and experimental opt-in | Official catalogs and opt-in filtering implemented. NeoForge catalog and loader selection now share the bounded release parser, including the existing 1.20.1 artifact identity; numeric/prerelease/size checks pass. Historical 1.20.1 installation and lifecycle pass. Verify native selection/scrolling and snapshots. |
 | MC-UPDATE-01 | REVIEW | Minecraft upgrades and rollback | Real Vanilla 1.21.4 to 1.21.5 world conversion/rollback passed; all 20 world-file hashes restored before boot. Verify native flow, other engines/content migrations and client gameplay. |
 | MOD-01 | REVIEW | Mods and Paper plugins | Verified plans, dependency traversal, hashes, enable/disable, updates, removal and diagnostics connected. Main Fabric JARs now show advisory Minecraft requirement mismatches for configured stable releases; real local JAR audit checks cover OR alternatives and excluded uncertain cases. Lithium/Fabric and Chunky/Paper load through the real install/restore harness. Verify native reviews, broader content and gameplay. Fabric environment strings now normalize case/defaults and reject non-string types; a focused native JAR/provider-alias/client-exclusion check and ES/EN message checks pass. Version 0.47.0 preloads explicit root versions before dependency traversal, preventing order-dependent rejection of valid bulk plans, including a retained beta. A local production-graph probe reproduces the previous conflict and checks order, aliases, exact conflicts, cycles, compatibility/identity failures and bounds with controlled catalog/artifact boundaries. Fabric candidate checks remain conservative, not a global solver. Post-0.52 empty-result broadening preserves query/draft, kind and sort, resets the page and restores heading focus; 48 scoped ES/EN component checks and frontend compilation pass, without Modrinth/native UI traffic. |
@@ -278,7 +278,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | Local 0.54.0 NSIS x64 from commit 1f4f7a7, unsigned and published on GitHub with one verified EXE asset. Frontend tests, TypeScript, Windows frontend, optimized offline packaging, versions and icons pass. It groups the 0.52–0.54 milestones described in the release notes. Local retention keeps 0.53/0.54; protected cleanup preserves package/executable hashes. Native interaction and gameplay were not repeated for packaging; maintainer-owned validation remains nonblocking. |
+| REL-02 | REVIEW | Current installer | Windows 0.57.0 NSIS x64 from commit 9c7bd68 is unsigned and published on GitHub with one verified EXE asset, grouping 0.55–0.57. Five frontend tests, TypeScript, frontend/optimized offline packaging, versions and icons pass. Source tag and remote asset size/digest match. Local retention keeps 0.56/0.57; protected cache cleanup preserves executable/package hashes. Native interaction and client gameplay are not repeated for packaging. |
 
 ## Implemented scope from earlier audits
 

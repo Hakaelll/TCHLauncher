@@ -12,6 +12,8 @@ is confirmed. Protected cache cleanup removes 2,151,068,244 logical bytes;
 executable and 0.56/0.57 installer hashes remain unchanged. The obsolete 0.55 setup
 is verified and removed. No native interaction or client gameplay is repeated
 for packaging. Publication attaches only the verified EXE, with checksums local.
+GitHub preview `v0.57.0`, release ID `430226897`, is published with exactly that
+EXE. Its source tag, remote asset size and SHA-256 match the verified package.
 
 ## Annual NeoForge releases after 0.56.0
 

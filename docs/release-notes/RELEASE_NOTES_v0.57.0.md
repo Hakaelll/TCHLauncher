@@ -1,7 +1,7 @@
 # TCHLauncher 0.57.0
 
 Windows x64 preview, grouping the 0.55, 0.56 and 0.57 milestones.
-Prepared for publication. The installer is unsigned; only the EXE will be attached.
+Published Windows preview. The installer is unsigned; only the EXE is attached.
 
 ## Changes since 0.54.0
 
