@@ -44,7 +44,7 @@ export function OperatorSettings({server,operator,disabled,onRefresh}:{server:Se
       <p className="field-help">{t("Se aplican en el próximo inicio. Los plugins pueden gestionar permisos adicionales.")}</p>
       {!stopped&&<p className="field-help">{t("Detén el servidor para cambiar estos permisos.")}</p>}
       {!operator.uuid&&<p className="form-error">{t("Este operador no tiene un UUID válido guardado.")}</p>}
-      {conflict&&<div className="operator-conflict"><p className="form-error" role="alert">{t("Los permisos guardados cambiaron mientras editabas. Tus cambios siguen aquí; revisa los actuales antes de guardar.")}</p><p className="field-help">{t("Actuales: nivel")} {operator.level}{operator.bypassesPlayerLimit?' · puede entrar con el servidor lleno':''}.</p><button type="button" disabled={saving||disabled} onClick={()=>{setState(operatorDraft(identity,operator));setSaved(null);setError(null)}}>{t("Cargar permisos actuales")}</button></div>}
+      {conflict&&<div className="operator-conflict"><p className="form-error" role="alert">{t("Los permisos guardados cambiaron mientras editabas. Tus cambios siguen aquí; revisa los actuales antes de guardar.")}</p><p className="field-help">{t("Actuales: nivel")} {operator.level}{operator.bypassesPlayerLimit?' '+t("· puede entrar con el servidor lleno"):''}.</p><button type="button" disabled={saving||disabled} onClick={()=>{setState(operatorDraft(identity,operator));setSaved(null);setError(null)}}>{t("Cargar permisos actuales")}</button></div>}
       {changed&&!conflict&&<p className="field-help">{t("Cambios sin guardar.")}</p>}
       <button disabled={!!blocked||!changed}>{saving?t("Guardando…"):t("Guardar permisos")}</button>
       {saved&&<p className="field-help" role="status">{saved}</p>}

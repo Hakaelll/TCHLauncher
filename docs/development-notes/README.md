@@ -12,6 +12,14 @@ and the Windows frontend build pass. This checks actual component markup with
 controlled read snapshots, not native startup or IPC. No retained test is added.
 The published 0.48.0 installer predates this two-line fix.
 
+The same JSX review found untranslated notes in the JVM preview before installation
+and the operator-permission conflict summary. Both now use existing translations.
+Actual paragraph renders reproduce the leaks before the fix and pass afterward
+in English/Spanish with both conditional branches. TypeScript and the Windows
+frontend build pass. Player action labels found by the scan already translate in
+`PlayerRow` and need no change. The scan checks exact existing catalog matches;
+it does not prove complete localization, native Java or permission operations.
+
 ## Verification after packaging 0.48.0
 
 The current-source Paper 1.21.4 scenario also passes. Three sessions check

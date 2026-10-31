@@ -28,6 +28,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Unreleased after 0.48.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.
+- JVM installation-preview and operator-conflict notes also use existing
+  translations. Focused paragraph renders cover English/Spanish and conditional
+  visibility; no native runtime or permission-operation result is claimed.
 
 ## Evidence already available
 
