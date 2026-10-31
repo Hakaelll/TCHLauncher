@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Console drafts during pending sends after 0.53.0
+
+Command acknowledgements clear the input only if it has not been edited or
+navigated since submission. Retyping the same text, changing whitespace or
+recalling history while a previous send is pending no longer loses that work.
+Acknowledged commands still enter the bounded session history. When its oldest
+entry is evicted, the active recall position moves with the retained entries
+and navigation back to the unsent draft remains available.
+
+An actual callback case reproduces a retyped command being cleared by an older
+acknowledgement. Scoped ES/EN cases cover unchanged/new/retyped text, whitespace,
+recall drafts, full-history eviction, duplicate sends, failed/negative replies
+and disposal. TypeScript and the Windows frontend build pass. Hooks and send
+replies are controlled; no Minecraft command or native keyboard interaction is
+driven. Temporary probes are removed with no retained test, translation or
+dependency added. Existing installers and the published release are unchanged.
+
 ## Crash-restart observation warnings after 0.53.0
 
 Crash-restart subscription failures have their own notice instead of sharing the

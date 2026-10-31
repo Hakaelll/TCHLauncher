@@ -38,6 +38,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const [commandHistory,setCommandHistory]=useState<string[]>([])
   const [historyCursor,setHistoryCursor]=useState<number|null>(null)
   const historyDraft=useRef('')
+  const commandRevision=useRef(0)
   const scope=useRef({id:serverId,active:true,sending:false,exporting:false})
   const windowRef = useRef<HTMLDivElement>(null)
   const automaticScroll=useRef(false)
@@ -75,14 +76,16 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   },[visible,following])
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const current=scope.current,sent=command.trim()
+    const current=scope.current,sent=command.trim(),revision=commandRevision.current
     if(!acceptsCommands||busy||!sent||current.sending||current.id!==serverId)return
     current.sending=true;setSending(true)
     try{
       if(await onSend(sent)){
         if(!currentScope(current))return
-        setCommandHistory(previous=>rememberCommand(previous,sent));setHistoryCursor(null);historyDraft.current=''
-        setCommand(previous=>previous.trim()===sent?'':previous)
+        const nextHistory=rememberCommand(commandHistory,sent)
+        setCommandHistory(nextHistory)
+        if(commandRevision.current===revision){setHistoryCursor(null);historyDraft.current='';setCommand('')}
+        else if(nextHistory!==commandHistory&&nextHistory.length===commandHistory.length)setHistoryCursor(cursor=>cursor===null?null:cursor-1)
       }
     }catch(cause){if(currentScope(current))setNotice({kind:'error',message:errorText(cause)})}
     finally{current.sending=false;if(currentScope(current))setSending(false)}
@@ -115,7 +118,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
     </div>
     <div className={`console-follow ${following?'following':'paused'}`}><span><i aria-hidden="true"/>{following?t("Seguimiento activo"):t("Seguimiento pausado")}</span>{!following&&<small>{pendingLines===0?t("Las nuevas líneas siguen llegando."):pendingLines===1?t("1 línea nueva en la vista."):t("{0} líneas nuevas en la vista.",pendingLines)}</small>}<button aria-pressed={following} onClick={()=>following?pauseFollowing():setFollowing(true)}>{following?t("Dejar de seguir"):t("Ir a las últimas líneas")}</button></div>
     {notice && <p className={`console-notice ${notice.kind==='error'?'form-error':''}`} role={notice.kind==='error'?'alert':'status'}>{translatedMessage(notice.message)}</p>}
-    <form autoComplete="off" className="command-form" onSubmit={submit}><label htmlFor="command">{t("Comando")}</label><input id="command" autoComplete="off" autoCorrect="off" spellCheck={false} value={command} onChange={event => {setCommand(event.target.value);setHistoryCursor(null);historyDraft.current=''}} onKeyDown={event=>{if(event.nativeEvent.isComposing||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey||!['ArrowUp','ArrowDown'].includes(event.key)||!commandHistory.length)return;event.preventDefault();const next=recallCommand(commandHistory,historyCursor,historyDraft.current,command,event.key==='ArrowUp'?'up':'down');historyDraft.current=next.draft;setHistoryCursor(next.cursor);setCommand(next.value)}} placeholder={state === 'starting' ? t("Comando durante el inicio…") : acceptsCommands ? t("Escribe un comando…") : t("Inicia el servidor para enviar comandos")} disabled={!acceptsCommands} maxLength={512}/><button disabled={busy || sending || !acceptsCommands || !command.trim()}>{sending?t("Enviando…"):t("Enviar")}</button></form>
+    <form autoComplete="off" className="command-form" onSubmit={submit}><label htmlFor="command">{t("Comando")}</label><input id="command" autoComplete="off" autoCorrect="off" spellCheck={false} value={command} onChange={event => {commandRevision.current++;setCommand(event.target.value);setHistoryCursor(null);historyDraft.current=''}} onKeyDown={event=>{if(event.nativeEvent.isComposing||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey||!['ArrowUp','ArrowDown'].includes(event.key)||!commandHistory.length)return;event.preventDefault();commandRevision.current++;const next=recallCommand(commandHistory,historyCursor,historyDraft.current,command,event.key==='ArrowUp'?'up':'down');historyDraft.current=next.draft;setHistoryCursor(next.cursor);setCommand(next.value)}} placeholder={state === 'starting' ? t("Comando durante el inicio…") : acceptsCommands ? t("Escribe un comando…") : t("Inicia el servidor para enviar comandos")} disabled={!acceptsCommands} maxLength={512}/><button disabled={busy || sending || !acceptsCommands || !command.trim()}>{sending?t("Enviando…"):t("Enviar")}</button></form>
     {acceptsCommands&&<p className="command-help">{t("Enter para enviar. Flechas para recuperar comandos de esta sesión.")}</p>}
   </section>
 }
