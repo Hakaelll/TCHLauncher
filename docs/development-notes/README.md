@@ -4,9 +4,10 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after local 0.45.0
 
-The English catalog adds 472 application-owned native messages across four passes:
+The English catalog adds 726 application-owned native messages across six passes:
 startup/JVM, players/permissions, properties, import, basic networking, backups,
-retention, worlds, recovery, router diagnostics and content management. Existing
+retention, worlds, recovery, router diagnostics, content management, engine
+installation/updates, startup, task states and diagnostic reports. Existing
 translations are retained and scheduler help uses its existing English action
 label. Reviewed native copy now
 lives in `src/locales/native-en.ts` and is included by the general catalog.
@@ -49,10 +50,21 @@ the translation gap. TypeScript, the Windows frontend build and the full offline
 native library check pass with the updated contract. This does not confirm native
 interaction, mod loading or gameplay behavior.
 
-Other native installer/loader and composed messages still need review;
-the literal inventory is heuristic and excludes recognized SQL rather than
-translating queries. This source postdates the local 0.45 installer. No version
-or release is generated for these localization changes.
+The engine pass adds 146 messages for Fabric, NeoForge, Paper, managed Java and
+version changes, preserving fifty existing translations. A further 108 messages
+cover import identity, startup registration, publication/recovery, memory counters,
+scheduled/crash-restart status and player skin validation, preserving another
+twenty-seven translations. Actual locale checks cover ES/EN, stored error wrappers,
+multiline technical details, unchanged catalog values and reverse aliases. No
+engine installation, OS startup, account login or scheduler execution was repeated
+for these catalog-only changes.
+
+All remaining static candidates in the initial heuristic inventory have been
+reviewed. SQL statements remain untranslated; their application-owned status
+values are handled separately. This inventory is not a complete census. Nested
+application errors, composed messages and copy outside that initial inventory
+still need review. This source postdates the local 0.45 installer. No version or
+release is generated for these localization changes.
 
 ## Workspace maintenance after 0.45.0
 
