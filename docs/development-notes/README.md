@@ -2,6 +2,20 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Verification after packaging 0.48.0
+
+The existing real Vanilla case now configures hard difficulty and creative mode
+through the native settings save before any world exists. Minecraft's initial
+startup reports CREATIVE; read-only seed/difficulty queries confirm 42 and Hard.
+The same case retains three clean sessions, backup, byte-identical world restore
+and restored startup. It passes with actual Java/Minecraft 1.21.4 in a fresh
+loopback-only library. Existing consent is reused without changing user settings.
+Owned processes exit, temporary data is removed and package hashes are unchanged.
+
+Only the existing cfg(test) scenario expands; all nine real scenarios remain and
+no production code changes. The event collector replaces the Tauri UI, so native
+interaction, other versions/engines and client behavior are not established.
+
 ## Changes packaged in 0.48.0
 
 After packaging, the existing Vanilla lifecycle scenario passes against the same

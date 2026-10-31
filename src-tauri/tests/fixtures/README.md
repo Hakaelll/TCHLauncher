@@ -23,6 +23,12 @@ Cargo; Minecraft, loaders, Java and selected content can still require Internet
 access. Supply a copy of an existing explicit Minecraft EULA acceptance record.
 The checks validate that record and never accept the EULA themselves.
 
+The Vanilla lifecycle also saves hard difficulty and creative mode through the
+native settings owner before the first world exists. It checks Minecraft's
+startup game-mode announcement and read-only seed/difficulty replies for seed 42
+and Hard. No console setter supplies those expected values. The existing three
+sessions and backup/restore checks still run; this adds no scenario.
+
 ```powershell
 $env:TCH_TEST_CONSENT_RECORD = 'C:/path/to/existing-consent.json'
 cargo test --manifest-path src-tauri/Cargo.toml --offline --lib process::lifecycle_tests::vanilla_ready_command_stop_restart_backup_restore -- --ignored --exact --nocapture

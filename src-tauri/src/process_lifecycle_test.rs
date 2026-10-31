@@ -153,7 +153,22 @@ fn verify_lifecycle(platform:&str,content:Option<(&str,&str)>) {
         Some((installed_file.filename.clone(),fs::read(directory.join(content_folder).join(&installed_file.filename)).unwrap()))
     } else {None};
     let loaded_content=content.map(|(_,marker)|marker);
-    let first=cycle(&library,&installed,port,loaded_content);
+    if platform=="vanilla" {
+        assert!(!directory.join("world").exists());
+        crate::server_settings::save(&library.root,&installed.id,
+            [("difficulty".into(),"hard".into()),("gamemode".into(),"creative".into())].into(),
+            installed.memory_min_mb,installed.memory_max_mb,installed.storage_target_gb).unwrap();
+    }
+    let first=cycle_checked(&library,&installed,port,loaded_content,|events|{
+        if platform=="vanilla" {
+            assert!(events.contains("Default game type: CREATIVE"),"The initial server did not report the configured game mode");
+            for (command,response) in [("seed","Seed: [42]"),("difficulty","The difficulty is Hard")] {
+                library.manager.send(&installed.id,command).unwrap();
+                wait_for("pre-start gameplay settings",10,events,||events.contains(response));
+            }
+            eprintln!("PRESTART_SETTINGS_EVIDENCE {}",serde_json::json!({"seed":42,"difficulty":"hard","gamemode":"creative","configuredBeforeFirstBoot":true,"readOnlyQueries":true}));
+        }
+    });
     assert!(directory.join("world/level.dat").is_file());
     let second=cycle(&library,&installed,port,loaded_content);assert_ne!(first.0,second.0);
     let original=fs::read(directory.join("world/level.dat")).unwrap();assert!(!original.is_empty());
