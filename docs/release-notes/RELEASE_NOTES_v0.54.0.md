@@ -1,8 +1,8 @@
 # TCHLauncher 0.54.0
 
 Windows x64 preview. The installer is unsigned.
-Prepared for publication after the 0.52, 0.53 and 0.54 version milestones.
-Only the EXE installer will be attached; checksums stay local.
+Published after the 0.52, 0.53 and 0.54 version milestones.
+Only the EXE installer is attached; checksums stay local.
 
 ## Changes since 0.51.0
 

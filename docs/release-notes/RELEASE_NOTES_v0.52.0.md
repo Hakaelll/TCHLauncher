@@ -1,7 +1,10 @@
 # TCHLauncher 0.52.0
 
+These changes are included in the published [0.54.0 preview](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0).
+Version 0.52.0 was a local build and was not published separately.
+
 Windows x64 preview, built locally. The installer is unsigned.
-This version is not a GitHub release; the published preview remains 0.51.0.
+This version is not a GitHub release; the published preview at build time was 0.51.0.
 
 ## Changes since 0.51.0
 

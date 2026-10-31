@@ -2,6 +2,15 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Published Windows 0.54.0
+
+[GitHub preview](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0) groups the 0.52–0.54 milestones. Its
+source tag resolves to packaged commit `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`.
+Exactly one EXE asset is published; its reported size and SHA-256 match the local
+verified installer. No checksum asset is uploaded. Local retention keeps 0.53/0.54.
+Unsigned preview status, scoped validation and maintainer-owned native checks
+remain explicit; publication does not close the full product objective.
+
 ## Changes packaged for Windows 0.54.0
 
 Unsigned Windows x64 NSIS installer from `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`.
