@@ -131,6 +131,9 @@ function App() {
   const [packOpen,setPackOpen]=useState(false)
   const [packResume,setPackResume]=useState<string|null>(null)
   const [operationBusy,setBusy] = useState(false)
+  const operationOwner=useRef(false)
+  const beginOperation=()=>{if(operationOwner.current)return false;operationOwner.current=true;setBusy(true);return true}
+  const finishOperation=()=>{operationOwner.current=false;setBusy(false)}
   const [installingIds,setInstallingIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | ActionFailure | null>(null)
   useEffect(()=>{
@@ -375,10 +378,11 @@ function App() {
 
   const [actionRefreshError,setActionRefreshError]=useState<string|null>(null)
   const act = async (fn: () => Promise<unknown>,context?:ActionContext) => {
-    setError(null);setActionRefreshError(null);setBusy(true)
+    if(!beginOperation())return false
+    setError(null);setActionRefreshError(null)
     try {const result=await acknowledgedAction(fn,refresh);setActionRefreshError(result.refreshError);return true}
     catch (e) { if(errorText(e)!=='Instalación cancelada')setError(context?{...context,detail:errorText(e)}:errorText(e)) }
-    finally { setBusy(false) }
+    finally { finishOperation() }
     return false
   }
 
@@ -429,19 +433,20 @@ function App() {
     setStorageTarget(selected.storageTargetGb)
   }
   const saveSettings=async(id:string)=>{
-    if(!propsLoaded||propsLoading||propsError)return
+    if(!propsLoaded||propsLoading||propsError||!beginOperation())return
     const values={...props};const capacity={...memory};const target=storageTarget
-    setError(null);setBusy(true)
+    setError(null)
     try{
       await api.saveServerSettings(id,values,capacity.min,capacity.max,target)
       acknowledgeProperties(id,values)
       if(selectedRef.current===id){capacityDirtyRef.current=false;setCapacityDirty(false)}
       try{await refresh()}catch(cause){setError(t("Ajustes guardados. No se pudo actualizar el servidor: {0}", errorText(cause)))}
     }catch(cause){setError(errorText(cause))}
-    finally{setBusy(false)}
+    finally{finishOperation()}
   }
   const createCopy=async(id:string)=>{
-    setError(null);setBusy(true)
+    if(!beginOperation())return
+    setError(null)
     try{
       const copy=await api.createBackup(id)
       const results=await Promise.allSettled([refreshBackups(id),refresh()])
@@ -449,7 +454,7 @@ function App() {
       const warnings=[copy.retentionWarning,...failures].filter(Boolean)
       if(warnings.length)setError(t("La copia se creó. {0}", warnings.join(' · ')))
     }catch(cause){setError(errorText(cause))}
-    finally{setBusy(false)}
+    finally{finishOperation()}
   }
 
   const runInstallation = async (id:string,kind:Exclude<Progress['kind'],'content_install'|'pack_install'|'loader_update'|'minecraft_update'|'backup'|'restore'|'world_import'|'world_duplicate'|'world_export'|'world_activate'|'world_delete'|'server_import'|'content_remove'|'content_toggle'>='install')=>{
@@ -480,7 +485,8 @@ function App() {
   }
 
   const removeServer = async (server: Server): Promise<DeleteOutcome> => {
-    setError(null); setNotice(null); setActionRefreshError(null); setBusy(true)
+    if(!beginOperation())throw new Error(t("Espera a que termine la operación actual"))
+    setError(null); setNotice(null); setActionRefreshError(null)
     try {
       const {value:outcome,refreshError}=await acknowledgedAction(()=>api.deleteServer(server.id),async()=>{
         ++serverReadRevision.current;latestServerStates.current.delete(server.id)
@@ -503,7 +509,7 @@ function App() {
     } catch (cause) {
       setError(errorText(cause))
       throw cause
-    } finally { setBusy(false) }
+    } finally { finishOperation() }
   }
 
   useListMotion(railRef,servers.map(server=>server.id).join(','))
@@ -612,10 +618,11 @@ function App() {
       {progressByServer[restoreTarget.serverId]?.kind==='restore'&&<InstallProgress key={progressByServer[restoreTarget.serverId].taskId} progress={progressByServer[restoreTarget.serverId]} busy={operationBusy} allowRetry={false} onRetry={()=>{}} onDismiss={()=>{const task=progressByServer[restoreTarget.serverId];progressRef.current=dismissTask(progressRef.current,task.serverId,task.taskId);setProgressByServer(progressRef.current)}}/>}
       {error && <p className="form-error" role="alert">{translatedMessage(typeof error==='string'?error:error.detail)}</p>}
       <div className="modal-actions"><button data-modal-close disabled={operationBusy}>{t("Cancelar")}</button><button className="primary-button" disabled={operationBusy} onClick={async()=>{
-        const target=restoreTarget;setError(null);setBusy(true)
+        if(!beginOperation())return
+        const target=restoreTarget;setError(null)
         try{await api.restoreBackup(target.serverId,target.backup.id);if(selectedRef.current===target.serverId){capacityDirtyRef.current=false;setCapacityDirty(false)}setRestoreTarget(null);await syncRestored(target.serverId)}
         catch(cause){setError(errorText(cause))}
-        finally{setBusy(false)}
+        finally{finishOperation()}
       }}>{operationBusy?t("Restaurando…"):t("Restaurar copia")}</button></div>
     </Modal>}
     {packOpen && <PackImport resumeId={packResume} tasks={progressByServer} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}

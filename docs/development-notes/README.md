@@ -2,6 +2,18 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Immediate ownership of application actions after 0.55.0
+
+The existing global busy state now has a synchronous owner. General actions,
+settings saves, manual backups, deletion and restore claim it before sending
+native work and release it in `finally`. Repeated callbacks cannot send another
+operation before React disables controls. Independent installation jobs retain
+their existing task ownership. Deletion contention returns existing wait guidance.
+Actual action/backup callback checks reproduce duplicate sends and cover shared
+contention, success/failure release and retry. TypeScript and the frontend build
+pass. Native operations, deletion/restore and Windows UI are not exercised by the
+probe. Temporary source removed; no retained test added and local 0.55 unchanged.
+
 ## Backup inventory derivation after 0.55.0
 
 The backup view memoizes its latest-copy selection and available reason values

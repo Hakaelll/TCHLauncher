@@ -58,6 +58,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Backup latest/reason derivation now reuses unchanged inventories. Controlled
   component checks preserve results and remove two repeated full scans per
   unrelated rerender; frontend compilation passes, without a runtime benchmark.
+- Global application actions now claim synchronous ownership before IPC, covering
+  general actions, settings, manual backup, deletion and restore. Scoped action/
+  backup callback checks and frontend compilation pass; native outcomes are not
+  inferred from those controlled boundaries.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
