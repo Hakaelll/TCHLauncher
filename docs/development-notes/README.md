@@ -2,6 +2,22 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Source after published 0.47.0
+
+Initial numeric values and chart lines no longer schedule animation frames for
+unchanged geometry or values. A numeric value also recovers immediately from a
+non-finite starting value instead of propagating it through interpolation.
+Changed readings retain their existing animation duration and retargeting.
+
+Reduced-motion lists skip geometry reads and DOM cloning, and clear retained
+positions and snapshots. Re-enabling normal motion rebuilds tracking on the next
+list change. Controlled component/hook checks reproduce the old redundant work
+and cover changed targets, interruptions, invalid values and preference changes.
+DOM, hook storage and animation scheduling are controlled; operation counts do
+not establish a measured CPU/RAM improvement or native visual acceptance.
+TypeScript and the Windows frontend production build pass. These source changes
+are not included in the published 0.47 installer.
+
 ## Changes packaged in 0.47.0
 
 Windows x64 NSIS build from `db647c2554e0db8cdf493af278a5938c4684dc59`, published as

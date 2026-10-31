@@ -43,19 +43,19 @@ export function useListMotion(ref:RefObject<HTMLElement|null>,identity:string) {
   const previousHeight=useRef<number|null>(null)
   useLayoutEffect(()=>{
     const parent=ref.current;if(!parent)return
+    if(reducedMotion()){positions.current.clear();snapshots.current.clear();previousHeight.current=null;return}
     const origin=parent.getBoundingClientRect(),next=new Map<string,{top:number;left:number}>(),nextSnapshots=new Map<string,HTMLElement>(),animations:Animation[]=[],ghosts:HTMLElement[]=[]
     parent.querySelectorAll<HTMLElement>('[data-layout-id]').forEach(element=>{
       const id=element.dataset.layoutId!,bounds=element.getBoundingClientRect(),position={top:bounds.top-origin.top+parent.scrollTop,left:bounds.left-origin.left+parent.scrollLeft},before=positions.current.get(id)
       next.set(id,position)
       nextSnapshots.set(id,element.cloneNode(true) as HTMLElement)
-      if(reducedMotion())return
       if(before && (Math.abs(before.top-position.top)>1 || Math.abs(before.left-position.left)>1)) {
         animations.push(element.animate([{transform:`translate(${before.left-position.left}px,${before.top-position.top}px)`},{transform:'translate(0,0)'}],{duration:motion.standard,easing:motion.ease}))
       } else if(!before && previousHeight.current!=null) {
         animations.push(element.animate([{opacity:0,transform:'translateX(-4px)'},{opacity:1,transform:'translateX(0)'}],{duration:motion.micro,easing:motion.enter}))
       }
     })
-    if(!reducedMotion() && positions.current.size) {
+    if(positions.current.size) {
       if(previousHeight.current!=null && Math.abs(previousHeight.current-origin.height)>1)animations.push(parent.animate([{height:`${previousHeight.current}px`},{height:`${origin.height}px`}],{duration:motion.standard,easing:motion.ease}))
       for(const [id,before] of positions.current)if(!next.has(id)) {
         const ghost=snapshots.current.get(id);if(!ghost)continue
@@ -79,7 +79,7 @@ export function AnimatedValue({value,format=(n:number)=>String(Math.round(n))}:{
   const current=useRef(value)
   useLayoutEffect(()=>{
     const start=current.current
-    if(value==null || start==null || !Number.isFinite(value) || reducedMotion()){current.current=value;setDisplay(value);return}
+    if(value==null || start==null || start===value || !Number.isFinite(start) || !Number.isFinite(value) || reducedMotion()){current.current=value;setDisplay(value);return}
     let frame=0;const began=performance.now()
     const tick=(now:number)=>{
       if(reducedMotion()){current.current=value;setDisplay(value);return}
@@ -102,7 +102,7 @@ export function AnimatedLine({points,times,identity,stepped=false}:{points:[numb
   useLayoutEffect(()=>{
     const before=previous.current;previous.current={identity,points,times}
     const line=element.current
-    if(!line || reducedMotion() || before.identity!==identity || !before.points.length || Math.abs(points.length-before.points.length)>1)return
+    if(!line || reducedMotion() || before.points===points || before.identity!==identity || !before.points.length || Math.abs(points.length-before.points.length)>1)return
     const prior=new Map(before.times.map((time,index)=>[time,before.points[index]]))
     const from=times.map(time=>prior.get(time) ?? before.points[before.points.length-1])
     const began=performance.now();let frame=0
