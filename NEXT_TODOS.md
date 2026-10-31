@@ -38,6 +38,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Console errors now use danger coloring and alert semantics, while successful
   copy/export notices remain status messages. Twelve scoped ES/EN callback/JSX
   cases and frontend checks pass; native clipboard/export remains manual validation.
+- Eight overridden CSS declarations are removed with unchanged remaining order,
+  context and final root values. The Windows frontend build passes; this is
+  maintainability cleanup, not a measured performance or native visual claim.
 - Packaged in local 0.49.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.

@@ -4,6 +4,14 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.49.0
 
+CSS cleanup removes eight declarations shadowed by later root rules with the same
+selector, property and importance. These cover six old colors plus the runtime
+mark's obsolete background and corner radius. Empty rules are removed too. The
+remaining declaration order/context and final root property values compare equal
+before/after, and the Windows frontend build passes. No dependency or retained
+test is added. This is source cleanup, not a measured rendering-speed improvement
+or native visual validation.
+
 Console command, clipboard and export failures now carry an error kind rather
 than sharing plain success notices. Errors use the theme's danger color and
 `role="alert"`; confirmations retain `role="status"`. Minecraft lines and copied
