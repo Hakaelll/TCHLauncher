@@ -12,8 +12,8 @@ Built with **Tauri 2, Rust, React, TypeScript and SQLite**.
 
 ## Project status
 
-Latest Windows preview: [**0.46.0**](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.46.0)
-— [changes and verification](docs/release-notes/RELEASE_NOTES_v0.46.0.md).
+Latest Windows preview: [**0.47.0**](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.47.0)
+— [changes and verification](docs/release-notes/RELEASE_NOTES_v0.47.0.md).
 The release attaches only the unsigned EXE installer; checksums stay local.
 GitHub releases normally group three or four version milestones. Implementation
 evidence and remaining checks are in the [development notes](docs/development-notes/README.md).

@@ -1,7 +1,8 @@
 # TCHLauncher 0.47.0
 
 Windows x64 preview. The installer is unsigned.
-Prepared for publication at the maintainer's explicit request.
+Published at the maintainer's explicit request, with only the EXE attached.
+Packaged source commit: `db647c2554e0db8cdf493af278a5938c4684dc59`.
 
 ## Changes since 0.46.0
 
@@ -22,8 +23,9 @@ Prepared for publication at the maintainer's explicit request.
 Isolated checks reproduce the dependency-ordering and cancellation-state bugs.
 They exercise production graph/callback code with controlled catalog, artifact,
 IPC and React-state boundaries. The native library check passes. Earlier scoped
-checks cover restore refresh retries and ES/EN error rendering. Packaging evidence
-will be recorded after the installer is built.
+checks cover restore refresh retries and ES/EN error rendering. TypeScript, the Windows frontend build, optimized offline NSIS packaging,
+executable/setup version checks and embedded-icon verification pass.
+The installer is 6,899,503 bytes.
 
 Native Windows interaction, installer lifecycle and live Minecraft sessions are
 not repeated for this version. Manual validation remains with the maintainer.
@@ -31,4 +33,4 @@ This release does not establish fixes for Internet stalls, mod-specific world
 behavior, rising Java RAM or imported Minehut account identity.
 
 No application dependency or external service is added. Only the EXE installer
-will be attached to the GitHub release; checksums remain local.
+is attached to the GitHub release; checksums remain local.

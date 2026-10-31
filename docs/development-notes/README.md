@@ -2,7 +2,13 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Source after published 0.46.0
+## Changes packaged in 0.47.0
+
+Windows x64 NSIS build from `db647c2554e0db8cdf493af278a5938c4684dc59`, published as
+an unsigned preview with exactly one EXE asset. The remote tag, asset size and
+digest match the local package. TypeScript, frontend, optimized offline native
+packaging, executable/setup versions and embedded icons pass. No native
+interaction or live Minecraft session was repeated for this package.
 
 Combined content plans now preload explicit root versions before traversing
 dependencies. A dependency without an exact version uses the reviewed root
@@ -46,7 +52,7 @@ ES/EN, all four failure sections, retry and stale replies. The actual console ro
 and runtime-path fragment retain original text. Read/React boundaries are
 controlled; these are not native interaction or restore-operation checks. These
 source changes pass TypeScript and the Windows frontend production build and are
-not in the published 0.46 installer.
+packaged in the published 0.47 installer.
 
 ## Changes packaged in 0.46.0
 

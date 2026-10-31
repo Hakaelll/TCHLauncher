@@ -28,10 +28,9 @@ Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como 
 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
-La 0.46.0 está publicada como preview de Windows, solo con el EXE adjunto,
-cumpliendo la última petición de publicar la versión final de los cambios
-acumulados. La 0.45.0 quedó como instalador local sin publicación en GitHub.
-El siguiente margen habitual parte de la 0.46.0, hacia la 0.49.0–0.50.0,
+La 0.47.0 está publicada como preview de Windows, solo con el EXE adjunto,
+cumpliendo la última petición de publicar al terminar la tanda de cambios.
+El siguiente margen habitual parte de la 0.47.0, hacia la 0.50.0–0.51.0,
 salvo nueva instrucción. Los commits no cuentan como versiones.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
