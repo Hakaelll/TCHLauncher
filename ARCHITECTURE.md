@@ -68,7 +68,10 @@ catalog includes reviewed native messages from
 catalog and its existing compiled patterns for their body, preventing general UI
 labels from partially translating an unknown diagnostic or path. Exact complete
 message translations take precedence. Unknown details are kept verbatim; console
-rows render raw Minecraft text. Native-copy coverage remains in progress. Existing native translations should move into that catalog when their module is reviewed, alongside new entries.
+rows render raw Minecraft text. Router diagnostics and Minecraft status-query
+errors use this same catalog; protocol responses remain unchanged. Native-copy
+coverage remains in progress. Existing native translations should move into that
+catalog when their module is reviewed, alongside new entries.
 
 ## Frontend reads and actions
 

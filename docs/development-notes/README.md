@@ -4,9 +4,9 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after local 0.45.0
 
-The English catalog adds 237 application-owned native messages across two passes:
+The English catalog adds 330 application-owned native messages across three passes:
 startup/JVM, players/permissions, properties, import, basic networking, backups,
-retention, worlds and recovery. Existing translations are retained and the
+retention, worlds, recovery and router diagnostics. Existing translations are retained and the
 scheduler help uses its existing English action label. Reviewed native copy now
 lives in `src/locales/native-en.ts` and is included by the general catalog.
 
@@ -24,7 +24,14 @@ values, reverse aliases and general lookup results for generated examples from
 all entries. TypeScript and the Windows frontend build pass; Vite reports its
 main-chunk size advisory. These are locale/helper checks, not native interaction,
 backup recovery or gameplay checks. No runtime performance gain is claimed.
-Other native installation/content, router and composed messages still need review;
+The network pass adds 93 UPnP/NAT-PMP diagnostics and moves eleven existing
+Minecraft-query translations into the native catalog without changing their values
+or reverse aliases. The NAT-PMP timeout now suggests manual forwarding instead of
+the removed tunnel feature. Actual locale checks include stored error wrappers
+and preserve unknown protocol/vendor details. Router discovery, opening, renewal
+and cleanup logic are unchanged; no physical-router interaction was performed.
+
+Other native installation/content and composed messages still need review;
 the literal inventory is heuristic and excludes recognized SQL rather than
 translating queries. This source postdates the local 0.45 installer. No version
 or release is generated for these localization changes.

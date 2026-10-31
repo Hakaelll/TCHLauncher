@@ -33,6 +33,8 @@ por petición posterior y expresa del usuario. La 0.45.0 es un instalador local,
 sin publicación en GitHub. El siguiente margen habitual parte
 de la 0.44.0, hacia la 0.47.0–0.48.0, salvo nueva instrucción. Los commits no
 cuentan como versiones.
+La última instrucción pide publicar la versión final de los cambios actuales
+cuando esté lista, sin releases intermedias y adjuntando solo el instalador EXE.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa

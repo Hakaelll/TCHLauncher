@@ -19,9 +19,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - This installer includes the
   [changes packaged in 0.45.0](docs/development-notes/README.md#changes-packaged-in-0450).
   Native interaction and affected-host validation remain scoped below.
-- The latest explicit request was fulfilled with 0.44.0. Normally wait three or four
-  version milestones before the next release, 0.47/0.48. Attach only the EXE;
-  keep checksums local. Commit and push continue independently.
+- The maintainer requests publishing the final version of the current changes
+  when ready, without intermediate releases. The usual cadence remains three or
+  four version milestones. Attach only the EXE; keep checksums local. Commit and
+  push continue independently.
 - Packaged changes belong in the [release notes](docs/release-notes/README.md),
   rather than another chronological list here.
 
@@ -119,7 +120,7 @@ scenarios. Detailed observations remain in
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |
 | UX-KEY-01 | REVIEW | Commands and search shortcuts | Ctrl+K/Ctrl+N connected; Ctrl+F skips hidden/inert/disabled searches and includes Players. The palette now opens server folders without navigating and restarts running servers through the existing lifecycle. Commands are revalidated against current state before execution. Verify native keyboard paths and modals. |
 | APP-SETTINGS-01 | REVIEW | Application preferences | Categories, themes/language, Java, paths, networking, retention and advanced settings connected. The selected ES/EN language now synchronizes Show/Quit tray labels through a validated native command. Application info/location reads have a read-only retry. Native interaction review remains pending; library-location migration is not implemented. |
-| I18N-NATIVE-01 | IN_PROGRESS | English native messages | Added 237 messages across core server administration, backups/worlds and recovery. Reviewed native copy has its own catalog; stored Error-prefixed messages use native patterns without general UI label matching. Actual ES/EN, argument/wrapper, opaque-detail and catalog-regrouping checks pass with TypeScript/frontend build. Installation/content, router and composed errors still need review; the literal inventory is not a complete census. These changes postdate the local 0.45 installer. |
+| I18N-NATIVE-01 | IN_PROGRESS | English native messages | Added 330 messages across core server administration, backups/worlds, recovery and UPnP/NAT-PMP diagnostics. Reviewed native copy has its own catalog, including existing Minecraft-query translations; stored Error-prefixed messages use native patterns without general UI label matching. Actual ES/EN, argument/wrapper, opaque-detail and catalog-regrouping checks pass with TypeScript/frontend build. Removed the stale tunnel suggestion without changing router operations. Installation/content and composed errors still need review; the literal inventory is not a complete census. These changes postdate the local 0.45 installer. |
 | APP-LOG-01 | REVIEW | Launcher diagnostics | Bounded rotated local JSONL logs implemented. Verify native folder opening and OS-session error reporting. |
 | UX-02 | REVIEW | Server image | Launcher and Minecraft server-icon.png use the selected image. Verify native crop/remove and the Minecraft multiplayer list. |
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |

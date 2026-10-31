@@ -107,7 +107,7 @@ impl Client{
                 }
             }
         }
-        Err("No se encontró soporte NAT-PMP en este router. Para jugar desde internet necesitarás una apertura manual o un túnel".into())
+        Err("No se encontró soporte NAT-PMP en este router. Para jugar desde internet puedes configurar una apertura manual".into())
     }
     pub fn address(&self)->Result<Address,String>{self.exchange(&[0,0],parse_address)}
     pub fn open(&self,internal:u16,suggested_external:u16,lifetime:u32)->Result<Mapping,String>{
