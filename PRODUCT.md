@@ -30,6 +30,7 @@ Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
 La 0.47.0 está publicada como preview de Windows, solo con el EXE adjunto,
 cumpliendo la última petición de publicar al terminar la tanda de cambios.
+La 0.48.0 agrupa las siguientes correcciones en un instalador local sin publicar.
 El siguiente margen habitual parte de la 0.47.0, hacia la 0.50.0–0.51.0,
 salvo nueva instrucción. Los commits no cuentan como versiones.
 

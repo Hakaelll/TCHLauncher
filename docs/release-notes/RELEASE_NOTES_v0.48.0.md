@@ -1,6 +1,7 @@
 # TCHLauncher 0.48.0
 
-Windows x64 preview preparation. This version is not published on GitHub.
+Windows x64 preview. The installer is unsigned and is not published on GitHub.
+Packaged source commit: `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
 The latest published preview remains 0.47.0.
 
 ## Changes since 0.47.0
@@ -33,7 +34,8 @@ Production download transfers against a loopback HTTP server pass SHA-1/256/512,
 no-hash, mismatch, cancellation and partial-cleanup checks. The accepted test socket
 uses blocking mode to prevent its original Windows fixture race. Full native test
 compilation passes; temporary checks were removed and retained tests are unchanged.
-Packaging evidence will be recorded after the installer is built.
+TypeScript, Windows frontend, optimized offline NSIS packaging, executable/setup
+versions and embedded-icon checks pass. The installer is 6,904,819 bytes.
 
 No measured CPU/RAM improvement, native scrolling/clipboard interaction, physical
 router result or new live Minecraft session is claimed. Affected-host Internet

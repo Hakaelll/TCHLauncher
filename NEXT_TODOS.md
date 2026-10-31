@@ -15,11 +15,12 @@ continue actionable work without repeated acceptance or screenshot requests.
 ## Build and publication state
 
 - Latest published preview: [0.47.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.47.0).
-- Latest local Windows installer: 0.47.0, unsigned and published.
+- Latest local Windows installer: 0.48.0, unsigned and not published.
 - Packaged source: `db647c2554e0db8cdf493af278a5938c4684dc59`. See the
   [0.47.0 changes](docs/release-notes/RELEASE_NOTES_v0.47.0.md) and scoped checks.
-- Subsequent animation and router-read fixes are source changes, not part of that
-  installer. See [current source notes](docs/development-notes/README.md#source-after-published-0470).
+- Subsequent animation, connection, console and download-buffer fixes are grouped
+  in the [local 0.48.0 build](docs/release-notes/RELEASE_NOTES_v0.48.0.md), from
+  `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
 - Publication of 0.47.0 fulfilled the maintainer's explicit current-batch request.
   The usual next window is 0.50/0.51 unless instructed otherwise. Attach only the
   EXE and keep checksums local. Commit and push continue independently.
@@ -131,7 +132,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.47.0 NSIS x64 built from commit db647c2 and published as an unsigned GitHub preview with exactly one EXE asset. TypeScript, Windows frontend, optimized offline packaging, executable/setup versions and embedded icons pass. Remote tag, size and digest match the package. Includes task-local cancellation state, structured restore refresh errors, read-error localization and root-pinned content resolution. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
+| REL-02 | REVIEW | Current installer | 0.48.0 NSIS x64 built locally from commit 382aca1, unsigned and unpublished. TypeScript, Windows frontend, optimized offline packaging, executable/setup versions and embedded icons pass. It groups post-0.47 animation, console, download-buffer and connection-feedback fixes. The latest GitHub preview remains 0.47.0 with one EXE asset. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
 
 ## Implemented scope from earlier audits
 

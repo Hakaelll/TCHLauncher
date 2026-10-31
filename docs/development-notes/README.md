@@ -2,7 +2,13 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Source after published 0.47.0
+## Changes packaged in 0.48.0
+
+Local unsigned Windows x64 NSIS package from `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
+TypeScript, frontend, optimized offline packaging, executable/setup versions and
+embedded icons pass. The installer is 6,904,819 bytes and has not been
+published on GitHub. The published preview remains 0.47.0; native interaction and
+gameplay were not repeated for this package.
 
 LAN and NAT-PMP clipboard feedback belongs to the exact address and most recent
 copy request. A changed address cannot inherit Copied or a clipboard error from
@@ -52,8 +58,7 @@ list change. Controlled component/hook checks reproduce the old redundant work
 and cover changed targets, interruptions, invalid values and preference changes.
 DOM, hook storage and animation scheduling are controlled; operation counts do
 not establish a measured CPU/RAM improvement or native visual acceptance.
-TypeScript and the Windows frontend production build pass. These source changes
-are not included in the published 0.47 installer.
+TypeScript and the Windows frontend production build pass. These changes are included in the local 0.48 installer.
 
 ## Changes packaged in 0.47.0
 
