@@ -297,6 +297,12 @@ a Microsoft account or migrate player inventories between UUIDs.
 | Local schedules and crash restart | [scheduler.rs](src-tauri/src/scheduler.rs), [crash_restart.rs](src-tauri/src/crash_restart.rs) |
 | Explicit OS/session startup preferences | [autostart.rs](src-tauri/src/autostart.rs) |
 
+Windows stores the application startup command under the current user's Run key.
+The generated NSIS uninstaller removes the product value outside update mode and
+preserves it during upgrades. Keep the native value name aligned with the bundle's
+product name. Java launch validation reads the local executable version and cached
+requirement; catalog lookup belongs to preparation rather than that validation.
+
 Router discovery can run automatically; mapping creation remains explicit.
 Ownership, expected address/port and persisted cleanup state govern renewal/removal.
 A router acknowledgement neither opens the Windows firewall nor proves outside

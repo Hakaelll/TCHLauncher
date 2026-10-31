@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows startup review after 0.50.0
+
+The generated 0.50 NSIS script removes the same current-user Run value used by
+native autostart and excludes update mode from that cleanup. No custom uninstall
+hook is needed for this behavior. Runtime launch validation reads the local Java
+version and cached requirement without a catalog lookup in that function.
+
+This is read-only source/generated-script evidence. It does not replace an actual
+registry transition, new silent uninstall or offline Minecraft session. Installed
+preferences are unchanged, and no test, dependency or runtime behavior is added.
+
 ## Changes packaged in local 0.50.0
 
 Unsigned Windows x64 NSIS installer from
