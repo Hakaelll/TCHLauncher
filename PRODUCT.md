@@ -34,8 +34,9 @@ La última instrucción pide publicar la versión que cierre esta tanda de mejor
 sin esperar al margen habitual de 3 o 4 versiones. Las versiones intermedias
 siguen siendo locales. La publicación de la 0.48.0 cumple esa petición.
 Los commits no cuentan como versiones.
-La 0.49.0 agrupa las mejoras de gráficas, navegación de listas e inglés en un
-instalador local. GitHub permanece en la 0.48.0; no se publica cada iteración.
+La 0.50.0 agrupa avisos, limpieza de tareas, búsquedas locales y clientes HTTP
+compartidos en un instalador local. Se conservan los instaladores 0.49 y 0.50.
+GitHub permanece en la 0.48.0; no se publica cada iteración.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa

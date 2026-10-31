@@ -2,7 +2,16 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Unreleased changes after 0.49.0
+## Changes packaged in local 0.50.0
+
+Unsigned Windows x64 NSIS installer from
+`abfe08a164bc911cb75f4a082955c7caaee87ec8`. TypeScript, Windows frontend,
+optimized offline packaging, executable/setup versions and embedded icons pass.
+The installer is 6,900,234 bytes. GitHub remains at 0.48.0; no new release or
+checksum asset is published. Local retention keeps the verified 0.49/0.50 setups.
+Protected cleanup removes 3,713,878,156 logical bytes of generated cache, with both
+setup hashes and the executable hash unchanged. Allocated-disk savings are not
+measured. Native interaction and gameplay are not repeated for this package.
 
 Download tasks reuse successful HTTP clients through separate catalog, transfer
 and strict modpack profiles. Task IDs, cancellation, progress and byte limits
