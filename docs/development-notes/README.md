@@ -62,9 +62,19 @@ for these catalog-only changes.
 All remaining static candidates in the initial heuristic inventory have been
 reviewed. SQL statements remain untranslated; their application-owned status
 values are handled separately. This inventory is not a complete census. Nested
-application errors, composed messages and copy outside that initial inventory
-still need review. This source postdates the local 0.45 installer. No version or
-release is generated for these localization changes.
+application errors in eight reviewed wrappers now have explicit argument metadata.
+The old helper reproduces untranslated nested bodies for attempt failures, content
+migration, retention, recovery, catalog lookup, dependency review and partial player
+commands. Only application-error arguments are translated, to a maximum depth of
+eight; project names, destination lists and raw NeoForge installer output remain
+data. The general translator retains its lookup priority and explicit-argument
+behavior. Three existing messages move into the native catalog without changing
+their values or reverse aliases.
+
+Actual locale checks cover nested messages, ES/EN switching, opaque details,
+bounded depth and compatibility with the existing catalog. Joined error lists and
+copy outside the initial inventory still need review. This source postdates the
+local 0.45 installer. No version or release is generated for these changes.
 
 ## Workspace maintenance after 0.45.0
 

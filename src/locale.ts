@@ -1,5 +1,5 @@
 import { english } from './locales/en.ts'
-import { nativeEnglish } from './locales/native-en.ts'
+import { nativeEnglish, nativeMessageDetails } from './locales/native-en.ts'
 
 export type Language = 'es' | 'en'
 export const languageKey = 'tch-language-v1'
@@ -24,15 +24,20 @@ export function setLanguage(value:Language,storage:StorageLike|null,root?:HTMLEl
 const reverse=new Map(Object.entries(english).map(([es,en])=>[en,es]))
 const fill=(value:string,args:unknown[])=>value.replace(/\{(\d+)\}/g,(_,index:string)=>String(args[Number(index)]??`{${index}}`))
 const escape=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
-const pattern=(source:string,target:string,native:boolean)=>({target,native,prefix:source.split(/\{\d+\}/)[0],suffix:source.split(/\{\d+\}/).at(-1)!,indices:[...source.matchAll(/\{(\d+)\}/g)].map(match=>Number(match[1])),expression:new RegExp('^'+source.split(/\{\d+\}/).map(escape).join('(.*?)')+'$','s')})
+const pattern=(source:string,target:string,native:boolean,details:readonly number[])=>({target,native,details,prefix:source.split(/\{\d+\}/)[0],suffix:source.split(/\{\d+\}/).at(-1)!,indices:[...source.matchAll(/\{(\d+)\}/g)].map(match=>Number(match[1])),expression:new RegExp('^'+source.split(/\{\d+\}/).map(escape).join('(.*?)')+'$','s')})
 const entries=Object.entries(english).filter(([es])=>/\{\d+\}/.test(es)).sort(([a],[b])=>b.replace(/\{\d+\}/g,'').length-a.replace(/\{\d+\}/g,'').length)
-const patterns={en:entries.map(([es,en])=>pattern(es,en,Object.hasOwn(nativeEnglish,es))),es:entries.map(([es,en])=>pattern(en,es,Object.hasOwn(nativeEnglish,es)))}
-const nativePatterns={en:patterns.en.filter(item=>item.native),es:patterns.es.filter(item=>item.native)}
-function matchPatterns(message:string,candidates:readonly ReturnType<typeof pattern>[]):string|undefined {
+const patterns={en:entries.map(([es,en])=>pattern(es,en,Object.hasOwn(nativeEnglish,es),nativeMessageDetails[es]??[])),es:entries.map(([es,en])=>pattern(en,es,Object.hasOwn(nativeEnglish,es),nativeMessageDetails[es]??[]))}
+const detailEntries=entries.filter(([es])=>nativeMessageDetails[es]?.length)
+const nativePatterns={
+  en:[...patterns.en.filter(item=>item.native),...detailEntries.map(([es,en])=>pattern(en,en,true,nativeMessageDetails[es]))],
+  es:[...patterns.es.filter(item=>item.native),...detailEntries.map(([es])=>pattern(es,es,true,nativeMessageDetails[es]))],
+}
+const nativeDetailPatterns={en:nativePatterns.en.filter(item=>item.details.length),es:nativePatterns.es.filter(item=>item.details.length)}
+function matchPatterns(message:string,candidates:readonly ReturnType<typeof pattern>[],translateDetail?:(message:string)=>string):string|undefined {
   for(const pattern of candidates){
     if(!message.startsWith(pattern.prefix)||!message.endsWith(pattern.suffix))continue
     const match=pattern.expression.exec(message)
-    if(match){const values:unknown[]=[];pattern.indices.forEach((index,i)=>{values[index]=match[i+1]});return fill(pattern.target,values)}
+    if(match){const values:unknown[]=[];pattern.indices.forEach((index,i)=>{const value=match[i+1];values[index]=translateDetail&&pattern.details.includes(index)?translateDetail(value):value});return fill(pattern.target,values)}
   }
 }
 /** Only call for application copy. User names, paths and Minecraft logs stay verbatim. */
@@ -59,14 +64,24 @@ export function localizedStatic<T extends object>(value:T):T {
 }
 export function formatNumber(value:number,options?:Intl.NumberFormatOptions){return new Intl.NumberFormat(language==='en'?'en-US':'es-ES',options).format(value)}
 export function formatDate(value:Date|string|number,options?:Intl.DateTimeFormatOptions){return new Date(value).toLocaleString(language==='en'?'en-US':'es-ES',options)}
+function translatedNativeMessage(message:string,depth:number):string|undefined {
+  if(depth>=8)return message
+  const key=Object.hasOwn(nativeEnglish,message)?message:reverse.get(message)
+  if(key&&Object.hasOwn(nativeEnglish,key))return language==='en'?nativeEnglish[key]:key
+  const prefix='Error: '
+  if(message.startsWith(prefix)){
+    const detail=message.slice(prefix.length)
+    return prefix+(translatedNativeMessage(detail,depth+1)??detail)
+  }
+  return matchPatterns(message,nativePatterns[language],detail=>translatedNativeMessage(detail,depth+1)??detail)
+}
 export function translatedMessage<T>(value:T):T extends string?string:T
 export function translatedMessage(value:unknown):unknown {
   if(typeof value!=='string')return value
-  const prefix='Error: '
-  if(!value.startsWith(prefix)||Object.hasOwn(english,value)||reverse.has(value))return t(value)
-  const detail=value.slice(prefix.length)
-  const known=Object.hasOwn(nativeEnglish,detail)||Object.hasOwn(nativeEnglish,reverse.get(detail)??'')
-  return prefix+(known?t(detail):matchPatterns(detail,nativePatterns[language])??detail)
+  if(Object.hasOwn(english,value)||reverse.has(value))return t(value)
+  if(value.startsWith('Error: '))return translatedNativeMessage(value,0)??value
+  const message=t(value)
+  return matchPatterns(message,nativeDetailPatterns[language],detail=>translatedNativeMessage(detail,1)??detail)??message
 }
 
 export function formatTime(value:Date|string|number,options?:Intl.DateTimeFormatOptions,locale=language){return new Date(value).toLocaleTimeString(locale==='en'?'en-US':'es-ES',options)}

@@ -1,3 +1,15 @@
+// Only these arguments contain application errors; other placeholders remain data.
+export const nativeMessageDetails:Record<string,readonly number[]>={
+  "Error en intento {0}: {1}": [1],
+  "No se pudo preparar una migración compatible del contenido: {0}": [0],
+  "La copia está guardada, pero no se pudo aplicar la retención: {0}": [0],
+  "{0}. Recuperación pendiente: {1}": [0,1],
+  "{0}; no se pudieron retirar algunas copias: {1}": [0],
+  "{0}: no se pudo consultar el catálogo ({1}).": [1],
+  "Revisión de dependencias incompleta: {0}": [0],
+  "Se enviaron {0} de {1} jugadores antes del error: {2}": [2],
+}
+
 export const nativeEnglish:Record<string,string>={
   "{0} no contiene una lista válida: {1}": "{0} does not contain a valid list: {1}",
   "{0} contiene una identidad incompleta: {1}": "{0} contains an incomplete identity: {1}",
@@ -843,4 +855,7 @@ export const nativeEnglish:Record<string,string>={
   "Reintento cancelado: el servidor ya está activo": "Retry cancelled: the server is already active",
   "Reintento cancelado al cerrar la aplicación": "Retry cancelled when the application closed",
   "Interrumpida al cerrar la aplicación; no se repite esta ejecución": "Interrupted when the application closed; this run will not be repeated",
+  "Revisión de dependencias incompleta: {0}": "Dependency review incomplete: {0}",
+  "Se enviaron {0} de {1} jugadores antes del error: {2}": "Sent {0} of {1} player requests before the error: {2}",
+  "El servidor ya no está en ejecución": "The server is no longer running",
 }
