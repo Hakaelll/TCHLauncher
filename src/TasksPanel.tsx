@@ -23,12 +23,14 @@ export function TasksPanel({id}:{id:string}) {
   const [date,setDate]=useState(()=>localDate(new Date(Date.now()+3600000)))
   const [repeat,setRepeat]=useState(false)
   const [minutes,setMinutes]=useState(60)
+  const [validation,setValidation]=useState<{field:'date'|'interval';message:string}|null>(null)
+  const dateInput=useRef<HTMLInputElement>(null),intervalInput=useRef<HTMLInputElement>(null)
   const scope=useRef({active:false,working:false})
   const load=useCallback(()=>inventory.refresh(id),[id,inventory.refresh])
   const locked=working||inventory.loading||!!inventory.error||!loaded
   useEffect(()=>{
     const current={active:true,working:false};scope.current=current
-    setError(null);setAdding(false);setWorking(false);setNotice(null)
+    setError(null);setAdding(false);setWorking(false);setNotice(null);setValidation(null)
     const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
     void subscription.catch(()=>{if(current.active&&scope.current===current)setError(t("No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista."))})
     return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
@@ -45,9 +47,13 @@ export function TasksPanel({id}:{id:string}) {
     finally{current.working=false;if(current.active&&scope.current===current)setWorking(false)}
   }
   const submit=async(event:FormEvent)=>{
-    event.preventDefault();const nextAt=new Date(date).getTime()
-    if(!Number.isFinite(nextAt)||nextAt<=Date.now()){setError(t("Elige una fecha y hora futuras."));return}
-    if(repeat&&(!Number.isInteger(minutes)||minutes<1||minutes>525600)){setError(t("Elige un intervalo entero entre 1 y 525600 minutos."));return}
+    event.preventDefault();const nextAt=new Date(date).getTime(),now=Date.now()
+    const dateError=!Number.isFinite(nextAt)||nextAt<=now?t("Elige una fecha y hora futuras.")
+      :nextAt>now+5*366*24*60*60*1000?t("Elige una fecha dentro de los próximos cinco años.")
+      :localDate(new Date(nextAt))!==date?t("Esta fecha y hora no existen en la zona horaria del equipo. Elige otra."):null
+    if(dateError){setError(null);setValidation({field:'date',message:dateError});dateInput.current?.focus();return}
+    if(repeat&&(!Number.isInteger(minutes)||minutes<1||minutes>525600)){setError(null);setValidation({field:'interval',message:t("Elige un intervalo entero entre 1 y 525600 minutos.")});intervalInput.current?.focus();return}
+    setValidation(null)
     await mutate(()=>api.addScheduledTask(id,{action,nextAt,intervalMinutes:repeat?minutes:null}),t("Tarea programada."),()=>setAdding(false))
   }
   return <section className="tasks-panel" aria-labelledby="tasks-title" aria-busy={working||inventory.loading}>
@@ -61,15 +67,15 @@ export function TasksPanel({id}:{id:string}) {
       <div className="scheduled-actions">{!task.invalid&&(task.enabled||task.intervalMinutes!==null||task.nextAt>Date.now())&&<button disabled={locked||task.running} onClick={()=>void mutate(()=>api.setScheduledTaskEnabled(id,task.id,!task.enabled),task.enabled?t("Tarea pausada."):t("Tarea activada."))}>{task.enabled?t("Pausar"):t("Activar")}</button>}<button className="text-button" disabled={locked||task.running} aria-label={t("Quitar tarea: {0}",taskLabel(task.action))} onClick={()=>void mutate(()=>api.removeScheduledTask(id,task.id),t("Tarea retirada."))}>{t("Quitar")}</button></div>
     </article>)}</div>}
     <CrashRestartPanel key={id} id={id}/>
-    {adding&&<Modal labelledBy="schedule-title" busy={working} onClose={()=>{setAdding(false);setError(null)}}>
+    {adding&&<Modal labelledBy="schedule-title" busy={working} onClose={()=>{setAdding(false);setError(null);setValidation(null)}}>
       <h2 id="schedule-title">{t("Programar tarea")}</h2>
-      <form className="schedule-form" onSubmit={submit}>
+      <form className="schedule-form" noValidate onSubmit={submit}>
         <label>{t("Acción")}<select value={action} onChange={event=>{const value=event.target.value;if(value==='backup'||value==='backup_restart'||value==='start'||value==='restart'||value==='stop')setAction(value)}} disabled={working}>{Object.entries(actions).map(([value,label])=><option key={value} value={value}>{translatedMessage(label)}</option>)}</select></label>
         {action==='backup_restart'&&<p className="inline-note">{t("Interrumpirá a los jugadores: detendrá el servidor, guardará la copia e intentará iniciarlo de nuevo. Si ya está detenido, solo hará la copia.")}</p>}
         {action==='backup'&&<p className="field-help">{t("Si el servidor está en ejecución, la copia se omitirá y aparecerá en el resultado de la tarea.")}</p>}
-        <label>{t("Primera ejecución")}<input type="datetime-local" required value={date} onChange={event=>setDate(event.target.value)} disabled={working}/></label>
-        <label className="schedule-repeat"><input type="checkbox" checked={repeat} onChange={event=>setRepeat(event.target.checked)} disabled={working}/>{t("Repetir")}</label>
-        {repeat&&<label>{t("Intervalo en minutos")}<input type="number" required min={1} max={525600} step={1} value={minutes} onChange={event=>setMinutes(Number(event.target.value))} disabled={working}/></label>}
+        <label>{t("Primera ejecución")}<input ref={dateInput} type="datetime-local" required value={date} aria-invalid={validation?.field==='date'} aria-describedby={validation?.field==='date'?'schedule-date-error':undefined} onChange={event=>{setDate(event.target.value);if(validation?.field==='date')setValidation(null)}} disabled={working}/>{validation?.field==='date'&&<span id="schedule-date-error" className="form-error" role="alert">{translatedMessage(validation.message)}</span>}</label>
+        <label className="schedule-repeat"><input type="checkbox" checked={repeat} onChange={event=>{setRepeat(event.target.checked);if(validation?.field==='interval')setValidation(null)}} disabled={working}/>{t("Repetir")}</label>
+        {repeat&&<label>{t("Intervalo en minutos")}<input ref={intervalInput} type="number" required min={1} max={525600} step={1} value={minutes} aria-invalid={validation?.field==='interval'} aria-describedby={validation?.field==='interval'?'schedule-interval-error':undefined} onChange={event=>{setMinutes(Number(event.target.value));if(validation?.field==='interval')setValidation(null)}} disabled={working}/>{validation?.field==='interval'&&<span id="schedule-interval-error" className="form-error" role="alert">{translatedMessage(validation.message)}</span>}</label>}
         {error&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
         {inventory.error&&<div className="panel-read-state failed"><p role="alert">{translatedMessage(inventory.error)}</p><button type="button" disabled={working||inventory.loading} onClick={()=>void load()}>{t("Reintentar lectura")}</button></div>}
         <div className="modal-actions"><button type="button" data-modal-close disabled={working}>{t("Cancelar")}</button><button className="primary-button" disabled={locked}>{working?t("Programando…"):t("Programar")}</button></div>

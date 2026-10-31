@@ -1161,6 +1161,8 @@ export const english: Record<string,string> = {
   "Tarea no válida": "Invalid task",
   "No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista.": "Could not receive task changes. Use Refresh to load the list.",
   "Elige una fecha y hora futuras.": "Choose a future date and time.",
+  "Elige una fecha dentro de los próximos cinco años.": "Choose a date within the next five years.",
+  "Esta fecha y hora no existen en la zona horaria del equipo. Elige otra.": "This date and time do not exist in your computer's time zone. Choose another.",
   "Elige un intervalo entero entre 1 y 525600 minutos.": "Choose a whole interval between 1 and 525600 minutes.",
   "Tareas programadas": "Scheduled tasks",
   "Se ejecutan mientras TCHLauncher está abierto, también en segundo plano.": "Run while TCHLauncher is open, including in the background.",

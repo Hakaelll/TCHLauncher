@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Scheduled local-time validation after 0.51.0
+
+The task form rejects local dates/times that JavaScript would silently normalize,
+including a skipped daylight-saving hour. It also mirrors the native five-year
+scheduling bound. Date and repeat-interval errors are associated with their fields,
+focus the field needing correction, and clear on edits or modal dismissal.
+Native task timestamps and scheduling behavior remain unchanged.
+
+An actual submit-callback probe reproduces 02:30 becoming 03:30 in Madrid before
+the change. Thirty-four scoped ES/EN checks then cover Madrid/New York DST gaps,
+UTC, a repeated fall-back hour, valid/invalid leap dates, future/range validation,
+repeat intervals, exact submitted timestamps, focus requests and field error markup.
+TypeScript and the Windows frontend build pass. Native/focus boundaries are
+controlled; this does not automate the Windows date picker or screen reader.
+Repeated local times retain the platform's default occurrence. Temporary probes
+are removed, adding no retained tests or dependency. The 0.51 release is unchanged.
+
 ## Published Windows 0.51.0
 
 [Preview release](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.51.0) groups the
