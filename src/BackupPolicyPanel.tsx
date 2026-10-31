@@ -13,7 +13,7 @@ export function BackupPolicyPanel({id,disabled,onChanged}:{id:string;disabled:bo
   const [working,setWorking]=useState(false)
   const [error,setError]=useState<string|null>(null)
   const [readError,setReadError]=useState<string|null>(null)
-  const [notice,setNotice]=useState<string|null>(null)
+  const [notice,setNotice]=useState<string|{removed:number;warnings:string[]}|null>(null)
   const [loading,setLoading]=useState(false)
   const [submitted,setSubmitted]=useState(false)
   const [plan,setPlan]=useState<BackupRetentionPlan|null>(null)
@@ -61,7 +61,7 @@ export function BackupPolicyPanel({id,disabled,onChanged}:{id:string;disabled:bo
     void operation(async()=>{
       const result=await api.applyBackupRetention(current.id,fingerprint)
       if(!current.active||scope.current!==current)return
-      setPlan(null);setNotice(`Limpieza completada: ${result.remove.length} copias eliminadas.${result.warnings.length?' '+result.warnings.join(' '):''}`)
+      setPlan(null);setNotice({removed:result.remove.length,warnings:result.warnings})
       try{await onChanged()}catch(cause){if(current.active&&scope.current===current)setError(t("La limpieza terminó, pero no se pudo actualizar la lista: {0}", String(cause)))}
     })
   }
@@ -80,7 +80,7 @@ export function BackupPolicyPanel({id,disabled,onChanged}:{id:string;disabled:bo
         <div className="backup-policy-actions"><button className="primary-button" type="submit" disabled={!dirty}>{working?t("Procesando…"):t("Guardar política")}</button><button type="button" disabled={dirty||!saved?.enabled||!!readError} onClick={preview}>{t("Revisar limpieza de copias")}</button></div>
       </fieldset></form>
       <div className="backup-policy-refresh"><span>{dirty?t("Cambios sin guardar"):''}</span><button disabled={working||loading} onClick={refresh}>{loading?t("Consultando…"):t("Actualizar")}</button></div>
-      {notice&&<p className="field-help" role="status">{translatedMessage(notice)}</p>}
+      {notice&&<p className="field-help" role="status">{typeof notice==='string'?translatedMessage(notice):<>{t("Limpieza completada. Copias eliminadas: {0}.",notice.removed)}{notice.warnings.map((warning,index)=><span key={index}> {translatedMessage(warning)}</span>)}</>}</p>}
       {readError&&<p className="form-error" role="alert">{translatedMessage(readError)}</p>}
       {error&&!plan&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
     </details>

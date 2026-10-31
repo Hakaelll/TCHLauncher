@@ -38,6 +38,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   isolated dependency-size and runtime memory effects remain unmeasured.
 - Publication follows the usual 3–4-version cadence. The requested final batch
   release remains authorized; commits and pushes proceed independently.
+- Post-0.53 storage/retention notices now localize skipped links and cleanup
+  results at render time, preserving external details. Scoped ES/EN component
+  and callback checks and frontend compilation pass; real operations are unchanged.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.

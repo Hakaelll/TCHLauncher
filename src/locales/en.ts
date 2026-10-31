@@ -1,6 +1,7 @@
 import {nativeEnglish} from './native-en.ts'
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Limpieza completada. Copias eliminadas: {0}.": "Cleanup completed. Backups removed: {0}.",
   "Propiedades": "Properties",
   "Elige entre 1 y 10 intentos.": "Choose between 1 and 10 attempts.",
   "Copia tras la parada: {0}": "Backup after stopping: {0}",

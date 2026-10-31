@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Storage and retention message localization after 0.53.0
+
+Storage measurements use the existing translated message for skipped symbolic
+links. Backup cleanup keeps the removed count and warning messages as structured
+notice data, translating each at render time instead of joining a Spanish result.
+Changing language updates the result without repeating cleanup, and unknown
+warning text or paths remain verbatim. One English result message is added.
+
+An actual component-tree check reproduces the Spanish storage fragment in English.
+Sixty-two scoped storage/retention component and callback checks cover ES/EN,
+zero/nonzero excluded links, removed counts, translated and external warnings,
+language changes after acknowledgement and failed post-cleanup list refresh.
+TypeScript and the Windows frontend build pass. Hooks and IPC are controlled;
+no actual disk scan, backup deletion or native UI is driven. Temporary probes
+are removed, adding no retained test or dependency. Existing installers and the
+published release remain unchanged.
+
 ## NAT-PMP actions during background reads after 0.53.0
 
 Periodic status reads no longer own the mutation lock. Previously, a visible
