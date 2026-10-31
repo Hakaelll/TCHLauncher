@@ -4,6 +4,19 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.48.0
 
+RAM and CPU plots now share the inspected timestamp for pointer and keyboard
+navigation. A missing reading keeps the selected time and shows a dash instead of
+substituting the latest value. Escape returns both plots to recent readings;
+server/process/range changes cannot inherit a selection from another context.
+Repeated pointer movement within one sample reuses the inspection state.
+
+Actual component/callback checks reproduce independent timestamps before the
+change and pass afterward for shared inspection, missing CPU readings, Escape,
+pointer leave, context changes and unchanged-state identity in English/Spanish.
+All 32 scoped cases, TypeScript and the Windows frontend build pass. Hooks and
+pointer bounds are controlled; native visual/keyboard validation remains with the
+maintainer. No dependency or retained test is added, and sampling is unchanged.
+
 The maintainer confirms on October 31, 2026 that the old reports from the other
 computer are already resolved. Those reports are closed on user confirmation and
 must not remain implementation blockers. Pending manual validation belongs to

@@ -173,8 +173,11 @@ range control. RAM and heap are distinct, with zero baseline, visible axes and
 automatic scaling that does not treat Xmx as a resident-memory limit. Keep sampled
 orthogonal lines, gaps, square markers and measured peak values. The current plot
 uses five quiet measurement guides. Do not add segmented meters to the plots.
-Pointer and keyboard inspection show time and values above the plot. At least one
-available memory series remains selected. Response/TPS and process/disk facts form
+Pointer and keyboard inspection share one selected time across RAM and CPU, with
+values above each plot. Missing readings remain gaps with a dash, never a newer
+sample substituted for the selected time. Escape returns both plots to the latest
+readings; server, process and range ownership prevent cross-context selections.
+At least one available memory series remains selected. Response/TPS and process/disk facts form
 separate groups; memory interpretation and export help use disclosures.
 
 Connection places the LAN address and its facts before an always-visible internet

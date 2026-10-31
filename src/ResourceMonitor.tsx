@@ -11,8 +11,7 @@ import {chartSamples,inspectionSamples,stepSample,memoryDomain,cpuDomain,measure
 const bytesLabel = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`
 
 type MonitorProps={server:Server;metrics:Metrics|null;history:MetricSample[];error:string|null}
-function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorProps & {metric:'memoryBytes'|'cpuPercent';windowMs:number}) {
-  const [hoverTime,setHoverTime]=useState<number|null>(null)
+function ResourceChart({server,metrics,history,error,metric,windowMs,hoverTime,onInspect}:MonitorProps & {metric:'memoryBytes'|'cpuPercent';windowMs:number;hoverTime:number|null;onInspect:(time:number|null)=>void}) {
   const [showProcess,setShowProcess]=useState(true),[showHeap,setShowHeap]=useState(true)
   const [autoCpu,setAutoCpu]=useState(true)
   const memory=metric==='memoryBytes'
@@ -31,7 +30,7 @@ function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorPro
   const format = memory ? bytesLabel : (value: number) => `${value.toFixed(1)} %`
   const latest = metrics?.[metric]
   const current = latest == null ? '—' : format(latest)
-  const hovered=inspectable.find(sample=>sample.sampledAt===hoverTime)
+  const hovered=samples.find(sample=>sample.sampledAt===hoverTime)
   const selected=hovered??samples.at(-1)
   const pointKey=hovered?keys.find(key=>measured(hovered[key])):undefined
   const area=(segment:MetricSample[],key:ChartMetric)=>[`${x(segment[0])},142`,...segment.flatMap((sample,i)=>i===0?[`${x(sample)},${y(sample,key)}`]:[`${x(sample)},${y(segment[i-1],key)}`,`${x(sample)},${y(sample,key)}`]),`${x(segment[segment.length-1])},142`].join(' ')
@@ -43,7 +42,7 @@ function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorPro
 
     <div className="monitor-chart">
       <div className="chart-scale"><span>{format(maximum)}</span><span>{format(maximum/2)}</span><span>0</span></div>
-      <svg viewBox="0 0 500 154" preserveAspectRatio="none" role="img" tabIndex={inspectable.length?0:undefined} onKeyDown={event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();setHoverTime(stepSample(inspectable,hoverTime,event.key as 'ArrowLeft'|'ArrowRight'|'Home'|'End'))}} onBlur={()=>setHoverTime(null)} aria-label={t("{0} durante los últimos {1} segundos. Valor actual: {2}. Usa las flechas para explorar las muestras.",memory?t("Memoria"):'CPU',windowMs/1000,current)} onPointerLeave={()=>setHoverTime(null)} onPointerMove={event=>{const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*500;const nearest=inspectable.reduce<MetricSample|null>((best,sample)=>!best || Math.abs(x(sample)-position)<Math.abs(x(best)-position)?sample:best,null);setHoverTime(nearest?.sampledAt ?? null)}}>
+      <svg viewBox="0 0 500 154" preserveAspectRatio="none" role="img" tabIndex={inspectable.length?0:undefined} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();onInspect(null);return}if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();onInspect(stepSample(inspectable,hoverTime,event.key as 'ArrowLeft'|'ArrowRight'|'Home'|'End'))}} onBlur={()=>onInspect(null)} aria-label={t("{0} durante los últimos {1} segundos. Valor actual: {2}. Usa las flechas para explorar las muestras y Esc para volver a la última.",memory?t("Memoria"):'CPU',windowMs/1000,current)} onPointerLeave={()=>onInspect(null)} onPointerMove={event=>{const bounds=event.currentTarget.getBoundingClientRect(),position=(event.clientX-bounds.left)/bounds.width*500;const nearest=inspectable.reduce<MetricSample|null>((best,sample)=>!best || Math.abs(x(sample)-position)<Math.abs(x(best)-position)?sample:best,null);onInspect(nearest?.sampledAt ?? null)}}>
         {segments.map((segment,index)=><polygon key={`area:${index}`} className="chart-area" points={area(segment,metric)}/>)}
         {!showProcess&&heapSegments.map((segment,index)=><polygon key={`heap-area:${index}`} className="chart-area heap-area" points={area(segment,'heapUsedBytes')}/>)}
         {[14,46,78,110,142].map(row => <line key={row} x1="12" y1={row} x2="488" y2={row} className={`chart-grid ${row===14||row===78||row===142?'major':'minor'}`}/>)}
@@ -51,23 +50,31 @@ function ResourceChart({server,metrics,history,error,metric,windowMs}:MonitorPro
         <g className="heap-chart-line">{heapSegments.map((segment,index)=><AnimatedLine stepped key={index} identity={`${server.id}:${metrics?.pid}:heap:${windowMs}:${index}`} times={segment.map(sample=>sample.sampledAt)} points={segment.map(sample=>[x(sample),y(sample,'heapUsedBytes')])}/>)}</g>
         {segments.map((segment,index)=>{const sample=segment.at(-1)!;return <rect key={`point:${index}`} className="chart-point" x={x(sample)-2} y={y(sample)-2} width="4" height="4"/>})}
         {heapSegments.map((segment,index)=>{const sample=segment.at(-1)!;return <rect key={`heap-point:${index}`} className="heap-point" x={x(sample)-2} y={y(sample,'heapUsedBytes')-2} width="4" height="4"/>})}
-        {hovered&&pointKey&&<><line className="chart-cursor" x1={x(hovered)} y1="14" x2={x(hovered)} y2="142"/><rect className={pointKey==='heapUsedBytes'?'heap-point':'chart-point'} x={x(hovered)-3} y={y(hovered,pointKey)-3} width="6" height="6"/></>}
+        {hovered&&<><line className="chart-cursor" x1={x(hovered)} y1="14" x2={x(hovered)} y2="142"/>{pointKey&&<rect className={pointKey==='heapUsedBytes'?'heap-point':'chart-point'} x={x(hovered)-3} y={y(hovered,pointKey)-3} width="6" height="6"/>}</>}
       </svg>
       {!inspectable.length&&<p className="chart-empty"><strong>{error?t("Lectura no disponible"):memory&&!showProcess?t("Heap no disponible"):metrics?.pid?t("Recogiendo muestras…"):t("Esperando al servidor")}</strong><span>{metrics?.pid?t("Las lecturas aparecerán aquí."):t("Inicia el servidor para medir su rendimiento.")}</span></p>}
     </div>
     <div className="chart-times"><span>−{windowMs/1000} s</span><span>−{windowMs/2000} s</span><span>{t("Última muestra")}</span></div>
-    <div className="chart-legend" role={memory?'group':undefined} aria-label={memory?t("Series de memoria visibles"):undefined}>{memory?<><button className="process-legend" aria-pressed={showProcess} disabled={showProcess&&(!showHeap||!hasHeap)} onClick={()=>setShowProcess(value=>!value)}>{t("RAM del proceso")}</button><button className="heap-legend" aria-pressed={showHeap} disabled={!showProcess||!hasHeap} onClick={()=>setShowHeap(value=>!value)}>{t("Heap usado")}{!hasHeap&&<span>{t("no disponible")}</span>}</button></>:<><span className="process-legend">{t("CPU del proceso")}</span><button aria-label={t("Escala automática de CPU")} aria-pressed={autoCpu} onClick={()=>setAutoCpu(value=>!value)}>{autoCpu?t("Escala automática"):t("Escala 0–100 %")}</button></>}<small>{t("Flechas para explorar")}</small></div>
+    <div className="chart-legend" role={memory?'group':undefined} aria-label={memory?t("Series de memoria visibles"):undefined}>{memory?<><button className="process-legend" aria-pressed={showProcess} disabled={showProcess&&(!showHeap||!hasHeap)} onClick={()=>setShowProcess(value=>!value)}>{t("RAM del proceso")}</button><button className="heap-legend" aria-pressed={showHeap} disabled={!showProcess||!hasHeap} onClick={()=>setShowHeap(value=>!value)}>{t("Heap usado")}{!hasHeap&&<span>{t("no disponible")}</span>}</button></>:<><span className="process-legend">{t("CPU del proceso")}</span><button aria-label={t("Escala automática de CPU")} aria-pressed={autoCpu} onClick={()=>setAutoCpu(value=>!value)}>{autoCpu?t("Escala automática"):t("Escala 0–100 %")}</button></>}<small>{t("Flechas para explorar · Esc para volver")}</small></div>
     {error && <p className="network-error" role="status">{translatedMessage(error)}</p>}
   </section>
 }
 
 export function ResourceMonitor(props:MonitorProps) {
   const [windowMs,setWindowMs]=useState(HISTORY_MS)
+  const [inspection,setInspection]=useState<{scope:string;time:number}|null>(null)
+  const inspectionScope=JSON.stringify([props.server.id,props.metrics?.pid,windowMs])
+  const hoverTime=inspection?.scope===inspectionScope?inspection.time:null
+  const onInspect=(time:number|null)=>setInspection(current=>{
+    if(time===null)return null
+    if(current?.scope===inspectionScope&&current.time===time)return current
+    return {scope:inspectionScope,time}
+  })
   const samples=chartSamples(props.history,props.server.id,props.metrics?.pid,HISTORY_MS)
   const readRate=props.metrics?.pid ? diskRate(samples,'diskReadBytes'):null
   const writeRate=props.metrics?.pid ? diskRate(samples,'diskWrittenBytes'):null
-  return <section className="resource-monitor"><div className="section-heading performance-heading"><div><h2>{t("Rendimiento")}</h2><p>{t("Proceso Java · lecturas reales")}</p></div><div className="chart-range" role="group" aria-label={t("Intervalo de las gráficas")}>{[[30_000,'30 s'],[60_000,'1 min'],[HISTORY_MS,'2 min']].map(([value,label])=><button key={value} aria-pressed={windowMs===value} onClick={()=>setWindowMs(Number(value))}>{label}</button>)}</div></div>
-    <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes" windowMs={windowMs}/><ResourceChart {...props} metric="cpuPercent" windowMs={windowMs}/></div>
+  return <section className="resource-monitor"><div className="section-heading performance-heading"><div><h2>{t("Rendimiento")}</h2><p>{t("Proceso Java · lecturas reales")}</p></div><div className="chart-range" role="group" aria-label={t("Intervalo de las gráficas")}>{[[30_000,'30 s'],[60_000,'1 min'],[HISTORY_MS,'2 min']].map(([value,label])=><button key={value} aria-pressed={windowMs===value} onClick={()=>{setWindowMs(Number(value));setInspection(null)}}>{label}</button>)}</div></div>
+    <div className="performance-charts"><ResourceChart {...props} metric="memoryBytes" windowMs={windowMs} hoverTime={hoverTime} onInspect={onInspect}/><ResourceChart {...props} metric="cpuPercent" windowMs={windowMs} hoverTime={hoverTime} onInspect={onInspect}/></div>
     <section className="heap-diagnostics" aria-label={t("Memoria interna de Java")}><MemoryExport key={props.server.id} id={props.server.id}/><dl className="monitor-details"><div><dt>{t("Heap usado")}</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.usedBytes):'—'}</dd></div><div><dt>{t("Heap reservado")}</dt><dd>{props.metrics?.heap?bytesLabel(props.metrics.heap.committedBytes):'—'}</dd></div><div><dt>{t("Eventos del recolector")}</dt><dd>{props.metrics?.heap?formatNumber(props.metrics.heap.collections):'—'}</dd></div></dl><details className="performance-help"><summary>{t("Cómo interpretar la memoria")}</summary><p className="field-help">{t("La gráfica mide la RAM residente del proceso, incluidos heap y memoria nativa. Java puede reutilizar heap reservado sin devolverlo inmediatamente a Windows o Linux. El heap usado incluye objetos aún no recogidos; no equivale a memoria retenida después de una recolección.")}</p></details>{props.metrics?.heapError&&<details><summary>{t("Heap no disponible")}</summary><p className="field-help">{translatedMessage(props.metrics.heapError)}</p></details>}{props.metrics?.heap&&<p className="field-help">{t("Contadores HotSpot leídos a las")} {formatTime(props.metrics.heap.sampledAt)}{t(". Son muestras de Java; no se fuerza ninguna recolección.")}</p>}</section>
     <div className="performance-checks"><ServerResponsePanel key={props.server.id} server={props.server}/><TickMonitor key={`${props.server.id}:${props.metrics?.pid}`} server={props.server} metrics={props.metrics}/></div>
     <section className="performance-process"><h3>{t("Proceso y disco")}</h3><dl className="monitor-details"><div><dt>{t("Lectura de disco")}</dt><dd>{readRate==null?'—':`${bytesLabel(readRate)}/s`}</dd></div><div><dt>{t("Escritura de disco")}</dt><dd>{writeRate==null?'—':`${bytesLabel(writeRate)}/s`}</dd></div><div><dt>{t("Heap máximo de Java")}</dt><dd>{bytesLabel(props.server.memoryMaxMb*1024**2)}</dd></div><div><dt>{t("Proceso")}</dt><dd>{props.metrics?.pid??'—'}</dd></div><div><dt>{t("Tiempo de arranque")}</dt><dd>{props.metrics?.startupDurationMs==null?'—':`${formatNumber(props.metrics.startupDurationMs/1000,{minimumFractionDigits:1,maximumFractionDigits:1})} s`}</dd></div></dl><details className="performance-help"><summary>{t("Cómo se mide el arranque")}</summary><p className="field-help">{t("Arranque: desde el lanzamiento de Java hasta que el servidor comunica que está listo. Se mide para el proceso actual; una salida antes de estar listo no produce un valor.")}</p></details></section>

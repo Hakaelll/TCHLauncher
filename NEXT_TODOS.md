@@ -37,6 +37,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Players and pre-import file lists now follow the same paging behavior, with
   focused result counts or labeled lists. Both directions and absent refs pass
   eight callback cases; TypeScript and the Windows frontend build pass.
+- RAM and CPU now share inspected time, preserving gaps and supporting Escape
+  back to recent readings. Server/process/range ownership and unchanged pointer
+  samples pass 32 scoped ES/EN component cases; frontend checks pass. Native
+  interaction remains maintainer validation, not an implementation blocker.
 
 ## Evidence already available
 
