@@ -1,14 +1,16 @@
 # TCHLauncher 0.46.0
 
 Windows x64 preview. The installer is unsigned.
+Published at the maintainer's explicit request, with only the EXE attached.
+Packaged source commit: `2007f9b7815edf050846844190efa4f401611410`.
 
 ## Changes since 0.44.0
 
 - Expanded English coverage for native installation, content management,
   networking, tasks and recovery messages. Nested application errors translate
   separately while names, paths and external technical output remain unchanged.
-- Native image, Java, player-list and diagnostic export pickers receive the
-  current language when opened.
+- Titles and file-type labels in native image, Java, player-list and diagnostic
+  export pickers use the language selected when opened.
 - Closing several servers shows separate stop, timeout and backup failures for
   each server. A failed close remains retryable; successful stops still get their
   configured safety copy.
@@ -30,6 +32,10 @@ logic and the production shutdown function with controlled boundaries. The
 shutdown check's serialized failures feed the actual error component. Earlier
 native checks cover property handling, memory recording and Fabric metadata.
 See the development notes for their scope.
+
+The release package passes TypeScript, the Windows frontend build, optimized
+offline NSIS packaging, executable/setup version checks and embedded-icon
+verification. The installer is 6,897,697 bytes.
 
 Native Windows interaction, installer lifecycle and live Minecraft sessions are
 not repeated for this version. Manual validation remains with the maintainer.

@@ -14,15 +14,15 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
-- Latest published preview: [0.44.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.44.0).
-- Latest local Windows installer: 0.45.0, unsigned and unpublished.
+- Latest published preview: [0.46.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.46.0).
+- Latest local Windows installer: 0.46.0, unsigned and published.
 - This installer includes the
-  [changes packaged in 0.45.0](docs/development-notes/README.md#changes-packaged-in-0450).
+  [changes packaged in 0.46.0](docs/development-notes/README.md#changes-packaged-in-0460).
   Native interaction and affected-host validation remain scoped below.
-- The maintainer requests publishing the final version of the current changes
-  when ready, without intermediate releases. The usual cadence remains three or
-  four version milestones. Attach only the EXE; keep checksums local. Commit and
-  push continue independently.
+- The final accumulated changes are published as 0.46.0 at the maintainer's
+  explicit request. The usual cadence remains three or four version milestones,
+  next around 0.49/0.50 unless instructed otherwise. Attach only the EXE; keep
+  checksums local. Commit and push continue independently.
 - Packaged changes belong in the [release notes](docs/release-notes/README.md),
   rather than another chronological list here.
 
@@ -120,14 +120,14 @@ scenarios. Detailed observations remain in
 | UX-MOTION-01 | REVIEW | Motion preferences | Persisted preference and system reduced-motion precedence tested. Shared dialogs now cancel pending exits when an operation becomes busy; an isolated headless component check verifies the race, subsequent close, focus return and reduced-motion close. Verify native transitions and focus stability. |
 | UX-KEY-01 | REVIEW | Commands and search shortcuts | Ctrl+K/Ctrl+N connected; Ctrl+F skips hidden/inert/disabled searches and includes Players. The palette now opens server folders without navigating and restarts running servers through the existing lifecycle. Commands are revalidated against current state before execution. Verify native keyboard paths and modals. |
 | APP-SETTINGS-01 | REVIEW | Application preferences | Categories, themes/language, Java, paths, networking, retention and advanced settings connected. The selected ES/EN language now synchronizes Show/Quit tray labels through a validated native command. Application info/location reads have a read-only retry. Native interaction review remains pending; library-location migration is not implemented. |
-| I18N-NATIVE-01 | REVIEW | English native messages | Added 843 messages across administration, recovery, networking, content, engines, startup, tasks and diagnostics. Fourteen wrappers mark error-owned arguments while preserving names, paths and external output. Content notes and close failures translate separately. Actual locale/catalog checks, React summaries and frontend builds pass; prior native contract changes also pass offline library checking. A Rust token reader reviews 4,415 literals beyond the first inventory; exclusions remain documented. Five native picker commands now receive the current language; fifteen actual API calls cover ES/EN/ES transitions with IPC substituted. Complete native dialogs, language switching during normal use and copy paths outside the audited cases still need interaction evidence. Prepared for 0.46 packaging. |
+| I18N-NATIVE-01 | REVIEW | English native messages | Added 843 messages across administration, recovery, networking, content, engines, startup, tasks and diagnostics. Fourteen wrappers mark error-owned arguments while preserving names, paths and external output. Content notes and close failures translate separately. Actual locale/catalog checks, React summaries and frontend builds pass; native contract changes also pass offline checking/packaging. A Rust token reader reviews 4,415 literals beyond the first inventory; exclusions remain documented. Five native picker commands receive the current language; fifteen actual API calls cover ES/EN/ES transitions with IPC substituted. Complete native dialogs, language switching during normal use and copy paths outside the audited cases still need interaction evidence. Packaged in 0.46.0. |
 | APP-LOG-01 | REVIEW | Launcher diagnostics | Bounded rotated local JSONL logs implemented. Verify native folder opening and OS-session error reporting. |
 | UX-02 | REVIEW | Server image | Launcher and Minecraft server-icon.png use the selected image. Verify native crop/remove and the Minecraft multiplayer list. |
 | UX-03 | REVIEW | Automatic sidebar | Hover/focus expansion, contextual server actions and empty-library handling implemented. Verify native resizing, long lists and pointer/keyboard transitions. |
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.45.0 local NSIS x64 generated from commit 121c1f3, with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized offline packaging pass. Feature evidence and limits are in the version/development notes. Dependencies/legal resources are unchanged. This unsigned local build is not a GitHub release; 0.44.0 remains the preview published by this thread. The maintainer owns pending manual interaction and gameplay validation without blocking implementation. |
+| REL-02 | REVIEW | Current installer | 0.46.0 NSIS x64 generated from commit 2007f9b, with matching executable/installer versions, expected embedded icons and local checksum. TypeScript, Windows frontend and optimized offline packaging pass. Published at the maintainer's request as an unsigned GitHub preview with exactly one EXE asset; remote tag, size and digest match the packaged source/artifact. Dependencies/legal resources are unchanged. The maintainer owns pending manual interaction and gameplay validation without blocking implementation. |
 
 ## Implemented scope from earlier audits
 

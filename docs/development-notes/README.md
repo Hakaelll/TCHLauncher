@@ -2,7 +2,7 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Source after local 0.45.0
+## Changes packaged in 0.46.0
 
 The English catalog adds 843 application-owned native messages across seven passes:
 startup/JVM, players/permissions, properties, import, basic networking, backups,
@@ -90,7 +90,7 @@ the current ES/EN value at invocation. The existing native language enum selects
 image, Java, player-list and export labels; no second preference store is added.
 Actual API checks cover fifteen calls across ES/EN/ES transitions and preserve
 server IDs, with the IPC boundary substituted. Native dialogs are not opened.
-This source postdates the local 0.45 installer and is prepared for 0.46 packaging.
+These changes are packaged in the published 0.46.0 Windows preview.
 
 Stop-and-exit failures are now returned as separate server ID/name and cause
 records rather than a newline-joined paragraph. Stop errors, timeouts and backup
@@ -108,6 +108,14 @@ reply after unmount. These checks control process/window/API boundaries; they do
 not exercise the installed Windows dialog or a live server shutdown. TypeScript,
 the Windows frontend build and the full offline native library check pass. The
 failure list is keyboard-focusable for scrolling inside its bounded panel.
+
+The optimized offline NSIS build completes from source commit
+`2007f9b7815edf050846844190efa4f401611410`. The 6,897,697-byte installer and
+executable report version 0.46.0, and both embedded icons match the logo. GitHub
+release 0.46.0 contains exactly one EXE asset, with its server-reported digest and
+size matching the local artifact and its tag pointing to the packaged commit.
+The installer remains unsigned. No installer lifecycle, native interaction or
+Minecraft gameplay session is repeated for this version.
 
 ## Workspace maintenance after 0.45.0
 
