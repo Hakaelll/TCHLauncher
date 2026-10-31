@@ -1,4 +1,5 @@
 import { english } from './locales/en.ts'
+import { nativeEnglish } from './locales/native-en.ts'
 
 export type Language = 'es' | 'en'
 export const languageKey = 'tch-language-v1'
@@ -23,9 +24,17 @@ export function setLanguage(value:Language,storage:StorageLike|null,root?:HTMLEl
 const reverse=new Map(Object.entries(english).map(([es,en])=>[en,es]))
 const fill=(value:string,args:unknown[])=>value.replace(/\{(\d+)\}/g,(_,index:string)=>String(args[Number(index)]??`{${index}}`))
 const escape=(value:string)=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
-const pattern=(source:string,target:string)=>({target,prefix:source.split(/\{\d+\}/)[0],suffix:source.split(/\{\d+\}/).at(-1)!,indices:[...source.matchAll(/\{(\d+)\}/g)].map(match=>Number(match[1])),expression:new RegExp('^'+source.split(/\{\d+\}/).map(escape).join('(.*?)')+'$','s')})
+const pattern=(source:string,target:string,native:boolean)=>({target,native,prefix:source.split(/\{\d+\}/)[0],suffix:source.split(/\{\d+\}/).at(-1)!,indices:[...source.matchAll(/\{(\d+)\}/g)].map(match=>Number(match[1])),expression:new RegExp('^'+source.split(/\{\d+\}/).map(escape).join('(.*?)')+'$','s')})
 const entries=Object.entries(english).filter(([es])=>/\{\d+\}/.test(es)).sort(([a],[b])=>b.replace(/\{\d+\}/g,'').length-a.replace(/\{\d+\}/g,'').length)
-const patterns={en:entries.map(([es,en])=>pattern(es,en)),es:entries.map(([es,en])=>pattern(en,es))}
+const patterns={en:entries.map(([es,en])=>pattern(es,en,Object.hasOwn(nativeEnglish,es))),es:entries.map(([es,en])=>pattern(en,es,Object.hasOwn(nativeEnglish,es)))}
+const nativePatterns={en:patterns.en.filter(item=>item.native),es:patterns.es.filter(item=>item.native)}
+function matchPatterns(message:string,candidates:readonly ReturnType<typeof pattern>[]):string|undefined {
+  for(const pattern of candidates){
+    if(!message.startsWith(pattern.prefix)||!message.endsWith(pattern.suffix))continue
+    const match=pattern.expression.exec(message)
+    if(match){const values:unknown[]=[];pattern.indices.forEach((index,i)=>{values[index]=match[i+1]});return fill(pattern.target,values)}
+  }
+}
 /** Only call for application copy. User names, paths and Minecraft logs stay verbatim. */
 export function t(message:string,...args:unknown[]):string {
   if(!args.length&&!Object.hasOwn(english,message)&&!reverse.has(message)&&message.trim()!==message) {
@@ -36,12 +45,7 @@ export function t(message:string,...args:unknown[]):string {
   if(args.length)return fill(language==='en'?english[key]??key:key,args)
   if(language==='es'&&key!==message)return key
   if(language==='en'&&english[key])return english[key]
-  for(const pattern of patterns[language]){
-    if(!key.startsWith(pattern.prefix)||!key.endsWith(pattern.suffix))continue
-    const match=pattern.expression.exec(key)
-    if(match){const values:unknown[]=[];pattern.indices.forEach((index,i)=>{values[index]=match[i+1]});return fill(pattern.target,values)}
-  }
-  return message
+  return matchPatterns(key,patterns[language])??message
 }
 /** Lazy reads keep static UI metadata localized when the language changes. Never use on server data. */
 export function localizedStatic<T extends object>(value:T):T {
@@ -55,7 +59,15 @@ export function localizedStatic<T extends object>(value:T):T {
 }
 export function formatNumber(value:number,options?:Intl.NumberFormatOptions){return new Intl.NumberFormat(language==='en'?'en-US':'es-ES',options).format(value)}
 export function formatDate(value:Date|string|number,options?:Intl.DateTimeFormatOptions){return new Date(value).toLocaleString(language==='en'?'en-US':'es-ES',options)}
-export function translatedMessage<T>(value:T):T {return (typeof value==='string'?t(value):value) as T}
+export function translatedMessage<T>(value:T):T extends string?string:T
+export function translatedMessage(value:unknown):unknown {
+  if(typeof value!=='string')return value
+  const prefix='Error: '
+  if(!value.startsWith(prefix)||Object.hasOwn(english,value)||reverse.has(value))return t(value)
+  const detail=value.slice(prefix.length)
+  const known=Object.hasOwn(nativeEnglish,detail)||Object.hasOwn(nativeEnglish,reverse.get(detail)??'')
+  return prefix+(known?t(detail):matchPatterns(detail,nativePatterns[language])??detail)
+}
 
 export function formatTime(value:Date|string|number,options?:Intl.DateTimeFormatOptions,locale=language){return new Date(value).toLocaleTimeString(locale==='en'?'en-US':'es-ES',options)}
 export function formatLogTime(value:string|null,seconds=false,locale=language){

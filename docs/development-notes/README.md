@@ -4,20 +4,30 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after local 0.45.0
 
-The English catalog now covers 127 more application-owned native messages for
-server startup, JVM/runtime settings, players/permissions, properties, import,
-application folders and basic network checks. Existing translations are retained;
-parameterized property errors preserve names such as `query.port` and numeric
-limits. The scheduler help refers to the existing English action label.
-A player-list validation message reproduces the Spanish fallback before the
-change. Actual locale-module checks pass every added message in ES/EN, formatted
-native strings, template arguments and representative unchanged raw text.
-TypeScript and the Windows frontend build pass; Vite reports its main-chunk size
-advisory. No runtime size/performance gain or native interaction is claimed.
-Further native copy, especially installation/content, backup and router errors,
-still needs review; the heuristic literal inventory is not a complete census.
-This is unpackaged source after the local 0.45 installer. No version or release
-is generated for this catalog update.
+The English catalog adds 237 application-owned native messages across two passes:
+startup/JVM, players/permissions, properties, import, basic networking, backups,
+retention, worlds and recovery. Existing translations are retained and the
+scheduler help uses its existing English action label. Reviewed native copy now
+lives in `src/locales/native-en.ts` and is included by the general catalog.
+
+Actual locale checks reproduce the original Spanish fallback and failures hidden
+behind a stored `Error: ` prefix. A general UI name template could also partially
+translate a whole diagnostic. The prefix now uses only reviewed native entries
+and patterns; exact complete-message translations take precedence. An unknown
+path ending in `copia` remains unchanged. The shared matcher reuses compiled
+patterns. The helper's return type widens translated strings while preserving
+non-string values, without the previous generic cast.
+
+Checks cover every added message in ES/EN with formatted arguments, stored error
+wrappers, unknown details and non-string identity. Catalog regrouping preserves
+values, reverse aliases and general lookup results for generated examples from
+all entries. TypeScript and the Windows frontend build pass; Vite reports its
+main-chunk size advisory. These are locale/helper checks, not native interaction,
+backup recovery or gameplay checks. No runtime performance gain is claimed.
+Other native installation/content, router and composed messages still need review;
+the literal inventory is heuristic and excludes recognized SQL rather than
+translating queries. This source postdates the local 0.45 installer. No version
+or release is generated for these localization changes.
 
 ## Workspace maintenance after 0.45.0
 

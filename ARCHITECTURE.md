@@ -62,6 +62,14 @@ Native settings such as schedules, OS startup and recorded consent use their
 backend stores. Draft UI values are distinct from acknowledged native changes.
 Library relocation is not implemented.
 
+[locale.ts](src/locale.ts) owns application-copy lookup. The general English
+catalog includes reviewed native messages from
+[native-en.ts](src/locales/native-en.ts). Stored `Error: ` results use that native
+catalog and its existing compiled patterns for their body, preventing general UI
+labels from partially translating an unknown diagnostic or path. Exact complete
+message translations take precedence. Unknown details are kept verbatim; console
+rows render raw Minecraft text. Native-copy coverage remains in progress. Existing native translations should move into that catalog when their module is reviewed, alongside new entries.
+
 ## Frontend reads and actions
 
 [serverRead.ts](src/serverRead.ts) separates unread, loaded, loading and failed
