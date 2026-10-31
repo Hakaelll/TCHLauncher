@@ -182,6 +182,9 @@ a sample value or a broad claim about a different version/scenario.
   or content generation in already-created chunks.
 - Imported Minehut UUID/skin mismatch requires the configuration and authenticated
   connection evidence from the other computer. Distinct UUIDs are not merged by name.
+  The supplied October 3 Paper 1.17.1 log explicitly reports offline/insecure mode,
+  while the supplied Spigot file has BungeeCord disabled. This explains that old
+  run, but does not establish the state after the later online-mode change.
 
 ## Deferred scope
 
