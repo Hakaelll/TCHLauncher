@@ -38,4 +38,12 @@ No new Minecraft client session, installed-mod behavior or physical-router test
 is claimed. No measured CPU, RAM, frame-rate or Internet-latency improvement is
 claimed. Pending manual validation stays maintainer-owned and nonblocking.
 
-Packaging evidence will be recorded after the Windows build finishes.
+## Windows package
+
+Packaged source: `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`.
+Five retained frontend tests, TypeScript, the production frontend and optimized
+offline NSIS packaging pass. Executable/setup versions and embedded icons match.
+The installer is 6,895,327 bytes. Local retention keeps 0.56/0.57, with checksums
+kept locally. Protected cleanup removes 2,151,068,244 logical bytes of generated
+files and verifies unchanged executable/installer hashes. These are file lengths,
+not allocated-disk space or runtime memory measurements.

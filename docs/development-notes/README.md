@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows 0.57 package
+
+Source `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b` produces the unsigned
+6,895,327-byte NSIS x64 setup. Five retained frontend tests, TypeScript,
+production frontend, optimized offline build, versions and embedded icons pass.
+The Tauri CLI's Cargo.toml formatting is restored only after parsed TOML equality
+is confirmed. Protected cache cleanup removes 2,151,068,244 logical bytes;
+executable and 0.56/0.57 installer hashes remain unchanged. The obsolete 0.55 setup
+is verified and removed. No native interaction or client gameplay is repeated
+for packaging. Publication attaches only the verified EXE, with checksums local.
+
 ## Annual NeoForge releases after 0.56.0
 
 NeoForge discovery now accepts the four-component annual version format and maps

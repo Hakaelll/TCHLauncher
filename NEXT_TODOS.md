@@ -42,15 +42,15 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.54.0 changes](docs/release-notes/RELEASE_NOTES_v0.54.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Latest local installer: 0.56.0, unsigned and unpublished, from
-  `44aeb3d4ce3b4e3b3a911a0da6d63c525f931856`. See the
-  [0.56.0 changes](docs/release-notes/RELEASE_NOTES_v0.56.0.md). Five retained frontend
+- Latest local installer: 0.57.0, unsigned and prepared for publication, from
+  `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`. See the
+  [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). Five retained frontend
   tests, TypeScript, production frontend, optimized offline NSIS packaging,
   versions and embedded icons pass. GitHub remains on published 0.54.0.
-- Local retention keeps 0.55/0.56; checksums stay local. Generated-cache cleanup is
-  deferred while other builds are active; caches remain untouched. Package and
-  executable hashes are unchanged. The obsolete local 0.54 installer is verified
-  and removed. File lengths are not allocated-disk or runtime memory measurements.
+- Local retention keeps 0.56/0.57; checksums stay local. Protected generated-cache
+  cleanup removes 2,151,068,244 logical bytes and preserves package/executable
+  hashes. The obsolete local 0.55 installer is verified and removed. File lengths
+  are not allocated-disk or runtime memory measurements.
 - Post-0.52 source cleanup removes 13 unused platform icon derivatives
   (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
   actual CLI generation and current executable/setup icon-pixel checks pass.
