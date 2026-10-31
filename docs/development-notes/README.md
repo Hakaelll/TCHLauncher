@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Local Windows 0.56.0 package
+
+Unsigned local x64 installer from `44aeb3d4ce3b4e3b3a911a0da6d63c525f931856`, 6,882,989 bytes.
+Five retained frontend tests, TypeScript, production frontend, optimized offline
+NSIS packaging, versions and embedded icons pass. Source changes recorded below
+after 0.55 are included. Generated-cache cleanup is deferred while
+other builds are active. Retained 0.55/0.56 installers and the executable preserve
+their verified hashes. The obsolete local 0.54 installer is verified and removed.
+GitHub stays on 0.54; checksums stay local.
+Native UI/gameplay is not repeated, and the full manager objective remains open.
+
 ## Paged server library after 0.55.0
 
 Library cards now use the shared 50-item window. Search/filter/order changes reset
