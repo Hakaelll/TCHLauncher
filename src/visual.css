@@ -5,11 +5,11 @@ button.primary-button { color: var(--ink); background: var(--accent); border-col
 button.primary-button:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 .server-rail { display:flex; flex-direction:column; align-items:center; min-width:0; overflow:hidden; padding:18px 7px 12px; color: var(--rail-text); }
 .server-rail button { border: 0; color: inherit; }
-.server-rail .rail-library { display:grid; place-items:center; flex:none; width:40px; height:40px; min-height:0; padding:0; margin-bottom:20px; border-radius:11px; background: var(--hover); }
+.server-rail .rail-library { display:grid; place-items:center; flex:none; min-height:0; padding:0; background: var(--hover); }
 .server-rail .rail-library.active { background: var(--hover); }
 .server-list { position:relative; flex:0 1 auto; width:100%; gap:8px; padding:2px 0; margin:0; scrollbar-width:none; }
 .server-list::-webkit-scrollbar { width:0; }
-.server-rail .server-row { display:flex; justify-content:center; width:100%; height:48px; min-height:48px; padding:4px; border: 0; background: transparent; }
+.server-rail .server-row { display:flex; justify-content:center; width:100%; border: 0; background: transparent; }
 .server-rail .server-row-name { display:none; }
 .server-rail .server-row.active { background: transparent; }
 .server-rail .server-row.active::before { content:none; }
@@ -19,7 +19,7 @@ button.primary-button:hover:not(:disabled) { background: var(--accent-hover); bo
 .server-rail .server-row.active .server-artwork { outline: 2px solid var(--line); outline-offset:1px; }
 .server-rail .server-row:hover .server-artwork { border-color: var(--line); }
 .server-rail .state-dot,.server-rail .server-row.active .state-dot { border-color: var(--rail); }
-.server-rail .rail-add { display:grid; place-items:center; flex:none; width:36px; height:36px; min-height:0; margin-top:16px; padding:0; border-radius:50%; color: var(--secondary); }
+.server-rail .rail-add { display:grid; place-items:center; flex:none; width:36px; height:36px; min-height:0; padding:0; border-radius:50%; color: var(--secondary); }
 .server-rail button:hover:not(:disabled) { background: var(--hover); }
 .moving-indicator { position:absolute; pointer-events:none; left:0; top:0; transform-origin:0 0; }
 .section-active-indicator { z-index:0; width:100%; background: var(--surface); border-radius:5px; }
@@ -72,7 +72,6 @@ button.primary-button:hover:not(:disabled) { background: var(--accent-hover); bo
 .stage-stats { gap:12px; padding:0; border: 0; border-radius:0; background: transparent; }
 .stage-stats > div { padding:16px 18px; border: 1px solid var(--line); border-radius:7px; }
 .stage-stats > div:first-child { border: 1px solid var(--line); }
-.stage-stats strong { font-size:18px; }
 .stage-stats span { font-size:11px; }
 .settings-view > .section-heading { margin-top:6px; }
 .runtime-panel { border-radius:7px; background: var(--surface); }

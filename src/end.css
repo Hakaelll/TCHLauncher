@@ -196,8 +196,8 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 
 /* One quiet obsidian rail, independent of the workspace's scrolling. */
 .server-rail { border-right:1px solid var(--line); padding-top:20px; }
-.server-rail .rail-library { height:62px; padding:4px; margin-bottom:24px; }
-.brand-emblem { width:48px; height:48px; overflow:visible; }
+.server-rail .rail-library { height:62px; margin-bottom:24px; }
+.brand-emblem { overflow:visible; }
 .brand-emblem img { position:static; width:100%; height:100%; object-fit:contain; filter:none; opacity:1; }
 .rail-brand-name { font-size:12px; }
 .server-rail .rail-library.active { background:transparent; }
@@ -209,7 +209,7 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .server-rail .server-row-name small { color:var(--secondary); font-size:11px; }
 .server-rail .server-artwork.default { background:var(--surface-raised); color:var(--metric-violet); }
 .server-rail .server-row:hover:not(:disabled) { background:var(--surface); }
-.server-rail .rail-add { border:1px solid var(--line); border-radius:2px; margin-top:16px; }
+.server-rail .rail-add { border:1px solid var(--line); border-radius:2px; }
 .server-rail .rail-add, .server-rail .rail-import, .server-rail .rail-startup { color:var(--secondary); }
 .server-rail .rail-add:hover:not(:disabled), .server-rail .rail-import:hover:not(:disabled), .server-rail .rail-startup:hover:not(:disabled) { background:var(--accent-wash); color:var(--accent-hover); }
 .rail-active-indicator { width:2px; background:var(--accent); }
@@ -223,8 +223,8 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .page-head { padding-block:30px 24px; }
 .page-identity .server-artwork { width:58px; height:58px; }
 .page-context { font-size:13px; }
-.server-sections { border-radius:4px; background:var(--surface); border-color:var(--line); }
-.server-sections button { font-size:13px; padding:9px 12px; }
+.server-sections { background:var(--surface); border-color:var(--line); }
+.server-sections button { padding:9px 12px; }
 .server-sections .section-active-indicator { border:1px solid var(--accent-line); box-shadow:inset 0 1px 0 #ffffff0b; }
 .server-sections button:hover:not(:disabled) { background:#ffffff04; }
 .server-sections button svg { color:var(--accent); }
@@ -236,13 +236,12 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .library-heading-identity { display:flex; align-items:center; gap:22px; min-width:0; }
 .library-welcome-emblem { width:100px; height:100px; object-fit:contain; flex:none; }
 .library-empty .library-heading { margin-block:12px 36px; }
-.library-search { height:40px; background:var(--surface-deep); border:1px solid var(--line); border-radius:3px; }
+.library-search { height:40px; background:var(--surface-deep); border:1px solid var(--line); }
 .library-search input { min-height:0; height:100%; padding:0; border:0; background:transparent; box-shadow:none; font-size:13px; }
-.library-layout { border-radius:3px; padding:4px; background:var(--surface); }
-.library-layout button { border-radius:2px; min-height:30px; width:30px; }
+.library-layout { padding:4px; background:var(--surface); }
 .library-layout button.active { color:var(--accent-hover); background:var(--surface-raised); }
 .library-cards { gap:22px; }
-.library-card { background:var(--surface); border-color:var(--line); border-radius:5px; transition:border-color var(--motion-interaction) var(--motion-ease); }
+.library-card { background:var(--surface); border-color:var(--line); transition:border-color var(--motion-interaction) var(--motion-ease); }
 .library-card:focus-within,.library-card:hover { border-color:var(--accent-line); }
 .library-card[data-state=running] .library-status { color:var(--success); }
 .library-card-body { padding:20px; }
@@ -300,7 +299,7 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .block-signal { fill:var(--block-signal); }
 
 /* Status is semantic. The metrics describe the running process, never invented data. */
-.overview .stage-main { background:var(--surface); border-color:var(--line); border-radius:4px; padding:20px 22px; }
+.overview .stage-main { background:var(--surface); border-color:var(--line); padding:20px 22px; }
 .server-stage.running .stage-main { background:var(--success-wash); border-color:#365b4f; }
 .server-stage.starting .stage-main,.server-stage.installing .stage-main { background:var(--metric-violet-wash); border-color:#544b68; }
 .server-stage.crashed .stage-main,.server-stage.error .stage-main { background:var(--danger-wash); border-color:var(--danger-line); }
@@ -311,22 +310,22 @@ button.danger-button:hover:not(:disabled),button.danger-outline-button:hover:not
 .state-dot.starting,.state-dot.installing,.state-dot.stopping { background:var(--warning); }
 .state-dot.crashed,.state-dot.error { background:var(--danger); }
 .head-actions .status-label { background:var(--surface); border-radius:3px; }
-.overview .stage-stats { background:var(--surface); border-radius:4px; border-color:var(--line); }
+.overview .stage-stats { background:var(--surface); border-color:var(--line); }
 .overview .stage-stats > div { padding:22px 20px; }
 .overview .stage-stats strong { font-size:24px; font-weight:550; letter-spacing:0; line-height:1.4; }
 .overview .stage-stats span { font-size:12px; }
 .overview .connection-section { padding:24px 0 0; border:0; border-top:1px solid var(--line); background:transparent; border-radius:0; }
-.overview .connection-address { padding:20px 22px; background:var(--accent-wash); border:1px solid var(--accent-line); border-radius:4px; }
-.overview .network-address-row input.network-address-value { color:var(--accent-hover); font-family:ui-monospace,Consolas,monospace; font-size:22px; background:transparent; box-shadow:none; }
+.overview .connection-address { padding:20px 22px; background:var(--accent-wash); border:1px solid var(--accent-line); }
+.overview .network-address-row input.network-address-value { color:var(--accent-hover); font-family:ui-monospace,Consolas,monospace; background:transparent; box-shadow:none; }
 .network-facts dt, .resource-facts dt { color:var(--secondary); }
 .router-control { padding-block:8px 22px; margin-bottom:20px; border-bottom:1px solid var(--line); }
-.router-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.router-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:18px; }
 .router-heading h3 { margin:0; color:var(--ink); font-family:var(--font-display); font-size:13px; font-weight:400; line-height:1.7; }
 .router-heading p { margin:6px 0 0; }
 .router-mapping-status { display:flex; align-items:center; gap:9px; color:var(--ink)!important; }
 .router-control .network-facts dd { min-width:0; overflow-wrap:anywhere; }
 .router-control .network-facts input { width:100%; min-width:0; text-align:right; font-family:var(--font-reading); }
-.resource-chart { border-radius:4px; padding:24px; }
+.resource-chart { padding:24px; }
 .resource-chart h3 { font-family:var(--font-display); font-size:13px; font-weight:400; }
 .chart-grid { stroke:var(--line); }
 progress { accent-color:var(--accent); }
@@ -362,7 +361,7 @@ input.setting-toggle[type=checkbox]:checked::before { background:var(--accent-ho
 .image-preview { border-radius:3px; }
 .wizard-steps button { color:var(--secondary); }
 .wizard-steps button strong { font-family:var(--font-display); font-size:11px; font-weight:400; }
-.wizard-steps button span { border-radius:2px; width:24px; height:24px; font-family:var(--font-display); font-weight:400; }
+.wizard-steps button span { border-radius:2px; font-family:var(--font-display); font-weight:400; }
 .wizard-steps button.active span { background:var(--accent-wash); color:var(--accent-hover); border-color:var(--accent-line); }
 .wizard-steps button.completed span { background:var(--success-wash); color:var(--success); border-color:#365b4f; }
 .wizard-steps .moving-indicator { background:var(--accent); }
@@ -391,7 +390,7 @@ dialog.modal-dialog::backdrop { background:#060b0ddb; }
 .inline-note { background:var(--surface); color:var(--secondary); border-radius:3px; }
 .form-error,.network-error { color:var(--danger); }
 .console-notice.form-error { color:var(--danger); }
-.players-overview { background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:20px; }
+.players-overview { background:var(--surface); border:1px solid var(--line); }
 .player-list-tools { display:flex; align-items:end; flex-wrap:wrap; gap:16px; margin:22px 0 12px; }
 .player-list-tools label { flex:1; min-width:min(240px,100%); max-width:480px; }
 .player-list-tools > span { color:var(--secondary); font:12px/1.7 var(--font-reading); padding-bottom:12px; }
@@ -459,12 +458,11 @@ dialog.modal-dialog::backdrop { background:#060b0ddb; }
 .player-tabs .moving-indicator { background:var(--accent); }
 .player-head { width:40px; height:40px; border-radius:2px; }
 .players-toolbar { background:var(--surface); }
-.content-mode { background:var(--surface); border-radius:3px; }
+.content-mode { background:var(--surface); }
 .content-mode button[aria-pressed=true] { background:var(--surface-raised); color:var(--accent-hover); box-shadow:none; }
 .content-project-icon { background:var(--surface-raised); border-radius:3px; }
 .content-search { border-radius:3px; background:var(--surface-deep); }
 .content-search input { box-shadow:none; background:transparent; }
-.world-icon { border-radius:3px; }
 .content-review-changes .content-change-action.install { color:var(--success); background:var(--success-wash); }
 .content-review-changes .content-change-action.update { color:var(--metric-blue); background:var(--metric-blue-wash); }
 .task-state.running { color:var(--metric-blue); background:var(--metric-blue-wash); }
@@ -897,7 +895,7 @@ summary { font-size:11px; line-height:1.8; }
 .router-discovery-status { color:var(--secondary); font-size:12px; }
 .router-methods .network-facts { grid-template-columns:1fr; }
 .router-methods .primary-button { width:100%; }
-.network-manual { margin-top:22px; padding:0 4px; }
+.network-manual { padding:0 4px; }
 .network-manual h4 { font:12px/1.7 var(--font-display); margin:0 0 8px; }
 .network-manual p { max-width:85ch; }
 .network-public { margin-top:16px; }
@@ -906,7 +904,6 @@ summary { font-size:11px; line-height:1.8; }
 .chart-heading h3 { margin:0; font-size:14px; }
 .chart-heading > span { margin-left:auto; color:var(--muted); font:10px/1.5 var(--font-display); letter-spacing:1px; }
 .resource-chart .monitor-reading strong { font:22px/1.5 var(--font-display); letter-spacing:0; }
-.resource-chart .monitor-chart { margin-top:18px; }
 .resource-chart .chart-grid { stroke-dasharray:2 5; }
 .resource-chart .chart-grid-time { opacity:.5; }
 .resource-chart .chart-line { stroke-linecap:butt; stroke-linejoin:miter; stroke-width:2.5; }
@@ -1420,7 +1417,6 @@ html[data-motion="reduced"] .content-kind-tabs > button { transition:none; }
 .world-row-copy strong { font:14px/1.9 var(--font-display); }
 .world-row-copy .world-dimensions { white-space:normal; overflow-wrap:anywhere; }
 .world-active-mark { color:var(--accent-hover); font:10px/1.8 var(--font-display); padding:5px 9px; background:var(--accent-wash); }
-.world-row-actions { gap:4px; }
 .world-row-actions .world-export-button { color:var(--accent-hover); }
 .world-row-actions .world-export-button[aria-expanded=true] { background:var(--surface-selected); }
 .world-export-options { grid-column:1/-1; min-width:0; margin-top:6px; padding-top:22px; border-top:1px solid var(--line); }

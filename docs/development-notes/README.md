@@ -2,6 +2,14 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Superseded sizing declarations after 0.55.0
+
+Removed 36 earlier sizing/spacing declarations, saving 707 stylesheet-source
+bytes. Each has a later unconditional declaration with the same selector,
+property and importance and a supported fixed value. PostCSS checks preserve
+final declarations and conditional rules; the frontend build passes. No rendered
+or native visual check is claimed. Probe removed; local 0.55 remains unchanged.
+
 ## Deferred cache cleanup completed after 0.55.0
 
 The existing cleanup guard now permits removal after active builds finish.
