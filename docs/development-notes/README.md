@@ -2,13 +2,19 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Source after 0.44.0
+## Changes packaged in 0.45.0
+
+These changes are included in the unpublished local 0.45.0 Windows installer.
+TypeScript/frontend and optimized offline NSIS packaging pass. Executable/setup
+versions and embedded icons are verified; the build is unsigned. Package source:
+`121c1f3643d50e609027261e91c36f7bd4dfe47f`. No native interaction, installer lifecycle
+or Minecraft session was repeated for this milestone. The published preview from
+this thread remains 0.44.0; the normal next publication window is 0.47/0.48.
 
 Size-format callers now import the existing formatter directly instead of routing
 through the visual server component. The pass-through export is removed; the
 formatter and displayed values are unchanged. TypeScript and the Windows frontend
-production build pass. This import-only cleanup has no new installer and makes no
-measured application-size or runtime-performance claim.
+production build pass. This cleanup makes no measured application-size or runtime-performance claim.
 
 Shared server/world/content action menus now support timed type-ahead: prefixes,
 repeated-letter cycling and accent-insensitive matching skip disabled actions.
@@ -17,7 +23,7 @@ are left alone. Typing only moves focus and never executes an action. Focused
 production callback checks cover Spanish/English labels, timeout reset, disabled
 and empty lists, existing navigation and Escape. Hook effects/DOM focus and native
 assistive-technology interaction are outside that isolated check. TypeScript and
-the Windows frontend production build pass; no new installer is generated.
+the Windows frontend production build pass.
 
 The shared properties reader now recognizes colon/whitespace separators, escaped
 keys and backslash-continued logical records. Its writer replaces the complete
@@ -32,7 +38,7 @@ representation; this is not full `java.util.Properties` conformance. The grammar
 reference is [Java's Properties documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/Properties.html#load(java.io.Reader)).
 Full offline native `cargo check --lib` passes. Two sandbox builds first failed
 with MSVC LNK1114/access-denied while replacing a dependency archive; the same
-check passed outside the sandbox. No UI/client outcome or new installer is claimed.
+check passed outside the sandbox. No UI/client outcome is claimed.
 
 Console batches now pause React publication while the document reports hidden.
 The existing 1,000-line ring keeps only the latest entries, then resumes normal
@@ -44,7 +50,7 @@ checks also cover overflow, repeated resume and stale-timer races. Browser
 visibility/timers are substituted in that check; Windows tray behavior and an
 actual CPU/RAM saving are not established. TypeScript and the Windows frontend
 production build pass. Native server logging, scheduling and state events are
-unchanged; no network/gameplay improvement or new installer is claimed.
+unchanged; no network/gameplay improvement is claimed.
 
 Memory reports now discard the former process session before applying timestamp
 or resident-memory availability checks. A new session, PID or uptime reset cannot
@@ -71,8 +77,7 @@ satisfies the consumer and the client-only parent is excluded. This is metadata
 inspection, not Minecraft loading or a real backpack-mod check. The temporary
 unit and fixtures are removed; retained test counts are unchanged. Three existing
 environment/client-only messages now translate in ES/EN through the actual locale
-module. TypeScript and the Windows frontend production build pass. No installer
-or GitHub release is generated.
+module. TypeScript and the Windows frontend production build pass. No GitHub release is generated for this milestone.
 
 ## Changes packaged in 0.44.0
 

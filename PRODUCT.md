@@ -29,7 +29,8 @@ Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
 La 0.44.0 está publicada como preview de Windows, solo con el EXE adjunto,
-por petición posterior y expresa del usuario. El siguiente margen habitual parte
+por petición posterior y expresa del usuario. La 0.45.0 es un instalador local,
+sin publicación en GitHub. El siguiente margen habitual parte
 de la 0.44.0, hacia la 0.47.0–0.48.0, salvo nueva instrucción. Los commits no
 cuentan como versiones.
 
