@@ -54,11 +54,12 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const searched = useMemo(() => {const search=query.toLocaleLowerCase();return consoleLinesAfterClear(logs,serverId,clearedThrough).filter(item=>!search||item.line.toLocaleLowerCase().includes(search))},[logs,clearedThrough,query,serverId])
   const visible=useMemo(()=>level==='all'?searched:searched.filter(item=>item.level===level),[searched,level])
   const counts=useMemo(()=>countLogLevels(searched),[searched])
-  const pendingLines=following?0:consoleLinesAfterClear(visible,serverId,pausedThrough.current).length
+  const pendingLines=following?0:visible.reduce((count,item)=>item.arrival>pausedThrough.current?count+1:count,0)
   useEffect(() => {
     const element = windowRef.current
     if (!following || !element)return
     const start=element.scrollTop,target=Math.max(0,element.scrollHeight-element.clientHeight)
+    if(target===start)return
     if(reducedMotion() || target-start>element.clientHeight){element.scrollTop=target;return}
     automaticScroll.current=true
     const began=performance.now()

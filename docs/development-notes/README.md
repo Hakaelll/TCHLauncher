@@ -4,6 +4,14 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.47.0
 
+Console following skips animation when already at its target. The paused-view
+counter counts matching arrivals directly instead of allocating another filtered
+array. Actual prior/current effect checks reproduce the idle frame and preserve
+normal/reduced-motion scrolling, immediate large jumps, pause and cleanup. Twenty-
+four count combinations preserve server, clear and disk-history boundaries.
+DOM/RAF boundaries are controlled; this is not a native scrolling or CPU/RAM
+benchmark. TypeScript and the Windows frontend production build pass.
+
 UPnP and NAT-PMP distinguish status-read failures from operation failures.
 Successful polling clears a recovered read error without hiding a failed
 discovery/open/close operation. Cached details remain visible, but an unreadable
