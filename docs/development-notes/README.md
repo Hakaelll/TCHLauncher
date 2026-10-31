@@ -2,6 +2,19 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Changes packaged for Windows 0.54.0
+
+Unsigned Windows x64 NSIS installer from `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`.
+The package groups the 0.52–0.54 milestones. TypeScript, the Windows frontend,
+five retained frontend tests, optimized offline packaging, versions and embedded
+icons pass. The installer is 6,881,081 bytes. Source-specific evidence below
+remains scoped; native UI and new Minecraft sessions are not repeated for packaging.
+
+Protected cleanup removes 3,693,826,194 logical bytes of generated files while
+retained 0.53/0.54 installers and the executable keep their hashes. The obsolete
+0.52 installer is separately verified and removed. Checksums stay local; grouped
+publication is prepared separately against the exact packaged source and EXE.
+
 ## Shared motion work reduction after 0.53.0
 
 The navigation indicator retains its existing state object when an observer

@@ -50,4 +50,10 @@ and broader client validation are maintainer-owned. These scoped checks do not
 establish FPS, RAM or Internet-latency improvements. No native UI automation is
 used. Earlier affected-host issues remain closed by maintainer confirmation.
 
-Packaging evidence will be recorded after the installer is built.
+Packaged source: `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`. TypeScript, five retained frontend
+tests, Windows frontend, optimized offline NSIS packaging, executable/setup
+versions and embedded icons pass. The installer is 6,881,081 bytes. Protected
+cleanup removes 3,693,826,194 logical bytes of generated files while retaining
+unchanged 0.53/0.54 installers and the executable. The obsolete local 0.52 setup
+is separately verified and removed. File-length counts are not allocated-disk
+measurements. Native interaction and gameplay are not repeated for packaging.
