@@ -2,6 +2,20 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Changes packaged in local 0.53.0
+
+Unsigned Windows x64 NSIS installer from `f58a04a79ad4cf247be88b2d7a8c934f38750d17`.
+The package groups visible-series memory scaling, empty-discovery recovery and
+ZIP/icon cleanup described below. TypeScript, the Windows frontend, five retained
+frontend tests, optimized offline packaging, versions and embedded icons pass.
+The installer is 6,883,055 bytes. No native UI or new Minecraft session is run.
+
+Protected cleanup removes 1,916,188,833 logical bytes of generated files while
+retained 0.52/0.53 installers and the executable keep their hashes. The obsolete
+0.51 local installer is separately verified and removed. Checksums stay local.
+GitHub remains at 0.51; publication cadence and manual-validation ownership are
+unchanged. Package byte counts do not measure runtime memory or gameplay latency.
+
 ## Visible memory chart scaling after 0.52.0
 
 The memory chart scales from its visible series. Hiding resident process RAM now
