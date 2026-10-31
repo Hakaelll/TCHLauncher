@@ -2,7 +2,7 @@
 
 These assets were produced with the built-in imagegen tool, then integrated into this workspace. Tauri icon tooling generates bounded UI sizes without cropping the objects. The user's original logo remains at `src/assets/launcher-emblem.png`.
 
-`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size emblem. It does not redraw the former letter-T mark. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
+`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size emblem. It stages the full derivative set in a temporary `artifacts/` folder and retains only the four configured Windows files: `32x32.png`, `128x128.png`, `128x128@2x.png` and `icon.ico`. The temporary directory is removed afterward; unused platform formats are not kept in the source tree. It does not redraw the former letter-T mark. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
 
 ## Final assets
 
@@ -10,13 +10,23 @@ These assets were produced with the built-in imagegen tool, then integrated into
 | --- | --- |
 | `src/assets/launcher-logo.png` | Transparent logo at 256px; UI and welcome |
 | `src/assets/launcher-emblem-cutout.png` | Selected transparent edit, full resolution |
-| `src-tauri/icons/` | Native app/tray icon derivatives |
+| `src-tauri/icons/` | Four configured Windows app/tray/installer derivatives |
 | `public/launcher-icon.png` | Browser favicon |
 | `src/assets/choice-world.png` | Production 256px inventory illustration |
 | `src/assets/choice-import.png` | Production 256px inventory illustration |
 | `src/assets/choice-pack.png` | Production 256px inventory illustration |
 
 Only the production-size inventory artwork is retained in the current tree. Unused full-size originals were removed to keep the workspace smaller and remain recoverable from Git history. The original logo and its full-size cutout are retained for provenance and native icon generation. These illustrations decorate real create/import actions; they do not represent an actual server or bundled game item.
+
+## Regenerating deferred platform formats
+
+The full transparent emblem remains the source. When another platform resumes,
+use the installed Tauri CLI to generate the required formats and add only those
+to its configuration. The current wrapper intentionally keeps Windows outputs.
+
+```powershell
+node node_modules/@tauri-apps/cli/tauri.js icon src/assets/launcher-emblem-cutout.png --output src-tauri/icons --fit contain
+```
 
 ## Prompts
 

@@ -2,6 +2,29 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows icon-source cleanup after 0.52.0
+
+Remove 13 unused macOS/Store/icon derivatives, totaling 3,413,415 logical bytes.
+The configured Windows ICO and three PNGs retain their original hashes. Native
+Windows resources and NSIS explicitly use the retained ICO; the unused ICNS entry
+is removed from bundle configuration. The source emblem/cutout and Git history
+remain available. The icon wrapper stages the full Tauri derivative set but copies
+only the four configured Windows outputs; Python bytecode directories are ignored.
+Deferred platform regeneration is documented rather than treated as active work.
+
+A real installed-CLI generation into an isolated folder produces exactly those
+four outputs with the expected PNG dimensions and ICO type. The generated ICO's
+small/large pixels match the existing 0.52 executable and installer. Temporary
+staging/probe outputs are removed. This verifies the generator and current package
+icon identity, not a new application build or native UI. The 0.52 setup is unchanged.
+
+A read-only inventory of regular checkout files, excluding reparse points, reports
+about 159 MB before this derivative cleanup. Dependencies, retained executables
+and Git objects dominate the remaining bytes. This is not allocated disk usage,
+application-data size or a like-for-like percentage against the old Explorer
+screenshot. No history, third-party license, server library or retained installer
+is deleted. No dependency or retained test is added.
+
 ## Changes packaged in local 0.52.0
 
 Unsigned Windows x64 NSIS installer from

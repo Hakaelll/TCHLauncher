@@ -45,3 +45,8 @@ y pruebas pendientes; no son un plan activo mientras esté aplazado.
 Al retomar Linux, separar la interpretación de errores del sistema: la guía de
 `src/fileFailureAdvice.ts` reconoce códigos Win32 y no debe aplicarse a errno de
 Linux, donde los mismos números tienen otros significados.
+
+El generador activo conserva solo los cuatro derivados de icono usados por
+Windows. Al retomar Linux, generar desde el emblema transparente los formatos
+necesarios y revisar la configuración de empaquetado; la receta está en
+`src/assets/README.md`.

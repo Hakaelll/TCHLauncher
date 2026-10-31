@@ -27,6 +27,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Local retention keeps 0.51/0.52; checksums stay local. Protected cleanup removed
   3,715,392,282 logical bytes of generated files with retained package hashes
   unchanged. The obsolete local 0.50 installer was separately verified and removed.
+- Post-0.52 source cleanup removes 13 unused platform icon derivatives
+  (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
+  actual CLI generation and current executable/setup icon-pixel checks pass.
+  No new package is built and Git history/server libraries remain untouched.
 - Publication follows the usual 3–4-version cadence. The requested final batch
   release remains authorized; commits and pushes proceed independently.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
