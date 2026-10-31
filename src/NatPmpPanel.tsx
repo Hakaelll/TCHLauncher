@@ -23,8 +23,8 @@ export function NatPmpPanel({server,network}:{server:Server;network:NetworkSnaps
     alive.current=true
     const refresh=async()=>{
       if(inFlight.current)return
-      const current=++revision.current;inFlight.current=true
-      try{const value=await api.natpmpStatus(server.id);if(alive.current&&current===revision.current){setRecord(value);setStatusError(null)}}catch(cause){if(alive.current&&current===revision.current)setStatusError(errorText(cause))}finally{inFlight.current=false;if(alive.current)setLoaded(value=>value+1)}
+      const current=++revision.current
+      try{const value=await api.natpmpStatus(server.id);if(alive.current&&current===revision.current){setRecord(value);setStatusError(null)}}catch(cause){if(alive.current&&current===revision.current)setStatusError(errorText(cause))}finally{if(alive.current&&current===revision.current)setLoaded(value=>value+1)}
     }
     const stop=startVisibilityPolling(refresh,5000,{immediate:true})
     return()=>{alive.current=false;++revision.current;stop()}

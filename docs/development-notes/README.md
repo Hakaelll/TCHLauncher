@@ -2,6 +2,22 @@
 
 Engineering records, test evidence and pending native checks.
 
+## NAT-PMP actions during background reads after 0.53.0
+
+Periodic status reads no longer own the mutation lock. Previously, a visible
+enabled control could silently ignore discovery, opening or removal while a
+background read was pending. An action now invalidates that older observation
+and owns the lock until its operation and status reconciliation finish. Stale
+read completion cannot clear the action lock or publish a stale error.
+
+An actual component/effect/callback probe reproduces the ignored discovery click.
+Seventy-two scoped checks cover ES/EN discovery, confirmed opening and removal,
+older read success/failure, immediate duplicate actions, reconciliation and
+removal feedback. TypeScript and the Windows frontend build pass. Polling and IPC
+are controlled; no real router port, native UI, firewall setting or Internet
+reachability is tested. Temporary probes are removed, with no retained test or
+dependency added. Local 0.53 and the published 0.51 release remain unchanged.
+
 ## Changes packaged in local 0.53.0
 
 Unsigned Windows x64 NSIS installer from `f58a04a79ad4cf247be88b2d7a8c934f38750d17`.
