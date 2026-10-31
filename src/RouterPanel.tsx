@@ -14,6 +14,8 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
   const [statusError,setStatusError]=useState<string|null>(null)
   const [busy,setBusy]=useState<'detect'|'open'|'close'|null>(null)
   const [consent,setConsent]=useState<{ip:string;port:number}|null>(null)
+  const [copyResult,setCopyResult]=useState<{address:string;kind:'copied'|'failed'}|null>(null)
+  const copySequence=useRef(0)
   const alive=useRef(false),inFlight=useRef(false),sequence=useRef(0),detectedInterface=useRef('')
   useEffect(()=>{
     alive.current=true
@@ -45,6 +47,16 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
   },[server.id,network?.localIp,network?.lanAddress,busy])
   const mapping=status?.mapping
   const expired=!!mapping?.expiresAt&&mapping.expiresAt<=Date.now()
+  const address=mapping?.phase==='active'&&!expired?mapping.externalAddress:null
+  useEffect(()=>{++copySequence.current;setCopyResult(null);return()=>{++copySequence.current}},[address])
+  const copy=async()=>{
+    if(!address)return
+    const request=++copySequence.current
+    setCopyResult(null)
+    try{await navigator.clipboard.writeText(address);if(alive.current&&request===copySequence.current)setCopyResult({address,kind:'copied'})}
+    catch{if(alive.current&&request===copySequence.current)setCopyResult({address,kind:'failed'})}
+  }
+  const copyFeedback=copyResult?.address===address?copyResult?.kind:null
   const canOpen=!statusError&&server.state==='running'&&network?.portState==='listening'&&!!network.lanAddress&&!!status?.router&&!mapping
   return <section className="router-control" aria-labelledby="router-title">
     <div className="router-heading"><div><h3 id="router-title">{t("Puerto del router · UPnP")}</h3></div><span className="router-discovery-status" role="status">{!network?.lanAddress?t("Esperando red local"):busy==='detect'?t("Buscando router…"):statusError?t("Sin comprobar"):status?.router?t("Router compatible"):t("Sin UPnP detectado")}</span></div>
@@ -55,7 +67,9 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
     {status?.router?.publicAddress===false&&<p className="muted-note">{t("IP externa no pública: puede haber otro router o CGNAT.")}</p>}
     {mapping?<>
       <p className="router-mapping-status" role="status"><span className={`state-dot ${mapping.phase==='active'&&!expired?'running':'starting'}`} aria-hidden="true"/>{expired&&mapping.phase==='active'?t("Concesión vencida; pendiente de revisión"):phaseLabels[mapping.phase]}</p>
-      <dl className="data-list network-facts"><div><dt>{t("Destino local")}</dt><dd>{mapping.localAddress}</dd></div>{mapping.externalAddress&&<div><dt>{t("Dirección externa")}</dt><dd><input readOnly aria-label={t("Dirección externa del servidor")} value={mapping.externalAddress} onFocus={event=>event.currentTarget.select()}/></dd></div>}{mapping.verifiedAt&&<div><dt>{t("Última comprobación del router")}</dt><dd>{clock(mapping.verifiedAt)}</dd></div>}{mapping.expiresAt&&<div><dt>{t("Fin de concesión confirmado")}</dt><dd>{clock(mapping.expiresAt)}</dd></div>}</dl>
+      <dl className="data-list network-facts"><div><dt>{t("Destino local")}</dt><dd>{mapping.localAddress}</dd></div>{mapping.verifiedAt&&<div><dt>{t("Última comprobación del router")}</dt><dd>{clock(mapping.verifiedAt)}</dd></div>}{mapping.expiresAt&&<div><dt>{t("Fin de concesión confirmado")}</dt><dd>{clock(mapping.expiresAt)}</dd></div>}</dl>
+      {address&&<div className="network-address-row"><input readOnly aria-label={t("Dirección externa del servidor")} value={address} onFocus={event=>event.currentTarget.select()}/><button onClick={copy}>{copyFeedback==='copied'?t("Copiada"):t("Copiar")}</button></div>}
+      {copyFeedback==='failed'&&<p className="network-error" role="alert">{t("No se pudo copiar automáticamente. Selecciona la dirección para copiarla.")}</p>}
       {mapping.lastError&&<p className="network-error">{translatedMessage(mapping.lastError)}</p>}
       <button disabled={!!busy} onClick={()=>void act('close',()=>api.closeRouterPort(server.id))}>{busy==='close'?t("Retirando…"):t("Retirar apertura")}</button>
     </>:<button className="primary-button" disabled={!!busy||!canOpen} onClick={()=>{if(network?.localIp)setConsent({ip:network.localIp,port:network.port})}}>{t("Abrir puerto temporalmente")}</button>}

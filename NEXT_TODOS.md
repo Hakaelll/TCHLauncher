@@ -52,6 +52,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Task cancellation now rejects repeated callbacks before a render, keeps accepted
   requests guarded and releases declined/failed requests for retry. Fifteen scoped
   component checks pass; native cancellation remains outside that evidence.
+- Active UPnP mappings now offer the existing copyable address-row pattern, with
+  failed-copy selection fallback and address-scoped feedback. Seventeen scoped
+  panel checks pass; physical router/clipboard and rendered appearance remain
+  outside that evidence. Pending, attention, closing and expired endpoints hide.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.

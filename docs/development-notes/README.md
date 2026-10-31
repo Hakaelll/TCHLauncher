@@ -2,6 +2,22 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Copyable active UPnP endpoint after 0.54.0
+
+UPnP now uses the existing address-row input/button pattern to copy its active
+external endpoint. The readonly input remains selectable when clipboard access
+fails, with existing translated recovery text. Pending, closing, attention and
+expired mappings do not offer a shareable endpoint. Address changes invalidate
+pending copy feedback, so an old response cannot mark a new address as copied.
+This does not claim that router confirmation proves Internet reachability.
+
+Seventeen scoped actual-panel effect/callback checks cover clipboard payloads,
+failure recovery, stale replies, mapping phases/expiry and input selection.
+TypeScript and the production frontend build pass. Status and clipboard boundaries
+are controlled; no physical router, native clipboard or rendered visual check is
+claimed. Existing layout, tokens and translations are reused. Temporary probe
+source is removed; published 0.54 packaging is unchanged.
+
 ## Guarded task cancellation after 0.54.0
 
 Progress controls now guard cancellation synchronously as well as disabling the
