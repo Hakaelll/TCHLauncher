@@ -1,7 +1,7 @@
 # TCHLauncher 0.55.0
 
 Local Windows x64 preview. This milestone is not published on GitHub.
-Packaging verification is pending. The installer will be unsigned.
+The installer is unsigned. GitHub retains the published 0.54 preview.
 
 ## Changes since 0.54.0
 
@@ -34,3 +34,11 @@ These checks do not establish rendered visual quality, native Windows interactio
 physical-router behavior or a new Minecraft client session. Existing End themes,
 tokens, artwork and navigation remain in use. No new dependencies or retained
 tests are added. Remaining manual checks stay maintainer-owned and nonblocking.
+
+Packaged source: `ee1669d5610902bce956fcabc02a9f05756ebb03`. Five retained frontend tests, TypeScript, the
+production frontend, optimized offline Windows NSIS packaging, executable/setup
+versions and embedded icons pass. The installer is 6,881,643 bytes. Generated-cache
+cleanup is deferred while other builds are active. The 0.54/0.55 installers and
+executable retain their verified hashes. The obsolete local 0.53 setup is verified
+and removed. Checksums stay local. These are file lengths, not allocated-disk or
+runtime performance measurements. No native UI or gameplay is repeated for packaging.

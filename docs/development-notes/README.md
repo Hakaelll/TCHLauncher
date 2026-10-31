@@ -2,6 +2,18 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Local Windows 0.55.0 package
+
+Unsigned local x64 installer from `ee1669d5610902bce956fcabc02a9f05756ebb03`.
+Five retained frontend tests, TypeScript, production frontend, optimized offline
+NSIS packaging, versions and embedded icons pass. The installer is 6,881,643 bytes.
+Generated-cache cleanup is deferred because other builds remain active; the guard
+is preserved. Package and executable hashes remain unchanged. Local retention
+keeps 0.54/0.55 and removes the verified obsolete
+0.53 installer. Source changes recorded below after 0.54 are included in 0.55.
+GitHub remains on 0.54; checksums stay local. Native interaction and gameplay are
+not repeated for packaging, and the full manager objective remains open.
+
 ## Scheduler capacity and observation after 0.54.0
 
 Task creation checks its per-server limit inside the same SQLite statement that

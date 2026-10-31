@@ -32,8 +32,8 @@ La 0.54.0 está publicada como preview de Windows, solo con el EXE adjunto.
 Agrupa los hitos 0.52, 0.53 y 0.54; los commits no cuentan como versiones.
 Se mantiene la cadencia habitual de 3 o 4 versiones entre publicaciones y la
 petición de publicar la versión que cierre la tanda final. Se conservan los
-instaladores locales 0.53 y 0.54. La 0.54 corresponde a la release publicada
-en GitHub. Los checksums permanecen locales.
+instaladores locales 0.54 y 0.55. La 0.55 es un paquete local sin publicar;
+GitHub conserva la 0.54. Los checksums permanecen locales.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa

@@ -21,13 +21,15 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.54.0 changes](docs/release-notes/RELEASE_NOTES_v0.54.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Latest local installer: 0.54.0, unsigned and published, from
-  `1f4f7a795471f61d3f3eb7c6395ac95df8a858c1`. See the
-  [0.54.0 changes](docs/release-notes/RELEASE_NOTES_v0.54.0.md). Frontend tests,
-  TypeScript, optimized offline Windows packaging, versions and icons pass.
-- Local retention keeps 0.53/0.54; checksums stay local. Protected cleanup removed
-  3,693,826,194 logical bytes of generated files with retained package hashes
-  unchanged. The obsolete local 0.52 installer was separately verified and removed.
+- Latest local installer: 0.55.0, unsigned and unpublished, from
+  `ee1669d5610902bce956fcabc02a9f05756ebb03`. See the
+  [0.55.0 changes](docs/release-notes/RELEASE_NOTES_v0.55.0.md). Five retained frontend
+  tests, TypeScript, production frontend, optimized offline NSIS packaging,
+  versions and embedded icons pass. GitHub remains on published 0.54.0.
+- Local retention keeps 0.54/0.55; checksums stay local. Generated-cache cleanup is
+  deferred because the existing guard detects other active builds; caches remain
+  untouched. Retained package/executable hashes are unchanged. The obsolete local
+  0.53 installer was verified and removed.
 - Post-0.52 source cleanup removes 13 unused platform icon derivatives
   (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
   actual CLI generation and current executable/setup icon-pixel checks pass.
@@ -48,7 +50,7 @@ continue actionable work without repeated acceptance or screenshot requests.
 - The modpack importer also recovers shared progress with server/kind ownership,
   blocks duplicate active imports and preserves read-only refresh after installation.
   Forty-two scoped ES/EN checks and frontend compilation pass; no real import or
-  native UI is exercised. Source changes await later packaging.
+  native UI is exercised. These source changes are included in local 0.55.0.
 - Task cancellation now rejects repeated callbacks before a render, keeps accepted
   requests guarded and releases declined/failed requests for retry. Fifteen scoped
   component checks pass; native cancellation remains outside that evidence.
@@ -60,7 +62,7 @@ continue actionable work without repeated acceptance or screenshot requests.
   An isolated native SQLite race previously saved 131 tasks from 99; the corrected
   module saves exactly 100 under the same 32 concurrent additions, preserving
   independent-server limits and validation. Full-engine/UI execution is untested
-  by this probe; source awaits later packaging.
+  by this probe; included in local 0.55.0.
 - Scheduled-task subscription notices now survive successful mutations and manual
   reads, remaining separate from action errors. Scoped component checks cover
   persistence and owner reset; frontend compilation passes without native UI.
