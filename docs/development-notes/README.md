@@ -23,6 +23,14 @@ failure and preserve clear boundaries, server scope, spaces and original rows.
 TypeScript/frontend checks pass; native keyboard/rendering remain untested.
 Temporary probe removed; local 0.56 packaging is unchanged.
 
+Console command recall now survives navigation for the current application
+session, with 50 acknowledged sends per server and no disk storage. The App keeps
+late acknowledgements; new console mounts receive that server's history, and
+deletion releases it. Actual send/initialization/scope callbacks and helpers check
+remounts, isolation, rejected sends, failed reads, late replies and bounds.
+TypeScript/frontend checks pass; native commands, deletion and keyboard behavior
+remain untested. Temporary probe removed; no retained test or dependency added.
+
 ## Local Windows 0.56.0 package
 
 Unsigned local x64 installer from `44aeb3d4ce3b4e3b3a911a0da6d63c525f931856`, 6,882,989 bytes.

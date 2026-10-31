@@ -20,6 +20,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   preserving priority/filters/identities in focused helper and frontend checks.
 - Console search uses host-independent lowercasing. Controlled actual
   callback/timeline and frontend checks pass; native keyboard use is untested.
+- Command recall survives navigation within the app session, keeping up to 50
+  acknowledged sends per server in memory. Scoped callback/helper and frontend
+  checks pass; native commands/deletion/keyboard are not exercised by the probe.
 - Latest published preview: [0.54.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0), grouping the
   0.52, 0.53 and 0.54 milestones. Only the unsigned Windows x64 EXE is attached;
   GitHub asset size/digest and its source tag are verified.

@@ -5,6 +5,7 @@ import {acknowledgedAction} from './acknowledgedAction'
 import {useLanguage} from './useLanguage'
 import {createLogBatch} from './logBatch'
 import {appendConsoleLines,mergeConsoleHistory,type ConsoleLine} from './consoleTimeline'
+import {rememberCommand} from './consoleTools'
 import {startVisibilityPolling} from './visibilityPolling'
 import {retryingSubscription} from './retryingSubscription'
 import {deferredPanel} from './DeferredPanel'
@@ -175,6 +176,7 @@ function App() {
   const {data:players,loading:playersLoading,error:playersError,refresh:refreshPlayers}=useServerRead(selectedId,api.players,playerViewVisible&&playerProcessActive?3000:0)
   const {data:logHistory,loading:logLoading,error:logError,refresh:refreshLog}=useServerRead(selectedId,api.log)
   const [consoleQuery,setConsoleQuery]=useState('')
+  const consoleHistory=useRef<Record<string,string[]>>({})
   useEffect(()=>{if(view!=='console'||libraryOpen||creating||importing||appearanceOpen)setConsoleQuery('')},[view,libraryOpen,creating,importing,appearanceOpen])
   const [logs, setLogs] = useState<ConsoleLine[]>([])
   const logArrival=useRef(0)
@@ -490,6 +492,7 @@ function App() {
     try {
       const {value:outcome,refreshError}=await acknowledgedAction(()=>api.deleteServer(server.id),async()=>{
         ++serverReadRevision.current;latestServerStates.current.delete(server.id)
+        delete consoleHistory.current[server.id]
         setServers(current=>current.filter(item=>item.id!==server.id))
         setMetricsHistory(current=>{const next={...current};delete next[server.id];return next})
         setStartupPhases(current=>{const next={...current};delete next[server.id];return next})
@@ -596,7 +599,10 @@ function App() {
           {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} loading={playersLoading} readError={playersError} busy={busy} onRefresh={() => refreshPlayers(selected.id)} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={async () => { const success=await act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values) } });if(success&&selected.state!=='running')await refreshProperties(selected.id).catch(()=>{});return success }} onImportWhitelist={selection => importWhitelist(selected.id,selection)} onRemoveIdentity={(list,uuid) => removeIdentity(selected.id,list,uuid)} onRemoveIp={ip=>removeBannedIp(selected.id,ip)}/>}
           {view === 'worlds' && <WorldView server={selected} onBackupsChanged={()=>refreshBackups(selected.id)}/>}
           {view === 'content' && selected.platform!=='vanilla' && <ContentManager onImportPack={()=>{setPackResume(null);setPackOpen(true)}} key={selected.id} server={selected} progress={progress} logs={logs} onConsole={query=>{setConsoleQuery(query);setView('console')}} onInstalled={async()=>{await refresh();await refreshBackups(selected.id)}} onDismissProgress={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {view === 'console'  && <ConsoleView initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(() => api.send(selected.id,command))}/> }
+          {view === 'console'  && <ConsoleView key={selected.id} initialHistory={consoleHistory.current[selected.id]??[]} initialQuery={consoleQuery} serverId={selected.id} state={selected.state} logs={logs} historyLoading={logLoading} historyError={logError} onReload={() => refreshLog(selected.id)} busy={busy} onSend={command => act(async()=>{
+            await api.send(selected.id,command)
+            consoleHistory.current[selected.id]=rememberCommand(consoleHistory.current[selected.id]??[],command)
+          })}/> }
           {view === 'backups' && <BackupsView key={selected.id} server={selected} copies={backups} loaded={backupsLoaded} loading={backupsLoading} error={backupsError} busy={busy} reasons={backupReason} onCreate={()=>void createCopy(selected.id)} onRefresh={()=>refreshBackups(selected.id)} onRestore={backup=>{setError(null);setRestoreTarget({serverId:selected.id,backup})}}/>}
           {view === 'settings' && <ServerSettings key={selected.id} onConsole={()=>setView('console')} onRuntimeChanged={refresh} onPrepareRuntime={reinstall=>runInstallation(selected.id,reinstall?'runtime_reinstall':'runtime')} server={selected} props={props} savedProps={savedProps} setProps={setProps} propertiesLoaded={propsLoaded} propertiesLoading={propsLoading} propertiesError={propsError} propertiesDirty={propsDirty||capacityDirty} onReloadProperties={()=>void refreshProperties(selected.id).catch(()=>{})} memory={memory} setMemory={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setMemory(value)}} storageTarget={storageTarget} setStorageTarget={value=>{capacityDirtyRef.current=true;setCapacityDirty(true);setStorageTarget(value)}} systemMemory={systemMemory} busy={busy||!!restoreSync[selected.id]} progress={progress} onRename={name=>renameServer(selected.id,name)} onDiscard={discardSettings} onSave={()=>void saveSettings(selected.id)} onPickImage={() => act(async () => { const image = await api.pickServerImage(); if (image) await api.setServerImage(selected.id,image.path) })} onClearImage={() => act(() => api.clearServerImage(selected.id))} onDelete={() => setDeleteTarget(selected)}/>}
         </div>

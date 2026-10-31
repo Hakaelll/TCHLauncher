@@ -15,7 +15,8 @@ const ConsoleRow=memo(function ConsoleRow({item,language}:{item:ConsoleLine;lang
   return <div className={`log-line ${item.level}`}><time dateTime={item.timestamp?.includes('T') ? item.timestamp : undefined}>{clockTime(item.timestamp,true,language)}</time><span className="log-level">{item.level}</span><span className="log-message">{item.message}</span></div>
 })
 
-export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,historyError,onReload,initialQuery=''}: {
+export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,historyError,onReload,initialHistory,initialQuery=''}: {
+  initialHistory: string[];
   initialQuery?: string;
   serverId: string;
   state: ServerState;
@@ -35,7 +36,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const [notice,setNotice] = useState<{kind:'success'|'error';message:string}|null>(null)
   const [exporting,setExporting] = useState(false)
   const [sending,setSending]=useState(false)
-  const [commandHistory,setCommandHistory]=useState<string[]>([])
+  const [commandHistory,setCommandHistory]=useState<string[]>(initialHistory)
   const [historyCursor,setHistoryCursor]=useState<number|null>(null)
   const historyDraft=useRef('')
   const commandRevision=useRef(0)
@@ -48,7 +49,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   useEffect(() => { setQuery(initialQuery); setLevel('all'); setCommand(''); setClearedThrough(null); setFollowing(true); setNotice(null) },[serverId,initialQuery])
   useEffect(()=>{
     const current={id:serverId,active:true,sending:false,exporting:false};scope.current=current
-    setCommandHistory([]);setHistoryCursor(null);historyDraft.current='';setSending(false);setExporting(false)
+    setCommandHistory(initialHistory);setHistoryCursor(null);historyDraft.current='';setSending(false);setExporting(false)
     return()=>{current.active=false}
   },[serverId])
   const currentScope=(value:typeof scope.current)=>value.active&&scope.current===value
