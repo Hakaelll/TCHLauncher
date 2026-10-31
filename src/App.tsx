@@ -586,7 +586,7 @@ function App() {
         finally{setBusy(false)}
       }}>{operationBusy?t("Restaurando…"):t("Restaurar copia")}</button></div>
     </Modal>}
-    {packOpen && <PackImport resumeId={packResume} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
+    {packOpen && <PackImport resumeId={packResume} tasks={progressByServer} systemMemory={systemMemory} onClose={()=>{setPackOpen(false);void refresh().catch(cause=>setError(errorText(cause)))}} onInstalled={async id=>{await refresh();setPackOpen(false);setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(id);setView('overview')}}/>}
     {downloadConsent && <Modal labelledBy="download-consent-title" describedBy="download-consent-description" busy={consentBusy} onClose={()=>setDownloadConsent(null)}>
       <h2 id="download-consent-title">{t("Antes de descargar Minecraft")}</h2>
       <p id="download-consent-description">{t("Lee la")} <a href="https://www.minecraft.net/en-us/eula" target="_blank" rel="noreferrer">{t("EULA de Minecraft")}</a>{t(". Al aceptar, guardaremos tu decisión en este equipo para los siguientes servidores.")}</p>

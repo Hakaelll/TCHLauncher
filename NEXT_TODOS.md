@@ -45,6 +45,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Post-0.54 source routes loader/Minecraft update progress through shared tasks,
   recovering active tasks when settings opens and removing duplicate subscriptions.
   Scoped ES/EN progress/acknowledgement recovery checks and frontend compilation pass.
+- The modpack importer also recovers shared progress with server/kind ownership,
+  blocks duplicate active imports and preserves read-only refresh after installation.
+  Forty-two scoped ES/EN checks and frontend compilation pass; no real import or
+  native UI is exercised. Source changes await later packaging.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.

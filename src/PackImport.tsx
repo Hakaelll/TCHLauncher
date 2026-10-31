@@ -1,6 +1,5 @@
 import {translatedMessage,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
-import {listen} from '@tauri-apps/api/event'
 import {api,type PackInspection,type Progress,type Server} from './api'
 import {Modal} from './Modal'
 import {SliderField} from './SliderField'
@@ -8,18 +7,19 @@ import {MemoryAdvice} from './MemoryAdvice'
 import {InstallProgress} from './InstallProgress'
 import {useNavigationMotion} from './motion'
 import {acknowledgedAction} from './acknowledgedAction'
+import {isTaskActive} from './taskState'
 
-type Props={systemMemory:number;resumeId?:string|null;onClose:()=>void;onInstalled:(id:string)=>Promise<void>}
+type Props={systemMemory:number;resumeId?:string|null;tasks:Readonly<Record<string,Progress>>;onClose:()=>void;onInstalled:(id:string)=>Promise<void>}
 const size=(bytes:number)=>bytes>=1024*1024?`${(bytes/1024/1024).toFixed(1)} MB`:`${Math.ceil(bytes/1024)} KB`
 
-export function PackImport({systemMemory,resumeId,onClose,onInstalled}:Props) {
+export function PackImport({systemMemory,resumeId,tasks,onClose,onInstalled}:Props) {
   const [step,setStep]=useState(0)
   const [pack,setPack]=useState<PackInspection|null>(null)
   const [chosen,setChosen]=useState<Set<string>>(new Set())
   const [name,setName]=useState('')
   const [ram,setRam]=useState(4096)
   const [players,setPlayers]=useState(20)
-  const [busy,setBusy]=useState(!!resumeId)
+  const [working,setWorking]=useState(!!resumeId)
   const [error,setError]=useState<string|null>(null)
   const [consent,setConsent]=useState<boolean|null>(null)
   const [accepted,setAccepted]=useState(false)
@@ -30,17 +30,18 @@ export function PackImport({systemMemory,resumeId,onClose,onInstalled}:Props) {
   const server=useRef<Server|null>(null)
   const stepBody=useRef<HTMLDivElement>(null)
   useNavigationMotion(stepBody,String(step))
+  const progressId=server.current?.id??resumeId
+  const task=progressId?tasks[progressId]:null
+  const currentProgress=task&&task.serverId===progressId&&task.kind==='pack_install'?task:null
+  const busy=working|| (!!server.current&&!installedId.current&&currentProgress!==null&&isTaskActive(currentProgress))
   const locked=busy||!!server.current
-  useEffect(()=>{let active=true;if(resumeId)void api.listServers().then(values=>{if(!active)return;const existing=values.find(value=>value.id===resumeId);if(existing){server.current=existing;setName(existing.name);setRam(existing.memoryMaxMb)}else{setError(t("No se encontró el servidor que quieres reintentar."))}}).catch(cause=>{if(active)setError(String(cause))}).finally(()=>{if(active)setBusy(false)});return()=>{active=false}},[resumeId])
+  useEffect(()=>{if(currentProgress)setProgress(currentProgress)},[currentProgress])
+  useEffect(()=>{let active=true;if(resumeId)void api.listServers().then(values=>{if(!active)return;const existing=values.find(value=>value.id===resumeId);if(existing){server.current=existing;setName(existing.name);setRam(existing.memoryMaxMb)}else{setError(t("No se encontró el servidor que quieres reintentar."))}}).catch(cause=>{if(active)setError(String(cause))}).finally(()=>{if(active)setWorking(false)});return()=>{active=false}},[resumeId])
   useEffect(()=>{let active=true;void api.eulaConsentRecorded().then(value=>{if(active)setConsent(value)}).catch(cause=>{if(active)setError(String(cause))});return()=>{active=false}},[])
-  useEffect(()=>{let dispose:(()=>void)|undefined;let active=true
-    void listen<Progress>('install-progress',event=>{if(active&&event.payload.kind==='pack_install'&&event.payload.serverId===server.current?.id)setProgress(event.payload)}).then(fn=>{if(active)dispose=fn;else fn()}).catch(cause=>{if(active)setError(String(cause))})
-    return()=>{active=false;dispose?.()}
-  },[])
-  const pick=async()=>{setBusy(true);setError(null);try {const value=await api.pickModpack();if(value){setPack(value);setName(server.current?.name??value.name);setChosen(new Set(value.entries.filter(e=>e.selected).map(e=>e.path)));setStep(1)}}catch(cause){setError(String(cause))}finally{setBusy(false)}}
+  const pick=async()=>{if(busy||submitting.current)return;setWorking(true);setError(null);try {const value=await api.pickModpack();if(value){setPack(value);setName(server.current?.name??value.name);setChosen(new Set(value.entries.filter(e=>e.selected).map(e=>e.path)));setStep(1)}}catch(cause){setError(String(cause))}finally{setWorking(false)}}
   const install=async()=>{
-    if(submitting.current||!pack||pack.blockers.length>0||!name.trim()||consent===null||(!consent&&!accepted))return
-    submitting.current=true;setBusy(true);setError(null);setFinishError(null)
+    if(busy||submitting.current||!pack||pack.blockers.length>0||!name.trim()||consent===null||(!consent&&!accepted))return
+    submitting.current=true;setWorking(true);setError(null);setFinishError(null)
     if(!installedId.current)setProgress(null)
     try {
       const result=await acknowledgedAction(async()=>{
@@ -52,7 +53,7 @@ export function PackImport({systemMemory,resumeId,onClose,onInstalled}:Props) {
         return installedId.current
       },onInstalled)
       setFinishError(result.refreshError)
-    }catch(cause){setError(String(cause))}finally{submitting.current=false;setBusy(false)}
+    }catch(cause){setError(String(cause))}finally{submitting.current=false;setWorking(false)}
   }
   const total=pack?.entries.filter(entry=>chosen.has(entry.path)).reduce((sum,entry)=>sum+entry.size,0)??0
   return <Modal labelledBy="pack-title" className="pack-dialog" busy={busy} onClose={onClose}>

@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Shared modpack-import progress after 0.54.0
+
+The importer consumes the application's readonly task map instead of subscribing
+to native progress events itself. Matching server and task-kind ownership recovers
+existing pack-install progress when reopening an import. A recognized active task
+blocks duplicate work; a missing server leaves the dialog closable. Once installation
+is acknowledged, a failed library refresh can be retried without creating another
+server or reinstalling, even if the shared task snapshot still reports activity.
+
+A baseline component check reproduces missing resumed progress. Forty-two scoped
+ES/EN effect and callback checks cover task ownership, active/failed recovery,
+missing servers, optional file selection, new-server association and read-only
+refresh recovery. TypeScript and the production frontend build pass. Boundaries
+are controlled; no real file import, native UI or consent change is exercised.
+Temporary probe sources are removed; no retained test or dependency is added.
+Published 0.54 packaging is unchanged; source awaits a later packaging milestone.
+
 ## Shared update-task progress after 0.54.0
 
 Loader and Minecraft update panels consume the application-owned task stream,
