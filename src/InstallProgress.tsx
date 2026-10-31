@@ -1,5 +1,5 @@
 import {translatedMessage,localizedStatic,t} from './locale.ts'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api, type Progress } from './api'
 import { AnimatedValue } from './motion'
 import {windowsFileAdvice} from './fileFailureAdvice'
@@ -33,6 +33,7 @@ export function InstallProgress(props:Props) {
 
 function TaskProgress({progress,busy,onRetry,onDismiss,retryLabel=t("Reintentar"),allowRetry=true}:Props) {
   const [cancelling,setCancelling] = useState(false)
+  const cancellationRequested=useRef(false)
   const [error,setError] = useState<string|null>(null)
   const terminal = ['completed','cancelled','failed'].includes(progress.stage)
   const cancellable=progress.stage!=='publishing'
@@ -41,9 +42,11 @@ function TaskProgress({progress,busy,onRetry,onDismiss,retryLabel=t("Reintentar"
   const total=progress.total!=null&&Number.isFinite(progress.total)&&progress.total>0?progress.total:null
   const percentage = measured&&total!=null ? Math.min(100,Math.floor(received / total * 100)) : null
   const cancel = async () => {
+    if(terminal||!cancellable||cancellationRequested.current)return
+    cancellationRequested.current=true
     setCancelling(true);setError(null)
-    try { const accepted = await api.cancelInstall(progress.serverId,progress.taskId); if (!accepted) setCancelling(false) }
-    catch (cause) {setError(String(cause));setCancelling(false)}
+    try { const accepted = await api.cancelInstall(progress.serverId,progress.taskId); if (!accepted) {cancellationRequested.current=false;setCancelling(false)} }
+    catch (cause) {cancellationRequested.current=false;setError(String(cause));setCancelling(false)}
   }
   return <section className={`install-progress ${terminal ? 'terminal' : ''}`} data-stage={progress.stage} aria-label={t("Estado de la tarea")}>
     <div className="install-progress-heading"><div><strong>{translatedMessage(progress.label)}</strong><span className="install-stage" role="status">{terminal ? stages[progress.stage] : cancelling ? t("Cancelando…") : `${stages[progress.stage]}${progress.attempt > 1 ? ` ${t("· Intento {0} de 3",progress.attempt)}` : ''}`}</span></div>

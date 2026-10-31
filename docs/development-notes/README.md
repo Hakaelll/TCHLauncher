@@ -2,6 +2,21 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Guarded task cancellation after 0.54.0
+
+Progress controls now guard cancellation synchronously as well as disabling the
+button. Repeated callbacks before a React render send one request for the task.
+An accepted request remains guarded; a declined request or IPC failure releases
+the guard for retry. Publishing and terminal stages cannot submit cancellation.
+The existing task-ID component key isolates the guard from subsequent jobs.
+
+The baseline actual-component callback check sends two IPC requests. Fifteen
+scoped hook/callback checks pass after the fix, including accepted/pending
+duplicates, declined/error retries, error visibility and noncancellable stages.
+TypeScript and the production frontend build pass. Cancellation IPC is controlled;
+no native task or UI is driven. Temporary probe source is removed, with no new
+retained test or dependency. Published 0.54 packaging is unchanged.
+
 ## Shared modpack-import progress after 0.54.0
 
 The importer consumes the application's readonly task map instead of subscribing

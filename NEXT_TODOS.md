@@ -49,6 +49,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   blocks duplicate active imports and preserves read-only refresh after installation.
   Forty-two scoped ES/EN checks and frontend compilation pass; no real import or
   native UI is exercised. Source changes await later packaging.
+- Task cancellation now rejects repeated callbacks before a render, keeps accepted
+  requests guarded and releases declined/failed requests for retry. Fifteen scoped
+  component checks pass; native cancellation remains outside that evidence.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.
