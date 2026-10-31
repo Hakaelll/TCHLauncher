@@ -54,7 +54,7 @@ pub struct Check {
 #[serde(rename_all="camelCase")]
 pub struct Audit {
     pub files:Vec<InstalledContent>,pub disabled:Vec<InstalledContent>,pub checks:Vec<Check>,
-    pub log_modified_at:Option<u64>,pub log_note:String,
+    pub log_modified_at:Option<u64>,pub log_notes:Vec<String>,
 }
 
 fn text(value:&serde_json::Value,key:&str)->Option<String> {
@@ -277,7 +277,7 @@ pub fn audit(server:&Server)->Result<Audit,String> {
         checks.push(Check {filename:file.filename.clone(),descriptor,issues,listed_in_log});
     }
     for (id,indices) in owners {if indices.len()>1 {for i in indices {checks[i].issues.push(format!("Identificador duplicado: {id}. Hay más de un JAR de este {}",if server.platform=="paper"{"plugin"}else{"mod"}));checks[i].listed_in_log=None;}}}
-    let mut log_note=log_note;
+    let mut log_notes=vec![log_note];
     if server.platform=="fabric" {
         let presence=crate::fabric_presence::review(base,&files);
         for check in &mut checks {
@@ -285,7 +285,7 @@ pub fn audit(server:&Server)->Result<Audit,String> {
                 check.issues.extend(issues.iter().cloned());
             }
         }
-        log_note.push_str(" ");log_note.push_str(&presence.note);
+        log_notes.push(presence.note);
     }
-    Ok(Audit {files,disabled:content_storage::list_disabled(server)?,checks,log_modified_at,log_note})
+    Ok(Audit {files,disabled:content_storage::list_disabled(server)?,checks,log_modified_at,log_notes})
 }

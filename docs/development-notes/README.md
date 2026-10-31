@@ -4,17 +4,18 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after local 0.45.0
 
-The English catalog adds 330 application-owned native messages across three passes:
+The English catalog adds 472 application-owned native messages across four passes:
 startup/JVM, players/permissions, properties, import, basic networking, backups,
-retention, worlds, recovery and router diagnostics. Existing translations are retained and the
-scheduler help uses its existing English action label. Reviewed native copy now
+retention, worlds, recovery, router diagnostics and content management. Existing
+translations are retained and scheduler help uses its existing English action
+label. Reviewed native copy now
 lives in `src/locales/native-en.ts` and is included by the general catalog.
 
 Actual locale checks reproduce the original Spanish fallback and failures hidden
 behind a stored `Error: ` prefix. A general UI name template could also partially
 translate a whole diagnostic. The prefix now uses only reviewed native entries
 and patterns; exact complete-message translations take precedence. An unknown
-path ending in `copia` remains unchanged. The shared matcher reuses compiled
+`Error: `-prefixed path ending in `copia` remains unchanged. The shared matcher reuses compiled
 patterns. The helper's return type widens translated strings while preserving
 non-string values, without the previous generic cast.
 
@@ -24,6 +25,7 @@ values, reverse aliases and general lookup results for generated examples from
 all entries. TypeScript and the Windows frontend build pass; Vite reports its
 main-chunk size advisory. These are locale/helper checks, not native interaction,
 backup recovery or gameplay checks. No runtime performance gain is claimed.
+
 The network pass adds 93 UPnP/NAT-PMP diagnostics and moves eleven existing
 Minecraft-query translations into the native catalog without changing their values
 or reverse aliases. The NAT-PMP timeout now suggests manual forwarding instead of
@@ -31,7 +33,23 @@ the removed tunnel feature. Actual locale checks include stored error wrappers
 and preserve unknown protocol/vendor details. Router discovery, opening, renewal
 and cleanup logic are unchanged; no physical-router interaction was performed.
 
-Other native installation/content and composed messages still need review;
+The content pass adds 142 messages for Modrinth plans, JAR/descriptor checks,
+content transactions and mrpack validation, and moves nineteen existing entries
+into the native catalog without changing their translations. Loader-specific
+compatibility messages avoid splitting a mod name that itself contains the
+Spanish compatibility wording. Locale checks retain project names, paths and
+version ranges in formatted arguments.
+
+Fabric load-list and dependency-review notes previously arrived as one joined
+string, which prevented independent translation. The native audit now sends
+`logNotes`, an array, and the summary translates each note before joining them.
+The actual summary paragraph renders the expected Spanish/English text for
+complete and incomplete review fixtures; the old joined representation reproduces
+the translation gap. TypeScript, the Windows frontend build and the full offline
+native library check pass with the updated contract. This does not confirm native
+interaction, mod loading or gameplay behavior.
+
+Other native installer/loader and composed messages still need review;
 the literal inventory is heuristic and excludes recognized SQL rather than
 translating queries. This source postdates the local 0.45 installer. No version
 or release is generated for these localization changes.

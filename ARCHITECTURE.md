@@ -72,6 +72,9 @@ rows render raw Minecraft text. Router diagnostics and Minecraft status-query
 errors use this same catalog; protocol responses remain unchanged. Native-copy
 coverage remains in progress. Existing native translations should move into that
 catalog when their module is reviewed, alongside new entries.
+The content audit sends `logNotes` as separate application-owned messages. The
+frontend translates each note before joining them for display, so Fabric load-list
+and dependency-review copy remains localizable without parsing combined prose.
 
 ## Frontend reads and actions
 
