@@ -1,6 +1,6 @@
 # TCHLauncher 0.52.0
 
-Windows x64 preview, prepared as a local build. The installer is unsigned.
+Windows x64 preview, built locally. The installer is unsigned.
 This version is not a GitHub release; the published preview remains 0.51.0.
 
 ## Changes since 0.51.0
@@ -36,4 +36,11 @@ against adversarial concurrent filesystem changes. Disk-cache eviction is not
 added and Minecraft heap settings are unchanged. Remaining manual validation is
 maintainer-owned and does not block independent work.
 
-Packaging evidence will be recorded after the installer is built.
+Packaged source: `6c756089dee67355a3ad5047933315c0de31d32a`. TypeScript, five retained
+frontend tests, Windows frontend, optimized offline NSIS packaging, executable/setup
+versions and embedded icons pass. The installer is 6,910,025 bytes.
+Protected cleanup removes 3,715,392,282 logical bytes of generated files with
+the 0.51/0.52 setup hashes and current executable hash unchanged. The obsolete
+local 0.50 setup is separately verified and removed. File-length totals are not
+allocated-disk measurements. GitHub remains at 0.51.0, with no new release or
+checksum asset published.

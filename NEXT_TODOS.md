@@ -20,9 +20,13 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.51.0 changes](docs/release-notes/RELEASE_NOTES_v0.51.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Local retention keeps 0.50/0.51; checksums stay local. Protected cleanup removed
-  3,714,008,336 logical bytes of generated files with retained package hashes
-  unchanged. The obsolete local 0.49 installer was separately verified and removed.
+- Latest local installer: 0.52.0, unsigned and unpublished, from
+  `6c756089dee67355a3ad5047933315c0de31d32a`. See the
+  [0.52.0 changes](docs/release-notes/RELEASE_NOTES_v0.52.0.md). Frontend tests,
+  TypeScript, optimized offline Windows packaging, versions and icons pass.
+- Local retention keeps 0.51/0.52; checksums stay local. Protected cleanup removed
+  3,715,392,282 logical bytes of generated files with retained package hashes
+  unchanged. The obsolete local 0.50 installer was separately verified and removed.
 - Publication follows the usual 3–4-version cadence. The requested final batch
   release remains authorized; commits and pushes proceed independently.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
@@ -186,7 +190,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | Published 0.51.0 NSIS x64 from commit 7fc678d, unsigned, with only the EXE attached. TypeScript, retained frontend tests, Windows frontend, optimized offline packaging, versions and icons pass. It groups 0.49–0.51 charts, feedback, search, HTTP pools, retention and independent storage measurement. Local retention keeps 0.50/0.51; protected cleanup preserves setup/executable hashes. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
+| REL-02 | REVIEW | Current installer | Local 0.52.0 NSIS x64 from commit 6c75608, unsigned and unpublished; GitHub remains at 0.51.0. Frontend tests, TypeScript, Windows frontend, optimized offline packaging, versions and icons pass. It groups task-date validation, Windows file advice, image-cache validation/publication, idle skin-request release and version-aware gameplay choices. Local retention keeps 0.51/0.52; protected cleanup preserves package/executable hashes. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
 
 ## Implemented scope from earlier audits
 

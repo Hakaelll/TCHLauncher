@@ -2,6 +2,22 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Changes packaged in local 0.52.0
+
+Unsigned Windows x64 NSIS installer from
+`6c756089dee67355a3ad5047933315c0de31d32a`. Five retained frontend tests, TypeScript,
+Windows frontend, optimized offline packaging, executable/setup versions and
+embedded icons pass. The installer is 6,910,025 bytes. The release groups
+scheduling validation, file-error advice, shared cached-image safety, skin-request
+retirement and version-aware gameplay choices described below. No dependency or
+retained test is added. Native interaction and gameplay are not repeated.
+
+Protected cleanup removes 3,715,392,282 logical bytes of generated files, with
+both retained setup hashes and the executable unchanged. The obsolete local 0.50
+setup is separately verified and removed; 0.51/0.52 remain. These are file lengths,
+not allocated-disk savings. No server library is changed. GitHub remains at 0.51;
+no release or checksum asset is published for this local milestone.
+
 ## Version-aware gameplay choices after 0.51.0
 
 Game-mode and difficulty option values now follow the same known 1.x version
