@@ -6,7 +6,7 @@ import {api,type Metrics,type Server} from './api'
 import { useEffect,useState,useRef } from 'react'
 import { AnimatedLine, AnimatedValue } from './motion'
 import { diskRate, HISTORY_MS, seriesSegments, type MetricSample } from './telemetry'
-import {chartSamples,inspectionSamples,stepSample,memoryDomain,cpuDomain,measured,type ChartMetric} from './chartData'
+import {chartSamples,inspectionSamples,stepSample,memoryDomain,cpuDomain,measured,type ChartMetric,type MemoryMetric} from './chartData'
 
 const bytesLabel = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${(bytes / 1024).toFixed(1)} KB`
 
@@ -18,11 +18,12 @@ function ResourceChart({server,metrics,history,error,metric,windowMs,hoverTime,o
   const samples=chartSamples(history,server.id,metrics?.pid,windowMs)
   const peakValues=samples.map(sample=>sample[metric]).filter(measured)
   const peak=peakValues.length?Math.max(...peakValues):null
-  const maximum=memory?memoryDomain(samples,server.memoryMaxMb*1024**2):cpuDomain(peak,autoCpu)
+  const memoryKeys:MemoryMetric[]=[...(showProcess?['memoryBytes' as const]:[]),...(showHeap?['heapUsedBytes' as const]:[])]
+  const maximum=memory?memoryDomain(samples,server.memoryMaxMb*1024**2,memoryKeys):cpuDomain(peak,autoCpu)
   const latestTime = samples.at(-1)?.sampledAt ?? 0
   const x = (sample: MetricSample) => 12 + (sample.sampledAt - latestTime + windowMs) / windowMs * 476
   const y = (sample: MetricSample,key:ChartMetric=metric) => 142 - Math.min(1,(sample[key] ?? 0) / maximum) * 128
-  const keys:ChartMetric[]=memory?[...(showProcess?['memoryBytes' as const]:[]),...(showHeap?['heapUsedBytes' as const]:[])]:['cpuPercent']
+  const keys:ChartMetric[]=memory?memoryKeys:['cpuPercent']
   const inspectable=inspectionSamples(samples,keys)
   const segments = showProcess?seriesSegments(samples,metric):[]
   const heapSegments=memory&&showHeap?seriesSegments(samples,'heapUsedBytes'):[]

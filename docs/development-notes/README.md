@@ -2,6 +2,21 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Visible memory chart scaling after 0.52.0
+
+The memory chart scales from its visible series. Hiding resident process RAM now
+lets the heap line use its own range; hiding heap excludes its peaks as well.
+The same typed series selection controls scaling, inspection and line visibility.
+Both-series defaults, configured-memory fallback and CPU scaling are preserved.
+
+A production-helper check reproduces the hidden-series scaling error. Thirty
+scoped helper/component-tree/callback checks cover ES/EN, each visibility choice,
+line coordinates, invalid/missing samples, process ownership and CPU defaults.
+TypeScript, the Windows frontend build and five retained frontend tests pass.
+Temporary probes are removed; no retained test or dependency is added. These
+checks do not exercise native pointer/keyboard rendering or measure performance.
+The local installer and published release are unchanged.
+
 ## ZIP dependency reduction after 0.52.0
 
 ZIP uses explicit features matching its previous default compression codecs and

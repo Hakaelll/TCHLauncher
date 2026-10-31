@@ -1,6 +1,7 @@
 import type {MetricSample} from './telemetry'
 
-export type ChartMetric='memoryBytes'|'heapUsedBytes'|'cpuPercent'
+export type MemoryMetric='memoryBytes'|'heapUsedBytes'
+export type ChartMetric=MemoryMetric|'cpuPercent'
 export const measured=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value)&&value>=0
 
 export function chartSamples(history:MetricSample[],serverId:string,pid:number|null|undefined,windowMs:number):MetricSample[] {
@@ -21,10 +22,10 @@ export function stepSample(samples:MetricSample[],time:number|null,key:'ArrowLef
   return samples[target].sampledAt
 }
 
-/** Fit measured memory to the viewport; Xmx is a fallback, not a resident RAM limit. */
-export function memoryDomain(samples:MetricSample[],configuredBytes:number):number {
+/** Fit visible memory series; Xmx is a fallback, not a resident RAM limit. */
+export function memoryDomain(samples:MetricSample[],configuredBytes:number,keys:readonly MemoryMetric[]=['memoryBytes','heapUsedBytes']):number {
   let peak=0
-  for(const sample of samples)peak=Math.max(peak,measured(sample.memoryBytes)?sample.memoryBytes:0,measured(sample.heapUsedBytes)?sample.heapUsedBytes:0)
+  for(const sample of samples)for(const key of keys)if(measured(sample[key]))peak=Math.max(peak,sample[key])
   return peak>0?peak*1.1:Math.max(configuredBytes,1)
 }
 
