@@ -2,6 +2,26 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Skin-request registry lifetime after 0.51.0
+
+The skin owner no longer retains an idle synchronization entry for every UUID
+consulted during the application session. Each request removes completed entries
+without an active failure backoff, plus expired failures. In-flight references
+keep their lock identity. A shared five-minute duration governs both failure
+retention and retry backoff; recent failures are not discarded just to trim memory.
+
+A temporary native case reproduces 32 completed cached-profile entries remaining
+before the change. It passes afterward with idle retirement, exact cached PNG
+responses, preserved active-lock identity, retained recent failures, expired
+failure release, backoff returning no head when appropriate, and four concurrent
+cached requests. PNGs are real temporary files; failure timestamps/references are
+controlled. The full native test target compiles. The fixture/probe is removed,
+adding no retained test or dependency. No Java server or native UI is driven.
+
+This fixes persistent registry growth across completed requests. It does not set
+a strict entry cap, measure application RAM/latency, evict disk images or reduce
+Minecraft's configured heap. The published 0.51 installer is unchanged.
+
 ## Cached-image validation and publication after 0.51.0
 
 Skin heads and content icons now share bounded cached-PNG reads and temporary

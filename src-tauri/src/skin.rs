@@ -7,6 +7,7 @@ use std::sync::{Arc,Mutex,OnceLock};
 use std::time::{Duration,Instant};
 
 static LOCKS: OnceLock<Mutex<HashMap<String,Arc<Mutex<Option<Instant>>>>>> = OnceLock::new();
+const FAILURE_BACKOFF:Duration=Duration::from_secs(300);
 
 fn uuid_key(uuid: &str) -> Result<String,String> {
     uuid::Uuid::parse_str(uuid).map(|id|id.simple().to_string()).map_err(|_|"UUID de jugador no válido".into())
@@ -48,13 +49,17 @@ fn head_png(bytes: &[u8]) -> Result<Vec<u8>,String> {
 
 pub fn player_head(root: &Path,uuid: &str) -> Result<Option<String>,String> {
     let key=uuid_key(uuid)?;
-    let lock=LOCKS.get_or_init(||Mutex::new(HashMap::new())).lock().map_err(|e|e.to_string())?.entry(key.clone()).or_insert_with(||Arc::new(Mutex::new(None))).clone();
+    let lock={
+        let mut locks=LOCKS.get_or_init(||Mutex::new(HashMap::new())).lock().map_err(|e|e.to_string())?;
+        locks.retain(|_,lock|Arc::strong_count(lock)>1||lock.try_lock().is_ok_and(|failed|failed.is_some_and(|time|time.elapsed()<FAILURE_BACKOFF)));
+        locks.entry(key.clone()).or_insert_with(||Arc::new(Mutex::new(None))).clone()
+    };
     let mut failed=lock.lock().map_err(|e|e.to_string())?;
     let cache=crate::image_cache::CachedImage::new(root,crate::image_cache::Kind::Skin,&key)?;
     let cached=cache.read()?;
     let data_url=|bytes:&[u8]|format!("data:image/png;base64,{}",base64::engine::general_purpose::STANDARD.encode(bytes));
     if let Some((meta,bytes))=&cached {if meta.modified().ok().and_then(|time|time.elapsed().ok()).is_some_and(|age|age<Duration::from_secs(86_400)) {return Ok(Some(data_url(bytes)));}}
-    if failed.is_some_and(|time|time.elapsed()<Duration::from_secs(300)) {return Ok(cached.map(|(_,bytes)|data_url(&bytes)));}
+    if failed.is_some_and(|time|time.elapsed()<FAILURE_BACKOFF) {return Ok(cached.map(|(_,bytes)|data_url(&bytes)));}
     let result=(|| -> Result<Option<Vec<u8>>,String> {
         let client=reqwest::blocking::Client::builder().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(12)).user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION"))).build().map_err(|e|e.to_string())?;
         let profile:Value=serde_json::from_slice(&fetch_bytes(&client,&format!("https://sessionserver.mojang.com/session/minecraft/profile/{key}"),65_536)?).map_err(|_|"El servicio devolvió un perfil no válido")?;

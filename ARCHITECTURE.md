@@ -289,7 +289,11 @@ and publication for skins and Modrinth icons. Namespaces retain their current
 paths and image limits. A truncated/oversized/non-PNG entry is a cache miss;
 redirected folders and non-regular entries are rejected. Owned temporary writes
 are synchronized before checked replacement, with short process-local I/O locking.
-Skin freshness and failure-backoff rules remain in the skin owner.
+Skin freshness and failure-backoff rules remain in the skin owner. Its in-memory
+request registry removes idle successful entries and expired failure entries on
+the next request. In-flight handles retain their existing per-UUID lock, and
+fresh failures retain the five-minute retry backoff. This is age/work-based
+retention, not a fixed entry cap or a limit on Minecraft heap usage.
 
 [access_lists.rs](src-tauri/src/access_lists.rs) owns stopped-server whitelist/OP/
 ban-file mutations. Its bounded writer preserves other records and unknown fields,
