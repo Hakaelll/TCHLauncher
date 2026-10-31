@@ -2,6 +2,28 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Stop-backup preference recovery after 0.50.0
+
+The native setter now returns the exact idle preference committed by its SQL
+statement. The panel acknowledges that response without a second read that could
+misreport a successful save. Manual refresh recovers failed initial reads and
+retains the last known value on subsequent failures. Mutation stays disabled
+until the preference is confirmed. Listener failures expose manual-refresh
+instructions; disposed callbacks and repeated writes are ignored.
+
+A controlled callback probe reproduces the previous saved-but-unchecked result.
+Nine current component/reader checks cover acknowledgement without another read,
+retry, preserved data, duplicate writes, disposal, the current change callback
+and ES/EN listener-failure guidance. TypeScript, the Windows frontend build and
+five retained frontend tests pass. These checks do not automate the native UI.
+A focused native case also passes against a temporary SQLite library: returned
+acknowledgements match persisted values, changing preference clears old error
+metadata, and copying rejects mutation without changing the saved preference.
+The full native test target compiles; the temporary case is removed afterward.
+
+The change is not included in the existing 0.50 installer. No release is
+published, no dependency is added and temporary probes add no retained tests.
+
 ## Windows startup review after 0.50.0
 
 The generated 0.50 NSIS script removes the same current-user Run value used by

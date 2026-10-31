@@ -746,7 +746,7 @@ async fn create_backup(app:AppHandle,engine: State<'_, Engine>, id: String) -> R
 #[tauri::command]
 fn get_stop_backup(engine:State<'_,Engine>,id:String)->Result<stop_backup::Status,String>{stop_backup::status(&engine.root,&id)}
 #[tauri::command]
-fn set_stop_backup(engine:State<'_,Engine>,id:String,enabled:bool)->Result<(),String>{
+fn set_stop_backup(engine:State<'_,Engine>,id:String,enabled:bool)->Result<stop_backup::Status,String>{
     let _guard=engine.reserve_stopped(&id)?;
     stop_backup::configure(&engine.root,&id,enabled,engine.processes.exit_token(&id).as_deref())
 }

@@ -14,11 +14,12 @@ pub fn status(root:&Path,id:&str)->Result<Status,String>{
     storage::get(root,id)?;
     db(root)?.query_row("SELECT enabled,phase,last_at,last_result FROM stop_backup WHERE server_id=?1",[id],|row|Ok(Status{enabled:row.get(0)?,phase:row.get(1)?,last_at:row.get(2)?,last_result:row.get(3)?})).optional().map_err(|e|e.to_string()).map(|value|value.unwrap_or(Status{enabled:false,phase:"idle".into(),last_at:None,last_result:None}))
 }
-pub fn configure(root:&Path,id:&str,enabled:bool,current_token:Option<&str>)->Result<(),String>{
+pub fn configure(root:&Path,id:&str,enabled:bool,current_token:Option<&str>)->Result<Status,String>{
     storage::get(root,id)?;
     if let Some(token)=current_token{uuid::Uuid::parse_str(token).map_err(|_|"La sesión del servidor no es válida")?;}
     let changed=db(root)?.execute("INSERT INTO stop_backup(server_id,enabled,last_token) VALUES(?1,?2,?3) ON CONFLICT(server_id) DO UPDATE SET enabled=?2,last_token=?3,phase='idle',last_at=NULL,last_result=NULL WHERE phase!='copying'",params![id,enabled,current_token]).map_err(|e|e.to_string())?;
-    if changed!=1{return Err("Espera a que termine la copia automática".into());}Ok(())
+    if changed!=1{return Err("Espera a que termine la copia automática".into());}
+    Ok(Status{enabled,phase:"idle".into(),last_at:None,last_result:None})
 }
 pub fn pending(root:&Path,id:&str,exit:&Exit)->Result<bool,String>{
     if !exit.successful||!exit.was_running{return Ok(false);}
