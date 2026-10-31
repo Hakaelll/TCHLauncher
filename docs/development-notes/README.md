@@ -2,6 +2,27 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Independent storage measurement after 0.50.0
+
+Process metrics no longer wait for directory traversal. The size cache schedules
+one background scan per server cell and returns its existing sample or an
+explicitly absent initial measurement. Filesystem work runs outside the cell
+lock. Cached timestamps and successful/error TTLs remain unchanged. Path changes
+hide a previous directory's sample; invalidation detaches any older worker.
+The storage meter distinguishes pending measurement from a reported read error.
+
+One temporary native case passes with real temporary files, background publication,
+active/stopped TTL transitions, stale values during refresh, directory changes,
+invalidation and failed-read recovery. Controlled pending cells also verify
+repeated reads retain pending/known data instead of running another traversal.
+The full native test target compiles. Eight ES/EN actual meter render checks,
+TypeScript and the Windows frontend build pass. Temporary probes are removed,
+adding no retained tests or dependencies. No Java server or native UI is driven.
+
+This removes filesystem traversal from the process-metric response path. It is
+not a measured claim about large-library latency, peak RAM or gameplay networking.
+The 0.50 installer and published 0.48 release are unchanged.
+
 ## Streaming retention review after 0.50.0
 
 Retention preview no longer collects and globally sorts every directory entry

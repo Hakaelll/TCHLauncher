@@ -11,20 +11,30 @@ pub struct MeasuredSize{pub bytes:u64,pub skipped_links:u64}
 pub struct SizeSample{pub sampled_at:i64,pub result:Result<MeasuredSize,String>}
 struct CachedSize{path:PathBuf,when:Instant,sample:SizeSample}
 #[derive(Default)]
-pub struct SizeCache{entries:Mutex<HashMap<String,Arc<Mutex<Option<CachedSize>>>>>}
+struct SizeEntry{cached:Option<CachedSize>,scanning:bool}
+#[derive(Default)]
+pub struct SizeCache{entries:Mutex<HashMap<String,Arc<Mutex<SizeEntry>>>>}
 impl SizeCache{
     pub fn invalidate(&self,id:&str){if let Ok(mut entries)=self.entries.lock(){entries.remove(id);}}
-    pub fn sample(&self,id:&str,path:&Path,active:bool)->Result<SizeSample,String>{
+    pub fn sample(&self,id:&str,path:&Path,active:bool)->Result<Option<SizeSample>,String>{
         let entry=self.entries.lock().map_err(|_|"No se pudo consultar la caché de almacenamiento")?.entry(id.into()).or_default().clone();
-        // A scan holds only this server's cell; other servers remain independent.
-        let mut cached=entry.lock().map_err(|_|"No se pudo medir el almacenamiento")?;
-        if let Some(previous)=cached.as_ref(){
+        let mut state=entry.lock().map_err(|_|"No se pudo medir el almacenamiento")?;
+        let previous=state.cached.as_ref().filter(|previous|previous.path==path);
+        if let Some(previous)=previous{
             let ttl=if previous.sample.result.is_err(){15}else if active{300}else{60};
-            if previous.path==path&&previous.when.elapsed()<Duration::from_secs(ttl){return Ok(previous.sample.clone());}
+            if previous.when.elapsed()<Duration::from_secs(ttl){return Ok(Some(previous.sample.clone()));}
         }
-        let result=measure_size(path);
-        let sample=SizeSample{sampled_at:chrono::Utc::now().timestamp_millis(),result};
-        *cached=Some(CachedSize{path:path.into(),when:Instant::now(),sample:sample.clone()});Ok(sample)
+        let sample=previous.map(|previous|previous.sample.clone());
+        if !state.scanning{
+            state.scanning=true;let path=path.to_path_buf();let worker=entry.clone();
+            // Publish after scanning; metric readers never hold this lock during IO.
+            tauri::async_runtime::spawn_blocking(move||{
+                let result=measure_size(&path);
+                let sample=SizeSample{sampled_at:chrono::Utc::now().timestamp_millis(),result};
+                if let Ok(mut state)=worker.lock(){state.cached=Some(CachedSize{path,when:Instant::now(),sample});state.scanning=false;}
+            });
+        }
+        Ok(sample)
     }
 }
 

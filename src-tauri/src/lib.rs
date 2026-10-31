@@ -918,10 +918,11 @@ async fn get_metrics(engine: State<'_, Engine>, id: String) -> Result<Metrics, S
     };
     let (heap,heap_error)=match pid_uptime.map(|process|process.0){Some(pid)=>match crate::heap::inspect(pid){Ok(value)=>(Some(value),None),Err(error)=>(None,Some(error))},None=>(None,None)};
     let (size_bytes,size_error,size_sampled_at,size_skipped_links)=match size_cache.sample(&id,std::path::Path::new(&server.directory),pid_uptime.is_some()){
-        Ok(sample)=>match sample.result{
+        Ok(Some(sample))=>match sample.result{
             Ok(measured)=>(Some(measured.bytes),None,Some(sample.sampled_at),Some(measured.skipped_links)),
             Err(error)=>(None,Some(error),Some(sample.sampled_at),None),
         },
+        Ok(None)=>(None,None,None,None),
         Err(error)=>(None,Some(error),None,None),
     };
     let storage_warning_percent=storage_usage::warning_percent(&root,&id)?;

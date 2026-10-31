@@ -237,6 +237,14 @@ A failed metadata refresh does not discard an acknowledged update or authorize
 an obsolete replacement plan. Cross-engine conversion and every content migration
 are not established by the existing Vanilla upgrade scenario.
 
+Directory-size samples are independent of process counters. A cache miss queues
+one blocking-pool scan per server cell and returns no measurement yet; expired
+samples remain available with their original timestamp while refreshing. The
+scan holds no cell lock during filesystem work. Path changes never reuse a size
+from a different directory, and invalidation detaches an old worker's cell.
+Successful samples retain the existing 300-second active / 60-second stopped TTL;
+failures retry after 15 seconds. A pending initial size is not a filesystem error.
+
 ## Mods, plugins and packs
 
 [content.rs](src-tauri/src/content.rs) integrates public Modrinth discovery,
