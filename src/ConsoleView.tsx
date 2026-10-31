@@ -52,7 +52,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
     return()=>{current.active=false}
   },[serverId])
   const currentScope=(value:typeof scope.current)=>value.active&&scope.current===value
-  const searched = useMemo(() => {const search=query.toLocaleLowerCase();return consoleLinesAfterClear(logs,serverId,clearedThrough).filter(item=>!search||item.line.toLocaleLowerCase().includes(search))},[logs,clearedThrough,query,serverId])
+  const searched = useMemo(() => {const search=query.toLowerCase();return consoleLinesAfterClear(logs,serverId,clearedThrough).filter(item=>!search||item.line.toLowerCase().includes(search))},[logs,clearedThrough,query,serverId])
   const visible=useMemo(()=>level==='all'?searched:searched.filter(item=>item.level===level),[searched,level])
   const counts=useMemo(()=>countLogLevels(searched),[searched])
   const pendingLines=following?0:visible.reduce((count,item)=>item.arrival>pausedThrough.current?count+1:count,0)

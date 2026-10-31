@@ -18,6 +18,8 @@ continue actionable work without repeated acceptance or screenshot requests.
   helper checks and frontend compilation pass; native/rendered use is untested.
 - Installed-content ordering and diagnostic tie-breaks follow the same locale,
   preserving priority/filters/identities in focused helper and frontend checks.
+- Console search uses host-independent lowercasing. Controlled actual
+  callback/timeline and frontend checks pass; native keyboard use is untested.
 - Latest published preview: [0.54.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0), grouping the
   0.52, 0.53 and 0.54 milestones. Only the unsigned Windows x64 EXE is attached;
   GitHub asset size/digest and its source tag are verified.

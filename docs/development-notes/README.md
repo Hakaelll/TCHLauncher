@@ -17,6 +17,12 @@ managed/local filters, aliases, numeric order and original file identities.
 TypeScript and the frontend build pass; no native file change or rendered UI is
 exercised. Temporary probe removed; no retained test or dependency added.
 
+Console search uses locale-independent lowercasing so host-language rules do not
+hide `INFO` matches. Actual search/timeline checks reproduce Turkish-default
+failure and preserve clear boundaries, server scope, spaces and original rows.
+TypeScript/frontend checks pass; native keyboard/rendering remain untested.
+Temporary probe removed; local 0.56 packaging is unchanged.
+
 ## Local Windows 0.56.0 package
 
 Unsigned local x64 installer from `44aeb3d4ce3b4e3b3a911a0da6d63c525f931856`, 6,882,989 bytes.
