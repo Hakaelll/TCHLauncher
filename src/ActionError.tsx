@@ -2,6 +2,7 @@ import type {Server} from './api'
 import {useRef,useState} from 'react'
 import {errorText} from './format'
 import {localizedStatic,t,translatedMessage} from './locale'
+import {windowsFileAdvice} from './fileFailureAdvice'
 import './actionError.css'
 
 export type ActionContext={operation:'start'|'restart'|'runtime';serverId:string;serverName:string}
@@ -29,7 +30,7 @@ export function GeneralActionError({message,onClose,onOpenLogs}:{message:string;
   return <section className="action-error" role="alert" aria-label={t('Error de la acción')}>
     <div className="action-error-heading"><strong>{t('No se pudo completar la acción')}</strong><button className="action-error-close" onClick={onClose} aria-label={t('Cerrar error')}>×</button></div>
     <p>{translatedMessage(message)}</p>
-    <p className="action-error-advice">{t('Comprueba el estado actual antes de repetir la acción. Revisa el detalle técnico o los registros de la aplicación para obtener más información.')}</p>
+    <p className="action-error-advice">{windowsFileAdvice(message)??t('Comprueba el estado actual antes de repetir la acción. Revisa el detalle técnico o los registros de la aplicación para obtener más información.')}</p>
     <div className="action-error-actions"><button disabled={opening} onClick={()=>void openLogs()}>{opening?t('Abriendo registros…'):t('Abrir logs de la aplicación')}</button></div>
     {logsError&&<p className="form-error" role="alert">{t('No se pudieron abrir los registros: {0}',translatedMessage(logsError))}</p>}
     <details><summary>{t('Detalle técnico')}</summary><pre tabIndex={0}>{JSON.stringify({message},null,2)}</pre></details>
@@ -42,7 +43,7 @@ export function ActionError({failure,available,onReview,onClose}:{
   return <section className="action-error" role="alert" aria-label={t('Error de la acción')}>
     <div className="action-error-heading"><strong>{t(titles[failure.operation],failure.serverName)}</strong><button className="action-error-close" onClick={onClose} aria-label={t('Cerrar error')}>×</button></div>
     <p>{translatedMessage(failure.detail)}</p>
-    <p className="action-error-advice">{advice[failure.operation]}</p>
+    <p className="action-error-advice">{windowsFileAdvice(failure.detail)??advice[failure.operation]}</p>
     {!available&&<p>{t('Este servidor ya no está en la biblioteca. El detalle del fallo se conserva aquí.')}</p>}
     <div className="action-error-actions"><button disabled={!available} onClick={()=>onReview(failure.operation==='restart'?'console':'settings')}>{failure.operation==='restart'?t('Ver consola'):t('Revisar configuración')}</button>
       {failure.operation==='start'&&<button disabled={!available} onClick={()=>onReview('console')}>{t('Ver consola')}</button>}

@@ -2,6 +2,27 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows filesystem recovery advice after 0.51.0
+
+General action, server start/restart/runtime and failed task notices now share
+recovery guidance for terminal Rust `os error` suffixes: Win32 39/112 indicate
+insufficient disk space, 5 denied access, and 32 a file in use. The mapping follows
+[Microsoft's Win32 error reference](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-)
+and is checked against this computer's Win32Exception messages. Guidance asks the
+user to check operation state before retrying; it does not repeat an operation,
+change permissions or remove files. Unknown/unrecognized messages retain their
+existing operation-specific advice. Original technical payloads stay verbatim.
+
+The actual general error render first shows generic-only recovery for a disk-full
+message. Sixty-six scoped React SSR checks then cover ES/EN, all three notice
+families, exact JSON detail preservation, trailing whitespace and conservative
+fallback for unknown codes, lookalike filenames and nonterminal markers.
+TypeScript and the Windows frontend build pass. This does not force filesystem
+failures, drive native UI or establish broader OS-error classification. Temporary
+probes are removed, adding no retained tests or dependency. Linux error numbers
+require separate interpretation when that deferred platform resumes. The published
+0.51 installer is unchanged.
+
 ## Scheduled local-time validation after 0.51.0
 
 The task form rejects local dates/times that JavaScript would silently normalize,

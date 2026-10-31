@@ -2,6 +2,7 @@ import {translatedMessage,localizedStatic,t} from './locale.ts'
 import { useState } from 'react'
 import { api, type Progress } from './api'
 import { AnimatedValue } from './motion'
+import {windowsFileAdvice} from './fileFailureAdvice'
 
 const bytes = (value: number) => value >= 1024 ** 3 ? `${(value / 1024 ** 3).toFixed(1)} GB` : `${(value / 1024 ** 2).toFixed(1)} MB`
 const stages: Record<Progress['stage'],string> = localizedStatic({preparing:'Preparando',connecting:'Conectando',downloading:'Descargando',verifying:'Verificando',extracting:'Extrayendo',copying:'Copiando',publishing:'Guardando',retrying:'Reintentando',completed:'Completado',cancelled:'Cancelado',failed:'Error'})
@@ -51,7 +52,7 @@ function TaskProgress({progress,busy,onRetry,onDismiss,retryLabel=t("Reintentar"
     {!terminal && <><div className={`install-meter ${percentage==null?'unmeasured':'measured'}`}><progress aria-label={`${stages[progress.stage]}: ${translatedMessage(progress.label)}`} value={percentage!=null?Math.min(received,total!):undefined} max={percentage!=null?total!:undefined}/>{percentage!=null&&<strong className="install-percentage">{percentage}<small> %</small></strong>}</div><div className="install-transfer"><span>{received ? <><AnimatedValue key={progress.taskId} value={received} format={bytes}/>{total!=null ? ` / ${bytes(total)}` : ''}</> : measured?t("Esperando datos"):stages[progress.stage]}</span><span>{progress.bytesPerSecond != null && Number.isFinite(progress.bytesPerSecond)&&progress.bytesPerSecond>=0&&measured ? <><AnimatedValue key={progress.taskId} value={progress.bytesPerSecond} format={bytes}/>/s</> : '—'}</span></div></>}
     {progress.error && progress.stage === 'failed' && <div className="task-failure">
       <p className="form-error">{translatedMessage(progress.error)}</p>
-      <p className="field-help">{failureAdvice(progress.kind)}</p>
+      <p className="field-help">{windowsFileAdvice(progress.error)??failureAdvice(progress.kind)}</p>
       <details><summary>{t('Detalle técnico')}</summary><pre tabIndex={0}>{JSON.stringify({serverId:progress.serverId,taskId:progress.taskId,kind:progress.kind,attempt:progress.attempt,message:progress.error},null,2)}</pre></details>
     </div>}
     {progress.stage === 'cancelled' && <p>{progress.kind==='content_toggle'?t("Se canceló el cambio. El archivo y su configuración se conservan."):progress.kind==='content_remove'?t("Se canceló la retirada. El archivo y su configuración se conservan."):progress.kind==='server_import'?t("Se canceló la importación. La carpeta original se conserva."):progress.kind==='world_import'?t("Se canceló la importación. El mundo original se conserva."):(progress.kind==='world_duplicate'||progress.kind==='world_export')?t("Se canceló la copia. El mundo original se conserva."):(progress.kind==='world_activate'||progress.kind==='world_delete')?t("Se canceló el cambio. Los mundos se conservan junto a cualquier copia de seguridad ya completada."):progress.kind==='restore'?t("Se canceló la restauración. El servidor mantiene su estado anterior."):progress.kind==='backup'?t("Se canceló la copia. Los archivos del servidor se conservan."):t("Los archivos incompletos se han retirado. Puedes volver a intentarlo.")}</p>}
