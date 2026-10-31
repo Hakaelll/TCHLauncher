@@ -4,6 +4,16 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.46.0
 
+The shared progress panel now mounts its cancellation state by task UUID. A new
+task no longer inherits a pending cancellation or cancellation error from the
+previous task, including a late reply to the previous cancellation request.
+This applies to every caller, including the update and modpack panels that do
+not supply their own React key. Progress updates within one task retain state.
+An isolated component check reproduces the previous leak and covers accepted,
+refused and rejected replies, new-task error clearing and ES/EN React markup.
+Hook storage/remount semantics and cancellation IPC are controlled. TypeScript
+and the Windows frontend build pass; native downloads were not exercised.
+
 Read errors now use the application-copy translator in console history, player
 reads, Java/runtime reads and Modrinth availability. The cached-runtime marker
 also follows the selected language. Invalid player names/reasons and the crash

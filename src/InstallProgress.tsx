@@ -24,7 +24,13 @@ function failureAdvice(kind:Progress['kind']):string {
   return unhandled
 }
 
-export function InstallProgress({progress,busy,onRetry,onDismiss,retryLabel=t("Reintentar"),allowRetry=true}: {progress:Progress;busy:boolean;onRetry:()=>void;onDismiss:()=>void;retryLabel?:string;allowRetry?:boolean}) {
+type Props = {progress:Progress;busy:boolean;onRetry:()=>void;onDismiss:()=>void;retryLabel?:string;allowRetry?:boolean}
+
+export function InstallProgress(props:Props) {
+  return <TaskProgress key={props.progress.taskId} {...props}/>
+}
+
+function TaskProgress({progress,busy,onRetry,onDismiss,retryLabel=t("Reintentar"),allowRetry=true}:Props) {
   const [cancelling,setCancelling] = useState(false)
   const [error,setError] = useState<string|null>(null)
   const terminal = ['completed','cancelled','failed'].includes(progress.stage)
