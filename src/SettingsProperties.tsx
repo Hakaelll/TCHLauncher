@@ -50,17 +50,19 @@ export function invalidNumericSetting(values:Record<string,string>,savedValues:R
 
 export function SettingsPropertyGroups({values,onChange,version,query=''}: {values:Record<string,string>;onChange:(values:Record<string,string>)=>void;version:string;query?:string}) {
   const update = (key: string, value: string) => onChange({...values,[key]:value})
+  const minor=version.match(/^1\.(\d+)(?:[.-]|$)/)?.[1]
+  const legacyMinor=minor===undefined?null:Number(minor)
   const groups=settingsGroups.map(group=>({...group,fields:group.fields.filter(field=>Object.hasOwn(values,field.key)&&settingsMatch(query,group.title,field.key,field.label,field.description))})).filter(group=>group.fields.length)
   return <div className="settings-groups">{query.trim()&&!groups.length&&<p className="empty-inline" role="status">{t("No hay ajustes de juego que coincidan con la búsqueda.")}</p>}{groups.map(group=><section className="settings-group" key={group.title} aria-label={group.title}>
     <div className="settings-group-heading"><h4>{group.title}</h4><p>{translatedMessage(group.description)}</p><span className="settings-field-count">{group.fields.length}  {t("opciones disponibles")}</span></div>
     <div className="settings-fields">{group.fields.map(field=>{
       const value=values[field.key]
-      const legacyMinor=version.startsWith('1.')?Number(version.split('.')[1]):null
-      const options=field.options?.filter(option=>field.key!=='gamemode'||option.value!=='spectator'||legacyMinor===null||legacyMinor>=8)
+      const numericChoice=['gamemode','difficulty'].includes(field.key)&&(legacyMinor===null?/^[0-3]$/.test(value):legacyMinor<13)
+      const options=field.options?.filter(option=>field.key!=='gamemode'||option.value!=='spectator'||legacyMinor===null||legacyMinor>=8).map((option,index)=>({...option,value:numericChoice?String(index):option.value}))
       const boolean=field.kind==='toggle'&&['true','false'].includes(value)
-      const unmatched=field.kind==='choice'&&!options?.some((option,index)=>option.value===value||['gamemode','difficulty'].includes(field.key)&&String(index)===value)
+      const unmatched=field.kind==='choice'&&!options?.some(option=>option.value===value)
       return <label className="setting-line" key={field.key}><span className="setting-copy"><strong>{translatedMessage(field.label)}</strong><small>{translatedMessage(field.description)}</small></span>
-        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || t("(vacío)")}  {t("· Valor actual")}</option>}{options?.map((option,index)=><option key={option.value} value={['gamemode','difficulty'].includes(field.key)&&/^[0-3]$/.test(value)?String(index):option.value}>{translatedMessage(option.label)}</option>)}</select>:<input data-setting-key={field.key} type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>{event.currentTarget.setCustomValidity('');update(field.key,event.target.value)}}/>}
+        {boolean?<input className="setting-toggle" type="checkbox" checked={value==='true'} onChange={event=>update(field.key,String(event.target.checked))}/>:field.kind==='choice'?<select value={value} onChange={event=>update(field.key,event.target.value)}>{unmatched&&<option value={value}>{value || t("(vacío)")}  {t("· Valor actual")}</option>}{options?.map(option=><option key={option.value} value={option.value}>{translatedMessage(option.label)}</option>)}</select>:<input data-setting-key={field.key} type={field.kind==='number'?'number':'text'} min={field.min} max={field.max} step={field.kind==='number'?1:undefined} value={value} onChange={event=>{event.currentTarget.setCustomValidity('');update(field.key,event.target.value)}}/>}
       </label>
     })}</div>
   </section>)}</div>

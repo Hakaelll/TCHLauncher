@@ -2,6 +2,25 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Version-aware gameplay choices after 0.51.0
+
+Game-mode and difficulty option values now follow the same known 1.x version
+boundary as the native editor defaults: numeric before 1.13, named from 1.13.
+The imported current value remains visible as an explicit current-value option
+when it uses another representation. Merely reading the form does not rewrite
+it. Unknown version IDs retain the existing input-representation fallback, and
+known pre-1.8 versions still omit spectator mode.
+
+An actual component/change-handler probe reproduces modern numeric input emitting
+another numeric choice and legacy named input emitting a named choice before the
+change. A scoped ES/EN matrix then checks known old/current/prerelease versions,
+unknown IDs, numeric/named imported values, exact changed-field payloads,
+preserved original/other values, current-value options and spectator visibility.
+TypeScript and the Windows frontend build pass. These are component/React SSR
+checks, not native picker interaction or new Minecraft gameplay sessions.
+Temporary probes are removed, adding no retained test, string or dependency.
+The published 0.51 installer is unchanged.
+
 ## Skin-request registry lifetime after 0.51.0
 
 The skin owner no longer retains an idle synchronization entry for every UUID
