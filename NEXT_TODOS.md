@@ -45,10 +45,13 @@ continue actionable work without repeated acceptance or screenshot requests.
   and menu typeahead, preserving original names and distinct IDs. Eighteen
   focused cases, five retained frontend tests and frontend checks pass. Native
   interaction remains maintainer validation; console/API queries are unchanged.
-- Download tasks reuse separate catalog/transfer HTTP clients while preserving
+- Download tasks reuse separate catalog/transfer/strict-modpack HTTP clients while preserving
   task-owned cancellation and progress. A focused native loopback case verifies
   connection reuse, cancellation isolation and hash/partial-file safety; the
   native test target compiles. No measured speed/RAM or gameplay claim is made.
+  A second focused native case covers strict modpack pool reuse, SHA-512, file
+  size limits, forbidden redirects and preserved targets; original builder and
+  origin-validation rules remain unchanged. Native interaction stays manual.
 - Packaged in local 0.49.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.

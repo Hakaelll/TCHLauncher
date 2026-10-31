@@ -149,7 +149,7 @@ fields; unavailable totals remain unknown. Failed tasks retain their last attemp
 Successful catalog and transfer clients are cached separately and cloned to reuse
 their connection pools. Tasks retain separate cancellation, progress and byte
 limits. Failed client construction remains retryable. The modpack download path
-retains its dedicated origin-validation policy.
+shares its own client pool while retaining its dedicated origin-validation policy.
 
 ## Java process lifecycle
 

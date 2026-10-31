@@ -4,10 +4,10 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.49.0
 
-Download tasks reuse successful HTTP clients through separate catalog and transfer
-profiles. Task IDs, cancellation, progress and byte limits remain task-owned.
-Builder failures are not cached. Redirect policies, user agents and timeouts are
-unchanged; the stricter modpack client keeps its existing builder and allowlist.
+Download tasks reuse successful HTTP clients through separate catalog, transfer
+and strict modpack profiles. Task IDs, cancellation, progress and byte limits
+remain task-owned. Builder failures are not cached. Redirect policies, user agents
+and timeouts are unchanged; the modpack profile retains its origin allowlist.
 
 One focused native loopback case reproduces four independent connections before
 the change and passes with two shared connections afterward, one per profile.
@@ -16,6 +16,15 @@ targets on hash mismatch and partial-file cleanup. The full native test target
 compiles. Temporary probe/include files are removed, adding no retained tests or
 dependencies. This proves controlled connection reuse, not a remote HTTPS,
 latency, RAM, native UI or Minecraft-network improvement.
+
+The strict modpack builder also reproduces two per-file connections before caching
+and passes with one shared loopback connection afterward. Its native case verifies
+SHA-512, per-file byte limits, cancellation isolation, preserved old destinations,
+partial cleanup and refusal to follow a forbidden redirect. Initial/redirect URL
+validation is unchanged, and the original builder tokens compare equal apart from
+whitespace. The standard catalog/transfer factory is unchanged. The temporary
+probe/include is removed; no retained case or dependency is added. This is a local
+transport check, not remote modpack-provider or native interaction acceptance.
 
 Local library, player, installed/disabled content and backup searches now share
 the accent/case normalization used by settings, command search and menu typeahead.

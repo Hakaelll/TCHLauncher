@@ -60,6 +60,22 @@ fn shared_client(kind:&str)->Result<Client,String> {
     Ok(shared.get().cloned().unwrap_or(client))
 }
 
+fn pack_client()->Result<Client,String> {
+    static SHARED:std::sync::OnceLock<Client>=std::sync::OnceLock::new();
+    if let Some(client)=SHARED.get(){return Ok(client.clone());}
+    let client=Client::builder()
+        .user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len()>=10 {attempt.error("Demasiadas redirecciones")}
+            else if validate_pack_url(attempt.url().as_str(),true).is_err() {attempt.error("Origen de redirección no admitido")}
+            else {attempt.follow()}
+        }))
+        .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(900)).build().map_err(|e|e.to_string())?;
+    let _=SHARED.set(client.clone());
+    Ok(SHARED.get().cloned().unwrap_or(client))
+}
+
 impl DownloadTask {
     pub fn new(server_id: &str, kind: &str, emit: impl Fn(Progress) + Send + Sync + 'static) -> Result<Self, String> {
         let client=shared_client(kind)?;
@@ -182,15 +198,7 @@ impl DownloadTask {
     pub fn download_pack(&self,url:&str,target:&Path,sha512:&str,size:u64,label:&str)->Result<(),String> {
         validate_pack_url(url,false)?;
         if size==0 || size>512_000_000 {return Err("Tamaño de archivo del modpack no válido".into());}
-        let client=Client::builder()
-            .user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")))
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.previous().len()>=10 {attempt.error("Demasiadas redirecciones")}
-                else if validate_pack_url(attempt.url().as_str(),true).is_err() {attempt.error("Origen de redirección no admitido")}
-                else {attempt.follow()}
-            }))
-            .connect_timeout(Duration::from_secs(20)).read_timeout(Duration::from_secs(30))
-            .timeout(Duration::from_secs(900)).build().map_err(|e|e.to_string())?;
+        let client=pack_client()?;
         let scoped=Self {id:self.id.clone(),server_id:self.server_id.clone(),kind:self.kind.clone(),client,max_bytes:size,
             cancellation:self.cancellation.clone(),emit:self.emit.clone(),latest:self.latest.clone()};
         scoped.download(url,target,Some(("sha512",sha512)),label)
