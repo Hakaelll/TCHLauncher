@@ -14,17 +14,16 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
-- Latest published preview: [0.46.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.46.0).
-- Latest local Windows installer: 0.46.0, unsigned and published.
-- This installer includes the
-  [changes packaged in 0.46.0](docs/development-notes/README.md#changes-packaged-in-0460).
-  Native interaction and affected-host validation remain scoped below.
-- The final accumulated changes are published as 0.46.0 at the maintainer's
-  explicit request. The usual cadence remains three or four version milestones,
-  next around 0.49/0.50 unless instructed otherwise. Attach only the EXE; keep
-  checksums local. Commit and push continue independently.
-- Packaged changes belong in the [release notes](docs/release-notes/README.md),
-  rather than another chronological list here.
+- Latest published preview: [0.47.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.47.0).
+- Latest local Windows installer: 0.47.0, unsigned and published.
+- Packaged source: `db647c2554e0db8cdf493af278a5938c4684dc59`. See the
+  [0.47.0 changes](docs/release-notes/RELEASE_NOTES_v0.47.0.md) and scoped checks.
+- Subsequent animation and router-read fixes are source changes, not part of that
+  installer. See [current source notes](docs/development-notes/README.md#source-after-published-0470).
+- Publication of 0.47.0 fulfilled the maintainer's explicit current-batch request.
+  The usual next window is 0.50/0.51 unless instructed otherwise. Attach only the
+  EXE and keep checksums local. Commit and push continue independently.
+- Pending native interaction and affected-host validation remain scoped below.
 
 ## Evidence already available
 

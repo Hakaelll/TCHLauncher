@@ -1,660 +1,249 @@
-# TCHLauncher - End / Obsidian visual system (0.15.1)
-
-## Content release notes
-
-The installation review groups release notes by project and exact planned version.
-Bulk updates include changed dependencies and omit already-present entries;
-individual reviews retain the complete planned set. Native disclosures show the
-project, version, required-dependency label and missing-notes status before opening.
-Author text mounts only while open, stays plain text and scrolls within a named,
-keyboard-focusable reading region. Theme surfaces, short hover transitions and
-reduced-motion preferences remain consistent with the content manager. Existing
-review tokens, backup requirements and install actions remain unchanged. Native
-layout and keyboard verification remain manual.
-
-## World import review
-
-Creation and the World Manager share an inline folder review. Each row identifies
-the primary world, Nether or End with a small square material mark, the original
-folder name and its destination name. Renaming updates the whole family preview.
-The source summary reports total family size. The review wraps filenames and
-reflows destination names below the source on narrow windows. Split Paper worlds
-require a Paper destination; keep that explanation beside the preview and prevent
-submission for other engines. Original folders stay untouched, and the review
-asks users to stop the source server before copying. No additional modal, polling
-or animation is needed for this file review. Native visual checks remain manual.
-
-## Whitelist identity removal
-
-The whitelist row's remove action addresses its displayed UUID. Require a stopped
-server and show that requirement beside the list; disable rows without an identity
-or confirmed inventory. Keep the acknowledged UUID and safety-copy filename near
-the whitelist controls even if the following refresh fails. An already-absent UUID
-reports that no file changed. Name-only removal must not replace this row action.
-Retain the existing player-row materials, focus and reading styles. Native
-interaction and visual verification remain manual.
-
-Operator removal and player unbanning follow the same identity rule. Keep their
-UUID visible beside permission or ban details. Explain the stopped-server state
-near each relevant list and place the acknowledgement beside those controls,
-naming the list as well as the UUID and previous-copy filename. Group changes must
-not make the acknowledgement look like a change to a different list. Preserve
-existing row materials, head sprites, wrapped details and keyboard controls.
-
-## Known-player operator review
-
-Keep the player's head, name and exact UUID in the known-player row. An inline
-Grant OP disclosure opens below the identity, with level and full-server bypass
-controls followed by an explicit confirmation. Start at level 2 and leave bypass
-off. Use existing End materials, square controls, readable UUID text and wrapping
-labels. At narrow widths the review aligns with the row edge. An existing operator
-gets a quiet status instead of another grant action. Require a stopped server and
-confirmed inventory before writing. Keep acknowledged identity and safety-copy
-filename visible after a refresh failure; refreshing must not grant again. This
-adds no modal, polling or ambient animation. Native appearance remains unverified.
-
-## Authority and use
-
-### Operation and startup refinement
-
-Startup uses a connected three-phase track for Java, world and ready. Only real
-observed phases advance the track; no estimated percentage is shown. Completed
-phases use a crisp check mark and success color; current phases use the theme
-accent. Phase changes have short color transitions with reduced-motion support.
-Downloads use inset continuous rails with actual bytes, speed and percentage.
-Task headings separate their title from a small semantic status mark; completion,
-cancellation and errors keep explicit text. Controls wrap on narrow windows.
-Operations own these styles in operations.css rather than duplicate overrides.
-Native visual review remains manual.
-
-### Backup history refinement
-
-Backup history precedes stop-copy and retention preferences. The primary create
-control shares a wrapping header with refresh. Search and reason filtering form
-one compact toolbar; visible totals come from the current list. Backup rows use
-an authored square file mark, readable date, reason, saved engine/version and a
-separate size/action column. The newest recorded date receives a small labeled
-accent mark; it does not claim integrity or freshness of a failed refresh.
-Narrow layouts place the description above size and restore. Restore keeps the
-existing confirmation, stale-read and stopped-server guards. List movement uses
-the shared interrupted/reduced-motion handling; restore arrows move two pixels
-on hover. Empty and no-match states offer clear recovery. Native visual review
-remains manual. Backup-only styles live in the deferred backups.css entry.
-
-### Performance instruments
-
-RAM and CPU remain simultaneous sampled plots in standard desktop windows, with
-one shared 30-second / one-minute / two-minute range control. Memory fits measured
-RAM and heap with visible axis values, rather than treating Xmx as a resident RAM
-limit. Keep zero as the baseline and label automatic scaling. Real process and
-heap series have independent pressed legend controls; at least one available
-series remains visible. Preserve gaps, unknown values and square single-sample
-markers. Pointer/keyboard sample readings sit above the plot, without covering it.
-Use quiet square framing, five restrained measurement guides and non-scaling line
-strokes. Plot height follows the window. Java interpretation/report explanations
-use disclosures; response/TPS and process/disk facts form separate reading groups.
-No new polling or ambient animation accompanies this layout. Native visual review
-remains manual.
-
-### Catalog composition refinement
-
-Modrinth discovery uses four raised category selectors with flat pixel SVG marks,
-concise role labels and a persistent selected state. The search and native filters
-share one workbench. Project artwork occupies a larger inset slot; names, authors,
-descriptions and tags precede a separate compatibility/action footer. Status uses
-a small square and explicit text rather than a thick colored stripe. Download
-counts remain actual catalog values. Search loading shows static, decorative
-placeholders alongside the existing announced status, with no simulated progress
-or continuous shimmer. Category icons move two pixels on hover/focus and respect
-reduced motion. Two/three-column results reflow to one column on small windows;
-all catalog controls and installation reviews retain their existing behavior.
-Native appearance and keyboard verification remain manual.
-
-The user's latest references replace the green Tableland structure with black and
-dark gray surfaces, End-like violet accents, Minecraft lettering and Minehut-like
-rectangular controls. This is an operating desktop application for real local
-servers. Explicit user requests outrank previous design decisions.
-
-One server rail stays compact by default and expands on hover or keyboard focus.
-It opens over the workspace without shifting content or icon targets; no manual
-collapse button remains. Context menus keep it open until dismissed. Server sections belong to a horizontal,
-wrapping workspace bar. There is no repeated server-image banner. The user reviews
-native appearance manually; no computer use is used. Code reviews may use subagents
-when authorized by the user.
-
-### Server configuration refinement
-
-Keep the save heading opaque and sticky within the existing scrollable workspace.
-Capacity and gameplay properties precede Java, upgrades and automation controls.
-An enabled search finds localized groups/labels/descriptions and native keys even
-while the server is running; it filters existing properties without changing them.
-Advanced matching keys are revealed during search. A plain clear action restores
-all fields. Search and property-add drafts reset when changing the selected server.
-New property keys cannot overwrite existing values and follow native key/value
-limits, with adjacent readable validation. The End search uses an inset square
-surface and focus outline; narrow windows stack advanced-property inputs.
-These styles load with the deferred settings section. Native review remains manual.
-
-## Themes and persistence
-
-The default **End** theme uses canvas `#131217`, surface `#1c1b22`, raised surface
-`#282532`, ink `#efeaf5`, supporting text `#bdb5ca`, accent `#baa2ee` and highlight
-`#dfcbff`. This keeps the workspace neutral and reserves violet for interaction.
-
-**Obsidian** uses charcoal canvas `#141518`, neutral surfaces and graphite/silver
-accents. **Nether** uses canvas `#191414`, warm dark surfaces and ember accent
-`#f1ab95`. Semantic success, warning, destructive and log colors retain their
-meaning in every theme. The theme covers the library, server workspace, input,
-slider, console, charts, menu, disclosure and confirmation surfaces.
-
-Ajustes is below Inicio automatico in the rail. It opens an ordinary page with a
-native radio group, palette previews and immediate application. Preferences live
-under `tch-appearance-v1` in local storage, are validated on load and are applied
-before React's first paint. Invalid values fall back to End. Storage errors keep
-the selected appearance usable and report that it could not be saved.
-
-## Type and controls
-
-Bundle unmodified Monocraft 4.2.1 under the SIL Open Font License. Disable ligatures
-and synthetic bold. Use its pixel lettering for headings, server names, section
-navigation, rail actions, buttons, property labels, capacity labels, player tabs and
-disclosures. Keep reading fonts for explanations, input and long data. Commands,
-logs, UUIDs and executable paths use conventional monospace where appropriate.
-
-A reading-font preference changes display/control lettering without changing
-information, layout or functionality. The Minecraft option is the default.
-
-Rectangular controls have a raised upper edge and recessed lower edge. Resting
-controls are quiet; hover/focus illuminate them from the selected theme. The section
-bar uses the same raised selected treatment and one moving indicator. Primary
-controls avoid constant glow and pill geometry. Destructive controls remain coral.
-Compact rail actions use bare icons with a 44px-high hit area, without resting
-rectangular frames. Hover and selected states use the theme's violet wash. Labels
-fade and slide into the expanded rail after a 45ms delay while its width eases
-over 280ms. Collapse takes 190ms, with labels fading out in 90ms. Icons and the
-workspace remain stationary; reduced motion removes the transition. Expanded
-actions include labels.
-
-## Composition
-
-- Library: one larger create action beside two compact folder/modpack import actions.
-  Dedicated transparent voxel illustrations depict an End island, a world-map chest
-  and a modpack crate. They are decoration for real actions, not fabricated server
-  images. Narrow layouts turn the choices into compact rows. Populated libraries
-  keep search, grid/list view, artwork, actual states and context menus.
-- Runtime: padded panel with a grouped Java identity and actual compatibility status.
-  Required Java is adjacent to the actions. Full executable location and custom Java
-  use independent disclosures. Existing reinstall, recheck and verified custom
-  runtime selection remain connected to the native manager.
-- Properties: distinct group headings and row separators, immediate slider tracking
-  plus numeric input, descriptions adjacent to controls.
-- Console: a deeper surface and distinct INFO/SYSTEM/PLAYER/CHAT/COMMAND/WARN/ERROR
-  labels. Output stays selectable; no individual log-row animation.
-- Brand: retain the user's original logo. Use a transparent exterior cutout with the
-  dark central disk retained for UI, native icons and favicon. No inversion or square
-  black backdrop. Asset sources and prompts are in src/assets/README.md.
-
-## Motion and accessibility
-
-Central motion tokens remain authoritative. A single short clipped library entrance
-and small illustration displacement support discovery; no repeating ambient motion.
-Keep moving selection, list continuity, chart interpolation and numeric updates.
-Respect reduced motion in CSS and JavaScript. Theme selection does not animate the
-whole page or steal focus. Native radio arrow navigation, focus outlines, semantic
-labels and status text remain available.
-
-The shell owns scrolling and prevents horizontal page movement. Native protected
-confirmations stay centered in the viewport independently of page scroll.
-
-## Verification boundaries
-
-TypeScript, production build, preference persistence/failure tests, existing manager
-regressions and Windows packaging are executable checks. Token contrast covers all
-three palettes and log tags. No native screenshot or gameplay verification is claimed.
-The broader original specification remains in development; see NEXT_TODOS.md.
-
-## Application preferences
-
-Ajustes uses one main surface and a horizontal, wrapping category bar: General,
-Java, Almacenamiento, Red, Copias, Avanzado and Información. It introduces no extra
-sidebar. General retains immediate theme/font/motion preferences and real startup
-controls. Java/network/backup/task controls clearly identify the selected server.
-Storage exposes actual native locations and folder actions; Information uses the
-native binary version, OS/architecture and persisted EULA record. Diagnostics and
-shortcuts live in Advanced. Native appearance and keyboard review remain manual.
-
-The selected Spanish/English language also updates the native tray's Show and Quit
-labels on application startup and when changed. A failed native update retains the
-usable interface and reports the original error through the shared error surface.
-
-## Observed startup path
-
-Overview places a compact Java / Mundo / Listo ordered path between the current
-server state and its metrics. Native events alone advance phases; loading a world
-and preparing its spawn have distinct status text. No generated percent, elapsed
-time heuristic, pulsing decoration or synthetic Ready transition is used. A server
-that does not emit recognized intermediate events may jump directly to Ready.
-Current, completed and pending steps use text and native list semantics as well as
-theme accents; color/border transitions use the existing 160 ms motion tokens and
-respect system/application reduced motion. Labels wrap on narrow windows. The
-provided actual Paper log passes parsing; native appearance remains manual.
-
-## Connection and inventory monitoring (0.18.0)
-
-Connection groups the LAN address and its facts before an always-visible internet section. UPnP and NAT-PMP discovery run automatically when a valid LAN interface is observed; explicit confirmation still owns all port creation. Retry and advanced gateway selection remain available. There is no Bore panel or production provider/IPC. Minecraft status response belongs to Performance. A historical crash disclosure appears only after a real saved failure has been loaded.
-
-Overview uses one inventory-style metric strip: authored pixel icons, display typography, square inset segments and theme/semantic colors. Player segments measure occupied slots; memory segments show measured used heap relative to the configured Xmx, separately from resident RAM. CPU segments measure process CPU. Missing values are labelled and never rendered as measured zero. Uptime remains elapsed text with no invented gauge.
-
-Performance keeps RAM and CPU together. Square framing, pixel icons, orthogonal sampled lines and square hover points match the controls; dashed heap remains distinct from resident RAM. Lines preserve sampling gaps. Download, copy and storage bars retain native progress semantics, real totals and cancellation, with square segmented fills. Motion remains brief and respects reduced-motion preferences. Native visual review remains the user's manual check.
-
-## Mod inventory and chart refinement (0.19.0)
-
-Use square item cards, inset icon wells, restrained category tags and a release status footer in Modrinth. Keep category, sort and version filters visible, preserving browsing after installation. Color signals are paired with text: compatible, experimental, unavailable and unverified. Local inventory separates descriptor warnings from historical Fabric startup-list evidence.
-
-RAM and CPU remain simultaneous orthogonal plots, with lightly shaded measured areas, three quiet horizontal guides, compact peak readings and a dashed heap legend. Remove the duplicate segmented meters from these plot cards. Pointer or keyboard sample inspection shows measured values and time; gaps and unavailable readings remain explicit. Keep network controls visible, placing lengthy instructions in optional help or the confirmation dialog.
-
-## Installed mod inventory
-
-Active and disabled content have distinct inventory views. Disable is a direct,
-reversible file operation from the context menu; Enable is visible in the disabled
-list. No extra confirmation interrupts this reversible action. Native stopped-
-server guards, safety copies, staged publication and known dependency checks own
-the change. Disabled files retain their original project metadata and use the
-normal `.jar.disabled` suffix. Loading/read errors never become an empty list;
-completed changes remain acknowledged if a subsequent inventory refresh fails.
-
-The file inspector uses three ordinary view controls: Details, declared
-Dependencies and related Messages. Only views with actual data are offered.
-The warning action opens related messages directly; refreshed diagnostics fall
-back to Details if the selected view becomes empty. Metadata, dependency ranges,
-warnings and console recovery actions remain available. Square SVG status marks
-and view icons use the existing theme. Error evidence uses a one-pixel frame and
-a semantic label instead of a thick side stripe.
-
-Use responsive square item cards with 64-pixel icon slots, readable version/origin metadata, compact semantic status and separate detail/version/remove actions. Red and amber always include a text label and evidence. Put long filenames, declared requirements and related console messages in the detail dialog; keep search and attention/source filters visible. Never imply a JAR in the inventory proves world behavior or blame a mod from a generic log mention. Keep item order stable while diagnostics update. Use short opacity entrance and a two-pixel hover lift on the icon only; respect system/application reduced motion. Preserve filters during audit refreshes.
-# Installed content refinements
-
-Installed mods/plugins offer inventory cards and a compact presentation. Keep file icons, explicit diagnostic labels and semantic red/amber states in both views. Provide name/problem ordering and direct console navigation without treating a log association as a root-cause diagnosis. State transitions use existing motion tokens and respect reduced motion; compact rows reflow on narrow windows.
-
-## Creation version controls
-
-Show Minecraft versions in a bounded native list with scrolling and a catalog count. Keep keyboard selection and genuine catalog boundaries explicit, including historical NeoForge 1.20.1 and the modern catalog from 1.20.2. Platform choices use a four-option native radio group with raised theme surfaces, checked text/radio state and visible keyboard focus. No ambient animation or new accent palette is introduced. File details expose dependency declarations in a named inspector view with text-backed kinds and preserved range alternatives.
-
-## Creation and import finish
-
-Creation uses five raised inventory slots with explicit current-step semantics,
-numbered upcoming steps and checkmarks on preceding steps. The form has a distinct
-content surface with navigation actions integrated into the form. The configuration preview uses the
-existing transparent End-island illustration as decoration, separate from the
-chosen server image; it disappears at narrower widths without hiding form fields.
-World and import-location choices retain native radio behavior, selected material
-and visible focus. Focus follows actual step changes, including going back to the
-first step. Existing navigation motion remains authoritative; no ambient animation
-or additional image downloads are introduced. Import paths wrap rather than being
-truncated. Native visual assessment remains manual.
-
-## Existing property controls
-
-Place a compact properties-read status above capacity and property editing. Explicitly
-distinguish loading, unavailable, loaded and unsaved states. Hide these controls before
-the first successful read; retain but disable last-known controls after a read failure.
-Retry uses a normal themed button, and automatic reads never replace an unsaved draft.
-RAM/storage edits also retain their current values during metadata refresh. Keep Java,
-task and maintenance actions independent of properties loading. Acknowledged writes
-remain successful when a subsequent server read fails; restoration may replace a draft
-only after the native manager has actually restored the files.
-
-Settings separates identity, rules, simulation limits, generation and access.
-Headings retain display lettering; descriptions and values use the reading face.
-Each group reports its available option count. Only actual property keys receive
-controls, preventing removed version-specific settings from appearing by default.
-Unknown existing choice/boolean values remain visible and editable. Generation
-help distinguishes settings for a new world from modifying an existing world.
-The advanced editor remains available for properties without dedicated controls.
-
-## Player action form
-
-Player management presents the selected action, actual entered target and a short
-effect preview before sending. Named action buttons replace generic Apply; blocking
-and kick controls use the existing destructive palette. OP/IP-block effects are
-explicit without adding confirmation dialogs for reversible commands. Use native
-fields, associated inline errors and first-invalid-field focus. A busy fieldset
-prevents edits during submission. Preparing an action while stopped remains possible,
-but sending requires a running server. Command-sent feedback never implies Minecraft
-has accepted or completed the action. Dense identity/IP text stays readable.
-
-## Backup retention and restore details
-
-The backup list distinguishes loading, unavailable, valid-empty and last-known data.
-Keep last-known rows visible after a failed refresh, label them as last-known and
-disable restore while the list is refreshing or unavailable. Recent copies on Overview
-share these status semantics. Backup dates use accent lettering with tabular numerals;
-size and metadata stay readable. A restoration acknowledged by the native manager
-closes the destructive dialog. Its later data synchronization lives in an inline,
-server-specific attention strip with a read-only retry, protecting settings until
-fresh properties/server metadata are available. Do not offer to repeat restoration
-because a follow-up query failed.
-
-Retention uses a compact disclosure with explicit enabled/unavailable text and End
-material edges. Keep limits together on a deep surface, with named actions, associated
-errors and first-invalid-field focus. Empty limit fields mean unlimited; enabled
-automatic deletion requires at least one actual limit. Refresh retains unsaved edits.
-Review lists show native copy dates, sizes and recorded versions with readable text,
-not synthetic previews. Acknowledged deletion closes its confirmation before list
-refresh; a later read failure remains separate. Restoration metadata uses a deep
-surface and changes from two columns to stacked labels at narrow widths.
-
-## Scheduled tasks
-
-Use raised inventory rows and pixel clock slots for scheduled work. Put the current
-state beside the action, the next date beneath it and the recorded result in its own
-deep surface. Errors and interruptions use explicit labels as well as semantic color.
-Start requests never imply readiness. Keep neutral paused rows readable, manual refresh
-available after read failure, and an empty state pointing to the scheduling action.
-Automatic restart settings share these materials. At narrow widths, keep row controls
-under the content and wrap headings; do not add decorative progress meters.
-
-Automatic restart refresh lives in a compact footer with inline unsaved/saved feedback.
-Initial read errors show an unavailable state and retain a retry action. Observed
-policy changes update a clean form, never an unsaved draft. An acknowledged write
-and a failed subsequent read are distinct; hide previous attempt data until a fresh
-snapshot is available. Integer errors stay beside their fields with focus on the
-first invalid control. These states use existing semantic colors and reading text.
-
-## Player list navigation
-
-Keep category counts based on the full native snapshot. Search the chosen category
-by name, UUID or IP; paginate matching entries in their original order, 50 per page.
-Do not merge offline/account identities with the same name. Search resets the page,
-and a shrinking snapshot clamps it to an existing page. An unavailable snapshot is
-labelled separately from a valid empty list. Search, result count and page buttons
-use the existing form and Minecraft control tokens. List motion tracks visible rows
-rather than serializing the entire history on each search keystroke.
-
-
-### Independent read feedback
-
-Console history and player lists use selected-server read ownership and compact
-inline feedback. Preserve live output and last-known players after read failures;
-never describe an unavailable snapshot as empty or authenticated. Overview marks
-stale player totals. Reading errors use a warning inventory marker, readable body
-text and an explicit retry; no animated loader or modal. Player totals use squared
-End slots, raised edges and tabular values with the bundled display font.
-
-
-### Runtime observation versus persistence
-
-Never show a retained ready Java result as current after an observation failure.
-Use a labelled warning state and retain executable/version details as a last read.
-Unknown compatibility means only the version was verified. Acknowledged custom
-runtime changes close confirmation and keep an inline success message even if
-later server metadata reads fail. Error detail and a direct check action remain
-visible; status markers never rely on color alone.
-
-
-### JVM profile review
-
-Do not label the profile Recommended/Custom before successful reading. Keep reload
-separate from editing and disable it while a draft is unsaved. Launch previews
-belong to the selected server, runtime, saved RAM and effective arguments; obsolete
-previews are neither displayed nor sufficient to enable saving. Radio choices use
-square End surfaces, explicit selection and visible focus. Preview command text
-wraps in a deep reading surface. Save acknowledgement remains inline.
-
-
-### Deferred sections
-
-Load secondary section code when opened. The shell stays interactive. During load,
-show only the section name and a short status in an End reading surface; do not
-invent a percentage or animate a shimmer. A failure has a local retry and optional
-technical detail. Keep modal entry/focus behavior synchronous. Navigation keeps
-its existing motion and reduced-motion preference; chunk arrival adds no second
-entrance animation.
-
-
-### Update acknowledgement and catalog recovery
-
-Close a loader confirmation after native publication succeeds. Keep a readable
-installed-target acknowledgement and native warnings; metadata refresh failures
-get a separate, read-only recovery action. Do not offer to repeat publication as
-recovery for a failed read. Version catalogs distinguish unavailable from truly
-empty, with a direct retry inside review. Keep loading, publication and subsequent
-Minecraft startup observation distinct; success never certifies gameplay mods.
-
-
-### Operator drafts and action follow-up
-
-Polling must not overwrite unsaved operator permissions. A changed native baseline
-uses a labelled conflict with current values and an explicit load-current action;
-editing remains blocked until reviewed. Keep UUIDs independent. Generic mutation
-acknowledgement and subsequent read failures have distinct feedback, with a read-
-only recovery action. Avoid suggesting repeated commands to recover stale data.
-
-## Library browsing refinement
-
-Keep the current End imagery and creation/import actions. Populated libraries expose
-All, Online, Errors and Pinned as text-backed filter buttons with native counts;
-search combines with the selected filter. Explicit name/recent ordering uses copied
-rows, retaining native library order by default and keeping equal-name servers distinct.
-Square, quiet card footers separate capacity metadata from the open/menu targets;
-pinned servers retain a compact icon and text. An empty filtered result offers one
-reset action. Import actions remain visible below the inventory. Context menus work
-from the card as well as its menu button. Stable item keys preserve existing list
-continuity; hover arrow movement is short, non-repeating and respects reduced motion.
-Keyboard controls and narrow layouts remain available; native visual review is pending.
-
-Library headings, result totals and accessible Manage action names follow the
-selected language. Translate the singular/plural noun before substituting it into
-a summary; server names remain verbatim. Empty/populated library captures have
-been reviewed in an isolated Chromium fixture at the three target desktop sizes.
-
-## Startup preference recovery
-
-Application autostart and individual server startup remain independent sections.
-Each exposes its own read/retry state; a failed read retains last-known values with
-explicit text and disables edits until confirmed data is available. Publish only
-native acknowledged settings and invalidate pre-write reads. A failed follow-up
-query does not turn a persisted preference into a failed write. Server rows use
-square icon slots, legible names and Selected/Manual text beside native checkboxes.
-Scheduling closes creation on native acknowledgement and reports list recovery
-separately; no animation claims a task has executed. Native visual review is pending.
-
-## Application close feedback
-
-Keep one protected viewport-centred confirmation for background, graceful stop/exit
-and cancellation. Aggregate shutdown failures remain inside this dialog, with
-readable line breaks and a bounded scrolling reading area, instead of dismissing
-the dialog and placing errors behind it. Requests disable all choices until their
-native outcome; an acknowledged exit remains busy through cleanup. No generated
-progress, automatic force kill or success animation replaces observed process
-state. Native window/tray/focus review remains pending.
-
-If an operation becomes busy during a dialog's exit animation, cancel that exit
-and retain the visible confirmation. Ignore completion callbacks from cancelled
-animations. A later close remains available after the operation finishes.
-
-## Installed inventory workbench
-
-Keep log-state filters independent from Modrinth/local origin, with real counts,
-pressed-state text and result totals. Search includes all declared IDs; equal
-names remain separate files. Group ordering and card/compact presentation with
-search rather than another navigation bar. Neutral slots frame local icons;
-warning and error colors belong to evidence, not inferred gameplay compatibility.
-Explain temporarily disabled file mutations once above the inventory. Details
-and log inspection remain available. Reduced-motion behavior and existing themes
-remain in force; native visual review is still pending.
-
-## World setup and continuation
-
-World generation owns an optional seed field beneath the new/existing choices.
-Use the reading face for seed text and exact numerals; show its full value in the
-final review with safe wrapping. Existing-world import does not offer a new seed.
-Continuation shares the form material and spacing, with a next-step label and
-paired previous/continue controls; it is not a detached dark strip. Default rules
-are editable before Java's first start, retaining real imported values. Native
-visual and keyboard review remain pending.
-
-## Content divisions (0.25.0)
-
-Modrinth discovery has four labelled square controls: Mods (Plugins on Paper),
-Modpacks, Textures and Shaders. Selected materials, authored pixel glyphs and short
-color/background transitions use existing theme tokens and reduced-motion rules.
-Changing type clears incompatible category and pagination filters; stale results
-are hidden before rendering a new type. Shader/texture results describe published
-game versions rather than server compatibility and open official publication pages
-in the default Windows browser. Packs lead to the existing .mrpack import review
-for a new server. No client launcher is added.
-
-Installed item cards give the real mod icon a larger inset slot, separate version
-metadata, explicit diagnostic status and a grouped action footer. Compact view,
-filters, read failures and console evidence remain available. The wizard footer
-omits the redundant next-step text; the step navigation above remains authoritative.
-Native appearance and keyboard review remain pending.
-
-
-## World action hierarchy
-
-Keep Export and one labelled overflow trigger visible beside each world. Group
-primary-world selection, duplication, full-server backup, folder opening and deletion
-in the existing End context-menu material, available by right click or the button.
-Hide primary-world deletion/selection; disable file mutations while running or busy.
-Confirm destructive actions with the existing viewport dialog. Arrow/Home/End keys
-navigate enabled actions; Escape restores the trigger, Tab leaves the menu, and
-outside interaction dismisses it. Keep menus inside the viewport, allow internal
-scrolling, and avoid refocusing on ordinary parent data refresh. Inline duplication
-and export focus their first field. Native visual/keyboard validation remains manual.
-
-
-## Installed content action hierarchy
-
-Keep Details/Notice and a related Console action visible. Use the shared End overflow
-menu for compatible-version review, View on Modrinth (managed projects only),
-disabling and removal. Keep the removal confirmation and backup workflow. Context menus belong
-to the observed filename/hash and close on a changed file, filtering it away or
-switching to discovery. Read failures/running state still block file mutations;
-read-only details and publication inspection remain available. New copy is localized.
-Native review remains manual.
-
-
-## World inventory feedback
-
-### Paper dimension families
-
-Show one row for a Paper primary world and its paired Nether/End folders. The
-size includes the full family. List the actual included folder names beneath the
-size, wrapping long names. Keep dimension folders out of independent world menus.
-Delete/activate confirmations name the included dimensions explicitly. Duplicate
-and both export modes keep the family together. Other engines retain their normal
-internal dimension layout. External folder import still selects one folder; a
-reviewed external family-import flow remains pending. Native UI review is manual.
-
-Keep read failures distinct from a genuine empty world list. Retain last-known
-rows with an unavailable label and retry, and block file mutations while reads
-are pending or failed. Manual Refresh worlds remains beside Import world; retain
-readable feedback and no fictitious progress. Post-operation read failure does
-not revoke the native acknowledgement. Native validation remains manual.
-
-## Installed inventory pages
-
-Show at most 24 installed files in either cards or compact view. Search, counts
-and diagnostic filters still use the complete inventory. Previous and Next controls
-appear above and below the results, using the existing player navigation material.
-Show the actual file range and page count. After a page change, focus the range and
-scroll it into view without adding motion. Search, state, source and order changes
-return to the first page. A smaller refreshed inventory clamps the current page.
-Read icons only for the displayed page, retaining existing stale-read guards and
-cache keys. Context menus close when their file leaves the page. Native appearance
-and keyboard verification remain pending.
-
-## Existing-server import preview
-
-Place a read-only inventory between the source selector and import settings.
-Keep the End material edges, shared theme tokens and legible Minecraft headings.
-Use compact native disclosures for the three file categories, with actual counts
-and 24 filenames per page. Settings remain visible beside the inventory; access
-file counts follow beneath it. Unknown counts use explicit unavailable text.
-Warnings identify incomplete reads and disabled account verification without
-claiming that detected mods/plugins have loaded. Show no private player records.
-
-Selecting another source resets inventory pagination. Import controls are disabled
-while picking or submitting; choosing copy versus managing the original retains
-its existing explanation. The layout stacks on narrow windows, and hover colors
-respect system/application reduced motion. The stylesheet loads only with the
-import surface. Native appearance, keyboard flow and contrast remain manual QA.
-
-## Whitelist identity review
-
-JSON import rows show the file's UUID beneath the name and the corresponding
-profile head when available. Keep same-name accounts separate. Prospective
-existing/new counts compare UUIDs; submission sends the whole reviewed identity
-list so the native manager can deduplicate against the current disk file.
-JSON import is a stopped-server operation. TXT rows remain unresolved until a
-running Minecraft session processes their commands; never label a matching name
-as the same account. Both modes explain their required server state beside the
-action. Saved-file results include the safety-copy filename; command results say
-only that requests were sent. No-op imports explicitly say no files changed.
-A failed refresh retains the acknowledged result and clears the import draft.
-The review retains pagination/search, theme materials and readable UUID wrapping.
-Native visual and keyboard verification remain manual.
-
-## Background outcome notices
-
-Use compact End surface notices at the bottom right, with a semantic error edge,
-a server name and one navigation action. Crashes open Console; task outcomes open
-the corresponding manager section. Keep long server names and labels wrapped.
-Successful tasks notify only outside the visible task workflow or while the window
-is hidden/unfocused. Failures and observed crashes remain dismissible without a
-timeout. Do not replay historical snapshots, duplicate terminal events or announce
-cancellation as success. Keep eight notices with bounded scrolling; the existing
-task inventory and crash state retain their own records. No focus stealing or
-automatic retry. Use a polite live region and translated labels. Entry lasts 140 ms
-and respects system/application reduced motion. Native layout and keyboard QA
-remain manual. These are in-app notices, not operating-system notifications.
-
-## Startup and runtime action failures
-
-Identify the requested action and server in a compact semantic error surface.
-Keep the native reason visible, then show operation-specific review advice and
-Settings/Console actions. These actions only navigate; they never retry, reinstall
-or change settings. Preserve the original server identity when selection changes,
-and disable navigation when that server is absent from the library. Restart advice
-must not assume the previous process is still running.
-
-Keep raw evidence, operation and server ID behind a native details disclosure.
-Task failures retain task ID, kind and attempt alongside their original message.
-Wrap long paths and keep the technical block vertically bounded and keyboard
-scrollable. Use the existing theme tokens and translate application copy; raw
-technical evidence remains verbatim. A failed refresh must not hide the original
-runtime failure. Retain existing crash diagnoses and explicit task retry controls.
-Native layout and keyboard validation remain manual.
-
-## Completed modpack import
-
-After native installation succeeds, replace wizard controls with a compact result:
-a square semantic-success mark, Minecraft heading, server name/version and a
-read-only library refresh action. Keep the installed result when refreshing fails.
-Show that read failure separately, preserving the prepared server. The refresh
-button must never repeat installation or create another instance. Hide redundant
-terminal progress and completed capacity/file controls. Use the existing End
-surface tokens, display font and translated application copy. Native visual and
-keyboard review remain manual.
-
-## Connected-player identity
-
-Connected rows display the UUID observed during that process session and use it
-for the skin head. Keep historical same-name accounts in Known players. Do not
-choose a connected player's avatar from cached names; use the neutral fallback
-when no session UUID is observed. Search connected rows by name or observed UUID.
-Identity log events use the existing player color and a translated event label.
-This is observation of server output, not verification of Microsoft ownership.
-Native appearance and real-client login validation remain manual.
-
-Known-player rows offer Add to whitelist for their exact UUID while stopped.
-Already-authorized UUIDs show a disabled Whitelisted action. Keep same-name
-accounts separate and explain the stopped-server requirement beside the list.
-Show native acknowledgement above the rows, preserving it if refresh fails.
-
-Banned-IP rows keep the same Pardon IP action while running or stopped. Use
-Minecraft commands while running; stopped removal shows the native safety-copy
-filename. Retain acknowledgement if the list refresh fails and disable actions
-while stopping, busy or reading unconfirmed permission data.
+# TCHLauncher visual system
+
+## Authority and source files
+
+The current direction is Minecraft and the End: charcoal surfaces, violet accents,
+Monocraft where legible, raised rectangular controls and the user's golden voxel
+emblem. These later user instructions replace the original light, achromatic
+reference. Keep the accepted appearance while improving clarity and interaction.
+
+This document defines current design rules. Iteration history and scoped checks
+belong in [development notes](docs/development-notes/README.md), release contents in
+[release notes](docs/release-notes/README.md), and remaining acceptance in
+[NEXT_TODOS.md](NEXT_TODOS.md). Visual acceptance does not prove keyboard,
+assistive-technology, router or gameplay behavior.
+
+| Owner | Responsibility |
+| --- | --- |
+| [end.css](src/end.css) | Theme tokens, Minecraft materials and shared controls |
+| [motion.tsx](src/motion.tsx) | Shared motion timing and behavior |
+| [appearance.ts](src/appearance.ts) | Validated theme, font and motion preferences |
+| [Asset guide](src/assets/README.md) | Emblem, artwork origins and icon generation |
+| [Architecture](ARCHITECTURE.md) | Native authority, persistence and recovery contracts |
+
+## Themes and typography
+
+Use existing role tokens rather than new per-component colors.
+
+| Role | End, default | Obsidian | Nether |
+| --- | --- | --- | --- |
+| Canvas | `#131217` | `#141518` | `#191414` |
+| Surface | `#1c1b22` | `#1e2025` | `#231c1c` |
+| Raised surface | `#282532` | `#292b30` | `#302526` |
+| Primary text | `#efeaf5` | `#eeeff4` | `#f4eeea` |
+| Supporting text | `#bdb5ca` | `#b9beca` | `#cbbab4` |
+| Accent | `#baa2ee` | `#c2c7d2` | `#f1ab95` |
+| Highlight | `#dfcbff` | `#eeeeff` | `#ffd3c2` |
+
+Success, warning, destructive and console colors keep their meaning across themes.
+Pair color with text or a distinct mark. Error evidence uses a thin frame and a
+label, not a thick decorative stripe. Keep contrast readable on every surface.
+
+Bundle unmodified Monocraft 4.2.1 under its SIL Open Font License. Use it for
+headings, server names, navigation, action labels and short property labels.
+Disable ligatures and synthetic bold. Use the reading face for explanations,
+inputs and long data; use ordinary monospace for commands, UUIDs, logs and paths.
+Keep the reading-font preference fully functional. Current desktop body text is
+14 px; the main heading is 24 px. Long text wraps without hiding identifiers.
+
+Appearance preferences use `tch-appearance-v1`, with validated End/Minecraft/system
+motion defaults before the first React paint. Storage failure keeps the selected
+appearance usable and reports that saving failed. System reduced motion always
+wins. Changing theme does not animate the entire page or steal focus.
+
+## Shell, controls and navigation
+
+- Use one compact server rail. Expand on hover or keyboard focus over the workspace,
+  keeping icons and main content stationary. Context menus keep the rail open.
+  Do not restore the manual collapse button or a second server sidebar.
+- Compact rail actions use bare icons with 44 px hit areas. Reveal labels when
+  expanded. Server sections use one horizontal wrapping bar and moving indicator.
+- Keep the shell's scrolling boundary and avoid horizontal page overflow. Support
+  the target 1280×720, 1366×768 and 1920×1080 layouts with wrapped controls and paths.
+- Rectangular controls have raised upper and recessed lower edges. Resting controls
+  stay quiet; hover/focus use theme illumination. Avoid persistent glow, pill
+  geometry and an extra icon box around every action. Destructive actions use
+  the shared coral palette.
+- Preserve visible focus, associated labels, native radio behavior, checked/pressed
+  states and readable disabled reasons. Use text when an icon would be ambiguous.
+- Use one action hierarchy per view. Put uncommon actions in the shared overflow
+  menu, available through its button or right click. Keep it within the viewport,
+  with scrolling, enabled-item arrow/Home/End navigation, typeahead, Escape focus
+  return, outside dismissal and ordinary Tab behavior.
+- Keep confirmations viewport-centered despite page scrolling. Busy operations
+  cannot disappear because a pending exit animation finishes.
+
+The transparent golden emblem keeps its dark central disk. UI, favicon, executable,
+installer and uninstaller use that identity without a black square backdrop or
+inversion. Do not reuse a selected server image as a stretched workspace banner.
+
+## Motion
+
+Use the shared tokens: 90 ms instant, 120 ms interaction, 160 ms micro,
+200 ms standard, 240 ms navigation and 300 ms large. The rail retains its existing
+280 ms expansion, 190 ms collapse and delayed label reveal. Do not add ambient
+loops, shimmers, extra entrance effects when chunks arrive or individual log-row
+animation.
+
+Transitions explain selection, navigation, real progress or list continuity.
+Changed numbers and sampled lines may interpolate; unchanged initial values and
+geometry do not need animation frames. Interruption retargets from the displayed
+value. Invalid numeric starts recover without propagating non-finite values.
+Reduced-motion lists skip measurement/cloning and release retained snapshots.
+
+## Read, write and progress states
+
+Keep these distinctions throughout the application:
+
+- Unread, loading, unavailable, valid-empty and last-known data are different.
+  Retain useful known rows after read failure, label them stale and provide a
+  read-only retry. Do not permit mutations based on unconfirmed inventory.
+- Native acknowledgement establishes a completed write. A later refresh failure
+  must not turn it into a failed operation or invite repeating the mutation.
+  Keep the acknowledgement and refresh recovery separate, scoped to its server.
+- Polling does not replace unsaved drafts. Conflicting baselines require an
+  explicit load-current decision. Obsolete previews cannot enable saving.
+- Long operations show real stages and measured bytes, totals and speed. Use a
+  continuous inset progress rail; never invent a percentage or duplicate it with
+  decorative segmented bars. Each task owns its cancellation and error state.
+- Preserve original native evidence behind bounded, keyboard-scrollable technical
+  details. Translate application copy separately from names, paths and logs.
+
+Error feedback identifies the server and attempted action, provides the reason
+and offers relevant Settings/Console navigation. Navigation does not retry or
+reinstall anything. A missing server disables its navigation action.
+
+Background notices use compact End surfaces with a server name and one relevant
+action. Notify successful work only outside its visible workflow or while hidden.
+Failures and crashes remain dismissible without a timeout. Do not replay historical
+snapshots, duplicate outcomes, steal focus or report cancellation as success.
+
+## Library, creation and settings
+
+The empty library offers create, folder import and modpack import through the
+existing transparent End-island, world-map chest and crate artwork. Decoration
+must not resemble a real server result. Small windows use compact rows.
+
+Populated libraries keep search, state/pinned filters with actual counts,
+name/recent ordering and grid/list view. Equal names remain distinct servers.
+Context menus work from the item and its menu button. No-match results offer one
+reset action, and import actions remain accessible.
+
+Creation uses five numbered steps with current/completed semantics, focus following
+actual step changes and navigation integrated into the form. Omit the redundant
+next-step caption in the footer. The version list is bounded and scrollable with
+keyboard selection and genuine catalog boundaries. Platform choices retain their
+four-option native radio group. Never fabricate historical NeoForge support.
+
+Offer an optional seed for a new world and show the exact value in final review.
+Existing-world import does not offer a replacement seed. Preview original folders,
+whole-family size and destination names before copying; keep source files intact.
+Review split Paper families only for a Paper destination.
+
+Server configuration places capacity and gameplay before runtime, upgrades and
+automation. Keep its opaque save heading sticky. Search includes localized group
+names, labels, descriptions and native property keys. Reveal matching advanced
+keys; clearing search restores all fields. Reset property-add/search drafts when
+changing server. Preserve unknown existing values and the advanced editor.
+
+Show available pre-start rules without requiring an initial server launch.
+Generation help distinguishes new-world configuration from existing-world edits.
+Runtime observations label cached executable/version details as the last read
+when checking fails. Custom-runtime acknowledgement survives metadata failure.
+JVM previews belong to the selected runtime, saved RAM and effective arguments.
+
+Application preferences use a single content surface with General, Java, Storage,
+Network, Backups, Advanced and About categories. Server-specific controls name the
+selected server. About uses the actual binary version and saved EULA record.
+Language changes also update supported native picker and tray labels.
+
+## Server observations and connection
+
+Startup uses Java / World / Ready phases driven only by native events. Preparing
+spawn and loading the world have distinct text. Engines may skip unobserved phases;
+no timer or estimated percentage establishes readiness.
+
+Overview keeps one inventory-style metric strip with pixel icons and real slot,
+heap and CPU readings. Unknown values are not zero. Uptime remains elapsed text.
+Console output stays selectable with distinct INFO/SYSTEM/PLAYER/CHAT/COMMAND/WARN/
+ERROR labels. Preserve live output if historical reads fail.
+
+Performance shows RAM and CPU together, with one 30-second/one-minute/two-minute
+range control. RAM and heap are distinct, with zero baseline, visible axes and
+automatic scaling that does not treat Xmx as a resident-memory limit. Keep sampled
+orthogonal lines, gaps, square markers and measured peak values. The current plot
+uses five quiet measurement guides. Do not add segmented meters to the plots.
+Pointer and keyboard inspection show time and values above the plot. At least one
+available memory series remains selected. Response/TPS and process/disk facts form
+separate groups; memory interpretation and export help use disclosures.
+
+Connection places the LAN address and its facts before an always-visible internet
+section. UPnP/NAT-PMP discovery is automatic on a valid LAN interface; creating a
+mapping requires explicit confirmation. Keep gateway selection, manual help and
+retries accessible. There is no tunnel-provider panel. Minecraft response belongs
+to Performance, and historical crash details appear only for a real recorded crash.
+Read recovery clears its own router error without hiding operation failures.
+Unconfirmed status blocks new openings; removal of a known mapping stays available.
+
+## Content, players and worlds
+
+Modrinth has four square selectors: Mods, or Plugins on Paper, Modpacks, Textures
+and Shaders. Keep category, order and version filters visible. Preserve browsing
+after installation. Changing type resets incompatible filters and hides stale
+results. Textures/shaders open publication pages as client content, not server
+mods. Modpacks lead to reviewed `.mrpack` import into a new server.
+
+Content reviews identify exact releases, dependency changes, optional/conflicting
+entries and author changelogs. Mount long changelogs only while their labelled,
+scrollable disclosure is open. Keep review, publication and startup observation
+separate. A completed pack import shows its server and read-only refresh recovery,
+without leaving controls that can repeat installation.
+
+Installed and disabled content remain distinct. Provide cards and compact rows,
+search across declared IDs, independent diagnostic/source filters and actual
+counts. Page installed results at 24 items and read icons only for the visible
+page. Keep list order stable as diagnostics change. File menus belong to filename
+and hash and close when their item is removed, changed or filtered away.
+
+Details, declared Dependencies and related Messages are ordinary inspector views;
+empty views fall back to Details. Pair red/amber with evidence and Console actions.
+A JAR or Fabric log mention does not establish gameplay behavior or root cause.
+Disabling is reversible and preserves metadata/configuration; removal retains its
+confirmation and safety-copy workflow. Read-only inspection remains available
+while file mutations require stopped, confirmed state.
+
+Player groups retain actual counts, category search and 50-row pagination. Keep
+same-name UUIDs distinct. Connected heads use the session-observed UUID, with a
+neutral fallback if absent. Never substitute a historical same-name profile.
+Known-player OP/whitelist actions use the displayed UUID and stopped-server rules,
+with explicit level/bypass review. JSON whitelist import reviews exact identities;
+TXT name resolution stays separate and requires running Minecraft commands.
+Ban metadata preserves reason, source, dates and expiry with readable details.
+
+Keep player action effects and inline validation beside the target. Command-sent
+feedback does not imply Minecraft accepted it. Polling must not overwrite operator
+permission drafts. Stopped-file actions retain acknowledged UUIDs and safety-copy
+filenames even if the following read fails. IP pardon keeps its running command
+and stopped-file behavior.
+
+World rows group a Paper primary world with its actual Nether/End folders and
+whole-family size. Include the family in duplication, import and both export
+modes, including combined world/content export. Export and one overflow trigger
+stay visible; primary-world deletion/selection are hidden. Stop-required mutations
+and destructive confirmations retain their existing guards. Import/copy/export
+fields wrap paths and focus the first field. Read failures do not become empty
+lists or offer to repeat acknowledged writes.
+
+Backup history precedes retention and stop-copy preferences. Keep search, reason,
+actual saved engine/version, date, size and restore action readable. A newest-date
+mark does not establish integrity or freshness. Restoration closes on native
+acknowledgement; subsequent properties/backups/EULA/library refresh failures stay
+separate with read-only recovery. Retention requires at least one deletion limit
+when enabled; empty individual limits mean unlimited.
+
+Scheduled rows show real next dates, result/error/interrupt state and explicit
+paused text. Startup/login and server-selection preferences have independent
+read/retry feedback. Closing with active servers uses one protected dialog for
+background, stop/exit and cancel. Per-server shutdown failures stay inside the
+bounded dialog; no automatic force-kill or synthetic success replaces observed
+outcomes.
