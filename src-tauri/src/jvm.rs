@@ -71,7 +71,7 @@ pub fn save(root:&Path,id:&str,settings:&Settings)->Result<(),String> {
 pub fn verify(server:&Server,settings:&Settings)->Result<(),String> {
     let options=options(settings)?;
     let java=server.java_path.as_deref().ok_or("Instala Java antes de comprobar argumentos personalizados")?;
-    crate::runtime::version_output_with_args(Path::new(java),&options).map_err(|error|format!("Java no aceptó los argumentos. {error}"))?;
+    crate::runtime::version_output_with_args(Path::new(java),&options,Some(Path::new(&server.directory))).map_err(|error|format!("Java no aceptó los argumentos. {error}"))?;
     Ok(())
 }
 

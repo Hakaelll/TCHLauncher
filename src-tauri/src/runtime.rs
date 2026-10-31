@@ -97,15 +97,16 @@ pub fn parse_version(output: &str) -> Option<String> {
 }
 
 pub fn version_output(path: &Path) -> Result<String,String> {
-    version_output_with_args(path,&[])
+    version_output_with_args(path,&[],None)
 }
 
-pub fn version_output_with_args(path: &Path,args:&[String]) -> Result<String,String> {
+pub fn version_output_with_args(path: &Path,args:&[String],directory:Option<&Path>) -> Result<String,String> {
     // Use a temporary file rather than pipes: an unexpected executable cannot fill a pipe and block inspection.
     let output_path = std::env::temp_dir().join(format!("tch-java-{}.log",uuid::Uuid::new_v4()));
     let result = (|| {
         let output = fs::File::create(&output_path).map_err(|e|e.to_string())?;
         let mut command = Command::new(path);
+        if let Some(directory)=directory {command.current_dir(directory);}
         #[cfg(windows)] {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x08000000);

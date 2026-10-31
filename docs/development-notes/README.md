@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## JVM verification working directory after 0.53.0
+
+Custom JVM option validation now runs Java in the server directory, matching the
+real launch. Previously, options such as a relative GC log path were evaluated
+in the launcher's directory and could reject a valid server profile or create
+files beside the application. Only the child command's directory changes;
+plain runtime version inspection keeps its previous behavior.
+
+A real Java 21 case reproduces rejection of a log destination that exists only
+inside an isolated server folder. After the fix, the same case writes the log in
+that folder and persists the valid profile. Invalid arguments preserve the saved
+profile, a missing server directory fails, ordinary runtime inspection succeeds,
+and the process-wide working directory remains unchanged. The fixture root has
+spaces. The native test target compiles; no Minecraft session or UI is exercised.
+Both temporary libraries and the temporary case are removed, existing Java and
+local installer hashes are unchanged, and no retained test or dependency is added.
+
 ## Real custom Java and JVM lifecycle after 0.53.0
 
 Current native engine code runs Vanilla 1.21.4 with an existing external Java 21
