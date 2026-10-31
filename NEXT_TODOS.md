@@ -17,6 +17,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Post-0.57 Minecraft update blockers use the existing message translator.
   Actual list-item static rendering preserves technical details and follows
   ES/EN changes; TypeScript/frontend checks pass without native update interaction.
+- Stop-backup, startup-result and artwork subscriptions also retry registration
+  and refresh missed data on recovery. Actual controlled ES/EN effect checks
+  cover ownership/cleanup; frontend compilation passes without native events.
 - Post-0.56 NeoForge discovery supports annual four-component releases and exact
   experimental identities. The parser replay covers 110 annual stable catalog
   entries. Annual installation accepts absent mappings while preserving the

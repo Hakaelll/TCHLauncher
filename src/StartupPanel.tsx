@@ -1,6 +1,7 @@
 import {translatedMessage,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {listen} from '@tauri-apps/api/event'
+import {retryingSubscription} from './retryingSubscription'
 import {api,type Server} from './api'
 import {useServerRead} from './useServerRead'
 
@@ -22,9 +23,14 @@ export function StartupPanel({servers,onBusy}:{servers:Server[];onBusy:(busy:boo
   const observedCatalog=useRef(catalogKey)
   useEffect(()=>{
     const current={active:true,working:false};owner.current=current
-    const subscription=listen('startup-result',()=>{if(current.active)void serverRead.refresh(SERVERS_SCOPE)})
-    void subscription.catch(()=>{if(current.active)setEventError(t("No se pudieron recibir resultados de inicio. Usa Actualizar para consultarlos."))})
-    return()=>{current.active=false;if(current.working)busyCallback.current(false);void subscription.then(unlisten=>unlisten()).catch(()=>{})}
+    let unavailable=false
+    const stopEvents=retryingSubscription(()=>listen('startup-result',()=>{if(current.active)void serverRead.refresh(SERVERS_SCOPE)}),failed=>{
+      if(!current.active||owner.current!==current)return
+      if(unavailable&&!failed)void serverRead.refresh(SERVERS_SCOPE)
+      unavailable=failed
+      setEventError(failed?t("No se pudieron recibir resultados de inicio. Usa Actualizar para consultarlos."):null)
+    })
+    return()=>{current.active=false;if(current.working)busyCallback.current(false);stopEvents()}
   },[serverRead.refresh])
   useEffect(()=>{
     if(observedCatalog.current===catalogKey)return

@@ -1,6 +1,7 @@
 import {translatedMessage,t,formatDate} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
 import {listen} from '@tauri-apps/api/event'
+import {retryingSubscription} from './retryingSubscription'
 import {api} from './api'
 import {useServerRead} from './useServerRead'
 export function StopBackupPanel({id,disabled,onChanged}:{id:string;disabled:boolean;onChanged:()=>Promise<void>}){
@@ -13,14 +14,20 @@ export function StopBackupPanel({id,disabled,onChanged}:{id:string;disabled:bool
   useEffect(()=>{
     const current={active:true,working:false};owner.current=current
     setWorking(false);setError('');setEventError('');setRelatedError('')
-    const subscription=listen<string>('stop-backup-updated',event=>{
-      if(current.active&&event.payload===id){
+    const refresh=()=>{
+      if(current.active){
         void inventory.refresh(id)
         void changed.current().then(()=>{if(current.active)setRelatedError('')},reason=>{if(current.active)setRelatedError(String(reason))})
       }
+    }
+    let unavailable=false
+    const stopEvents=retryingSubscription(()=>listen<string>('stop-backup-updated',event=>{if(event.payload===id)refresh()}),failed=>{
+      if(!current.active||owner.current!==current)return
+      if(unavailable&&!failed)refresh()
+      unavailable=failed
+      setEventError(failed?t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."):'')
     })
-    void subscription.catch(()=>{if(current.active)setEventError(t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."))})
-    return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
+    return()=>{current.active=false;stopEvents()}
   },[id,inventory.refresh])
   const change=async(enabled:boolean)=>{
     const current=owner.current

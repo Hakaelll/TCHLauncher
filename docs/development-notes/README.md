@@ -10,6 +10,13 @@ case, then passes ES/EN switching and unchanged unknown-detail checks in static
 React rendering. TypeScript and the frontend build pass. No native update or
 interactive UI is exercised; the temporary probe is removed.
 
+The remaining stop-backup, startup-result and server-artwork subscriptions now
+reuse the shared registration retry helper. Recovery refreshes missed data once;
+panel notices clear only when registration succeeds. Six controlled contexts run
+the actual effects in ES/EN and check retry, reconciliation, foreign-server
+events and disposal. TypeScript and the frontend build pass. Native event delivery
+is not exercised, and no retained test or dependency is added.
+
 ## Windows 0.57 package
 
 Source `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b` produces the unsigned
