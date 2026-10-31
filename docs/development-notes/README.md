@@ -4,6 +4,17 @@ Engineering records, test evidence and pending native checks.
 
 ## Verification after packaging 0.48.0
 
+The current-source Paper 1.21.4 scenario also passes. Three sessions check
+readiness, status, commands and graceful stops, then backup and exact world
+restoration. It exports populated Overworld, Nether and End folders and imports
+them into a second Paper instance. All 45 copied file hashes match before boot;
+read-only block checks find the three saved blocks after boot. The source and
+export remain unchanged. All five sessions return real TPS readings.
+
+The isolated library and consent copy are removed, and both package hashes are
+unchanged. No new test case or production change is added. These checks use the
+engine's test event collector, not Tauri interaction or a Minecraft client.
+
 The existing real Vanilla case now configures hard difficulty and creative mode
 through the native settings save before any world exists. Minecraft's initial
 startup reports CREATIVE; read-only seed/difficulty queries confirm 42 and Hard.

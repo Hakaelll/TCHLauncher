@@ -21,12 +21,21 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Subsequent animation, connection, console and download-buffer fixes are grouped
   in the [local 0.48.0 build](docs/release-notes/RELEASE_NOTES_v0.48.0.md), from
   `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
-- Publication of 0.47.0 fulfilled the maintainer's explicit current-batch request.
-  The usual next window is 0.50/0.51 unless instructed otherwise. Attach only the
-  EXE and keep checksums local. Commit and push continue independently.
+- The maintainer requests publishing the version that closes the current batch.
+  Intermediate versions remain local; the usual 3–4-version cadence does not
+  postpone that final publication. Attach only the EXE and keep checksums local.
+  Commit and push continue independently.
 - Pending native interaction and affected-host validation remain scoped below.
 
 ## Evidence already available
+
+- Current 0.48 application-source Paper 1.21.4 passes three lifecycle sessions,
+  backup/restore and a populated three-dimension folder export/import into a
+  second instance. All 45 copied file hashes match before boot and three saved
+  blocks remain after boot. Five sessions return real TPS readings; source and
+  export are unchanged. Temporary data is removed and package hashes are
+  unchanged. This verifies the native engine with a test event collector, not
+  Tauri interaction or Minecraft client gameplay.
 
 - Current 0.48 application-source Vanilla 1.21.4 lifecycle passes with real managed
   Java/Minecraft downloads, three ready/status/command/graceful-stop sessions,

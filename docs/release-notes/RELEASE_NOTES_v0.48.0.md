@@ -44,6 +44,13 @@ isolated loopback library and an existing explicit EULA record; temporary data
 is removed and the installer/executable remain unchanged. Test events replace
 the Tauri UI.
 
+The existing Paper 1.21.4 scenario also passes backup/restore and a populated
+three-dimension folder export/import. All 45 copied file hashes match before
+boot, three saved blocks are verified after boot and source/export stay unchanged.
+Five real sessions return TPS readings. Isolated data is removed and package
+hashes remain unchanged. The Vanilla scenario additionally verifies seed 42,
+hard difficulty and creative mode saved before the first world exists.
+
 No measured CPU/RAM improvement, native scrolling/clipboard interaction, physical
 router result or new multiplayer gameplay is claimed. Affected-host Internet
 stalls, Java RAM growth, mod behavior and imported account identity remain open.
