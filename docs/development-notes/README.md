@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Workspace maintenance after 0.45.0
+
+Removed the unused 0.32 commit-message draft, ten ignored localization-migration
+scratch files from 0.25 and two empty scratch directories. The discarded Cargo
+metadata is not an input to the current legal generator, which runs Cargo metadata
+itself. Current translations, license resources, executable and both retained
+installers have unchanged hashes. The regular-file inventory is cross-checked
+with independent directory enumeration without following redirected entries;
+its logical-byte count is not an allocated-disk measurement. No application source
+or package changed, so no build, gameplay check or release was repeated.
+
 ## Changes packaged in 0.45.0
 
 These changes are included in the unpublished local 0.45.0 Windows installer.
