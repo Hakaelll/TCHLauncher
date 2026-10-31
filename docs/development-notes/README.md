@@ -2,6 +2,16 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Unreleased changes after 0.48.0
+
+Startup preferences now translate both cached-data notices after a read failure.
+The English strings already existed; two JSX branches bypassed `t`. A focused
+render check reproduces both Spanish leaks before the fix and passes afterward
+across English/Spanish switching and all four cached-data combinations. TypeScript
+and the Windows frontend build pass. This checks actual component markup with
+controlled read snapshots, not native startup or IPC. No retained test is added.
+The published 0.48.0 installer predates this two-line fix.
+
 ## Verification after packaging 0.48.0
 
 The current-source Paper 1.21.4 scenario also passes. Three sessions check

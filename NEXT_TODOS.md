@@ -25,6 +25,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   Attach only the EXE and keep checksums local. Commit and push continue
   independently; the usual cadence applies to later intermediate versions.
 - Pending native interaction and affected-host validation remain scoped below.
+- Unreleased after 0.48.0: startup-preference read failures now translate both
+  cached-data notices. Before/after component renders, TypeScript and the Windows
+  frontend build pass; native startup/IPC is outside that check.
 
 ## Evidence already available
 
