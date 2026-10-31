@@ -74,6 +74,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
   },[active,results,key])
   const changePage=(value:number)=>{setOffset(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.scrollIntoView({block:'start'})}
   const filter=(update:()=>void)=>{update();setOffset(0)}
+  const broaden=()=>{setCategory('');setAllVersions(true);changePage(0)}
   const submit=(event:FormEvent)=>{event.preventDefault();filter(()=>setTerm(query.trim()));setReload(value=>value+1)}
   const retry=async(id:string)=>{
     const sequence=generation.current;setAvailability(previous=>({...previous,[id]:{}}))
@@ -88,6 +89,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
   }
   const installedProjects=useMemo(()=>new Set(files.map(file=>file.projectId)),[files])
   const visibleResults=loadedKey.current===key?results:null
+  const canBroaden=category!==''||!allVersions
   return <div className="content-discovery" aria-busy={searching}>
     <div className="content-discovery-heading"><div><h3>{kind==='modpack'?t("Encuentra tu próxima aventura"):kind==='resourcepack'?t("Dale otra mirada a tu mundo"):kind==='shader'?t("Luz y atmósfera para tu mundo"):server.platform==='paper'?t("Descubre tu próximo plugin"):t("Descubre tu próximo mod")}</h3><p>Modrinth · {installable?`${loader} · `:''}Minecraft {server.version}</p></div><span className="content-catalog-context">{installable?loader:t("Cliente de Minecraft")}<strong>{server.version}</strong></span></div>
     <div className="content-kind-tabs" role="group" aria-label={t("Tipo de contenido")}>{kindOptions.map(value=><button key={value} aria-pressed={kind===value} disabled={locked} onClick={()=>filter(()=>{setKind(value);setCategory('')})}><ContentGlyph kind={value}/><span><strong>{kindLabels[value]}</strong><small>{t(kindHints[value])}</small></span></button>)}</div>
@@ -96,7 +98,7 @@ export function ContentDiscovery({server,active,files,locked,stopped,preparing,o
     <div className="content-filters"><label>{t("Categoría")}<select disabled={locked} value={category} onChange={event=>filter(()=>setCategory(event.target.value))}><option value="">{t("Todas las categorías")}</option>{availableCategories.map(([id,label])=><option key={id} value={id}>{translatedMessage(label)}</option>)}</select></label><label>{t("Ordenar por")}<select disabled={locked} value={sort} onChange={event=>filter(()=>setSort(event.target.value))}><option value="relevance">{t("Relevancia")}</option><option value="downloads">{t("Más descargados")}</option><option value="follows">{t("Más seguidos")}</option><option value="updated">{t("Actualizados recientemente")}</option><option value="newest">{t("Nuevos proyectos")}</option></select></label><label className="content-version-filter"><input type="checkbox" checked={allVersions} disabled={locked} onChange={event=>filter(()=>setAllVersions(event.target.checked))}/>{t("Incluir otras versiones")}</label></div></div>
     <div className="content-results-label" ref={resultRef} tabIndex={-1} role="status">{searching?t("Buscando proyectos…"):visibleResults?allVersions?t("{0} proyectos", formatNumber(visibleResults.total_hits)):t("{0} proyectos para {1}", formatNumber(visibleResults.total_hits),server.version):t("Busca en Modrinth")}{visibleResults&&<span>{installable?t("Compatibilidad comprobada por publicación"):t("Versiones anunciadas por el proyecto")}</span>}</div>
     {error&&<div className="form-error" role="alert">{translatedMessage(error)} <button disabled={searching} onClick={()=>setReload(value=>value+1)}>{t("Reintentar")}</button></div>}
-    {visibleResults?.hits.length===0&&!searching&&<div className="content-empty"><h3>{t("No hay coincidencias")}</h3><p>{t("Prueba otra categoría, nombre o incluye otras versiones para ver qué está disponible.")}</p><button onClick={()=>filter(()=>{setCategory('');setTerm('');setQuery('');setAllVersions(true)})}>{t("Ampliar búsqueda")}</button></div>}
+    {visibleResults?.hits.length===0&&!searching&&<div className="content-empty"><h3>{t("No hay coincidencias")}</h3><p>{t(canBroaden?"Prueba otra categoría, nombre o incluye otras versiones para ver qué está disponible.":"Prueba otro nombre o filtro.")}</p>{canBroaden&&<button disabled={locked} onClick={broaden}>{t("Ampliar búsqueda")}</button>}</div>}
     {searching&&<div className="discovery-placeholders" aria-hidden="true">{Array.from({length:4},(_,index)=><div className="discovery-placeholder" key={index}><span/><div><i/><i/><i/></div><footer/></div>)}</div>}
     <div className="content-results">{visibleResults?.hits.map(project=>{
       const status=availability[project.project_id],release=status?.value,installed=installedProjects.has(project.project_id),beta=release?.channel&&release.channel!=='release'

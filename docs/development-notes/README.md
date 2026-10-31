@@ -2,6 +2,24 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Empty discovery search recovery after 0.52.0
+
+Broadening an empty content search keeps both the submitted query and any current
+text being edited. It removes the category restriction, includes other Minecraft
+versions and returns to the first page without changing content kind or sorting.
+The action appears only when a restriction can actually be widened, respects the
+existing lock state, and returns focus/scroll to the result heading before its
+button disappears. Fully widened searches instead suggest another name/filter.
+
+An actual callback reproduces the previous query erasure. Forty-eight scoped
+ES/EN component/callback/React SSR checks cover all five content kinds, category
+and version combinations, preserved draft/submitted text, kind/sort preservation,
+page reset, disabled/loading/nonempty states, heading focus requests and absent
+focus targets. TypeScript and the Windows frontend build pass. Hooks, reads and
+focus are controlled; no Modrinth request or native UI is driven. Temporary probes
+are removed, adding no retained test, translation or dependency. The local 0.52
+installer and published 0.51 release are unchanged.
+
 ## Windows icon-source cleanup after 0.52.0
 
 Remove 13 unused macOS/Store/icon derivatives, totaling 3,413,415 logical bytes.
