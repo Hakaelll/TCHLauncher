@@ -6,6 +6,7 @@ import {useLanguage} from './useLanguage'
 import {createLogBatch} from './logBatch'
 import {appendConsoleLines,mergeConsoleHistory,type ConsoleLine} from './consoleTimeline'
 import {startVisibilityPolling} from './visibilityPolling'
+import {retryingSubscription} from './retryingSubscription'
 import {deferredPanel} from './DeferredPanel'
 import {Icon,ServerArtwork,platformName} from './ServerPresentation'
 import {useServerRead} from './useServerRead'
@@ -17,7 +18,7 @@ import {PixelIcon,PixelMeter} from './PixelIndicators'
 import {CrashPanel} from './CrashPanel'
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react'
 import { createPortal } from 'react-dom'
-import { listen } from '@tauri-apps/api/event'
+import { listen, type Event as NativeEvent } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
 import { api, type CloseFailure, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type WhitelistSelection, type WhitelistOutcome, type AccessList, type AccessRemoval } from './api'
 import {StartupProgress} from './StartupProgress'
@@ -143,6 +144,7 @@ function App() {
   const progressRef=useRef<Record<string,Progress>>({})
   const progressRevision=useRef(0)
   const [taskSyncError,setTaskSyncError]=useState<string|null>(null)
+  const [eventsUnavailable,setEventsUnavailable]=useState(false)
   const [appNotices,setAppNotices]=useState<AppNotice[]>([])
   const [noticeObserver]=useState(createNoticeObserver)
   const noticeContext=useRef({serverId:selectedId,view,visible:false})
@@ -237,10 +239,24 @@ function App() {
 
   useEffect(() => {
     if (!isTauri()) return
+    let active=true
+    const unavailable=new Set<string>()
+    setEventsUnavailable(false)
+    const subscribe=<T,>(name:string,handler:(event:NativeEvent<T>)=>void)=>retryingSubscription(
+      ()=>listen<T>(name,event=>{if(active)handler(event)}),
+      failed=>{
+        if(!active)return
+        const recovering=unavailable.has(name)&&!failed
+        if(failed)unavailable.add(name);else unavailable.delete(name)
+        setEventsUnavailable(unavailable.size>0)
+        if(recovering&&name==='server-state')void refresh().catch(cause=>{if(active)setError(errorText(cause))})
+        if(recovering&&name==='server-log'&&selectedRef.current)void refreshLog(selectedRef.current)
+        if(recovering&&name==='scheduler-updated'&&selectedRef.current)void refreshBackups(selectedRef.current).catch(()=>{})
+      })
     refresh().catch(e => setError(errorText(e)))
     api.systemMemory().then(setSystemMemory).catch(() => {})
     const listeners = [
-      listen<{ serverId: string; state: ServerState }>('server-state', event => {
+      subscribe<{ serverId: string; state: ServerState }>('server-state', event => {
         receiveNotice(noticeObserver.state(event.payload.serverId,event.payload.state))
         if(event.payload.state==='starting'){
           setStartupPhases(current=>{const next={...current};delete next[event.payload.serverId];return next})
@@ -251,20 +267,20 @@ function App() {
         setServers(items => items.map(item => item.id === event.payload.serverId ? { ...item, state: event.payload.state } : item))
         if(event.payload.serverId===selectedRef.current&&['stopped','crashed','error'].includes(event.payload.state))void refreshPlayers(event.payload.serverId)
       }),
-      listen<StartupEvent>('server-startup',event=>setStartupPhases(current=>acceptStartupEvent(current,event.payload))),
-      listen<Progress>('install-progress', event => {observeTask(event.payload);progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
-      listen<LogLine>('server-log', event => {
+      subscribe<StartupEvent>('server-startup',event=>setStartupPhases(current=>acceptStartupEvent(current,event.payload))),
+      subscribe<Progress>('install-progress', event => {observeTask(event.payload);progressRevision.current++;progressRef.current={...progressRef.current,[event.payload.serverId]:event.payload};setProgressByServer(progressRef.current)}),
+      subscribe<LogLine>('server-log', event => {
         if (event.payload.serverId === selectedRef.current) logBatch.current?.push(event.payload)
       }),
-      listen('close-task-active',()=>setError(t("Espera a que termine la operación antes de cerrar. Puedes cancelar la copia desde Tareas."))),
-      listen('close-with-servers', () => {setClosing(true);if(!closeOwner.current.working)setCloseError(null)}),
-      listen<[string,string]>('startup-result',event=>{if(event.payload[1].startsWith('Error:'))setError(t("Inicio automático de «{0}»: {1}", event.payload[0], event.payload[1]))}),
-      listen<string>('scheduler-updated',event=>{
+      subscribe('close-task-active',()=>setError(t("Espera a que termine la operación antes de cerrar. Puedes cancelar la copia desde Tareas."))),
+      subscribe('close-with-servers', () => {setClosing(true);if(!closeOwner.current.working)setCloseError(null)}),
+      subscribe<[string,string]>('startup-result',event=>{if(event.payload[1].startsWith('Error:'))setError(t("Inicio automático de «{0}»: {1}", event.payload[0], event.payload[1]))}),
+      subscribe<string>('scheduler-updated',event=>{
         const id=event.payload
         if(id===selectedRef.current)void refreshBackups(id).catch(()=>{})
       }),
     ]
-    return () => { listeners.forEach(p => p.then(unlisten => unlisten()).catch(() => {})) }
+    return () => {active=false;listeners.forEach(stop=>stop())}
   }, [refresh,noticeObserver,receiveNotice,observeTask])
 
   useEffect(()=>{
@@ -531,6 +547,7 @@ function App() {
       <span className="rail-version">v{appVersion}</span>
     </aside>
     <main className="main" ref={mainRef}>
+      {eventsUnavailable&&<p className="field-help" role="status">{t("Reconectando las actualizaciones automáticas. Algunos datos pueden tardar en reflejar los cambios.")}</p>}
       {actionRefreshError&&<div className="panel-read-state failed" role="alert"><div><strong>{t("Acción completada · datos sin actualizar")}</strong><p>{translatedMessage(actionRefreshError)}</p></div><button disabled={operationBusy} onClick={async()=>{try{await refresh();setActionRefreshError(null)}catch(cause){setActionRefreshError(errorText(cause))}}}>{t("Actualizar datos")}</button><button className="text-button" onClick={()=>setActionRefreshError(null)}>{t("Cerrar aviso")}</button></div>}
       {error && typeof error!=='string' ? <ActionError failure={error} available={servers.some(server=>server.id===error.serverId)} onClose={()=>setError(null)} onReview={section=>openTask(error.serverId,section)}/> : error && <GeneralActionError key={error} message={error} onClose={()=>setError(null)} onOpenLogs={api.openApplicationLogs}/>}
       {notice && <div className="notice-banner" role="status"><span>{translatedMessage(notice)}</span><button onClick={() => setNotice(null)} aria-label={t("Cerrar aviso")}>×</button></div>}

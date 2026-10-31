@@ -44,6 +44,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Post-0.55 task reconciliation reuses unchanged maps for idle snapshots and
   retained outcomes, avoiding needless state replacement. Thirteen direct helper
   checks and frontend compilation pass; runtime performance remains unmeasured.
+- Application event registrations now retry failures and reconcile missed state,
+  logs and backup data after recovery. An ES/EN status notice tracks unavailable
+  subscriptions. Eleven controlled helper checks and frontend compilation pass;
+  actual native event failure/recovery remains unverified.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.

@@ -1,6 +1,7 @@
 import {nativeEnglish} from './native-en.ts'
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Reconectando las actualizaciones automáticas. Algunos datos pueden tardar en reflejar los cambios.": "Reconnecting automatic updates. Some data may take longer to reflect changes.",
   "Buscar mundos": "Search worlds",
   "Nombre del mundo": "World name",
   "{0} de {1} mundos": "{0} of {1} worlds",

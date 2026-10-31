@@ -2,6 +2,18 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Application event recovery after 0.55.0
+
+Application subscriptions retry failed registrations every five seconds. A shared
+ES/EN status notice remains until all failed subscriptions recover. Recovered
+server-state, log and scheduler subscriptions request their existing read paths
+to reconcile missed data; task/metric polling remains unchanged. Disposal cancels
+retries, releases late registrations and ignores callbacks from the old owner.
+Eleven controlled helper checks cover failures, recovery, healthy registration,
+late completion and cleanup errors. TypeScript and the frontend build pass.
+Native event failure/recovery and Windows interaction are not exercised; the
+temporary probe is removed. The local 0.55 installer is unchanged.
+
 ## Idle task-state reuse after 0.55.0
 
 Task reconciliation reuses its previous map when the keys and task references
