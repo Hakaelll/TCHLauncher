@@ -94,6 +94,8 @@ const fmtUptime = (n?: number | null) => n == null ? '—' : `${Math.floor(n / 3
 function App() {
   const language=useLanguage()
   const [servers, setServers] = useState<Server[]>([])
+  const serverReadRevision=useRef(0),serverStateRevision=useRef(0)
+  const latestServerStates=useRef(new Map<string,{revision:number;state:ServerState}>())
   const [railHovered,setRailHovered] = useState(false)
   const [railKeyboardFocus,setRailKeyboardFocus] = useState(false)
   const [railTasksOpen,setRailTasksOpen] = useState(false)
@@ -232,8 +234,13 @@ function App() {
   }
 
   const refresh = useCallback(async () => {
+    const request=++serverReadRevision.current,stateRevision=serverStateRevision.current
     const items = await api.listServers()
-    setServers(items)
+    if(request!==serverReadRevision.current)return
+    setServers(items.map(item=>{
+      const observed=latestServerStates.current.get(item.id)
+      return observed&&observed.revision>stateRevision?{...item,state:observed.state}:item
+    }))
     setSelectedId(current => current && items.some(s => s.id === current) ? current : items[0]?.id ?? null)
   }, [])
 
@@ -257,6 +264,7 @@ function App() {
     api.systemMemory().then(setSystemMemory).catch(() => {})
     const listeners = [
       subscribe<{ serverId: string; state: ServerState }>('server-state', event => {
+        latestServerStates.current.set(event.payload.serverId,{revision:++serverStateRevision.current,state:event.payload.state})
         receiveNotice(noticeObserver.state(event.payload.serverId,event.payload.state))
         if(event.payload.state==='starting'){
           setStartupPhases(current=>{const next={...current};delete next[event.payload.serverId];return next})
@@ -376,6 +384,7 @@ function App() {
 
   const renameServer=(id:string,name:string)=>act(async()=>{
     const saved=await api.renameServer(id,name)
+    ++serverReadRevision.current
     setServers(current=>current.map(server=>server.id===id?{...server,name:saved}:server))
   })
 
@@ -454,6 +463,7 @@ function App() {
     finally {setInstallingIds(current=>{const next=new Set(current);next.delete(id);return next});await refresh().then(()=>setActionRefreshError(null)).catch(cause=>setError(current=>current??errorText(cause)))}
   }
   const acceptCreatedServer=(server:Server)=>{
+    ++serverReadRevision.current
     setServers(current=>current.some(item=>item.id===server.id)?current.map(item=>item.id===server.id?server:item):[...current,server])
     openServer(server)
   }
@@ -473,6 +483,7 @@ function App() {
     setError(null); setNotice(null); setActionRefreshError(null); setBusy(true)
     try {
       const {value:outcome,refreshError}=await acknowledgedAction(()=>api.deleteServer(server.id),async()=>{
+        ++serverReadRevision.current;latestServerStates.current.delete(server.id)
         setServers(current=>current.filter(item=>item.id!==server.id))
         setMetricsHistory(current=>{const next={...current};delete next[server.id];return next})
         setStartupPhases(current=>{const next={...current};delete next[server.id];return next})

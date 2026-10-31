@@ -2,6 +2,21 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Server snapshot ordering after 0.55.0
+
+Library reads carry request and process-event revisions. Superseded reads cannot
+replace a newer list, while state events arriving during a read override only
+that server's state. Other snapshot metadata still updates. Confirmed creation,
+rename and deletion invalidate pending reads; deletion also releases its cached
+event state. This prevents a late list from reverting a newer process transition.
+
+Twelve scoped checks extract the actual App callbacks through the TypeScript AST
+and control list/native-acknowledgement boundaries. They reproduce the old state
+regression and cover event cycles, independent servers, ordering, new rows,
+failed reads, unchanged input and creation/rename acknowledgement. TypeScript and
+the frontend build pass. No native Tauri event, deletion or Windows UI is exercised.
+The temporary probe is removed; the local 0.55 installer is unchanged.
+
 ## Application event recovery after 0.55.0
 
 Application subscriptions retry failed registrations every five seconds. A shared

@@ -48,6 +48,10 @@ continue actionable work without repeated acceptance or screenshot requests.
   logs and backup data after recovery. An ES/EN status notice tracks unavailable
   subscriptions. Eleven controlled helper checks and frontend compilation pass;
   actual native event failure/recovery remains unverified.
+- Library refreshes reject superseded reads and preserve newer process events
+  while accepting snapshot metadata. Native creation/rename/delete acknowledgement
+  invalidates old reads. Twelve scoped actual-callback checks and frontend
+  compilation pass; native event/delete and Windows interaction remain untested.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
