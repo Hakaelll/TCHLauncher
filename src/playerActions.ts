@@ -11,10 +11,10 @@ export function playerActionErrors(action:PlayerAction,target:string,reason:stri
   const errors:{target?:string;reason?:string}={}
   const name=target.trim()
   if(!name)errors.target=playerActions[action].ip?t("Introduce una dirección IPv4 o IPv6."):t("Introduce el nombre de Minecraft.")
-  else if(!playerActions[action].ip&&!/^[A-Za-z0-9_]{3,16}$/.test(name))errors.target='Usa entre 3 y 16 letras, números o guiones bajos.'
+  else if(!playerActions[action].ip&&!/^[A-Za-z0-9_]{3,16}$/.test(name))errors.target=t('Usa entre 3 y 16 letras, números o guiones bajos.')
   if(['ban','ban_ip','kick'].includes(action)){
     const value=reason.trim()
-    if(Array.from(value).length>120||/[\u0000-\u001f\u007f-\u009f]/.test(value))errors.reason='Usa hasta 120 caracteres, sin saltos de línea ni caracteres de control.'
+    if(Array.from(value).length>120||/[\u0000-\u001f\u007f-\u009f]/.test(value))errors.reason=t('Usa hasta 120 caracteres, sin saltos de línea ni caracteres de control.')
   }
   return errors
 }

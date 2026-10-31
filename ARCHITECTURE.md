@@ -83,6 +83,10 @@ application errors. `translatedMessage` translates only those nested arguments,
 with a depth limit of eight. Names, paths, cleanup destination lists and installer
 output remain data. General `t()` lookup and explicitly supplied arguments retain
 their existing behavior.
+Post-restore refresh state uses separate loading/failure variants. The App keeps
+each failed read's section and raw application error; `RestoreSyncNotice` selects
+the current-language section label and error text at render time. Refresh retries
+read data only, preserve revision guards and do not repeat the restore operation.
 
 The stop-and-exit command returns per-server failures with an explicit cause:
 stop error, timeout or backup error. It exits only when the failure list is empty;

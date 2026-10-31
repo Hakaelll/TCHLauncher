@@ -8,7 +8,7 @@ export function sameCrashPolicy(a:CrashPolicy,b:CrashPolicy){
 export function crashPolicyErrors(policy:CrashPolicy){
   return {
     delaySeconds:Number.isInteger(policy.delaySeconds)&&policy.delaySeconds>=5&&policy.delaySeconds<=3600?null:t("Elige una espera entera entre 5 y 3600 segundos."),
-    maxAttempts:Number.isInteger(policy.maxAttempts)&&policy.maxAttempts>=1&&policy.maxAttempts<=10?null:'Elige entre 1 y 10 intentos.',
+    maxAttempts:Number.isInteger(policy.maxAttempts)&&policy.maxAttempts>=1&&policy.maxAttempts<=10?null:t('Elige entre 1 y 10 intentos.'),
   }
 }
 // Reconcile observed policy changes without overwriting an unsaved local edit.

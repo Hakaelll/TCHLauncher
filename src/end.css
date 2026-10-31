@@ -822,6 +822,8 @@ summary { font-size:11px; line-height:1.8; }
 .restore-sync-notice { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:16px 20px; margin-bottom:20px; border-left:3px solid var(--warning); background:var(--warning-wash); }
 .restore-sync-notice p { flex:1; min-width:min(240px,100%); margin:0; font:13px/1.8 var(--font-reading); overflow-wrap:anywhere; }
 .restore-sync-notice button { flex:none; font-size:11px; }
+.restore-sync-content { flex:1; min-width:0; }
+.restore-sync-errors { display:grid; gap:8px; margin:10px 0 0; padding:0; list-style:none; font:13px/1.7 var(--font-reading); overflow-wrap:anywhere; }
 .properties-load-state { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:18px 20px; margin:24px 0; border-left:3px solid var(--accent); background:var(--surface-deep); }
 .properties-load-state > div { min-width:min(240px,100%); flex:1; }
 .properties-load-state strong { color:var(--ink); font:12px/1.8 var(--font-display); }

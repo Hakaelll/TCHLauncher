@@ -1,6 +1,8 @@
 import {nativeEnglish} from './native-en.ts'
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Propiedades": "Properties",
+  "Elige entre 1 y 10 intentos.": "Choose between 1 and 10 attempts.",
   "Copia tras la parada: {0}": "Backup after stopping: {0}",
   "No se detuvo a tiempo. Revisa la consola; la aplicación permanece abierta.": "It did not stop in time. Check the console; the application remains open.",
   "servidores": "servers",
@@ -123,7 +125,7 @@ export const english: Record<string,string> = {
   "Inicio automático de «{0}»: {1}": "Autostart for “{0}”: {1}",
   "No se pudo leer el proceso: {0}": "Could not read the process: {0}",
   "Instalación cancelada": "Installation cancelled",
-  "La copia se restauró, pero faltan datos por actualizar. {0}": "Backup restored, but some data could not be refreshed. {0}",
+  "La copia se restauró, pero faltan datos por actualizar.": "The backup was restored, but some data still needs updating.",
   "Ajustes guardados. No se pudo actualizar el servidor: {0}": "Settings saved. Could not refresh the server: {0}",
   "La copia se creó. {0}": "Backup created. {0}",
   "Se quitó «{0}» de la biblioteca. Algunos archivos no se pudieron limpiar: {1}{2}": "Removed “{0}” from the library. Some files could not be cleaned up: {1}{2}",

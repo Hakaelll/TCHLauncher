@@ -2,6 +2,28 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Source after published 0.46.0
+
+Read errors now use the application-copy translator in console history, player
+reads, Java/runtime reads and Modrinth availability. The cached-runtime marker
+also follows the selected language. Invalid player names/reasons and the crash
+retry limit return localized validation text from their existing helpers.
+
+Post-restore refresh state now distinguishes loading from per-section failures.
+Properties, backups, EULA consent and library errors remain separate strings until
+rendering, so changing the language after a failure updates each section and
+detail. Retry performs the same four reads and never repeats restoration. A
+successful retry clears only its server entry; stale revisions and consent reads
+for another selected server do not replace the current result.
+
+Actual old JSX/helper checks reproduce untranslated text. Checks of the changed
+fragments, validation helpers, App refresh callback and notice component cover
+ES/EN, all four failure sections, retry and stale replies. The actual console row
+and runtime-path fragment retain original text. Read/React boundaries are
+controlled; these are not native interaction or restore-operation checks. These
+source changes pass TypeScript and the Windows frontend production build and are
+not in the published 0.46 installer.
+
 ## Changes packaged in 0.46.0
 
 The English catalog adds 843 application-owned native messages across seven passes:

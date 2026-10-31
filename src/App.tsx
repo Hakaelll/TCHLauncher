@@ -28,6 +28,7 @@ import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
 import {ForceStopDialog} from './ForceStopDialog'
 import {CloseError} from './CloseError'
+import {RestoreSyncNotice,type RestoreSyncState} from './RestoreSyncNotice'
 
 import { InstallProgress } from './InstallProgress'
 import { StartupPanel } from './StartupPanel'
@@ -180,7 +181,7 @@ function App() {
   },[])
   useEffect(()=>{logBatch.current?.reset()},[selectedId])
   const {copies:backups,loaded:backupsLoaded,loading:backupsLoading,error:backupsError,refresh:refreshBackups}=useBackupList(selectedId)
-  const [restoreSync,setRestoreSync]=useState<Record<string,{loading:boolean;error:string|null}>>({})
+  const [restoreSync,setRestoreSync]=useState<Record<string,RestoreSyncState>>({})
   const restoreSyncRevision=useRef<Record<string,number>>({})
   const [restoreTarget,setRestoreTarget]=useState<{serverId:string;backup:Backup}|null>(null)
   const {values:props,savedValues:savedProps,loaded:propsLoaded,loading:propsLoading,error:propsError,dirty:propsDirty,edit:setProps,refresh:refreshProperties,acknowledge:acknowledgeProperties,discard:discardProperties}=useServerProperties(selectedId,servers.find(server=>server.id===selectedId)?.state)
@@ -384,16 +385,16 @@ function App() {
 
   const syncRestored=async(id:string)=>{
     const revision=(restoreSyncRevision.current[id]??0)+1;restoreSyncRevision.current[id]=revision
-    setRestoreSync(current=>({...current,[id]:{loading:true,error:null}}))
+    setRestoreSync(current=>({...current,[id]:{kind:'loading'}}))
     const results=await Promise.allSettled([refreshProperties(id,true),refreshBackups(id),api.eulaAccepted(id),refresh()])
     if(restoreSyncRevision.current[id]!==revision)return
     const [,,consent]=results
     if(selectedRef.current===id){
       if(consent.status==='fulfilled')setEula(consent.value)
     }
-    const labels=['propiedades','copias','EULA','servidores']
-    const failures=results.flatMap((result,index)=>result.status==='rejected'?[`${labels[index]}: ${errorText(result.reason)}`]:[])
-    setRestoreSync(current=>{const next={...current};if(failures.length)next[id]={loading:false,error:t("La copia se restauró, pero faltan datos por actualizar. {0}", failures.join(' · '))};else delete next[id];return next})
+    const sections=['properties','backups','eula','servers'] as const
+    const failures=results.flatMap((result,index)=>result.status==='rejected'?[{section:sections[index],message:errorText(result.reason)}]:[])
+    setRestoreSync(current=>{const next={...current};if(failures.length)next[id]={kind:'failed',failures};else delete next[id];return next})
   }
   const discardSettings=()=>{
     if(!selected||selectedRef.current!==selected.id||busy||propsLoading||!propsLoaded)return
@@ -555,7 +556,7 @@ function App() {
         </nav>
         <div className="content" ref={contentRef}>
           {progress && !(view==='content'&&(progress.kind==='content_install'||progress.kind==='content_remove'||progress.kind==='content_toggle'))&&!(view==='settings'&&(progress.kind==='loader_update'||progress.kind==='minecraft_update')) && <InstallProgress key={progress.taskId} progress={progress} busy={busy} retryLabel={(progress.kind==='backup'||progress.kind==='restore')?t("Ver copias"):(progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')?t("Ver mundos"):t("Reintentar")} onRetry={()=>{if(progress.kind==='server_import'){setView('overview');return;}if((progress.kind==='world_import'||progress.kind==='world_duplicate'||progress.kind==='world_export'||progress.kind==='world_activate'||progress.kind==='world_delete')){setView('worlds');return;}if((progress.kind==='backup'||progress.kind==='restore')){setView('backups');return;}if(progress.kind==='pack_install'){setPackResume(selected.id);setPackOpen(true);return;}if(progress.kind==='content_install'||progress.kind==='content_remove'||progress.kind==='content_toggle'){setView('content');return;}if((progress.kind==='loader_update'||progress.kind==='minecraft_update')){setView('settings');return;}void runInstallation(selected.id,progress.kind)}} onDismiss={()=>{const next={...progressRef.current};delete next[selected.id];progressRef.current=next;setProgressByServer(next)}}/>}
-          {restoreSync[selected.id]&&<div className="restore-sync-notice"><p className={restoreSync[selected.id].error?'form-error':'field-help'} role={restoreSync[selected.id].error?'alert':'status'}>{restoreSync[selected.id].loading?t("Copia restaurada. Actualizando datos…"):restoreSync[selected.id].error}</p><button disabled={operationBusy||restoreSync[selected.id].loading} onClick={()=>void syncRestored(selected.id)}>{t("Actualizar datos")}</button></div>}
+          {restoreSync[selected.id]&&<RestoreSyncNotice state={restoreSync[selected.id]} busy={operationBusy} onRetry={()=>void syncRestored(selected.id)}/>}
           {view === 'overview' && <Overview key={selected.id} server={selected} observedPhase={startupPhases[selected.id]?.phase} metrics={metrics?.serverId === selected.id ? metrics : null} players={players} playersStale={!!playersError} logs={logs} backups={backups} backupsStatus={backupsError?t("No se pudieron actualizar las copias."):!backupsLoaded?t("Cargando copias…"):backupsLoading?t("Actualizando copias…"):null} eula={eula} busy={busy} onAccept={() => act(async () => { await api.acceptEula(selected.id); setEula(true) })} onInstall={() => runInstallation(selected.id)} onConsole={() => setView('console')} onSettings={()=>setView('settings')} onContent={()=>setView('content')}/>}
           {view === 'performance' && <ResourceMonitor server={selected} metrics={metrics?.serverId === selected.id ? metrics : null} history={metricsHistory[selected.id] ?? []} error={metricsError}/>}
           {view === 'players' && <PlayersView key={selected.id} server={selected} players={players} loading={playersLoading} readError={playersError} busy={busy} onRefresh={() => refreshPlayers(selected.id)} onAction={(action,target,reason) => act(() => api.managePlayer(selected.id,action,target,reason))} onToggleWhitelist={async () => { const success=await act(async () => { if (selected.state === 'running') await api.managePlayer(selected.id,players?.whitelistEnabled ? 'whitelist_off' : 'whitelist_on'); else { const values = { ...await api.properties(selected.id),'white-list':String(!players?.whitelistEnabled) }; await api.saveProperties(selected.id,values) } });if(success&&selected.state!=='running')await refreshProperties(selected.id).catch(()=>{});return success }} onImportWhitelist={selection => importWhitelist(selected.id,selection)} onRemoveIdentity={(list,uuid) => removeIdentity(selected.id,list,uuid)} onRemoveIp={ip=>removeBannedIp(selected.id,ip)}/>}
