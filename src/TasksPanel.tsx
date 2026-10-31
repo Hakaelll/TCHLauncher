@@ -1,6 +1,7 @@
 import {translatedMessage,localizedStatic,t,formatDate} from './locale.ts'
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {listen} from '@tauri-apps/api/event'
+import {retryingSubscription} from './retryingSubscription'
 import {api,type ScheduledTask,type TaskAction} from './api'
 import {Modal} from './Modal'
 import {CrashRestartPanel} from './CrashRestartPanel'
@@ -32,9 +33,14 @@ export function TasksPanel({id}:{id:string}) {
   useEffect(()=>{
     const current={active:true,working:false};scope.current=current
     setError(null);setEventError(null);setAdding(false);setWorking(false);setNotice(null);setValidation(null)
-    const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
-    void subscription.catch(()=>{if(current.active&&scope.current===current)setEventError(t("No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista."))})
-    return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
+    let unavailable=false
+    const stopEvents=retryingSubscription(()=>listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()}),failed=>{
+      if(!current.active||scope.current!==current)return
+      if(unavailable&&!failed)void load()
+      unavailable=failed
+      setEventError(failed?t("No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista."):null)
+    })
+    return()=>{current.active=false;stopEvents()}
   },[id,load])
   const mutate=async(operation:()=>Promise<unknown>,message:string,onAcknowledged?:()=>void)=>{
     const current=scope.current;if(!current.active||current.working||locked)return

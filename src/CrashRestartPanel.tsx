@@ -1,6 +1,7 @@
 import {translatedMessage,t,formatDate} from './locale.ts'
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react'
 import {listen} from '@tauri-apps/api/event'
+import {retryingSubscription} from './retryingSubscription'
 import {api,type CrashPolicy,type CrashStatus} from './api'
 import {crashPolicyErrors,defaultCrashPolicy,reconcileCrashDraft,sameCrashPolicy} from './crashPolicy'
 
@@ -34,9 +35,14 @@ export function CrashRestartPanel({id}:{id:string}) {
     const current={id,active:true,revision:0,saving:false,status:null as CrashStatus|null};scope.current=current
     setStatus(null);setDraft({...defaultCrashPolicy});setReadError(null);setEventError(null);setActionError(null);setSaved(false);setSubmitted(false);setWorking(false)
     void load()
-    const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
-    void subscription.catch(()=>{if(current.active&&scope.current===current)setEventError(t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."))})
-    return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
+    let unavailable=false
+    const stopEvents=retryingSubscription(()=>listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()}),failed=>{
+      if(!current.active||scope.current!==current)return
+      if(unavailable&&!failed)void load()
+      unavailable=failed
+      setEventError(failed?t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."):null)
+    })
+    return()=>{current.active=false;stopEvents()}
   },[id,load])
   const dirty=!!status&&!sameCrashPolicy(status.policy,draft)
   const errors=crashPolicyErrors(draft)

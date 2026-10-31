@@ -80,6 +80,12 @@ late completion and cleanup errors. TypeScript and the frontend build pass.
 Native event failure/recovery and Windows interaction are not exercised; the
 temporary probe is removed. The local 0.55 installer is unchanged.
 
+Task and crash-restart panels now reuse the same retry helper. A recovered
+subscription clears its warning and refreshes missed data once. Controlled actual
+panel effects reproduce missing retries, then pass recovery, foreign/disposed
+event and late-registration checks. TypeScript and the frontend build pass;
+native event delivery/crash/UI remain untested. Temporary probe removed.
+
 ## Idle task-state reuse after 0.55.0
 
 Task reconciliation reuses its previous map when the keys and task references

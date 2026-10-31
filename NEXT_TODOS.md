@@ -49,6 +49,8 @@ continue actionable work without repeated acceptance or screenshot requests.
   logs and backup data after recovery. An ES/EN status notice tracks unavailable
   subscriptions. Eleven controlled helper checks and frontend compilation pass;
   actual native event failure/recovery remains unverified.
+- Task/crash-restart panels also reconnect and refresh once on recovery. Actual
+  controlled effect checks and frontend compilation pass, without native events.
 - Library refreshes reject superseded reads and preserve newer process events
   while accepting snapshot metadata. Native creation/rename/delete acknowledgement
   invalidates old reads. Twelve scoped actual-callback checks and frontend
