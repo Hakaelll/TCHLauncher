@@ -1124,7 +1124,7 @@ fn hide_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<(), String> {
+async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<Vec<shutdown::Failure>, String> {
     let (ids,guards)={
         let mut operations=engine.operations.lock().map_err(|e|e.to_string())?;
         if !operations.is_empty(){return Err("Espera a que terminen las operaciones antes de salir".into());}
@@ -1135,7 +1135,7 @@ async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<
         let engine=app.state::<Engine>();
         let result=scheduler::guarded(||{
             let targets=ids.iter().map(|id|shutdown::Target{id:id.clone(),label:storage::get(&engine.root,id).map(|server|server.name).unwrap_or_else(|_|id.clone())}).collect::<Vec<_>>();
-            shutdown::stop_all(&targets,|id|{
+            Ok(shutdown::stop_all(&targets,|id|{
                 match engine.processes.stop(id,app.clone()){
                     Err(_) if !engine.processes.is_active(id)&&engine.processes.state(id)=="stopped"=>Ok(()),
                     value=>value,
@@ -1144,10 +1144,10 @@ async fn stop_all_and_exit(app: AppHandle, engine: State<'_, Engine>) -> Result<
                 if engine.processes.is_active(id){shutdown::StopState::Active}
                 else if engine.processes.state(id)=="stopped"{shutdown::StopState::Clean}
                 else{shutdown::StopState::Failed("El proceso no se cerró correctamente; revisa la consola.".into())}
-            },|id|engine.backup_after_stop(id,app.clone()).map(|_|()),Duration::from_secs(45))
+            },|id|engine.backup_after_stop(id,app.clone()).map(|_|()),Duration::from_secs(45)))
         });
         drop(guards);
-        if result.is_err(){engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);}else{app.exit(0);}
+        if result.as_ref().is_ok_and(|failures|failures.is_empty()){app.exit(0);}else{engine.scheduler_stopping.store(false,std::sync::atomic::Ordering::SeqCst);}
         result
     }).await.map_err(|error|error.to_string())?
 }

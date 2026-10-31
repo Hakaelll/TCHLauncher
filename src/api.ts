@@ -46,6 +46,7 @@ export type OsAutostart = {supported:boolean;enabled:boolean;currentPath:boolean
 export type StartupServer = {id:string;name:string;enabled:boolean;lastResult:string|null}
 export type ScheduledInput = {action:TaskAction;nextAt:number;intervalMinutes:number|null}
 export type ScheduledTask = Omit<ScheduledInput,'action'> & {action:TaskAction|'invalid';invalid:boolean;id:string;serverId:string;enabled:boolean;running:boolean;lastAt:number|null;lastResult:string|null}
+export type CloseFailure = {serverId:string;serverName:string;cause:{kind:'stop';message:string}|{kind:'timeout'}|{kind:'backup';message:string}}
 export type PlayerIdentity = { name: string; uuid: string | null }
 export type KnownPlayer = PlayerIdentity & { expiresOn: string | null }
 export type Operator = PlayerIdentity & { level: number; bypassesPlayerLimit: boolean }
@@ -225,7 +226,7 @@ export const api = {
   lastCrashReport: (id:string) => invoke<CrashReport|null>('get_last_crash_report',{id}),
   crashReport: (id:string) => invoke<CrashReport|null>('get_crash_report',{id}),
   hideWindow: () => invoke<void>('hide_window'),
-  stopAllAndExit: () => invoke<void>('stop_all_and_exit'),
+  stopAllAndExit: () => invoke<CloseFailure[]>('stop_all_and_exit'),
 }
 
 

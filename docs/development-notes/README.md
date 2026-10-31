@@ -76,6 +76,23 @@ bounded depth and compatibility with the existing catalog. Joined error lists an
 copy outside the initial inventory still need review. This source postdates the
 local 0.45 installer. No version or release is generated for these changes.
 
+Stop-and-exit failures are now returned as separate server ID/name and cause
+records rather than a newline-joined paragraph. Stop errors, timeouts and backup
+errors retain their own data. The dialog lists each server and translates its
+detail independently, including names that match application-copy keys. An empty
+failure list permits exit; any failure releases the close guard and allows retry.
+All stop requests still precede observation, and only cleanly stopped servers get
+their configured safety copy.
+
+The actual Rust shutdown function passes mixed failures, all-success, empty-target
+and delayed-clean cases. Its serialized output is used directly by the actual
+React error component in ES/EN checks. Production App callback checks cover retry,
+successful exit request, IPC rejection, hide, duplicate invocation and a late
+reply after unmount. These checks control process/window/API boundaries; they do
+not exercise the installed Windows dialog or a live server shutdown. TypeScript,
+the Windows frontend build and the full offline native library check pass. The
+failure list is keyboard-focusable for scrolling inside its bounded panel.
+
 ## Workspace maintenance after 0.45.0
 
 Removed the unused 0.32 commit-message draft, ten ignored localization-migration

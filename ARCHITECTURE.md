@@ -81,6 +81,12 @@ with a depth limit of eight. Names, paths, cleanup destination lists and install
 output remain data. General `t()` lookup and explicitly supplied arguments retain
 their existing behavior.
 
+The stop-and-exit command returns per-server failures with an explicit cause:
+stop error, timeout or backup error. It exits only when the failure list is empty;
+other outcomes release operation guards and permit a retry. The close dialog
+renders each server name as data and localizes its failure separately. Command
+infrastructure errors still reject with a string.
+
 ## Frontend reads and actions
 
 [serverRead.ts](src/serverRead.ts) separates unread, loaded, loading and failed

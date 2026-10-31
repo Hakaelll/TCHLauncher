@@ -1,6 +1,8 @@
 import {nativeEnglish} from './native-en.ts'
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Copia tras la parada: {0}": "Backup after stopping: {0}",
+  "No se detuvo a tiempo. Revisa la consola; la aplicación permanece abierta.": "It did not stop in time. Check the console; the application remains open.",
   "servidores": "servers",
   "Administrar {0}": "Manage {0}",
   "No se pudo actualizar el idioma de la bandeja: {0}": "Could not update the tray menu language: {0}",

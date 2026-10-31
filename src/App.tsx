@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'r
 import { createPortal } from 'react-dom'
 import { listen } from '@tauri-apps/api/event'
 import { isTauri } from '@tauri-apps/api/core'
-import { api, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type WhitelistSelection, type WhitelistOutcome, type AccessList, type AccessRemoval } from './api'
+import { api, type CloseFailure, type Backup, type CreateInput, type DeleteOutcome, type ImportInput, type LogLine, type Metrics, type PlayersSnapshot, type Progress, type Server, type ServerState, type WhitelistSelection, type WhitelistOutcome, type AccessList, type AccessRemoval } from './api'
 import {StartupProgress} from './StartupProgress'
 import {StorageMeter} from './StorageMeter'
 import {acceptStartupEvent,type StartupEvent} from './startupEvents'
@@ -27,6 +27,7 @@ import {acceptStartupEvent,type StartupEvent} from './startupEvents'
 import { NetworkPanel } from './NetworkPanel'
 import { Modal } from './Modal'
 import {ForceStopDialog} from './ForceStopDialog'
+import {CloseError} from './CloseError'
 
 import { InstallProgress } from './InstallProgress'
 import { StartupPanel } from './StartupPanel'
@@ -197,7 +198,7 @@ function App() {
   const [startupOpen,setStartupOpen]=useState(false)
   const [startupBusy,setStartupBusy]=useState(false)
   const [closingBusy, setClosingBusy] = useState(false)
-  const [closeError,setCloseError]=useState<string|null>(null)
+  const [closeError,setCloseError]=useState<string|CloseFailure[]|null>(null)
   const closeOwner=useRef({active:true,working:false})
   useEffect(()=>{const current={active:true,working:false};closeOwner.current=current;return()=>{current.active=false}},[])
   const closeApplication=async(action:'hide'|'stop')=>{
@@ -206,7 +207,7 @@ function App() {
     let exitRequested=false
     try{
       if(action==='hide'){await api.hideWindow();if(current.active)setClosing(false)}
-      else {await api.stopAllAndExit();exitRequested=true}
+      else {const failures=await api.stopAllAndExit();if(failures.length){if(current.active)setCloseError(failures)}else{exitRequested=true}}
     }catch(cause){if(current.active)setCloseError(errorText(cause))}
     finally{if(!exitRequested){current.working=false;if(current.active)setClosingBusy(false)}}
   }
@@ -598,7 +599,7 @@ function App() {
     </Modal>}
     {closing && <Modal labelledBy="close-title" describedBy="close-description" busy={closingBusy} onClose={() => {setClosing(false);setCloseError(null)}}>
       <h2 id="close-title">{t("Cerrar TCHLauncher")}</h2><p id="close-description">{t("Mantén los servidores en segundo plano o detenlos antes de salir.")}</p>
-      {closeError&&<p className="form-error close-operation-error" role="alert">{translatedMessage(closeError)}</p>}
+      {closeError&&<CloseError value={closeError}/>}
       {closingBusy&&<p className="field-help" role="status">{t("Procesando la solicitud de cierre…")}</p>}
       <div className="close-options"><button disabled={closingBusy} onClick={()=>void closeApplication('hide')}>{t("Mantener en segundo plano")}</button><button disabled={closingBusy} onClick={()=>void closeApplication('stop')}>{t("Detener y salir")}</button><button data-modal-close autoFocus disabled={closingBusy}>{t("Cancelar")}</button></div>
     </Modal>}
