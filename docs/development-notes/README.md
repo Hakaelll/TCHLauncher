@@ -73,7 +73,7 @@ their values or reverse aliases.
 
 Actual locale checks cover nested messages, ES/EN switching, opaque details,
 bounded depth and compatibility with the existing catalog. Joined error lists and
-native picker labels still need review. A separate Rust token reader inspects
+native interaction still needs review. A separate Rust token reader inspects
 4,415 string literals, including raw strings and escaped values, and finds another
 117 application-copy entries beyond the first inventory. Checks cover JVM option
 feedback, progress labels, player-file errors, import and restart outcomes. Six
@@ -85,9 +85,12 @@ The remaining heuristic candidates are manually excluded: an English source
 comment, an already-English process-session error, three English test messages,
 the Windows reserved filename `CON`, a raw launcher console line and a router
 fallback for platforms outside the current Windows scope. This is source-copy
-evidence, not proof of every native UI path. File-picker labels still need the
-selected language passed to native commands. This source postdates the local
-0.45 installer. No version or release is generated for these changes.
+evidence, not proof of every native UI path. Five file-picker commands now receive
+the current ES/EN value at invocation. The existing native language enum selects
+image, Java, player-list and export labels; no second preference store is added.
+Actual API checks cover fifteen calls across ES/EN/ES transitions and preserve
+server IDs, with the IPC boundary substituted. Native dialogs are not opened.
+This source postdates the local 0.45 installer and is prepared for 0.46 packaging.
 
 Stop-and-exit failures are now returned as separate server ID/name and cause
 records rather than a newline-joined paragraph. Stop errors, timeouts and backup

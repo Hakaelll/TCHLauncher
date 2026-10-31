@@ -10,11 +10,11 @@ pub enum Language {
     En,
 }
 impl Language {
+    pub fn text(self,spanish:&'static str,english:&'static str)->&'static str {
+        match self {Self::Es=>spanish,Self::En=>english}
+    }
     fn labels(self) -> (&'static str, &'static str) {
-        match self {
-            Self::Es => ("Mostrar TCHLauncher", "Salir"),
-            Self::En => ("Show TCHLauncher", "Quit"),
-        }
+        (self.text("Mostrar TCHLauncher","Show TCHLauncher"),self.text("Salir","Quit"))
     }
 }
 

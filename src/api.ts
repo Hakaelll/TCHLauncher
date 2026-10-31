@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type {Language} from './locale'
+import {getLanguage,type Language} from './locale'
 
 export type ServerState = 'stopped' | 'installing' | 'starting' | 'running' | 'stopping' | 'crashed' | 'error'
 export type RouterStatus = {
@@ -160,7 +160,7 @@ export const api = {
   setPinned: (id:string,pinned:boolean) => invoke<void>('set_server_pinned',{id,pinned}),
   renameServer: (id:string,name:string) => invoke<string>('rename_server',{id,name}),
   pickImportFolder: () => invoke<string | null>('pick_import_folder'),
-  pickServerImage: () => invoke<ImageSelection | null>('pick_server_image'),
+  pickServerImage: () => invoke<ImageSelection | null>('pick_server_image',{language:getLanguage()}),
   setServerImage: (id: string, path: string) => invoke<Server>('set_server_image', { id, path }),
   clearServerImage: (id: string) => invoke<Server>('clear_server_image', { id }),
   previewDeleteServer: (id: string) => invoke<DeletePreview>('preview_delete_server', { id }),
@@ -169,7 +169,7 @@ export const api = {
   importServer: (input: ImportInput) => invoke<Server>('import_server', { input }),
   install: (id: string) => invoke<void>('install_server', { id }),
   cancelInstall: (id: string, taskId: string) => invoke<boolean>('cancel_install', { id, taskId }),
-  pickCustomRuntime: (id:string) => invoke<RuntimeInfo|null>('pick_custom_runtime',{id}),
+  pickCustomRuntime: (id:string) => invoke<RuntimeInfo|null>('pick_custom_runtime',{id,language:getLanguage()}),
   setCustomRuntime: (id:string,path:string) => invoke<void>('set_custom_runtime',{id,path}),
   runtimeInfo: (id:string) => invoke<RuntimeInfo>('get_runtime_info',{id}),
   jvmSettings: (id:string) => invoke<JvmSettings>('get_jvm_settings',{id}),
@@ -191,13 +191,13 @@ export const api = {
   grantOperator: (id:string,grant:OperatorGrant) => invoke<GrantOutcome>('grant_operator',{id,grant}),
   saveOperator: (id:string,edit:{uuid:string;level:number;bypassesPlayerLimit:boolean;expectedLevel:number;expectedBypassesPlayerLimit:boolean}) => invoke<string>('save_operator',{id,edit}),
   managePlayer: (id: string, action: string, target?: string, reason?: string) => invoke<void>('manage_player', { id, action, target: target || null, reason: reason || null }),
-  pickWhitelistFile: () => invoke<WhitelistImport | null>('pick_whitelist_file'),
+  pickWhitelistFile: () => invoke<WhitelistImport | null>('pick_whitelist_file',{language:getLanguage()}),
   importWhitelist: (id:string,selection:WhitelistSelection) => invoke<WhitelistOutcome>('import_whitelist', {id,selection}),
   removeAccessIdentity: (id:string,list:AccessList,uuid:string) => invoke<AccessRemoval>('remove_access_identity', {id,list,uuid}),
   removeBannedIp: (id:string,ip:string) => invoke<AccessRemoval>('remove_banned_ip',{id,ip}),
   log: (id: string) => invoke<LogLine[]>('read_log', { id }),
-  exportMemoryReport: (id: string) => invoke<string | null>('export_memory_report', { id }),
-  exportLog: (id: string) => invoke<string | null>('export_log', { id }),
+  exportMemoryReport: (id: string) => invoke<string | null>('export_memory_report', { id,language:getLanguage() }),
+  exportLog: (id: string) => invoke<string | null>('export_log', { id,language:getLanguage() }),
   properties: (id: string) => invoke<Record<string, string>>('get_properties', { id }),
   saveProperties: (id: string, values: Record<string, string>) => invoke<void>('save_properties', { id, values }),
   saveMemory: (id: string, min: number, max: number) => invoke<void>('save_memory', { id, min, max }),

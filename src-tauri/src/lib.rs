@@ -346,9 +346,9 @@ async fn pick_import_folder() -> Option<String> {
 }
 
 #[tauri::command]
-async fn pick_server_image() -> Result<Option<ImageSelection>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let Some(path) = rfd::FileDialog::new().add_filter("Imagen", &["png", "jpg", "jpeg", "webp"]).pick_file() else { return Ok(None); };
+async fn pick_server_image(language:app_menu::Language) -> Result<Option<ImageSelection>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = rfd::FileDialog::new().add_filter(language.text("Imagen","Image"), &["png", "jpg", "jpeg", "webp"]).pick_file() else { return Ok(None); };
         let data = storage::preview_image(&path)?;
         Ok(Some(ImageSelection { path: path.to_string_lossy().into(), data }))
     }).await.map_err(|e| e.to_string())?
@@ -444,12 +444,12 @@ async fn save_jvm_settings(engine:State<'_,Engine>,id:String,settings:jvm::Setti
 }
 
 #[tauri::command]
-async fn pick_custom_runtime(engine: State<'_,Engine>,id:String)->Result<Option<runtime::RuntimeInfo>,String> {
+async fn pick_custom_runtime(engine: State<'_,Engine>,id:String,language:app_menu::Language)->Result<Option<runtime::RuntimeInfo>,String> {
     let _guard=engine.reserve_stopped(&id)?;
     let root=engine.root.clone();let server=storage::get(&root,&id)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let dialog=rfd::FileDialog::new().set_title("Elegir ejecutable Java");
-        #[cfg(windows)] let dialog=dialog.add_filter("Ejecutable Java",&["exe"]);
+        let dialog=rfd::FileDialog::new().set_title(language.text("Elegir ejecutable Java","Choose Java executable"));
+        #[cfg(windows)] let dialog=dialog.add_filter(language.text("Ejecutable Java","Java executable"),&["exe"]);
         let Some(path)=dialog.pick_file() else {return Ok(None);};
         let major=install::required_java(&root,&server.version)?;
         runtime::candidate(&root,&server,&path,major).map(Some)
@@ -641,9 +641,9 @@ async fn save_operator(engine:State<'_,Engine>,id:String,edit:access_lists::Oper
 }
 
 #[tauri::command]
-async fn pick_whitelist_file() -> Result<Option<access_lists::Import>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let Some(path) = rfd::FileDialog::new().add_filter("Lista de jugadores", &["txt", "json"]).pick_file() else { return Ok(None); };
+async fn pick_whitelist_file(language:app_menu::Language) -> Result<Option<access_lists::Import>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = rfd::FileDialog::new().add_filter(language.text("Lista de jugadores","Player list"), &["txt", "json"]).pick_file() else { return Ok(None); };
         access_lists::read_import(&path).map(Some)
     }).await.map_err(|e| e.to_string())?
 }
@@ -679,13 +679,13 @@ fn read_log(engine: State<'_, Engine>, id: String) -> Result<Vec<LogEvent>, Stri
 }
 
 #[tauri::command]
-async fn export_log(engine: State<'_, Engine>, id: String) -> Result<Option<String>, String> {
+async fn export_log(engine: State<'_, Engine>, id: String, language:app_menu::Language) -> Result<Option<String>, String> {
     let server = storage::get(&engine.root, &id)?;
     let source = PathBuf::from(server.directory).join("launcher-logs/latest.log");
     if !source.is_file() { return Err("Aún no hay registros para exportar".into()); }
     tauri::async_runtime::spawn_blocking(move || {
         let suggested_name = format!("tchlauncher-{}-log.txt", server.id);
-        let Some(destination) = rfd::FileDialog::new().add_filter("Archivo de texto", &["txt", "log"])
+        let Some(destination) = rfd::FileDialog::new().add_filter(language.text("Archivo de texto","Text file"), &["txt", "log"])
             .set_file_name(&suggested_name).save_file() else { return Ok(None); };
         log::export_snapshot(&source, &destination)?;
         Ok(Some(destination.to_string_lossy().into_owned()))
@@ -693,11 +693,11 @@ async fn export_log(engine: State<'_, Engine>, id: String) -> Result<Option<Stri
 }
 
 #[tauri::command]
-async fn export_memory_report(engine:State<'_,Engine>,id:String)->Result<Option<String>,String>{
+async fn export_memory_report(engine:State<'_,Engine>,id:String,language:app_menu::Language)->Result<Option<String>,String>{
     let server=storage::get(&engine.root,&id)?;
     let bytes=engine.memory_history.report(&server)?;
     tauri::async_runtime::spawn_blocking(move||{
-        let Some(destination)=rfd::FileDialog::new().add_filter("Diagnóstico de memoria",&["json"])
+        let Some(destination)=rfd::FileDialog::new().add_filter(language.text("Diagnóstico de memoria","Memory diagnostic"),&["json"])
             .set_file_name(format!("tchlauncher-{}-memory.json",server.id)).save_file() else{return Ok(None);};
         memory_report::write_report(&destination,&bytes)?;
         Ok(Some(destination.to_string_lossy().into_owned()))
