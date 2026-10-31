@@ -2,6 +2,21 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Crash-restart observation warnings after 0.53.0
+
+Crash-restart subscription failures have their own notice instead of sharing the
+status-read error. A successful initial/manual read no longer erases the warning
+that automatic updates are unavailable. A failed read retains its own details
+alongside the refresh guidance. Existing controls and restart policy are unchanged.
+
+An actual component/effect case reproduces the lost warning when subscription
+failure precedes read success. Scoped ES/EN checks cover both completion orders,
+read success/failure, manual refresh outcomes, language switching, and late results
+after disposal. TypeScript and the Windows frontend build pass. Subscription and
+read boundaries are controlled; native Tauri delivery and real crash recovery are
+not exercised. Temporary probes are removed with no retained test, translation or
+dependency added. Existing installers and the published release are unchanged.
+
 ## JVM verification working directory after 0.53.0
 
 Custom JVM option validation now runs Java in the server directory, matching the

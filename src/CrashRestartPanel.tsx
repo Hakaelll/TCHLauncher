@@ -8,6 +8,7 @@ export function CrashRestartPanel({id}:{id:string}) {
   const [status,setStatus]=useState<CrashStatus|null>(null)
   const [draft,setDraft]=useState<CrashPolicy>({...defaultCrashPolicy})
   const [readError,setReadError]=useState<string|null>(null)
+  const [eventError,setEventError]=useState<string|null>(null)
   const [actionError,setActionError]=useState<string|null>(null)
   const [saved,setSaved]=useState(false)
   const [submitted,setSubmitted]=useState(false)
@@ -31,10 +32,10 @@ export function CrashRestartPanel({id}:{id:string}) {
   },[])
   useEffect(()=>{
     const current={id,active:true,revision:0,saving:false,status:null as CrashStatus|null};scope.current=current
-    setStatus(null);setDraft({...defaultCrashPolicy});setReadError(null);setActionError(null);setSaved(false);setSubmitted(false);setWorking(false)
+    setStatus(null);setDraft({...defaultCrashPolicy});setReadError(null);setEventError(null);setActionError(null);setSaved(false);setSubmitted(false);setWorking(false)
     void load()
     const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
-    void subscription.catch(()=>{if(current.active&&scope.current===current)setReadError(t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."))})
+    void subscription.catch(()=>{if(current.active&&scope.current===current)setEventError(t("No se pudieron recibir cambios automáticos. Usa Actualizar estado."))})
     return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
   },[id,load])
   const dirty=!!status&&!sameCrashPolicy(status.policy,draft)
@@ -76,6 +77,7 @@ export function CrashRestartPanel({id}:{id:string}) {
     </form>
     <div className="crash-refresh"><span>{dirty?t("Cambios sin guardar"):saved?t("Ajustes guardados"):status?t("Configuración del servidor"):''}</span><button type="button" disabled={working||loading} onClick={()=>void load()}>{loading?t("Consultando…"):t("Actualizar estado")}</button></div>
     {saved&&readError&&<p className="inline-note">{t("Los ajustes se guardaron. No se pudo consultar el estado actualizado; vuelve a intentarlo con «Actualizar estado».")}</p>}
+    {eventError&&<p className="inline-note" role="status">{translatedMessage(eventError)}</p>}
     {status?.policy.enabled&&<p className="crash-status" role="status"><strong>{status.attempts} / {status.policy.maxAttempts}  {t("intentos usados")}</strong>{status.nextAt!==null&&<span>{t("Próximo intento:")} {formatDate(status.nextAt)}</span>}{status.lastResult&&<span>{translatedMessage(status.lastResult)}</span>}</p>}
     {readError&&<p className="form-error" role="alert">{translatedMessage(readError)}</p>}
     {actionError&&<p className="form-error" role="alert">{translatedMessage(actionError)}</p>}
