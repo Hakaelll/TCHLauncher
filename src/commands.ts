@@ -1,3 +1,4 @@
+import {normalizeSearchText} from './searchText.ts'
 import {t} from './locale.ts'
 import type {Server} from './api'
 
@@ -24,8 +25,7 @@ export function launcherCommands(servers:Server[],busy:boolean,installing:Readon
   }
   return commands
 }
-const normalized=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim()
 export function filterCommands(commands:LauncherCommand[],query:string):LauncherCommand[] {
-  const terms=normalized(query).split(/\s+/).filter(Boolean)
-  return commands.filter(command=>terms.every(term=>normalized(`${command.label} ${command.detail}`).includes(term)))
+  const terms=normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  return commands.filter(command=>terms.every(term=>normalizeSearchText(`${command.label} ${command.detail}`).includes(term)))
 }

@@ -1,3 +1,4 @@
+import {normalizeSearchText} from './searchText.ts'
 import {fmtBytes} from './format'
 import {useEffect,useId,useMemo,useRef,useState} from 'react'
 import {listWindow} from './listWindow'
@@ -15,10 +16,10 @@ export function BackupsView({server,copies,loaded,loading,error,busy,reasons,onC
   const [page,setPage]=useState(0)
   const listId=useId(),resultRef=useRef<HTMLParagraphElement>(null)
   const list=useRef<HTMLDivElement>(null)
-  const locale=getLanguage()==='en'?'en-US':'es-ES'
+  const language=getLanguage()
   const date=(copy:Backup)=>formatDate(copy.createdAt)
   const reasonText=(copy:Backup)=>copy.reason?reasons[copy.reason]??t('Motivo no disponible'):t('Motivo no registrado')
-  const visible=useMemo(()=>copies.filter(copy=>(!reason||copy.reason===reason)&&(!query.trim()||`${date(copy)} ${reasonText(copy)} ${copy.platform??''} ${copy.minecraftVersion??''}`.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale)))),[copies,query,reason,locale,reasons])
+  const visible=useMemo(()=>copies.filter(copy=>(!reason||copy.reason===reason)&&(!query.trim()||normalizeSearchText(`${date(copy)} ${reasonText(copy)} ${copy.platform??''} ${copy.minecraftVersion??''}`).includes(normalizeSearchText(query)))),[copies,query,reason,language,reasons])
   const window=listWindow(visible,page)
   useEffect(()=>{setPage(window.page)},[window.page])
   const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}

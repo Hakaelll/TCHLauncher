@@ -41,6 +41,10 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Eight overridden CSS declarations are removed with unchanged remaining order,
   context and final root values. The Windows frontend build passes; this is
   maintainability cleanup, not a measured performance or native visual claim.
+- Local list searches share accent/case normalization with settings, commands
+  and menu typeahead, preserving original names and distinct IDs. Eighteen
+  focused cases, five retained frontend tests and frontend checks pass. Native
+  interaction remains maintainer validation; console/API queries are unchanged.
 - Packaged in local 0.49.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.

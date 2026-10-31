@@ -1,3 +1,4 @@
+import {normalizeSearchText} from './searchText.ts'
 import {useEffect,useId,useMemo,useRef,useState} from 'react'
 import {listWindow} from './listWindow'
 import {t} from './locale'
@@ -7,8 +8,8 @@ export function DisabledContentView({files,locked,stopped,onEnable,onInstalled}:
   const [query,setQuery]=useState('')
   const [page,setPage]=useState(0)
   const listId=useId(),resultRef=useRef<HTMLSpanElement>(null)
-  const search=query.trim().toLocaleLowerCase()
-  const visible=useMemo(()=>search?files.filter(file=>[file.title,file.filename].some(value=>value.toLocaleLowerCase().includes(search))):files,[files,search])
+  const search=normalizeSearchText(query)
+  const visible=useMemo(()=>search?files.filter(file=>[file.title,file.filename].some(value=>normalizeSearchText(value).includes(search))):files,[files,search])
   const window=listWindow(visible,page,24)
   useEffect(()=>{setPage(window.page)},[window.page])
   const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}

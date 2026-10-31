@@ -4,6 +4,18 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.49.0
 
+Local library, player, installed/disabled content and backup searches now share
+the accent/case normalization used by settings, command search and menu typeahead.
+For example, `montana` finds `Montaña` and `decoracion` finds `Decoración`.
+Matching never rewrites names, merges identities or changes source files. Console
+substring search and outgoing Modrinth queries retain their existing behavior.
+
+Actual filters and memo callbacks reproduce inconsistent matching before the
+change and pass 18 scoped cases afterward, including composed/decomposed accents,
+different identities, unchanged source data and preserved filters. The five
+retained frontend tests, TypeScript and the Windows frontend build pass. Native
+interaction remains maintainer validation. No dependency or retained test is added.
+
 CSS cleanup removes eight declarations shadowed by later root rules with the same
 selector, property and importance. These cover six old colors plus the runtime
 mark's obsolete background and corner radius. Empty rules are removed too. The

@@ -1,3 +1,4 @@
+import {normalizeSearchText} from './searchText.ts'
 import type { Server } from './api'
 
 export type LibraryFilter = 'all' | 'running' | 'attention' | 'pinned'
@@ -8,9 +9,9 @@ export function matchesLibraryFilter(server: Server, filter: LibraryFilter) {
     || (filter === 'pinned' && server.pinned)
 }
 export function libraryWindow(servers: Server[], query: string, filter: LibraryFilter, order: LibraryOrder) {
-  const search = query.trim().toLocaleLowerCase('es')
+  const search = normalizeSearchText(query)
   const rows = servers.filter(server => matchesLibraryFilter(server, filter)
-    && `${server.name} ${server.platform} ${server.version}`.toLocaleLowerCase('es').includes(search))
+    && normalizeSearchText(`${server.name} ${server.platform} ${server.version}`).includes(search))
   if (order === 'name') rows.sort((a, b) => a.name.localeCompare(b.name, 'es', {numeric:true, sensitivity:'base'}))
   if (order === 'recent') rows.sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))
   return rows

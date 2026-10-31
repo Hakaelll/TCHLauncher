@@ -1,5 +1,5 @@
-const normalize=(value:string)=>value.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim()
-export const settingsMatch=(query:string,...text:string[])=>normalize(text.join(' ')).includes(normalize(query))
+import {normalizeSearchText} from './searchText.ts'
+export const settingsMatch=(query:string,...text:string[])=>normalizeSearchText(text.join(' ')).includes(normalizeSearchText(query))
 export function propertyAdditionError(key:string,value:string,values:Record<string,string>):string|null {
   key=key.trim()
   if(!/^[a-zA-Z0-9_.-]{1,80}$/.test(key))return 'Usa una clave de hasta 80 caracteres: letras, números, puntos, guiones o guiones bajos.'

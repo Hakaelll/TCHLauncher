@@ -1,9 +1,9 @@
+import {normalizeSearchText} from './searchText.ts'
 import {useLayoutEffect,useRef,type ReactNode} from 'react'
 import {createPortal} from 'react-dom'
 
 export type MenuTarget={x:number;y:number;trigger:HTMLButtonElement}
 export type MenuAction={key:string;label:string;disabled?:boolean;destructive?:boolean;separator?:boolean;icon?:ReactNode;run:()=>void}
-const searchText=(text:string)=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim()
 
 /** Shared viewport menu; action callbacks always use the current rendered state. */
 export function ActionMenu({target,label,name,actions,onClose,id}:{target:MenuTarget;label:string;name:string;actions:MenuAction[];onClose:(restoreFocus?:boolean)=>void;id?:string}) {
@@ -37,14 +37,14 @@ export function ActionMenu({target,label,name,actions,onClose,id}:{target:MenuTa
     else if(event.key==='Tab')onClose(true)
     else if(event.key.length===1&&event.key!==' '&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
       event.preventDefault()
-      const now=performance.now(),letter=searchText(event.key)
+      const now=performance.now(),letter=normalizeSearchText(event.key)
       const previous=now-typed.current.at<700?typed.current.text:''
       const text=previous===letter?letter:previous+letter
       typed.current={text,at:now}
       const start=text.length===1?current+1:Math.max(0,current)
       for(let offset=0;offset<items.length;offset++){
         const item=items[(start+offset)%items.length]
-        if(searchText(item.textContent??'').startsWith(text)){item.focus();break}
+        if(normalizeSearchText(item.textContent??'').startsWith(text)){item.focus();break}
       }
     }
   }}>
