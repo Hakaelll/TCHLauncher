@@ -146,6 +146,11 @@ retry waits; guarded publication is not cancellable. HTTP Range resume is not
 implemented. Each task has a server ID, task ID, kind, stage and measured transfer
 fields; unavailable totals remain unknown. Failed tasks retain their last attempt.
 
+Successful catalog and transfer clients are cached separately and cloned to reuse
+their connection pools. Tasks retain separate cancellation, progress and byte
+limits. Failed client construction remains retryable. The modpack download path
+retains its dedicated origin-validation policy.
+
 ## Java process lifecycle
 
 [process.rs](src-tauri/src/process.rs) owns each child, stdin, output readers,

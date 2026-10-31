@@ -41,18 +41,28 @@ pub struct DownloadTask {
     latest: Arc<Mutex<Progress>>,
 }
 
+fn shared_client(kind:&str)->Result<Client,String> {
+    static SEARCH:std::sync::OnceLock<Client>=std::sync::OnceLock::new();
+    static TRANSFER:std::sync::OnceLock<Client>=std::sync::OnceLock::new();
+    let shared=if kind=="content_search" {&SEARCH}else{&TRANSFER};
+    if let Some(client)=shared.get(){return Ok(client.clone());}
+    let client = Client::builder()
+        .user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")," (https://github.com/Hakaelll/TCHLauncher)"))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.url().scheme() != "https" { attempt.error("HTTPS required") }
+            else if attempt.previous().len() > 10 { attempt.error("too many redirects") }
+            else { attempt.follow() }
+        }))
+        .connect_timeout(Duration::from_secs(if kind=="content_search" {8}else{20}))
+        .read_timeout(Duration::from_secs(if kind=="content_search" {12}else{30}))
+        .timeout(Duration::from_secs(if kind=="content_search" {20}else{900})).build().map_err(|e| e.to_string())?;
+    let _=shared.set(client.clone());
+    Ok(shared.get().cloned().unwrap_or(client))
+}
+
 impl DownloadTask {
     pub fn new(server_id: &str, kind: &str, emit: impl Fn(Progress) + Send + Sync + 'static) -> Result<Self, String> {
-        let client = Client::builder()
-            .user_agent(concat!("TCHLauncher/",env!("CARGO_PKG_VERSION")," (https://github.com/Hakaelll/TCHLauncher)"))
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() != "https" { attempt.error("HTTPS required") }
-                else if attempt.previous().len() > 10 { attempt.error("too many redirects") }
-                else { attempt.follow() }
-            }))
-            .connect_timeout(Duration::from_secs(if kind=="content_search" {8}else{20}))
-            .read_timeout(Duration::from_secs(if kind=="content_search" {12}else{30}))
-            .timeout(Duration::from_secs(if kind=="content_search" {20}else{900})).build().map_err(|e| e.to_string())?;
+        let client=shared_client(kind)?;
         let id=Uuid::new_v4().to_string();
         let latest=Mutex::new(Progress{server_id:server_id.into(),task_id:id.clone(),kind:kind.into(),label:"Preparando tarea".into(),stage:"preparing".into(),received:0,total:None,bytes_per_second:None,attempt:1,error:None});
         Ok(Self { id,server_id:server_id.into(),kind:kind.into(),client,max_bytes:MAX_BYTES,

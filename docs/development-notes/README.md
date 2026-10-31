@@ -4,6 +4,19 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.49.0
 
+Download tasks reuse successful HTTP clients through separate catalog and transfer
+profiles. Task IDs, cancellation, progress and byte limits remain task-owned.
+Builder failures are not cached. Redirect policies, user agents and timeouts are
+unchanged; the stricter modpack client keeps its existing builder and allowlist.
+
+One focused native loopback case reproduces four independent connections before
+the change and passes with two shared connections afterward, one per profile.
+It also checks independent cancellation, verified transfer bytes, preserved old
+targets on hash mismatch and partial-file cleanup. The full native test target
+compiles. Temporary probe/include files are removed, adding no retained tests or
+dependencies. This proves controlled connection reuse, not a remote HTTPS,
+latency, RAM, native UI or Minecraft-network improvement.
+
 Local library, player, installed/disabled content and backup searches now share
 the accent/case normalization used by settings, command search and menu typeahead.
 For example, `montana` finds `Montaña` and `decoracion` finds `Decoración`.
