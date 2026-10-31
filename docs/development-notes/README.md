@@ -2,6 +2,31 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Searchable, paged world inventory after 0.54.0
+
+World inventory follows the existing 50-row paging pattern used by other local
+lists. Search matches names without case/accent differences, preserves native
+ordering and identities, and returns to the first page. Counts and empty-filter
+recovery distinguish a filtered list from a server with no worlds. Paging closes
+context menus and focuses the result status; pages clamp when inventory shrinks.
+Small inventories keep their compact heading without a search field.
+
+Export/duplicate drafts retain their existing state. File operations disable
+search/paging while pending, and menu visibility follows the displayed rows.
+Existing row actions, safeguards and combined-export defaults remain connected.
+The search uses existing input styling and wrapping layout, without new colors.
+
+A baseline production-component tree contains all 253 fixture rows; the changed
+tree contains at most 50 live rows per page. Scoped ES/EN callbacks check page
+bounds, focus requests, accent search, filter recovery, unchanged ordering/source
+data, export/duplicate payloads, busy/read-error states and inventory shrinkage.
+TypeScript and the Windows frontend build pass. IPC, motion, inventory and focus
+are controlled; no native UI or actual file operation is exercised. Native full
+inventory reading is unchanged; this is not a RAM/FPS benchmark, and transient
+motion ghosts may overlap live rows. Temporary probes are removed, adding no
+retained test or dependency. Four English messages are added. The published 0.54
+installer is unchanged; these source changes await the next packaging milestone.
+
 ## Published Windows 0.54.0
 
 [GitHub preview](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.54.0) groups the 0.52–0.54 milestones. Its

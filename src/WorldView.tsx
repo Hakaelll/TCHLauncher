@@ -1,6 +1,8 @@
 import {fmtBytes as sizeLabel,errorText} from './format'
 import {translatedMessage,t} from './locale.ts'
-import { useEffect, useRef, useState, useId, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, useId, type FormEvent } from 'react'
+import {normalizeSearchText} from './searchText'
+import {listWindow} from './listWindow'
 import {useServerRead} from './useServerRead'
 import { useListMotion } from './motion'
 import {ActionMenu,type MenuTarget} from './ActionMenu'
@@ -22,9 +24,16 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
   const closeMenu=(restoreFocus=false)=>{if(restoreFocus&&menu?.trigger.isConnected)menu.trigger.focus({preventScroll:true});setMenu(null)}
   const inventory=useServerRead(server.id,api.worlds)
   const worlds=inventory.data??[]
+  const [query,setQuery]=useState(''),[page,setPage]=useState(0)
+  const search=normalizeSearchText(query)
+  const filtered=useMemo(()=>search?worlds.filter(world=>normalizeSearchText(world.name).includes(search)):worlds,[worlds,search])
+  const window=listWindow(filtered,page)
+  const listId=useId(),searchId=useId(),resultRef=useRef<HTMLSpanElement>(null)
+  useEffect(()=>{setPage(window.page)},[window.page])
+  const changePage=(value:number)=>{closeMenu();setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}
   const loading=inventory.loading||(!inventory.data&&!inventory.error)
   const listRef=useRef<HTMLDivElement>(null)
-  useListMotion(listRef,`${server.id}:${worlds.map(world=>world.name).join(',')}`)
+  useListMotion(listRef,`${server.id}:${window.page}:${window.rows.map(world=>world.name).join(',')}`)
   const [busy,setBusy] = useState(false)
   const [error,setError] = useState<string|null>(null)
   const [notice,setNotice] = useState<string|null>(null)
@@ -43,7 +52,7 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
   const stopped = ['stopped','crashed','error'].includes(server.state)
 
   useEffect(()=>{
-    setMenu(null);setError(null);setNotice(null);setSelection(null);setDuplicate(null);setConfirm(null);setExporting(null);setBusy(false)
+    setMenu(null);setQuery('');setPage(0);setError(null);setNotice(null);setSelection(null);setDuplicate(null);setConfirm(null);setExporting(null);setBusy(false)
   },[server.id])
   const refresh=async(current=exportOwner.current)=>{if(current.active)await inventory.refresh(server.id)}
   const run = async (operation: () => Promise<void>, success: string, backupsChanged = false, acknowledged?:()=>void) => {
@@ -119,9 +128,10 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
     {notice && <p className="world-message" role="status">{translatedMessage(notice)}</p>}
     {!stopped && <p className="inline-note">{t("Detén el servidor para importar, duplicar, exportar o cambiar mundos. Puedes abrir una carpeta mientras está en marcha.")}</p>}
     {selection && <form className="world-import" onSubmit={importSelected}><div className="world-import-summary"><strong>{t("Mundo seleccionado")}</strong><span>{sizeLabel(selection.sizeBytes)} · {selection.path}</span></div><label className="form-row" htmlFor="world-import-name"><span>{t("Nombre en este servidor")}</span><input id="world-import-name" disabled={busy} required maxLength={64} value={importName} onChange={event => setImportName(event.target.value)}/></label><WorldImportPreview source={selection} name={importName} platform={server.platform}/><div className="world-import-actions"><button type="button" className="text-button" disabled={busy} onClick={() => setSelection(null)}>{t("Cancelar")}</button><button className="primary-button" disabled={busy || !stopped || loading || !!inventory.error || !importName.trim() || (selection.dimensions.length>0&&server.platform!=='paper')}>{t("Importar copia")}</button></div><p>{t("El mundo original se conserva en su ubicación.")}</p></form>}
-    <div className="world-list-heading"><span>{loading ? t("Cargando mundos…") : !inventory.data ? t("Mundos sin confirmar") : `${worlds.length} ${worlds.length === 1 ? t("mundo") : t("mundos")}`}</span>{inventory.data&&<span>{worlds.some(world => world.active) ? t("Principal primero") : t("Sin mundo principal generado")}</span>}</div>
+    <div className="world-list-heading">{(worlds.length>1||query)&&<label className="form-row world-search" htmlFor={searchId}><span>{t("Buscar mundos")}</span><input id={searchId} type="search" value={query} maxLength={128} disabled={busy} placeholder={t("Nombre del mundo")} onChange={event=>{closeMenu();setQuery(event.target.value);setPage(0)}}/></label>}<span ref={resultRef} tabIndex={-1} role="status">{loading ? t("Cargando mundos…") : !inventory.data ? t("Mundos sin confirmar") : search?t("{0} de {1} mundos",filtered.length,worlds.length):`${worlds.length} ${worlds.length === 1 ? t("mundo") : t("mundos")}`}{window.pages>1&&<span className="sr-only"> · {t("Página")} {window.page+1} {t("de")} {window.pages}</span>}</span>{inventory.data&&!search&&<span>{worlds.some(world => world.active) ? t("Principal primero") : t("Sin mundo principal generado")}</span>}</div>
     {!loading && !inventory.error && inventory.data!==null && !worlds.length && <div className="world-empty"><strong>{t("Aún no hay mundos en este servidor.")}</strong><p>{t("Inícialo para generar uno nuevo o importa una carpeta que contenga un `level.dat` de Minecraft Java.")}</p></div>}
-    <div className="world-list" ref={listRef}>{worlds.map(world => <div className={`world-row ${world.active ? 'active' : ''}`} key={world.name} data-layout-id={world.name} onContextMenu={event=>{if(event.target instanceof Element&&event.target.closest('form,input,textarea'))return;const trigger=event.currentTarget.querySelector<HTMLButtonElement>('[data-world-menu]');if(trigger){event.preventDefault();setMenu({name:world.name,x:event.clientX,y:event.clientY,trigger})}}}>
+    {worlds.length>0&&!filtered.length&&<div className="world-empty"><strong>{t("No hay coincidencias")}</strong><p>{t("Prueba otro nombre o filtro.")}</p><button disabled={busy} onClick={()=>{setQuery('');setPage(0)}}>{t("Limpiar filtros")}</button></div>}
+    <div id={listId} className="world-list" ref={listRef}>{window.rows.map(world => <div className={`world-row ${world.active ? 'active' : ''}`} key={world.name} data-layout-id={world.name} onContextMenu={event=>{if(event.target instanceof Element&&event.target.closest('form,input,textarea'))return;const trigger=event.currentTarget.querySelector<HTMLButtonElement>('[data-world-menu]');if(trigger){event.preventDefault();setMenu({name:world.name,x:event.clientX,y:event.clientY,trigger})}}}>
       <div className="world-row-main"><WorldIcon world={world}/><div className="world-row-copy"><strong>{world.name}</strong><span>{sizeLabel(world.sizeBytes)}{world.active ? t(' · Mundo principal') : ''}</span>{!!world.dimensions?.length&&<span className="world-dimensions">{t("Dimensiones incluidas: {0}",world.dimensions.join(' · '))}</span>}</div>{world.active && <span className="world-active-mark" aria-label={t("Mundo principal")}>{t("Principal")}</span>}</div>
       <div className="world-row-actions"><button className="text-button world-export-button" disabled={busy || !stopped || loading || !!inventory.error} aria-expanded={exporting?.name===world.name} onClick={() => {setExporting({name:world.name,content:true,config:true});setDuplicate(null)}}>{t("Exportar")}</button><button className="world-menu-trigger" data-world-menu aria-label={t("Acciones de {0}",world.name)} aria-haspopup="menu" aria-expanded={menu?.name===world.name} aria-controls={menu?.name===world.name?menuId:undefined} onClick={event=>{if(menu?.name===world.name){closeMenu(true);return}const trigger=event.currentTarget,rect=trigger.getBoundingClientRect();setMenu({name:world.name,x:rect.right-218,y:rect.bottom+6,trigger})}}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button></div>
       {exporting?.name===world.name&&<form className="world-export-options" onSubmit={exportSelected} aria-label={t("Exportar {0}", world.name)}>
@@ -136,7 +146,8 @@ export function WorldView({server,onBackupsChanged}: {server: Server; onBackupsC
       </form>}
       {duplicate?.source === world.name && <form className="world-duplicate" onSubmit={duplicateSelected}><label htmlFor="duplicate-world-name">{t("Nombre de la copia")}</label><input ref={duplicateInput} id="duplicate-world-name" disabled={busy} required maxLength={64} value={duplicate.name} onChange={event => setDuplicate({...duplicate,name:event.target.value})}/><button className="primary-button" disabled={busy || !stopped || loading || !!inventory.error || !duplicate.name.trim()}>{t("Crear copia")}</button><button className="text-button" type="button" onClick={() => setDuplicate(null)}>{t("Cancelar")}</button></form>}
     </div>)}</div>
-    {menu&&worlds.some(world=>world.name===menu.name)&&<ActionMenu id={menuId} target={menu} name={menu.name} label={t("Acciones de {0}",menu.name)} onClose={closeMenu} actions={[
+    {window.pages>1&&<nav className="installed-pagination" aria-label={t("Páginas de mundos")}><span>{t("Página")} {window.page+1} {t("de")} {window.pages}</span><div><button aria-controls={listId} disabled={busy||window.page===0} onClick={()=>changePage(window.page-1)}>{t("Anterior")}</button><button aria-controls={listId} disabled={busy||window.page+1>=window.pages} onClick={()=>changePage(window.page+1)}>{t("Siguiente")}</button></div></nav>}
+    {menu&&window.rows.some(world=>world.name===menu.name)&&<ActionMenu id={menuId} target={menu} name={menu.name} label={t("Acciones de {0}",menu.name)} onClose={closeMenu} actions={[
       ...(!worlds.find(world=>world.name===menu.name)?.active?[{key:'activate',label:t("Usar como principal"),disabled:busy||!stopped||loading||!!inventory.error,run:()=>setConfirm({kind:'activate',name:menu.name})}]:[]),
       {key:'duplicate',label:t("Duplicar"),disabled:busy||!stopped||loading||!!inventory.error,run:()=>{setDuplicate({source:menu.name,name:t("{0} copia",menu.name)});setExporting(null)}},
       {key:'backup',label:t("Guardar copia"),disabled:busy||!stopped||loading||!!inventory.error,run:()=>{void run(async()=>{await api.createBackup(server.id)},t("Se guardó una copia del servidor que incluye «{0}».",menu.name),true)}},

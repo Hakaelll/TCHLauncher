@@ -1,6 +1,10 @@
 import {nativeEnglish} from './native-en.ts'
 // Spanish source messages are stable keys; placeholders preserve user data.
 export const english: Record<string,string> = {
+  "Buscar mundos": "Search worlds",
+  "Nombre del mundo": "World name",
+  "{0} de {1} mundos": "{0} of {1} worlds",
+  "Páginas de mundos": "World pages",
   "Limpieza completada. Copias eliminadas: {0}.": "Cleanup completed. Backups removed: {0}.",
   "Propiedades": "Properties",
   "Elige entre 1 y 10 intentos.": "Choose between 1 and 10 attempts.",
