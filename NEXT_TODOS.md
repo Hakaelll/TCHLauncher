@@ -42,6 +42,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
+- Post-0.54 source routes loader/Minecraft update progress through shared tasks,
+  recovering active tasks when settings opens and removing duplicate subscriptions.
+  Scoped ES/EN progress/acknowledgement recovery checks and frontend compilation pass.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.

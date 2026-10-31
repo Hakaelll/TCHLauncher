@@ -60,7 +60,7 @@ export function ServerSettings({onConsole,onRuntimeChanged,onPrepareRuntime,serv
     <RuntimePanel key={server.id} onChanged={onRuntimeChanged} server={server} busy={busy} onPrepare={onPrepareRuntime}/>
     <JvmPanel key={`jvm-${server.id}`} server={server} busy={busy}/>
     <MinecraftUpdatePanel key={`minecraft-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged} currentProgress={progress} onConsole={onConsole}/>
-    <LoaderPanel key={`loader-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged}/>
+    <LoaderPanel key={`loader-${server.id}`} server={server} busy={busy} onChanged={onRuntimeChanged} currentProgress={progress}/>
     <TasksPanel key={`tasks-${server.id}`} id={server.id}/>
     </section><div className="delete-server-section"><div><h3>{t("Eliminar servidor")}</h3><p>{t("Quita este servidor de la biblioteca. Si sus archivos están guardados aquí, también se eliminarán junto con sus copias de seguridad.")}</p></div><button className="danger-outline-button" disabled={busy || !stopped} onClick={onDelete}>{t("Eliminar servidor")}</button></div>
   </section>

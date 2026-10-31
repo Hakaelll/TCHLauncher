@@ -2,6 +2,25 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Shared update-task progress after 0.54.0
+
+Loader and Minecraft update panels consume the application-owned task stream,
+which already combines native events with snapshot recovery. Opening settings
+during a loader update now shows its existing task instead of waiting for a new
+panel-local event. Both panels require the task input and filter server/kind
+ownership. Their local display buffers still retain outcomes and allow dismissal.
+The sole settings caller supplies the same shared source to both panels.
+
+Two redundant native-event subscriptions are removed. Retry controls also follow
+the surrounding busy/startup state, matching their action guards. A baseline
+component/effect case reproduces the missing active loader task. Scoped ES/EN
+checks cover recovered/live/terminal/dismissed tasks, foreign ownership, zero
+child subscriptions and a confirmed loader update followed by failed list refresh.
+Read-only recovery repeats the refresh without reinstalling. TypeScript and the
+Windows frontend build pass. IPC, events and refresh boundaries are controlled;
+no native update or UI is driven. Temporary probes are removed with no retained
+test, translation or dependency added. Published 0.54 packaging is unchanged.
+
 ## Searchable, paged world inventory after 0.54.0
 
 World inventory follows the existing 50-row paging pattern used by other local

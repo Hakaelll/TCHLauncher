@@ -1,6 +1,5 @@
 import {translatedMessage,localizedStatic,t} from './locale.ts'
 import {useEffect,useRef,useState} from 'react'
-import {listen} from '@tauri-apps/api/event'
 import {api,type MinecraftReview,type Progress,type Server,type Version} from './api'
 import {Modal} from './Modal'
 import {InstallProgress} from './InstallProgress'
@@ -10,7 +9,7 @@ import {errorText} from './format'
 
 const statusLabel=localizedStatic({compatible:'Compatible',incompatible:'Incompatible',unknown:'Sin verificar',update:'Actualizar'})
 
-export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onConsole}:{server:Server;busy:boolean;onChanged:()=>Promise<void>;currentProgress?:Progress|null;onConsole:()=>void}) {
+export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onConsole}:{server:Server;busy:boolean;onChanged:()=>Promise<void>;currentProgress:Progress|null;onConsole:()=>void}) {
   const [open,setOpen]=useState(false)
   const [startAfter,setStartAfter]=useState(true)
   const [checkingStartup,setCheckingStartup]=useState(false)
@@ -32,15 +31,8 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
   const [notice,setNotice]=useState<string|null>(null)
   const [progress,setProgress]=useState<Progress|null>(null)
   const errorRef=useRef<HTMLParagraphElement>(null)
-  useEffect(()=>{if(currentProgress?.kind==='minecraft_update')setProgress(currentProgress)},[currentProgress])
+  useEffect(()=>{if(currentProgress?.serverId===server.id&&currentProgress.kind==='minecraft_update')setProgress(currentProgress)},[currentProgress,server.id])
   useEffect(()=>{if(error&&open)errorRef.current?.focus()},[error,open])
-  useEffect(()=>{
-    let active=true
-    const subscription=listen<Progress>('install-progress',event=>{
-      if(active&&event.payload.serverId===server.id&&event.payload.kind==='minecraft_update')setProgress(event.payload)
-    })
-    return()=>{active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
-  },[server.id])
   if(!server.jarPath)return null
   const sync=async()=>{
     try{await onChanged();if(mounted.current)setSyncError(null)}
@@ -113,7 +105,7 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
     {updateWarning&&<p className="inline-note" role="status">{translatedMessage(updateWarning)}</p>}
     {(checkingStartup||startupIssue)&&<div className="minecraft-startup-result" data-failed={!!startupIssue}><p role={startupIssue?'alert':'status'}>{startupIssue??t("Comprobando el arranque real de Minecraft…")}</p><button className="text-button" onClick={onConsole}>{t("Ver consola")}</button></div>}
     {!open&&syncFeedback}
-    {progress&&!open&&<InstallProgress progress={progress} busy={working} onRetry={()=>void check()} onDismiss={()=>setProgress(null)}/>}
+    {progress&&!open&&<InstallProgress progress={progress} busy={working||checkingStartup||busy} onRetry={()=>void check()} onDismiss={()=>setProgress(null)}/>}
     {open&&<Modal className="minecraft-update-dialog" labelledBy="minecraft-update-title" describedBy="minecraft-update-description" busy={working} onClose={()=>{setOpen(false);setError(null)}}>
       <h2 id="minecraft-update-title">{t("Cambiar Minecraft")}</h2><p id="minecraft-update-description" className="field-help">{server.name} · {server.platform}  {t("· versión actual")} {server.version}</p>
       <label className="loader-version">{t("Nueva versión estable")}<select value={target} disabled={working||!versions.length} onChange={event=>{setTarget(event.target.value);setReview(null);setConfirmed(false);setError(null);setProgress(null)}}>{!versions.length&&<option value="">{working?t("Consultando versiones…"):!catalogLoaded?t("Catálogo no disponible"):t("No hay versiones posteriores en el catálogo")}</option>}{versions.map(version=><option key={version.id}>{version.id}</option>)}</select></label>
@@ -130,7 +122,7 @@ export function MinecraftUpdatePanel({server,busy,onChanged,currentProgress,onCo
         {!review.blockers.length&&<label className="minecraft-update-consent"><input type="checkbox" checked={confirmed} disabled={working} onChange={event=>setConfirmed(event.target.checked)}/><span>{t("He revisado los avisos y el plan de cambios. Para volver a esta versión restauraré la copia previa, incluidos los mundos.")}</span></label>}
         {!review.blockers.length&&<label className="minecraft-update-consent"><input type="checkbox" checked={startAfter} disabled={working} onChange={event=>setStartAfter(event.target.checked)}/><span>{t("Iniciar y comprobar al terminar. Minecraft puede convertir los mundos a la nueva versión; el servidor quedará en marcha.")}</span></label>}
       </div>}
-      {progress&&<InstallProgress progress={progress} busy={working} onRetry={()=>void inspect()} onDismiss={()=>setProgress(null)}/>}
+      {progress&&<InstallProgress progress={progress} busy={working||checkingStartup||busy} onRetry={()=>void inspect()} onDismiss={()=>setProgress(null)}/>}
       {error&&<p ref={errorRef} className="form-error" role="alert" tabIndex={-1}>{translatedMessage(error)}</p>}
       {syncFeedback}
       <div className="modal-actions"><button data-modal-close disabled={working}>{t("Cancelar")}</button>{!review?<button className="primary-button" disabled={working||busy||!!syncError||!catalogLoaded||!target} onClick={()=>void inspect()}>{t("Revisar cambio")}</button>:<button className="primary-button" disabled={working||busy||!!syncError||!['stopped','crashed','error'].includes(server.state)||!confirmed||!!review.blockers.length} onClick={()=>void update()}>{working?t("Actualizando…"):t("Crear copia y actualizar")}</button>}</div>
