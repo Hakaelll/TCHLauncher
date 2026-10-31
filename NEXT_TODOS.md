@@ -28,6 +28,14 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Evidence already available
 
+- Current 0.48 application-source Vanilla 1.21.4 lifecycle passes with real managed
+  Java/Minecraft downloads, three ready/status/command/graceful-stop sessions,
+  tracked backup, byte-identical world restoration before boot and restored-world
+  startup. An isolated temporary library uses loopback and an existing explicit
+  EULA record. Owned processes exit and temporary data is removed. The test event
+  adapter is not the Tauri UI; native interaction and affected-host cases remain
+  unproven. Installer/executable hashes are unchanged.
+
 - The maintainer explicitly accepts the current visual appearance: "tu sigue que
   visualmente esta bien". This closes the general visual-design review. It does
   not assert screen-reader behavior, every keyboard path or affected-host outcomes.

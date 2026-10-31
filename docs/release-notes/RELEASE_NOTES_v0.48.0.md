@@ -37,7 +37,14 @@ compilation passes; temporary checks were removed and retained tests are unchang
 TypeScript, Windows frontend, optimized offline NSIS packaging, executable/setup
 versions and embedded-icon checks pass. The installer is 6,904,819 bytes.
 
+After packaging, the existing current-source Vanilla 1.21.4 scenario passes real
+managed downloads and three ready/status/command/graceful-stop sessions, followed
+by tracked backup, exact world restoration and restored startup. It uses an
+isolated loopback library and an existing explicit EULA record; temporary data
+is removed and the installer/executable remain unchanged. Test events replace
+the Tauri UI.
+
 No measured CPU/RAM improvement, native scrolling/clipboard interaction, physical
-router result or new live Minecraft session is claimed. Affected-host Internet
+router result or new multiplayer gameplay is claimed. Affected-host Internet
 stalls, Java RAM growth, mod behavior and imported account identity remain open.
 No dependency or external service is added.

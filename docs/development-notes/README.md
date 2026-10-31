@@ -4,6 +4,17 @@ Engineering records, test evidence and pending native checks.
 
 ## Changes packaged in 0.48.0
 
+After packaging, the existing Vanilla lifecycle scenario passes against the same
+application source: actual managed Java/Minecraft 1.21.4 downloads, three ready
+sessions with status and command responses, three graceful stops, tracked backup,
+byte-identical world restoration before boot and successful restored startup.
+It reuses the current explicit EULA record in a fresh loopback-only temporary
+library. Owned processes exit and temporary data is removed; user servers and
+settings are not written. Installer/executable hashes remain unchanged. The
+event collector is a test adapter, so this is not Tauri interaction, multiplayer
+gameplay, router validation or evidence about the friend's workload. No retained
+test case, application code or package changed.
+
 Local unsigned Windows x64 NSIS package from `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
 TypeScript, frontend, optimized offline packaging, executable/setup versions and
 embedded icons pass. The installer is 6,904,819 bytes and has not been
