@@ -198,18 +198,22 @@ pub fn install_requested(server:&Server,minecraft:&Value,java:&Path,task:&Downlo
             let target=stage.join("libraries").join(path);fs::create_dir_all(target.parent().unwrap()).map_err(|e|e.to_string())?;
             task.download(&url,&target,Some(("sha1",&hash)),&format!("NeoForge · {name}"))?;
         }
-        let mappings=&minecraft["downloads"]["server_mappings"];
-        let mapping_hash=mappings["sha1"].as_str().ok_or("Minecraft no proporciona mappings de servidor")?;valid_hash(mapping_hash,40)?;
-        let mapping=stage.join("server-mappings.txt");
-        task.download(mappings["url"].as_str().ok_or("Minecraft no proporciona mappings")?,&mapping,Some(("sha1",mapping_hash)),"Mappings oficiales de Minecraft")?;
+        let mapping=if let Some(mappings)=minecraft["downloads"].get("server_mappings") {
+            let hash=mappings["sha1"].as_str().ok_or("Minecraft no proporciona mappings de servidor")?;valid_hash(hash,40)?;
+            let path=stage.join("server-mappings.txt");
+            task.download(mappings["url"].as_str().ok_or("Minecraft no proporciona mappings")?,&path,Some(("sha1",hash)),"Mappings oficiales de Minecraft")?;
+            Some(path)
+        }else if release.numbers[0]>=26 {None}else{return Err("Minecraft no proporciona mappings de servidor".into());};
         drop(archive);
-        let offline=stage.join("installer.jar");offline_installer(&installer,&offline,&mapping,&server.version,task)?;
-        run_installer(java,&offline,&stage,task)?;
+        let offline=if let Some(mapping)=mapping.as_ref() {
+            let path=stage.join("installer.jar");offline_installer(&installer,&path,mapping,&server.version,task)?;Some(path)
+        }else{None};
+        run_installer(java,offline.as_deref().unwrap_or(&installer),&stage,task)?;
         let args=stage.join(release.library_directory()).join(if cfg!(windows){"win_args.txt"}else{"unix_args.txt"});
         // Validate both the entrypoint and every referenced library before publication.
         launch_file(&server_root,&stage,&args,&server.version)?;
         fs::write(stage.join("installation.json"),serde_json::to_vec_pretty(&serde_json::json!({"minecraft":server.version,"loader":loader,"installerSha256":hash})).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
-        for path in [installer,offline,mapping] {fs::remove_file(path).map_err(|e|e.to_string())?;}
+        for path in [Some(&installer),offline.as_ref(),mapping.as_ref()].into_iter().flatten() {fs::remove_file(path).map_err(|e|e.to_string())?;}
         task.cancellation.check()?;
         let relative=args.strip_prefix(&stage).map_err(|e|e.to_string())?.to_owned();
         fs::rename(&stage,&target).map_err(|e|e.to_string())?;

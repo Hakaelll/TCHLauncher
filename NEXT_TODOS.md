@@ -14,6 +14,14 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.56 NeoForge discovery supports annual four-component releases and exact
+  experimental identities. The parser replay covers 110 annual stable catalog
+  entries. Annual installation accepts absent mappings while preserving the
+  older verified-mapping path. The real isolated 26.3 / 26.3.0.100 case passes
+  with managed Java 25, three status/command/graceful-stop sessions and verified
+  backup/restore followed by a restored-world boot. The retained case waits for
+  actual status availability after the startup message; production ping is
+  unchanged. Native UI, client gameplay and installed mods are outside this run.
 - Post-0.56 library name ordering follows the selected language. Scoped ES/EN
   helper checks and frontend compilation pass; native/rendered use is untested.
 - Installed-content ordering and diagnostic tie-breaks follow the same locale,

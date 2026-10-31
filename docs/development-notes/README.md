@@ -2,6 +2,31 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Annual NeoForge releases after 0.56.0
+
+NeoForge discovery now accepts the four-component annual version format and maps
+zero/nonzero Minecraft patch numbers correctly. Explicit selections preserve
+snapshot, pre-release and release-candidate identities; installation still
+requires exact catalog membership. The parser replay recognizes all 110 numeric
+annual stable entries in the captured official catalog and preserves legacy
+version selection and rejection checks.
+
+Annual deobfuscated Minecraft releases can omit server mappings. Their verified
+official installer runs offline with verified staged libraries; older releases
+still require mappings and use the existing mapping-cache wrapper. See
+[NeoForge versioning](https://docs.neoforged.net/docs/gettingstarted/versioning/)
+and the [26.1 migration announcement](https://neoforged.net/news/26.1release/).
+
+The retained isolated engine case passes on Minecraft 26.3 / NeoForge 26.3.0.100
+with managed Java 25: three status responses, console commands and graceful
+stops, backup/restore with byte-identical world data, and a restored-world boot.
+The case now waits separately for status availability after the startup message.
+Immediate queries initially closed; a 500 ms retry, alternate protocol number
+and alternate packet ordering did not resolve that timing window. The unchanged
+production protocol succeeds when status becomes available. Temporary diagnostic
+code and downloaded probe artifacts are removed. No mod-loading, Minecraft
+client gameplay, native UI or physical-router claim follows from this run.
+
 ## Inventory name-order locale after 0.56.0
 
 Name ordering follows the selected language instead of always using Spanish.

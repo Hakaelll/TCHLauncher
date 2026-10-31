@@ -63,7 +63,9 @@ fn cycle_checked(library:&Library,server:&Server,port:u16,loaded_content:Option<
     let startup_ms=began.elapsed().as_millis() as u64;
     if let Some(marker)=loaded_content {assert!(events.contains(marker),"Loader did not report the installed content: {:?}",events.logs.lock().unwrap().clone());}
     assert!(manager.process_snapshot(&server.id).unwrap().2.is_some());
-    let response=crate::server_ping::query(([127,0,0,1],port).into()).unwrap();
+    let mut response=None;
+    wait_for("Minecraft status readiness",15,&events,||{response=crate::server_ping::query(([127,0,0,1],port).into()).ok();response.is_some()});
+    let response=response.unwrap();
     assert_eq!(response.online,Some(0));assert_eq!(response.maximum,Some(2));
     assert!(response.version.as_deref().is_some_and(|version|version.contains(&server.version)));
     if server.platform=="paper" {

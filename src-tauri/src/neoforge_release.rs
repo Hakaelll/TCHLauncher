@@ -11,14 +11,15 @@ impl Release {
     pub fn parse(version:&str)->Option<Self>{
         if let Some(value)=version.strip_prefix("1.20.1-"){
             let numbers=numbers(value)?;
-            if numbers[0]!=47{return None;}
+            if numbers.len()!=3||numbers[0]!=47{return None;}
             return Some(Self{minecraft:"1.20.1".into(),version:version.into(),artifact:"forge",numbers});
         }
         let numbers=numbers(version)?;
-        if numbers[0]<20{return None;}
+        let expected_components=if numbers[0]>=26{4}else{3};
+        if numbers[0]<20||numbers.len()!=expected_components{return None;}
         let minecraft=if numbers[0]<26 {
             if numbers[1]==0{format!("1.{}",numbers[0])}else{format!("1.{}.{}",numbers[0],numbers[1])}
-        }else if numbers[1]==0{numbers[0].to_string()}else{format!("{}.{}",numbers[0],numbers[1])};
+        }else if numbers[2]==0{format!("{}.{}",numbers[0],numbers[1])}else{format!("{}.{}.{}",numbers[0],numbers[1],numbers[2])};
         Some(Self{minecraft,version:version.into(),artifact:"neoforge",numbers})
     }
     // Identity/layout only. Install callers still require exact catalog membership.
@@ -27,6 +28,13 @@ impl Release {
         crate::fabric::validate_version(version).ok()?;
         let mut release=Self::parse(version.split('-').next()?)?;
         if release.artifact!="neoforge"{return None;}
+        if release.numbers[0]>=26 {
+            if let Some((_,suffix))=version.split_once('+') {
+                let (stage,number)=suffix.rsplit_once('-')?;
+                if !["snapshot","pre","rc"].contains(&stage)||!number.bytes().all(|value|value.is_ascii_digit())||number.parse::<u32>().ok()?==0{return None;}
+                release.minecraft.push('-');release.minecraft.push_str(suffix);
+            }
+        }
         release.version=version.into();Some(release)
     }
     pub fn installer_url(&self)->String{
@@ -40,7 +48,7 @@ impl Release {
 fn numbers(version:&str)->Option<Vec<u32>>{
     if version.len()>64||!version.bytes().all(|value|value.is_ascii_digit()||value==b'.'){return None;}
     let values=version.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;
-    (values.len()==3).then_some(values)
+    (3..=4).contains(&values.len()).then_some(values)
 }
 pub fn releases(data:&Value)->Result<impl Iterator<Item=Release>+'_,String>{
     let entries=data["versions"].as_array().ok_or("Catálogo NeoForge no válido")?;
