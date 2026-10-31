@@ -15,7 +15,8 @@ export function MovingIndicator({active,axis='vertical',className=''}:{active:st
       const target=Array.from(parent.querySelectorAll<HTMLElement>('[aria-current="page"],[aria-current="step"]')).find(element=>!element.closest('[data-motion-ghost],[inert],[aria-hidden="true"]'))
       if(!target){setPosition(null);return}
       const bounds=target.getBoundingClientRect(),container=parent.getBoundingClientRect()
-      setPosition({x:bounds.left-container.left+parent.scrollLeft,y:bounds.top-container.top+parent.scrollTop,width:bounds.width,height:bounds.height})
+      const next={x:bounds.left-container.left+parent.scrollLeft,y:bounds.top-container.top+parent.scrollTop,width:bounds.width,height:bounds.height}
+      setPosition(current=>current&&current.x===next.x&&current.y===next.y&&current.width===next.width&&current.height===next.height?current:next)
     }
     measure()
     const observer=new ResizeObserver(measure);observer.observe(parent)
@@ -48,7 +49,9 @@ export function useListMotion(ref:RefObject<HTMLElement|null>,identity:string) {
     parent.querySelectorAll<HTMLElement>('[data-layout-id]').forEach(element=>{
       const id=element.dataset.layoutId!,bounds=element.getBoundingClientRect(),position={top:bounds.top-origin.top+parent.scrollTop,left:bounds.left-origin.left+parent.scrollLeft},before=positions.current.get(id)
       next.set(id,position)
-      nextSnapshots.set(id,element.cloneNode(true) as HTMLElement)
+      const snapshot=element.cloneNode(true) as HTMLElement
+      snapshot.setAttribute('data-motion-width',`${element.offsetWidth}px`)
+      nextSnapshots.set(id,snapshot)
       if(before && (Math.abs(before.top-position.top)>1 || Math.abs(before.left-position.left)>1)) {
         animations.push(element.animate([{transform:`translate(${before.left-position.left}px,${before.top-position.top}px)`},{transform:'translate(0,0)'}],{duration:motion.standard,easing:motion.ease}))
       } else if(!before && previousHeight.current!=null) {
@@ -67,7 +70,6 @@ export function useListMotion(ref:RefObject<HTMLElement|null>,identity:string) {
         animation.finished.then(()=>ghost.remove()).catch(()=>{});animations.push(animation)
       }
     }
-    parent.querySelectorAll<HTMLElement>('[data-layout-id]').forEach(element=>{nextSnapshots.get(element.dataset.layoutId!)?.setAttribute('data-motion-width',`${element.offsetWidth}px`)})
     previousHeight.current=origin.height;snapshots.current=nextSnapshots
     positions.current=next
     return()=>{animations.forEach(animation=>animation.cancel());ghosts.forEach(ghost=>ghost.remove())}

@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Shared motion work reduction after 0.53.0
+
+The navigation indicator retains its existing state object when an observer
+reports identical geometry. List motion captures snapshot widths during its
+existing row pass instead of querying and traversing those rows a second time.
+Timing, easing, row ordering and the reduced-motion preference are unchanged.
+
+Actual component/hook probes compare the committed baseline and changed source.
+An initial measure plus two identical observer notifications produces one state
+change instead of three; each list pass makes one row query instead of two.
+These are controlled operation counts, not measured FPS, CPU or RAM improvements.
+Checks also cover all indicator axes, changed/missing targets, observer cleanup,
+reordering/removal, captured ghost widths, animation cancellation and zero list
+geometry/cloning under reduced motion. TypeScript and the Windows frontend build
+pass. Temporary probes are removed, adding no retained test or dependency.
+Native animation appearance remains maintainer validation; installers are unchanged.
+
 ## Console drafts during pending sends after 0.53.0
 
 Command acknowledgements clear the input only if it has not been edited or
