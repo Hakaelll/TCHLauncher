@@ -2,7 +2,14 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Unreleased changes after 0.48.0
+## Changes packaged in local 0.49.0
+
+Unsigned Windows x64 NSIS installer from
+`daac81c7d11068ce06d792d2d002ed586d34598d`. TypeScript, Windows frontend,
+optimized offline packaging, executable/setup versions and embedded icons pass.
+The installer is 6,901,187 bytes and remains local; GitHub stays at 0.48.0.
+Local retention keeps 0.48/0.49 after checking all setup hashes. Cache cleanup is
+deferred by the active-build guard.
 
 RAM and CPU plots now share the inspected timestamp for pointer and keyboard
 navigation. A missing reading keeps the selected time and shows a dash instead of

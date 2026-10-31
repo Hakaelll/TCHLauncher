@@ -15,17 +15,21 @@ continue actionable work without repeated acceptance or screenshot requests.
 ## Build and publication state
 
 - Latest published preview: [0.48.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.48.0).
-- Latest local Windows installer: 0.48.0, unsigned and published with only its EXE.
-- Packaged source: `382aca1b4b645c0952cc5c485d33e4186dc5d95e`. See the
+- Latest local Windows installer: 0.49.0, unsigned and not published on GitHub.
+- Published source: `382aca1b4b645c0952cc5c485d33e4186dc5d95e`. See the
   [0.48.0 changes](docs/release-notes/RELEASE_NOTES_v0.48.0.md) for animation,
   connection, console and download-buffer fixes and their scoped checks.
+- Local 0.49.0 source: `daac81c7d11068ce06d792d2d002ed586d34598d`. See the
+  [0.49.0 changes](docs/release-notes/RELEASE_NOTES_v0.49.0.md). TypeScript,
+  Windows frontend, optimized offline NSIS packaging, versions and icons pass.
+  Only the 0.48/0.49 installers are retained locally; checksums stay local.
 - The maintainer requests publishing the version that closes the current batch.
   Intermediate versions remain local; the usual 3–4-version cadence does not
   postpone that final publication. The 0.48.0 publication fulfills this request.
   Attach only the EXE and keep checksums local. Commit and push continue
   independently; the usual cadence applies to later intermediate versions.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
-- Unreleased after 0.48.0: startup-preference read failures now translate both
+- Packaged in local 0.49.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.
 - JVM installation-preview and operator-conflict notes also use existing
@@ -164,7 +168,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | 0.48.0 NSIS x64 published from commit 382aca1 as an unsigned Windows preview with exactly one verified EXE asset and no checksum attachment. TypeScript, Windows frontend, optimized offline packaging, executable/setup versions and embedded icons pass. It groups post-0.47 animation, console, download-buffer and connection-feedback fixes. Current-source Vanilla and Paper engine checks pass after packaging without changing the installer. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
+| REL-02 | REVIEW | Current installer | Local 0.49.0 NSIS x64 built from commit daac81c, unsigned and not published. TypeScript, Windows frontend, optimized offline packaging, executable/setup versions and embedded icons pass. It groups synchronized RAM/CPU inspection, pagination focus and translated notices. GitHub remains at 0.48.0; local retention keeps 0.48/0.49. Native interaction and gameplay were not repeated; maintainer-owned validation remains nonblocking. |
 
 ## Implemented scope from earlier audits
 

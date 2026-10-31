@@ -1,7 +1,8 @@
 # TCHLauncher 0.49.0
 
-Windows x64 preview, prepared as a local build. The installer is unsigned.
+Windows x64 preview, built locally. The installer is unsigned.
 This version is not a GitHub release; the published preview remains 0.48.0.
+Packaged source: `daac81c7d11068ce06d792d2d002ed586d34598d`.
 
 ## Changes since 0.48.0
 
@@ -29,4 +30,7 @@ translated notices. TypeScript and the Windows frontend build pass.
 Hooks, reads and focus/pointer boundaries are controlled in these checks. Native
 visual, keyboard and screen-reader validation remains with the maintainer. No
 measured CPU/RAM improvement is claimed. No dependency or retained test is added.
-Packaging results will be recorded after the installer is built.
+Optimized offline Windows NSIS packaging, executable/setup versions and embedded
+icons pass. The installer is 6,901,187 bytes. Local retention keeps 0.48 and 0.49;
+the obsolete 0.47 installer was removed after hash verification. Build-cache
+cleanup is deferred while other compiler processes are active.
