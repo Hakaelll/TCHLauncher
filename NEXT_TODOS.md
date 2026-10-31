@@ -67,6 +67,8 @@ continue actionable work without repeated acceptance or screenshot requests.
   inferred from those controlled boundaries.
 - Removed 36 superseded fixed sizing declarations. Parsed final/conditional
   rules and the frontend build pass; no rendered visual check is claimed.
+- Heap-only charts now use heap headline/peak readings and description. Actual
+  component/callback and frontend checks pass; native/rendered use is untested.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.

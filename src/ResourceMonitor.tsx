@@ -15,8 +15,9 @@ function ResourceChart({server,metrics,history,error,metric,windowMs,hoverTime,o
   const [showProcess,setShowProcess]=useState(true),[showHeap,setShowHeap]=useState(true)
   const [autoCpu,setAutoCpu]=useState(true)
   const memory=metric==='memoryBytes'
+  const readingMetric:ChartMetric=memory&&!showProcess?'heapUsedBytes':metric
   const samples=chartSamples(history,server.id,metrics?.pid,windowMs)
-  const peakValues=samples.map(sample=>sample[metric]).filter(measured)
+  const peakValues=samples.map(sample=>sample[readingMetric]).filter(measured)
   const peak=peakValues.length?Math.max(...peakValues):null
   const memoryKeys:MemoryMetric[]=[...(showProcess?['memoryBytes' as const]:[]),...(showHeap?['heapUsedBytes' as const]:[])]
   const maximum=memory?memoryDomain(samples,server.memoryMaxMb*1024**2,memoryKeys):cpuDomain(peak,autoCpu)
@@ -29,7 +30,7 @@ function ResourceChart({server,metrics,history,error,metric,windowMs,hoverTime,o
   const heapSegments=memory&&showHeap?seriesSegments(samples,'heapUsedBytes'):[]
   const hasHeap=samples.some(sample=>measured(sample.heapUsedBytes))
   const format = memory ? bytesLabel : (value: number) => `${value.toFixed(1)} %`
-  const latest = metrics?.[metric]
+  const latest = readingMetric==='heapUsedBytes'?metrics?.heap?.usedBytes:metrics?.[metric]
   const current = latest == null ? '—' : format(latest)
   const hovered=samples.find(sample=>sample.sampledAt===hoverTime)
   const selected=hovered??samples.at(-1)
@@ -37,7 +38,7 @@ function ResourceChart({server,metrics,history,error,metric,windowMs,hoverTime,o
   const area=(segment:MetricSample[],key:ChartMetric)=>[`${x(segment[0])},142`,...segment.flatMap((sample,i)=>i===0?[`${x(sample)},${y(sample,key)}`]:[`${x(sample)},${y(segment[i-1],key)}`,`${x(sample)},${y(sample,key)}`]),`${x(segment[segment.length-1])},142`].join(' ')
 
   return <section className={`resource-chart ${metric === 'memoryBytes' ? 'memory' : 'cpu'}`} aria-label={metric === 'memoryBytes' ? t("Memoria del proceso Java") : t("CPU del proceso Java")}>
-    <div className="chart-heading"><PixelIcon kind={memory?'memory':'cpu'}/><div><h3>{memory?t("Memoria"):'CPU'}</h3><p>{memory?t("RAM residente del proceso Java"):t("Uso del proceso Java")}</p></div>{(memory||autoCpu)&&<span className="chart-axis-note">{t("Escala automática")}</span>}</div>
+    <div className="chart-heading"><PixelIcon kind={memory?'memory':'cpu'}/><div><h3>{memory?t("Memoria"):'CPU'}</h3><p>{memory?readingMetric==='heapUsedBytes'?t("Heap usado"):t("RAM residente del proceso Java"):t("Uso del proceso Java")}</p></div>{(memory||autoCpu)&&<span className="chart-axis-note">{t("Escala automática")}</span>}</div>
     <div className="monitor-reading"><strong><AnimatedValue key={`${server.id}:${metrics?.pid}`} value={latest} format={format}/></strong><small><span>{t("Pico del intervalo")}</span><b>{peak===null?'—':format(peak)}</b></small></div>
     <div className="chart-sample-reading" aria-live={hovered?'polite':'off'}><time>{selected?formatTime(selected.sampledAt):'—'}</time><span>{hovered?t("Muestra seleccionada"):t("Última muestra")}</span>{memory&&showProcess&&<strong className="process-sample">{t("RAM")} {measured(selected?.memoryBytes)?bytesLabel(selected!.memoryBytes!):'—'}</strong>}{memory&&showHeap&&<strong className="heap-sample">{t("Heap")} {measured(selected?.heapUsedBytes)?bytesLabel(selected!.heapUsedBytes!):'—'}</strong>}{!memory&&<strong className="cpu-sample">{measured(selected?.cpuPercent)?format(selected!.cpuPercent!):'—'}</strong>}</div>
 

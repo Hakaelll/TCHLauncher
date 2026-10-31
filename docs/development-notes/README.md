@@ -2,6 +2,15 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Visible memory readings after 0.55.0
+
+With resident RAM hidden, the memory chart headline, peak and description now
+follow heap usage. Showing resident RAM restores its readings; CPU is unchanged.
+Actual chart/helper and legend-callback checks reproduce the resident/heap mismatch
+and verify switching, peaks and missing heap. TypeScript and the frontend build
+pass. No native telemetry or rendered pixels are checked. Temporary probe removed;
+local 0.55 packaging is unchanged.
+
 ## Superseded sizing declarations after 0.55.0
 
 Removed 36 earlier sizing/spacing declarations, saving 707 stylesheet-source
