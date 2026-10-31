@@ -11,7 +11,8 @@ export function reconcileTasks(current:Record<string,Progress>,snapshot:Progress
     if(previous?.taskId===item.taskId&&!isTaskActive(previous))continue
     next[item.serverId]=item
   }
-  return next
+  const entries=Object.entries(next)
+  return entries.length===Object.keys(current).length&&entries.every(([id,item])=>current[id]===item)?current:next
 }
 
 export function dismissTask(current:Record<string,Progress>,serverId:string,taskId:string):Record<string,Progress>{

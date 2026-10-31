@@ -2,6 +2,20 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Idle task-state reuse after 0.55.0
+
+Task reconciliation reuses its previous map when the keys and task references
+are unchanged. Empty snapshots and retained terminal outcomes no longer create
+new application state on every poll. Active snapshots still remain authoritative:
+missing jobs are removed, replacement tasks are accepted and changed progress
+gets a new map. Poll timing, native reads and event handling are unchanged.
+
+Thirteen direct helper checks reproduce the old idle identity change and cover
+terminal/stale snapshots, updates, removals, replacements and source preservation.
+TypeScript and the production frontend build pass. This proves state reuse, not
+a measured CPU, RAM or frame-rate improvement; no native UI is exercised. The
+temporary probe is removed with no retained test added. Local 0.55 is unchanged.
+
 ## Local Windows 0.55.0 package
 
 Unsigned local x64 installer from `ee1669d5610902bce956fcabc02a9f05756ebb03`.

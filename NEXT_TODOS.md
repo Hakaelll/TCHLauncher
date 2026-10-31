@@ -41,6 +41,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   isolated dependency-size and runtime memory effects remain unmeasured.
 - Publication follows the usual 3–4-version cadence. The requested final batch
   release remains authorized; commits and pushes proceed independently.
+- Post-0.55 task reconciliation reuses unchanged maps for idle snapshots and
+  retained outcomes, avoiding needless state replacement. Thirteen direct helper
+  checks and frontend compilation pass; runtime performance remains unmeasured.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
