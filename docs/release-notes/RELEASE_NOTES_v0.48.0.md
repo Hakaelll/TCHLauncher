@@ -1,8 +1,9 @@
 # TCHLauncher 0.48.0
 
-Windows x64 preview. The installer is unsigned and is not published on GitHub.
+Windows x64 preview. The installer is unsigned.
 Packaged source commit: `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
-The latest published preview remains 0.47.0.
+Published at the maintainer's request to release the version closing this batch.
+Only the EXE is attached; checksums remain local.
 
 ## Changes since 0.47.0
 

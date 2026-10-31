@@ -14,17 +14,16 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
-- Latest published preview: [0.47.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.47.0).
-- Latest local Windows installer: 0.48.0, unsigned and not published.
-- Packaged source: `db647c2554e0db8cdf493af278a5938c4684dc59`. See the
-  [0.47.0 changes](docs/release-notes/RELEASE_NOTES_v0.47.0.md) and scoped checks.
-- Subsequent animation, connection, console and download-buffer fixes are grouped
-  in the [local 0.48.0 build](docs/release-notes/RELEASE_NOTES_v0.48.0.md), from
-  `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
+- Latest published preview: [0.48.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.48.0).
+- Latest local Windows installer: 0.48.0, unsigned and published with only its EXE.
+- Packaged source: `382aca1b4b645c0952cc5c485d33e4186dc5d95e`. See the
+  [0.48.0 changes](docs/release-notes/RELEASE_NOTES_v0.48.0.md) for animation,
+  connection, console and download-buffer fixes and their scoped checks.
 - The maintainer requests publishing the version that closes the current batch.
   Intermediate versions remain local; the usual 3–4-version cadence does not
-  postpone that final publication. Attach only the EXE and keep checksums local.
-  Commit and push continue independently.
+  postpone that final publication. The 0.48.0 publication fulfills this request.
+  Attach only the EXE and keep checksums local. Commit and push continue
+  independently; the usual cadence applies to later intermediate versions.
 - Pending native interaction and affected-host validation remain scoped below.
 
 ## Evidence already available

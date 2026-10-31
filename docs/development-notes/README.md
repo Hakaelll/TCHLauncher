@@ -42,9 +42,11 @@ test case, application code or package changed.
 
 Local unsigned Windows x64 NSIS package from `382aca1b4b645c0952cc5c485d33e4186dc5d95e`.
 TypeScript, frontend, optimized offline packaging, executable/setup versions and
-embedded icons pass. The installer is 6,904,819 bytes and has not been
-published on GitHub. The published preview remains 0.47.0; native interaction and
-gameplay were not repeated for this package.
+embedded icons pass. The installer is 6,904,819 bytes and is published as the
+0.48.0 Windows preview, fulfilling the maintainer's request to release the
+batch-closing version. GitHub contains exactly one EXE with the verified digest;
+no checksum file is attached. Native interaction and gameplay were not repeated
+for this package.
 
 LAN and NAT-PMP clipboard feedback belongs to the exact address and most recent
 copy request. A changed address cannot inherit Copied or a clipboard error from
