@@ -22,6 +22,10 @@ continue actionable work without repeated acceptance or screenshot requests.
   backup/restore followed by a restored-world boot. The retained case waits for
   actual status availability after the startup message; production ping is
   unchanged. Native UI, client gameplay and installed mods are outside this run.
+- Loader-update comparison also supports annual four-component versions. Actual
+  helper checks reproduce the omission and preserve legacy/Fabric ordering,
+  prerelease promotion and invalid-number rejection. The optimized native test
+  target compiles offline; the update operation itself is not rerun here.
 - Post-0.56 library name ordering follows the selected language. Scoped ES/EN
   helper checks and frontend compilation pass; native/rendered use is untested.
 - Installed-content ordering and diagnostic tie-breaks follow the same locale,

@@ -27,6 +27,14 @@ production protocol succeeds when status becomes available. Temporary diagnostic
 code and downloaded probe artifacts are removed. No mod-loading, Minecraft
 client gameplay, native UI or physical-router claim follows from this run.
 
+Loader-update comparisons also accept four numeric components. The actual helper
+probe reproduced the omitted annual update, then passed annual/legacy/Fabric,
+same-build prerelease promotion, downgrade rejection, invalid numbers, sorting
+and deduplication checks. The optimized native test target compiles offline.
+Exact catalog membership, installation fingerprints and update publication are
+unchanged. This check does not execute a loader update; the temporary probe is
+removed without adding a retained test or dependency.
+
 ## Inventory name-order locale after 0.56.0
 
 Name ordering follows the selected language instead of always using Spanish.

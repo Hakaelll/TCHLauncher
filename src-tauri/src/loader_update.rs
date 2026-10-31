@@ -57,7 +57,7 @@ pub fn installed(server:&Server)->Result<(String,String),String> {
     let mut digest=Sha512::new();for value in [&server.id,&server.platform,&server.version,server.jar_path.as_ref().unwrap(),server.java_path.as_deref().unwrap_or("")]{digest.update(value.as_bytes());digest.update([0]);}digest.update(bytes);digest.update(fs::read(jar).map_err(|e|e.to_string())?);
     Ok((version.into(),format!("{:x}",digest.finalize())))
 }
-fn numeric(version:&str)->Option<Vec<u32>> {let version=version.strip_prefix("1.20.1-").unwrap_or(version);let values=version.split('-').next()?.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;(values.len()==3).then_some(values)}
+fn numeric(version:&str)->Option<Vec<u32>> {let version=version.strip_prefix("1.20.1-").unwrap_or(version);let values=version.split('-').next()?.split('.').map(str::parse::<u32>).collect::<Result<Vec<_>,_>>().ok()?;(3..=4).contains(&values.len()).then_some(values)}
 fn newer(target:&str,current:&str)->bool {match (numeric(target),numeric(current)){(Some(target),Some(old))=>target>old||(target==old&&current.strip_prefix("1.20.1-").unwrap_or(current).contains('-')),_=>false}}
 pub fn review(server:&Server,task:&DownloadTask)->Result<Review,String> {
     let (current,fingerprint)=installed(server)?;
