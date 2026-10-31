@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useRef,useState} from 'react'
 import type {ImportInspection} from './api'
 import {Icon} from './ServerPresentation'
 import {listWindow} from './listWindow'
@@ -20,15 +20,17 @@ const valueLabels:Record<string,string>={
 
 function InventoryFiles({title,files}: {title:string;files:readonly string[]}) {
   const [requestedPage,setPage]=useState(0)
+  const resultRef=useRef<HTMLUListElement>(null)
+  const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.scrollIntoView({block:'start'})}
   const page=listWindow(files,requestedPage,24)
   return <details className="import-inventory-files">
     <summary><Icon name="folder" size={16}/><span>{title}</span><strong>{formatNumber(files.length)}</strong><span className="import-inventory-toggle"><Icon name="arrow" size={13}/></span></summary>
     {files.length ? <>
-      <ul>{page.rows.map(name=><li key={name}><span className="import-file-mark" aria-hidden="true"/>{name}</li>)}</ul>
+      <ul ref={resultRef} tabIndex={-1} aria-label={title}>{page.rows.map(name=><li key={name}><span className="import-file-mark" aria-hidden="true"/>{name}</li>)}</ul>
       {page.pages>1&&<nav className="import-inventory-pages" aria-label={title}>
-        <button type="button" disabled={page.page===0} onClick={()=>setPage(page.page-1)}>{t('Anterior')}</button>
+        <button type="button" disabled={page.page===0} onClick={()=>changePage(page.page-1)}>{t('Anterior')}</button>
         <span>{t('Página {0} de {1}',page.page+1,page.pages)}</span>
-        <button type="button" disabled={page.page+1===page.pages} onClick={()=>setPage(page.page+1)}>{t('Siguiente')}</button>
+        <button type="button" disabled={page.page+1===page.pages} onClick={()=>changePage(page.page+1)}>{t('Siguiente')}</button>
       </nav>}
     </> : <p className="field-help">{t('No se encontraron archivos en esta categoría.')}</p>}
   </details>

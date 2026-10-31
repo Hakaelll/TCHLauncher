@@ -17,6 +17,13 @@ pass afterward for both directions and an absent ref. TypeScript and the Windows
 frontend build pass. Focus/scroll boundaries are controlled; native interaction
 remains maintainer validation. No retained test or dependency is added.
 
+Players and pre-import file inventories now follow the same paging behavior.
+Players focus the result count; import inventories focus their labeled file list.
+Eight actual callback cases cover Previous/Next and absent refs, reproducing the
+previous missing movement and passing after the change. TypeScript and the Windows
+frontend build pass. Focus/scroll boundaries remain controlled; no native keyboard
+or screen-reader result is claimed. Filtering and server operations are unchanged.
+
 Startup preferences now translate both cached-data notices after a read failure.
 The English strings already existed; two JSX branches bypassed `t`. A focused
 render check reproduces both Spanish leaks before the fix and passes afterward

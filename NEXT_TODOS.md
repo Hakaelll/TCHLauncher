@@ -34,6 +34,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Modrinth pagination moves focus and the viewport to the results status. Both
   directions and an absent target pass focused callback checks; TypeScript and
   the Windows frontend build pass. Native interaction remains manual validation.
+- Players and pre-import file lists now follow the same paging behavior, with
+  focused result counts or labeled lists. Both directions and absent refs pass
+  eight callback cases; TypeScript and the Windows frontend build pass.
 
 ## Evidence already available
 
