@@ -23,8 +23,8 @@ export function BackupsView({server,copies,loaded,loading,error,busy,reasons,onC
   const window=listWindow(visible,page)
   useEffect(()=>{setPage(window.page)},[window.page])
   const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}
-  const latest=copies.reduce<Backup|null>((found,copy)=>!found||copy.createdAt>found.createdAt?copy:found,null)
-  const availableReasons=[...new Set(copies.map(copy=>copy.reason).filter((value):value is string=>!!value))]
+  const latest=useMemo(()=>copies.reduce<Backup|null>((found,copy)=>!found||copy.createdAt>found.createdAt?copy:found,null),[copies])
+  const availableReasons=useMemo(()=>[...new Set(copies.map(copy=>copy.reason).filter((value):value is string=>!!value))],[copies])
   const stopped=['stopped','crashed','error'].includes(server.state)
   useListMotion(list,window.rows.map(copy=>copy.id).join())
   return <section className="backup-view">

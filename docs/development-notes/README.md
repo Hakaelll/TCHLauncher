@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Backup inventory derivation after 0.55.0
+
+The backup view memoizes its latest-copy selection and available reason values
+by inventory reference. A controlled actual-component rerender with 253 copies
+previously repeats two full derived-data scans; afterward it repeats neither.
+Changed inventories recompute both, preserving latest markers, reason ordering,
+restore identity/guards and empty states. TypeScript and the frontend build pass.
+This counts scans, not CPU/RAM savings. Hooks and presentation boundaries are
+controlled; no native restore or rendered UI is exercised. Temporary probe
+removed, with no dependency or retained test added. Local 0.55 is unchanged.
+
 ## Focus after server removal after 0.55.0
 
 Closing the deletion dialog after its server leaves the inventory requests focus

@@ -55,6 +55,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 - Post-removal dialog closure requests focus on the current heading when its
   opener is gone. Scoped callback checks and frontend compilation pass; native
   keyboard and rendered appearance remain outside that evidence.
+- Backup latest/reason derivation now reuses unchanged inventories. Controlled
+  component checks preserve results and remove two repeated full scans per
+  unrelated rerender; frontend compilation passes, without a runtime benchmark.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
