@@ -26,10 +26,11 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.55.0 changes](docs/release-notes/RELEASE_NOTES_v0.55.0.md). Five retained frontend
   tests, TypeScript, production frontend, optimized offline NSIS packaging,
   versions and embedded icons pass. GitHub remains on published 0.54.0.
-- Local retention keeps 0.54/0.55; checksums stay local. Generated-cache cleanup is
-  deferred because the existing guard detects other active builds; caches remain
-  untouched. Retained package/executable hashes are unchanged. The obsolete local
-  0.53 installer was verified and removed.
+- Local retention keeps 0.54/0.55; checksums stay local. The initially deferred
+  guarded cleanup now removes 1,916,190,619 logical bytes of generated files after
+  active builds finish. Retained package/executable hashes are unchanged. The
+  obsolete local 0.53 installer was verified and removed. File lengths are not
+  allocated-disk or application RAM measurements.
 - Post-0.52 source cleanup removes 13 unused platform icon derivatives
   (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
   actual CLI generation and current executable/setup icon-pixel checks pass.

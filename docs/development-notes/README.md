@@ -2,6 +2,15 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Deferred cache cleanup completed after 0.55.0
+
+The existing cleanup guard now permits removal after active builds finish.
+It removes 1,916,190,619 logical bytes from generated release dependencies,
+build metadata, symbols and frontend output. The 0.54/0.55 installers and current
+executable retain their verified hashes before/after cleanup. Server libraries
+and source are untouched. Counts describe file lengths, not allocated disk space
+or runtime memory. Compact receipts remain local; no new package or release.
+
 ## Immediate ownership of application actions after 0.55.0
 
 The existing global busy state now has a synchronous owner. General actions,

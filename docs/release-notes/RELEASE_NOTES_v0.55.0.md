@@ -38,7 +38,10 @@ tests are added. Remaining manual checks stay maintainer-owned and nonblocking.
 Packaged source: `ee1669d5610902bce956fcabc02a9f05756ebb03`. Five retained frontend tests, TypeScript, the
 production frontend, optimized offline Windows NSIS packaging, executable/setup
 versions and embedded icons pass. The installer is 6,881,643 bytes. Generated-cache
-cleanup is deferred while other builds are active. The 0.54/0.55 installers and
+cleanup was initially deferred while other builds were active. The 0.54/0.55 installers and
 executable retain their verified hashes. The obsolete local 0.53 setup is verified
 and removed. Checksums stay local. These are file lengths, not allocated-disk or
 runtime performance measurements. No native UI or gameplay is repeated for packaging.
+
+Follow-up guarded cleanup removes 1,916,190,619 logical bytes of generated files
+after active builds finish. Installer/executable hashes remain unchanged.
