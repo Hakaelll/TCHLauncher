@@ -32,5 +32,7 @@ visual, keyboard and screen-reader validation remains with the maintainer. No
 measured CPU/RAM improvement is claimed. No dependency or retained test is added.
 Optimized offline Windows NSIS packaging, executable/setup versions and embedded
 icons pass. The installer is 6,901,187 bytes. Local retention keeps 0.48 and 0.49;
-the obsolete 0.47 installer was removed after hash verification. Build-cache
-cleanup is deferred while other compiler processes are active.
+the obsolete 0.47 installer was removed after hash verification. Protected
+post-build cleanup removes 1,923,146,108 logical bytes of generated cache after
+the active-build guard clears. Both retained setup hashes and the executable
+hash remain unchanged; user libraries are outside the cleanup paths.

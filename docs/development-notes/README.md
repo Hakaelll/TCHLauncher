@@ -21,8 +21,10 @@ Unsigned Windows x64 NSIS installer from
 `daac81c7d11068ce06d792d2d002ed586d34598d`. TypeScript, Windows frontend,
 optimized offline packaging, executable/setup versions and embedded icons pass.
 The installer is 6,901,187 bytes and remains local; GitHub stays at 0.48.0.
-Local retention keeps 0.48/0.49 after checking all setup hashes. Cache cleanup is
-deferred by the active-build guard.
+Local retention keeps 0.48/0.49 after checking all setup hashes. Protected cache
+cleanup, initially deferred by active compiler processes, now removes
+1,923,146,108 logical bytes. Both retained setup hashes and the executable hash
+remain unchanged. This measures file lengths, not allocated-disk savings.
 
 RAM and CPU plots now share the inspected timestamp for pointer and keyboard
 navigation. A missing reading keeps the selected time and shows a dash instead of

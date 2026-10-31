@@ -23,6 +23,8 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.49.0 changes](docs/release-notes/RELEASE_NOTES_v0.49.0.md). TypeScript,
   Windows frontend, optimized offline NSIS packaging, versions and icons pass.
   Only the 0.48/0.49 installers are retained locally; checksums stay local.
+- Deferred post-0.49 cache cleanup is complete: 1,923,146,108 logical bytes of
+  generated files removed, with both retained setups and the executable unchanged.
 - The maintainer requests publishing the version that closes the current batch.
   Intermediate versions remain local; the usual 3–4-version cadence does not
   postpone that final publication. The 0.48.0 publication fulfills this request.
