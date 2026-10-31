@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Source after local 0.45.0
+
+The English catalog now covers 127 more application-owned native messages for
+server startup, JVM/runtime settings, players/permissions, properties, import,
+application folders and basic network checks. Existing translations are retained;
+parameterized property errors preserve names such as `query.port` and numeric
+limits. The scheduler help refers to the existing English action label.
+A player-list validation message reproduces the Spanish fallback before the
+change. Actual locale-module checks pass every added message in ES/EN, formatted
+native strings, template arguments and representative unchanged raw text.
+TypeScript and the Windows frontend build pass; Vite reports its main-chunk size
+advisory. No runtime size/performance gain or native interaction is claimed.
+Further native copy, especially installation/content, backup and router errors,
+still needs review; the heuristic literal inventory is not a complete census.
+This is unpackaged source after the local 0.45 installer. No version or release
+is generated for this catalog update.
+
 ## Workspace maintenance after 0.45.0
 
 Removed the unused 0.32 commit-message draft, ten ignored localization-migration
