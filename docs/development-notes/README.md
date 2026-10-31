@@ -2,6 +2,25 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Streaming retention review after 0.50.0
+
+Retention preview no longer collects and globally sorts every directory entry
+in a backup. The sorted walker processes entries as it visits them; individual
+directory sorting still buffers siblings. Existing metadata, size, symbolic-link
+and location checks remain in the traversal. No dependency or setting changes.
+The fingerprint is internal to reviewed plans and is not a file-content checksum.
+
+A temporary native case passes before and after the change using three nested
+backup trees and a real SQLite library. It verifies exact byte totals and oldest
+removal order, protected/newest preservation, repeatable review fingerprints,
+refusal after a reviewed file changes, successful prune/database reconciliation,
+preserved newest bytes and disabled retention. The full native test target
+compiles; the probe is removed afterward and no retained test is added.
+
+This establishes the scoped behavior and removal of the whole-tree collection.
+It does not measure peak RAM, latency or behavior on a large production library.
+The existing 0.50 installer and published 0.48 release are unchanged.
+
 ## Stop-backup preference recovery after 0.50.0
 
 The native setter now returns the exact idle preference committed by its SQL

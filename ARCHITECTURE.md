@@ -224,7 +224,11 @@ These are local heuristics, not measured requirements; saved JVM limits are unch
 restore validation and recovery. Restore stages files and coordinates the directory
 change with SQLite; a damaged snapshot cannot become an arbitrary path. Retention
 lives in [backup_retention.rs](src-tauri/src/backup_retention.rs); clean-stop copies
-are coordinated by [stop_backup.rs](src-tauri/src/stop_backup.rs).
+are coordinated by [stop_backup.rs](src-tauri/src/stop_backup.rs). Retention scans
+walk each backup in deterministic filename order without retaining its entire
+entry list. Sorting may buffer individual directories. Preview and apply both
+recompute the internal fingerprint and reject a changed tree or policy before
+pruning; the newest and operation-protected copies remain protected.
 
 [minecraft_update.rs](src-tauri/src/minecraft_update.rs) and
 [loader_update.rs](src-tauri/src/loader_update.rs) review compatibility, Java and

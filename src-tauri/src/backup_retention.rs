@@ -39,8 +39,8 @@ pub fn preview(root:&Path,id:&str,protected:&[String])->Result<Plan,String> {
         Uuid::parse_str(&copy.id).map_err(|_|"Identificador de copia no válido")?;
         let expected=base.join(&copy.id);if Path::new(&copy.path)!=expected {return Err("La ruta de la copia no corresponde a la biblioteca".into());}check_child(&base,&expected)?;
         digest.update(copy.id.as_bytes());digest.update(copy.created_at.as_bytes());let mut size=0u64;
-        let mut files=walkdir::WalkDir::new(&expected).into_iter().collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())?;files.sort_by_key(|entry|entry.path().to_owned());
-        for entry in files {
+        for entry in walkdir::WalkDir::new(&expected).sort_by_file_name() {
+            let entry=entry.map_err(|e|e.to_string())?;
             if entry.file_type().is_symlink(){return Err("La copia contiene enlaces simbólicos".into());}
             let meta=entry.metadata().map_err(|e|e.to_string())?;
             digest.update(entry.path().strip_prefix(&base).map_err(|e|e.to_string())?.to_string_lossy().as_bytes());digest.update(meta.len().to_le_bytes());
