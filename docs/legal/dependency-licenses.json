@@ -26,24 +26,6 @@
     },
     {
       "ecosystem": "cargo",
-      "name": "aes",
-      "version": "0.8.4",
-      "license": "MIT OR Apache-2.0",
-      "source": "https://github.com/RustCrypto/block-ciphers",
-      "sourceArchive": "https://crates.io/api/v1/crates/aes/0.8.4/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "f7e8ab639afef15573680c97f796166835cbeb3865175882fea41c60d106b733"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
       "name": "aho-corasick",
       "version": "1.1.5",
       "license": "Unlicense OR MIT",
@@ -615,46 +597,6 @@
         {
           "file": "LICENSE.txt",
           "sha256": "946c9835d8034d24404f8cfec5f4654cee5dad17e944afc3d06d742cf2882831"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
-      "name": "cipher",
-      "version": "0.4.4",
-      "license": "MIT OR Apache-2.0",
-      "source": "https://github.com/RustCrypto/traits",
-      "sourceArchive": "https://crates.io/api/v1/crates/cipher/0.4.4/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "5c7bd92d1f096f12203dc1b601e3cb17484fa1b023e30b6b8edcc80e416237ec"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
-      "name": "constant_time_eq",
-      "version": "0.3.1",
-      "license": "CC0-1.0 OR MIT-0 OR Apache-2.0",
-      "source": "https://github.com/cesarb/constant_time_eq",
-      "sourceArchive": "https://crates.io/api/v1/crates/constant_time_eq/0.3.1/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
-        },
-        {
-          "file": "LICENSE-CC0",
-          "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
-        },
-        {
-          "file": "LICENSE-MIT0",
-          "sha256": "9a3aeb3f63659c4c6302d315e1d98784d1e8559858a47ff9562e091bb922d28d"
         }
       ]
     },
@@ -1724,24 +1666,6 @@
     },
     {
       "ecosystem": "cargo",
-      "name": "hmac",
-      "version": "0.12.1",
-      "license": "MIT OR Apache-2.0",
-      "source": "https://github.com/RustCrypto/MACs",
-      "sourceArchive": "https://crates.io/api/v1/crates/hmac/0.12.1/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
       "name": "html5ever",
       "version": "0.39.0",
       "license": "MIT OR Apache-2.0",
@@ -2117,24 +2041,6 @@
         {
           "file": "LICENSE",
           "sha256": "270b0d81891aa44c7e8726cf9432dade9556a01c848bacd2f3ef839c9c1a1859"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
-      "name": "inout",
-      "version": "0.1.4",
-      "license": "MIT OR Apache-2.0",
-      "source": "https://github.com/RustCrypto/utils",
-      "sourceArchive": "https://crates.io/api/v1/crates/inout/0.1.4/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "304b898acad7f02e03d6d8832d682a3b43ee729ab5d3a069af5a36979083b6b4"
         }
       ]
     },
@@ -2761,24 +2667,6 @@
         {
           "file": "LICENSE-MIT",
           "sha256": "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
-      "name": "pbkdf2",
-      "version": "0.12.2",
-      "license": "MIT OR Apache-2.0",
-      "source": "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2",
-      "sourceArchive": "https://crates.io/api/v1/crates/pbkdf2/0.12.2/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "8ea5cea8ddecc46a64a004406414d25529fca7eb71cfd8c0cfe49c343bff79c5"
         }
       ]
     },
@@ -5655,24 +5543,6 @@
         {
           "file": "LICENSE-MIT",
           "sha256": "8c7516d4b27b1e495be5e38b612298b63de48d05f49cdac94f70f3cd70f8864b"
-        }
-      ]
-    },
-    {
-      "ecosystem": "cargo",
-      "name": "zeroize_derive",
-      "version": "1.5.0",
-      "license": "Apache-2.0 OR MIT",
-      "source": "https://github.com/RustCrypto/utils",
-      "sourceArchive": "https://crates.io/api/v1/crates/zeroize_derive/1.5.0/download",
-      "notices": [
-        {
-          "file": "LICENSE-APACHE",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
-        },
-        {
-          "file": "LICENSE-MIT",
-          "sha256": "b8c6939380a400f53e11923d50fcc4dd2fa1ba8339fd9d04cda38a0251b6c9b0"
         }
       ]
     },

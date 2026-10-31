@@ -2,6 +2,23 @@
 
 Engineering records, test evidence and pending native checks.
 
+## ZIP dependency reduction after 0.52.0
+
+ZIP uses explicit features matching its previous default compression codecs and
+time support, with unused AES/password support disabled. Application readers do
+not supply archive passwords. The locked Windows registry graph drops from 342
+to 335 packages without added packages or version changes. Third-party notices
+and their inventory are regenerated with no missing local license texts.
+
+A targeted native test passes before and after the feature change using the same
+Stored, Deflate, Bzip2, Zstd and Xz modpack fixtures. Production inspection checks
+manifest metadata, selected override paths and exact extracted bytes. The same
+AES-encrypted fixture is rejected without a password in both configurations.
+Deflate64, LZMA and time features remain enabled but are not separately exercised
+by these fixtures. Temporary probes and fixtures are removed; no retained test is
+added. This measures dependency removal, not installed size, RAM or performance.
+No installer or GitHub release is generated for this source change.
+
 ## Empty discovery search recovery after 0.52.0
 
 Broadening an empty content search keeps both the submitted query and any current

@@ -31,6 +31,10 @@ continue actionable work without repeated acceptance or screenshot requests.
   (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
   actual CLI generation and current executable/setup icon-pixel checks pass.
   No new package is built and Git history/server libraries remain untouched.
+- Post-0.52 ZIP features remove unused password encryption and seven Windows
+  registry packages, preserving compression/time features. Before/after native
+  archive checks pass on identical fixtures; legal inventories are regenerated.
+  Installer size and runtime memory effects remain unmeasured.
 - Publication follows the usual 3–4-version cadence. The requested final batch
   release remains authorized; commits and pushes proceed independently.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
