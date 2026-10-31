@@ -38,6 +38,9 @@ Los commits no cuentan como versiones.
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa
 Computer Use ni se repiten solicitudes de capturas o aceptación visual.
+El 31 de octubre de 2026 el usuario confirma que los fallos antiguos del otro
+ordenador ya están resueltos. Se cierran esos informes por su confirmación y no
+se vuelven a usar para bloquear el trabajo.
 
 ## Brand Commitments
 

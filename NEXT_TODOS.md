@@ -24,13 +24,16 @@ continue actionable work without repeated acceptance or screenshot requests.
   postpone that final publication. The 0.48.0 publication fulfills this request.
   Attach only the EXE and keep checksums local. Commit and push continue
   independently; the usual cadence applies to later intermediate versions.
-- Pending native interaction and affected-host validation remain scoped below.
+- Pending manual interaction checks remain scoped below and maintainer-owned.
 - Unreleased after 0.48.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.
 - JVM installation-preview and operator-conflict notes also use existing
   translations. Focused paragraph renders cover English/Spanish and conditional
   visibility; no native runtime or permission-operation result is claimed.
+- Modrinth pagination moves focus and the viewport to the results status. Both
+  directions and an absent target pass focused callback checks; TypeScript and
+  the Windows frontend build pass. Native interaction remains manual validation.
 
 ## Evidence already available
 
@@ -107,7 +110,7 @@ scenarios. Detailed observations remain in
 
 Source review confirms implemented UI/API/native paths for content, existing-server
 import, players and worlds. Their remaining work is acceptance of the recorded
-flows and affected-host cases, so they use `REVIEW`, not `DONE`. The review does
+flows and maintainer-owned manual checks, so they use `REVIEW`, not `DONE`. The review does
 not establish unobserved native interaction or client outcomes.
 
 | ID | Status | Area | Remaining acceptance evidence |
@@ -132,7 +135,7 @@ not establish unobserved native interaction or client outcomes.
 | PACK-01 | REVIEW | Modpack import | Reviewed selection and staged publication implemented. Real Fabric 1.21.4/Lithium mrpack install and boot passed, including exact loader, override precedence, excluded client/optional files and protected settings. Completed imports retain acknowledgement if library refresh fails; retry refreshes data only. Complex third-party packs and native/client outcomes remain open. |
 | IMPORT-01 | REVIEW | Existing server import | Detection, copy/manage choice and recoverable publication implemented. Acknowledged servers remain visible and continue preparation after a library refresh failure. Isolated native inspection and SQLite import pass eight copy/manage cases for renamed Paper/Fabric, legacy Vanilla and an explicitly confirmed unknown launcher; source/copied bytes and permission inventories remain intact and scripts are never run. These are metadata fixtures, not executable Minecraft launchers. Verify native interaction and real custom-launcher boot. |
 | IMPORT-02 | REVIEW | World import during creation | Wizard world copying and validation implemented. Verify native source selection and worlds from different versions. |
-| PLAYER-01 | REVIEW | Players and permissions | File inventories, online commands, whitelist import, OP and bans connected. Online rows now use session-observed UUIDs from server logs and show unknown identity explicitly; historical names do not select their skins. Known identities can be added directly to the whitelist by UUID while stopped, with existing-entry status and preserved native acknowledgement. Banned IP rows now support stopped-server removal with a safety copy, preserving live Minecraft commands while running. Verify actual client logins and imported Minehut account identity on the affected host. |
+| PLAYER-01 | REVIEW | Players and permissions | File inventories, online commands, whitelist import, OP and bans connected. Online rows now use session-observed UUIDs from server logs and show unknown identity explicitly; historical names do not select their skins. Known identities can be added directly to the whitelist by UUID while stopped, with existing-entry status and preserved native acknowledgement. Banned IP rows now support stopped-server removal with a safety copy, preserving live Minecraft commands while running. Earlier imported Minehut identity/skin report is resolved by maintainer confirmation on October 31, 2026; broader client flows remain manual validation. |
 | WORLD-01 | REVIEW | World operations and combined export | Real Fabric/Lithium ZIP export/import and populated Paper three-dimension folder export/import pass. Paper checks 45 world-file hashes before boot and three saved blocks after boot. Verify native/client round trips and broader content. |
 | NET-01 | REVIEW | LAN connection | Local address, port state and loopback Minecraft status implemented. Post-0.47 LAN/NAT-PMP copy feedback is scoped to the actual address and latest request; controlled component checks preserve unrelated errors, disposal, LAN timing and ES/EN labels. Frontend builds pass. Verify native clipboard and connection from a separate LAN client. |
 | NET-TUNNEL-01 | DEFERRED | External tunnels | Bore removed at user request; no external tunnel is required. Revisit only if requested. |
@@ -184,29 +187,25 @@ download checksum, and cancellation of interrupted dialog exits.
    0.39.0 report. Real installed-app scheduled actions also passed independently.
 4. Review interactive installation choices. Silent clean install, upgrade and
    uninstall passed against isolated data; the original environment was restored.
-5. Check a separate LAN client and account/skin identity on the affected host.
-   A friend's Internet connection passed in the maintainer's 0.39.0 report. Where
+5. A friend's Internet connection passed in the maintainer's 0.39.0 report, and
+   the later affected-host reports are now resolved by maintainer confirmation. Where
    router mapping is supported, verify temporary lease cleanup; otherwise verify
    the manual fallback and accurate unsupported-state feedback.
 
 No gate should be marked complete from a compiled button, an unobserved operation,
 a sample value or a broad claim about a different version/scenario.
 
-## Reported issues needing host evidence
+## Earlier reports resolved by the maintainer
 
-- Internet-only connection stalls without observed CPU/RAM spikes: capture host
-  server/client timing and router conditions before changing network/JVM values.
-- Friend-hosted Fabric 1.21.11 with about 30 mods, Xms 1 GB / Xmx 12 GB, resident RAM
-  rising from 3 to 9.2 GB: use the existing memory report and actual host logs.
-  Resident RAM growth alone does not establish a leak; no forced GC is used.
-- Missing backpack/structure behavior: exact mod names, client/server versions
-  and startup log are still unavailable. Inventory presence does not prove loading
-  or content generation in already-created chunks.
-- Imported Minehut UUID/skin mismatch requires the configuration and authenticated
-  connection evidence from the other computer. Distinct UUIDs are not merged by name.
-  The supplied October 3 Paper 1.17.1 log explicitly reports offline/insecure mode,
-  while the supplied Spigot file has BungeeCord disabled. This explains that old
-  run, but does not establish the state after the later online-mode change.
+On October 31, 2026, the maintainer confirms that the earlier issues on the other
+computer have been fixed for some time: Internet stalls, Fabric memory growth,
+missing content and the imported account/skin mismatch. Close these reports on
+that user-provided evidence; do not keep asking for their old logs or treat them
+as blockers. This is maintainer confirmation, not a newly reproduced local test.
+
+The maintainer owns remaining manual validation and explicitly requests continued
+implementation. Unobserved checks stay documented without stopping independent
+improvements or reopening these resolved reports.
 
 ## Deferred scope
 

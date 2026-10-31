@@ -4,6 +4,19 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.48.0
 
+The maintainer confirms on October 31, 2026 that the old reports from the other
+computer are already resolved. Those reports are closed on user confirmation and
+must not remain implementation blockers. Pending manual validation belongs to
+the maintainer and does not stop independent improvements.
+
+Modrinth pagination now moves focus and the viewport to the results status when
+Previous or Next is requested, following the installed-content list pattern.
+The status remains mounted during loading, so keyboard focus has a stable target.
+Actual paging callbacks reproduce the missing focus/scroll before the change and
+pass afterward for both directions and an absent ref. TypeScript and the Windows
+frontend build pass. Focus/scroll boundaries are controlled; native interaction
+remains maintainer validation. No retained test or dependency is added.
+
 Startup preferences now translate both cached-data notices after a read failure.
 The English strings already existed; two JSX branches bypassed `t`. A focused
 render check reproduces both Spanish leaks before the fix and passes afterward
