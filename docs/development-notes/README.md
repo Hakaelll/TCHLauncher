@@ -2,7 +2,7 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Atomic scheduler capacity after 0.54.0
+## Scheduler capacity and observation after 0.54.0
 
 Task creation checks its per-server limit inside the same SQLite statement that
 inserts the task. The previous separate count allowed concurrent callers to pass
@@ -17,6 +17,14 @@ checks an independent server, removal/re-addition, saved task metadata and inval
 input preservation. This is not a full-engine, scheduled-action or native UI test.
 Temporary fixture, probe source and compiled dependencies are removed; compact
 logs remain local. Published 0.54 packaging is unchanged.
+
+The scheduled-task panel also keeps event-subscription failures separate from
+action errors. Successful changes or manual reads no longer hide the instruction
+to refresh manually when automatic events remain unavailable. Actual-panel hook
+and callback checks reproduce the old cleared notice, then verify success/failure
+and manual-read persistence, independent action errors and owner reset. TypeScript
+and the frontend build pass; subscription/IPC boundaries are controlled, with no
+native scheduling or UI exercised and no retained test added.
 
 ## Copyable active UPnP endpoint after 0.54.0
 

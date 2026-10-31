@@ -16,6 +16,7 @@ export function TasksPanel({id}:{id:string}) {
   const inventory=useServerRead(id,api.scheduledTasks)
   const tasks=inventory.data??[],loaded=inventory.data!==null
   const [error,setError]=useState<string|null>(null)
+  const [eventError,setEventError]=useState<string|null>(null)
   const [adding,setAdding]=useState(false)
   const [working,setWorking]=useState(false)
   const [notice,setNotice]=useState<string|null>(null)
@@ -30,9 +31,9 @@ export function TasksPanel({id}:{id:string}) {
   const locked=working||inventory.loading||!!inventory.error||!loaded
   useEffect(()=>{
     const current={active:true,working:false};scope.current=current
-    setError(null);setAdding(false);setWorking(false);setNotice(null);setValidation(null)
+    setError(null);setEventError(null);setAdding(false);setWorking(false);setNotice(null);setValidation(null)
     const subscription=listen<string>('scheduler-updated',event=>{if(current.active&&event.payload===id)void load()})
-    void subscription.catch(()=>{if(current.active&&scope.current===current)setError(t("No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista."))})
+    void subscription.catch(()=>{if(current.active&&scope.current===current)setEventError(t("No se pudieron recibir cambios de tareas. Usa Actualizar para consultar la lista."))})
     return()=>{current.active=false;void subscription.then(unlisten=>unlisten()).catch(()=>{})}
   },[id,load])
   const mutate=async(operation:()=>Promise<unknown>,message:string,onAcknowledged?:()=>void)=>{
@@ -59,6 +60,7 @@ export function TasksPanel({id}:{id:string}) {
   return <section className="tasks-panel" aria-labelledby="tasks-title" aria-busy={working||inventory.loading}>
     <div className="section-heading"><div><h3 id="tasks-title">{t("Tareas programadas")}</h3><p>{t("Se ejecutan mientras TCHLauncher está abierto, también en segundo plano.")}</p></div><div className="scheduled-header-actions"><button disabled={working||inventory.loading} onClick={()=>void load()}>{inventory.loading?t("Actualizando…"):t("Actualizar")}</button><button className="primary-button" disabled={locked} onClick={()=>{setDate(localDate(new Date(Date.now()+3600000)));setError(null);setAdding(true)}}>{t("Programar tarea")}</button></div></div>
     <p className="field-help">{t("Si la aplicación estaba cerrada, cada tarea pendiente se ejecuta una vez al abrirla. Los intervalos perdidos no se acumulan.")}</p>
+    {eventError&&<p className="field-help" role="status">{translatedMessage(eventError)}</p>}
     {notice&&<p className="runtime-notice" role="status">{translatedMessage(notice)}</p>}{error&&!adding&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
     {inventory.error&&<div className="panel-read-state failed"><div><strong>{t("Lista de tareas sin confirmar")}</strong><p role="alert">{translatedMessage(inventory.error)}</p>{loaded&&<p>{t("Se muestran las últimas tareas leídas. Actualiza la lista antes de cambiar tareas.")}</p>}</div><button disabled={working||inventory.loading} onClick={()=>void load()}>{t("Reintentar lectura")}</button></div>}
     {!loaded?<p className="muted">{inventory.error?t("La lista no está disponible. Pulsa Actualizar para volver a consultarla."):t("Cargando tareas…")}</p>:!tasks.length?<div className="scheduled-empty"><span className="scheduled-clock"><PixelIcon kind="clock"/></span><div><strong>{t("Tu próxima tarea")}</strong><p>{t("Programa una copia, un inicio o una parada con «Programar tarea».")}</p></div></div>:<div className="scheduled-list">{tasks.map(task=><article key={task.id} className={`scheduled-row ${task.enabled?'':'paused'} ${scheduledResult(task.lastResult).tone}`}>

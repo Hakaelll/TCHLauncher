@@ -61,6 +61,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   module saves exactly 100 under the same 32 concurrent additions, preserving
   independent-server limits and validation. Full-engine/UI execution is untested
   by this probe; source awaits later packaging.
+- Scheduled-task subscription notices now survive successful mutations and manual
+  reads, remaining separate from action errors. Scoped component checks cover
+  persistence and owner reset; frontend compilation passes without native UI.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.
