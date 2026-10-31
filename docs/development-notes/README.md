@@ -2,7 +2,7 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Library name-order locale after 0.56.0
+## Inventory name-order locale after 0.56.0
 
 Name ordering follows the selected language instead of always using Spanish.
 The library memo includes language so existing rows reorder when it changes.
@@ -10,6 +10,12 @@ Actual helper checks reproduce the English ñ-order mismatch and preserve Spanis
 numeric names, search, other ordering modes and source identity. TypeScript and
 the frontend build pass. No native/rendered UI is checked; temporary probe removed.
 The local 0.56 installer is unchanged.
+
+Installed-content names and diagnostic tie-breaks also follow the selected
+language. Actual content/search helper checks preserve attention priority,
+managed/local filters, aliases, numeric order and original file identities.
+TypeScript and the frontend build pass; no native file change or rendered UI is
+exercised. Temporary probe removed; no retained test or dependency added.
 
 ## Local Windows 0.56.0 package
 

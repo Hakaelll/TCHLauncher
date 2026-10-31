@@ -1,4 +1,4 @@
-import {translatedMessage,localizedStatic,t,formatDate} from './locale.ts'
+import {getLanguage,translatedMessage,localizedStatic,t,formatDate} from './locale.ts'
 import {useEffect,useMemo,useRef,useState,useId} from 'react'
 import {api,type ContentAudit,type InstalledContent,type LogLine,type Server} from './api'
 import {checkPage} from './contentBrowse'
@@ -34,7 +34,8 @@ export function InstalledContentView({server,files,audit,logs,locked,stopped,onP
   }),[files,checks,diagnostics])
   const attention=rows.filter(row=>['error','warning'].includes(row.status)).length
   const errors=rows.filter(row=>row.status==='error').length
-  const visible=useMemo(()=>contentWindow(rows,query,filter,source,sort),[rows,query,filter,source,sort])
+  const language=getLanguage()
+  const visible=useMemo(()=>contentWindow(rows,query,filter,source,sort,language),[rows,query,filter,source,sort,language])
   const window=listWindow(visible,page,24)
   useEffect(()=>{setPage(window.page)},[window.page])
   const changePage=(value:number)=>{setPage(value);resultRef.current?.focus({preventScroll:true});resultRef.current?.parentElement?.scrollIntoView({block:'start'})}

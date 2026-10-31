@@ -1,4 +1,5 @@
 import {normalizeSearchText} from './searchText.ts'
+import type {Language} from './locale'
 export type ContentState = 'error'|'warning'|'observed'|'unknown'
 export type ContentFilter = 'all'|'attention'|'observed'|'unknown'
 export type ContentSource = 'all'|'managed'|'local'
@@ -9,12 +10,12 @@ type InventoryRow = {
   check?:{descriptor:{id?:string|null;ids?:string[]}}
 }
 
-export function contentWindow<T extends InventoryRow>(rows:readonly T[],query:string,filter:ContentFilter,source:ContentSource,sort:'name'|'attention'):T[] {
+export function contentWindow<T extends InventoryRow>(rows:readonly T[],query:string,filter:ContentFilter,source:ContentSource,sort:'name'|'attention',language:Language):T[] {
   const search=normalizeSearchText(query)
   const rank={error:0,warning:1,unknown:2,observed:3}
   return rows.filter(row=>
     (!search||[row.title,row.file.filename,row.check?.descriptor.id??'',...(row.check?.descriptor.ids??[])].some(value=>normalizeSearchText(value).includes(search)))&&
     (filter==='all'||filter==='attention'&&['error','warning'].includes(row.status)||row.status===filter)&&
     (source==='all'||source==='managed'&&!!row.file.projectId||source==='local'&&!row.file.projectId)
-  ).sort((a,b)=>(sort==='attention'?rank[a.status]-rank[b.status]:0)||a.title.localeCompare(b.title,'es',{numeric:true,sensitivity:'base'}))
+  ).sort((a,b)=>(sort==='attention'?rank[a.status]-rank[b.status]:0)||a.title.localeCompare(b.title,language,{numeric:true,sensitivity:'base'}))
 }
