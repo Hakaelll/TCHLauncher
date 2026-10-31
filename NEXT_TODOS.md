@@ -69,6 +69,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   rules and the frontend build pass; no rendered visual check is claimed.
 - Heap-only charts now use heap headline/peak readings and description. Actual
   component/callback and frontend checks pass; native/rendered use is untested.
+- Library paging bounds live server cards to 50 with existing controls, keeping
+  search/filter/order, selection/menu identity and empty states. Scoped component
+  and frontend checks pass; rendered/native interaction remains unverified.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.

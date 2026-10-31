@@ -2,6 +2,19 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Paged server library after 0.55.0
+
+Library cards now use the shared 50-item window. Search/filter/order changes reset
+the page; layout changes preserve it. Pages clamp when inventory shrinks, preserve
+server identities and request result-count focus/scroll. Existing creation/import
+and empty states remain available. Shared pagination styling and labels are reused.
+Actual component/helper checks compare 253 old live cards with 50 per page and
+cover boundaries, select/menu payloads, layout, accent search, filters, ordering,
+empty recovery and shrinkage. TypeScript and the frontend build pass. Hooks,
+motion and assets are controlled; no rendered/native UI or RAM/FPS benchmark is
+claimed, and motion ghosts may overlap live cards. Temporary probe removed;
+one English label added. Local 0.55 packaging is unchanged.
+
 ## Visible memory readings after 0.55.0
 
 With resident RAM hidden, the memory chart headline, peak and description now
