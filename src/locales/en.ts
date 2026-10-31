@@ -417,6 +417,7 @@ export const english: Record<string,string> = {
   "Aceptación guardada en esta biblioteca": "Acceptance saved in this library",
   "Sin aceptación guardada": "No saved acceptance",
   "Minecraft es una marca de Mojang y Microsoft. TCHLauncher es un proyecto independiente.": "Minecraft is a trademark of Mojang and Microsoft. TCHLauncher is an independent project.",
+  "Ocultar completadas ({0})": "Hide completed ({0})",
   "Tareas": "Tasks",
   "Descargas, importaciones y copias de esta sesión.": "Downloads, imports and backups from this session.",
   "Cerrar tareas": "Close tasks",

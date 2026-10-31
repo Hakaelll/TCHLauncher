@@ -29,6 +29,10 @@ continue actionable work without repeated acceptance or screenshot requests.
   Attach only the EXE and keep checksums local. Commit and push continue
   independently; the usual cadence applies to later intermediate versions.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
+- Unreleased after local 0.49.0: the task panel can hide completed results in one
+  action, preserving failures, cancelled/active work and replacement task IDs.
+  Focus returns to its heading. Eight ES/EN callback cases and frontend checks
+  pass; native popover interaction remains manual validation.
 - Packaged in local 0.49.0: startup-preference read failures now translate both
   cached-data notices. Before/after component renders, TypeScript and the Windows
   frontend build pass; native startup/IPC is outside that check.

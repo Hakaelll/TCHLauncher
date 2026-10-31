@@ -770,6 +770,7 @@ summary { font-size:11px; line-height:1.8; }
 .background-tasks h2 { margin:0 0 10px; font-family:var(--font-display); font-size:18px; font-weight:400; }
 .background-tasks>header p,.task-empty { margin:0; color:var(--secondary); font-size:12px; line-height:1.7; }
 .background-tasks>header button { min-width:36px; min-height:36px; padding:8px; }
+.background-tasks-footer { display:flex; justify-content:flex-end; padding-top:14px; margin-top:14px; border-top:1px solid var(--line); }
 .background-task { padding:18px 0; border-top:1px solid var(--line); }
 .background-task-server { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
 .background-task-server>strong { min-width:0; overflow-wrap:anywhere; font-family:var(--font-display); font-size:13px; font-weight:400; }

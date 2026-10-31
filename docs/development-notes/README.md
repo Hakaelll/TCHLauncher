@@ -2,6 +2,19 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Unreleased changes after 0.49.0
+
+The background task panel can hide all completed results in one action. Active,
+cancelled and failed tasks remain visible; existing task-ID checks protect a new
+operation that replaces an old completed result before the click. Clearing returns
+focus to the panel heading and never cancels or retries native work.
+
+Actual panel/callback checks pass eight cases across English/Spanish, including
+mixed outcomes, empty/non-completed lists, stale task replacement and focus return.
+TypeScript and the Windows frontend build pass. Hooks, portal and focus boundaries
+are controlled; native popover interaction remains maintainer validation. No
+dependency or retained test is added. The local 0.49.0 installer predates this change.
+
 ## Changes packaged in local 0.49.0
 
 Unsigned Windows x64 NSIS installer from
