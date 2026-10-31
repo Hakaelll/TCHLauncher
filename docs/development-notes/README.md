@@ -4,7 +4,7 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after local 0.45.0
 
-The English catalog adds 726 application-owned native messages across six passes:
+The English catalog adds 843 application-owned native messages across seven passes:
 startup/JVM, players/permissions, properties, import, basic networking, backups,
 retention, worlds, recovery, router diagnostics, content management, engine
 installation/updates, startup, task states and diagnostic reports. Existing
@@ -62,8 +62,8 @@ for these catalog-only changes.
 All remaining static candidates in the initial heuristic inventory have been
 reviewed. SQL statements remain untranslated; their application-owned status
 values are handled separately. This inventory is not a complete census. Nested
-application errors in eight reviewed wrappers now have explicit argument metadata.
-The old helper reproduces untranslated nested bodies for attempt failures, content
+application errors in fourteen reviewed wrappers now have explicit argument metadata.
+The old helper reproduces untranslated nested bodies in eight initial fixtures for attempt failures, content
 migration, retention, recovery, catalog lookup, dependency review and partial player
 commands. Only application-error arguments are translated, to a maximum depth of
 eight; project names, destination lists and raw NeoForge installer output remain
@@ -73,8 +73,21 @@ their values or reverse aliases.
 
 Actual locale checks cover nested messages, ES/EN switching, opaque details,
 bounded depth and compatibility with the existing catalog. Joined error lists and
-copy outside the initial inventory still need review. This source postdates the
-local 0.45 installer. No version or release is generated for these changes.
+native picker labels still need review. A separate Rust token reader inspects
+4,415 string literals, including raw strings and escaped values, and finds another
+117 application-copy entries beyond the first inventory. Checks cover JVM option
+feedback, progress labels, player-file errors, import and restart outcomes. Six
+additional wrappers identify their application-error arguments while preserving
+raw Java output and rollback paths. Existing translations and generated general
+lookup examples remain unchanged. TypeScript and the frontend build pass.
+
+The remaining heuristic candidates are manually excluded: an English source
+comment, an already-English process-session error, three English test messages,
+the Windows reserved filename `CON`, a raw launcher console line and a router
+fallback for platforms outside the current Windows scope. This is source-copy
+evidence, not proof of every native UI path. File-picker labels still need the
+selected language passed to native commands. This source postdates the local
+0.45 installer. No version or release is generated for these changes.
 
 Stop-and-exit failures are now returned as separate server ID/name and cause
 records rather than a newline-joined paragraph. Stop errors, timeouts and backup

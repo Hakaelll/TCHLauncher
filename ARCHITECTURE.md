@@ -75,7 +75,7 @@ catalog when their module is reviewed, alongside new entries.
 The content audit sends `logNotes` as separate application-owned messages. The
 frontend translates each note before joining them for display, so Fabric load-list
 and dependency-review copy remains localizable without parsing combined prose.
-`nativeMessageDetails` marks which arguments in eight reviewed templates contain
+`nativeMessageDetails` marks which arguments in fourteen reviewed templates contain
 application errors. `translatedMessage` translates only those nested arguments,
 with a depth limit of eight. Names, paths, cleanup destination lists and installer
 output remain data. General `t()` lookup and explicitly supplied arguments retain
