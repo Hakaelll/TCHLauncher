@@ -391,6 +391,7 @@ dialog.modal-dialog::backdrop { background:#060b0ddb; }
 .notice-banner { background:var(--success-wash); color:#c0eed8; }
 .inline-note { background:var(--surface); color:var(--secondary); border-radius:3px; }
 .form-error,.network-error { color:var(--danger); }
+.console-notice.form-error { color:var(--danger); }
 .players-overview { background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:20px; }
 .player-list-tools { display:flex; align-items:end; flex-wrap:wrap; gap:16px; margin:22px 0 12px; }
 .player-list-tools label { flex:1; min-width:min(240px,100%); max-width:480px; }

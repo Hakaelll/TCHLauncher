@@ -4,6 +4,17 @@ Engineering records, test evidence and pending native checks.
 
 ## Unreleased changes after 0.49.0
 
+Console command, clipboard and export failures now carry an error kind rather
+than sharing plain success notices. Errors use the theme's danger color and
+`role="alert"`; confirmations retain `role="status"`. Minecraft lines and copied
+content remain verbatim, and exporting paths still render unchanged.
+
+Actual callbacks/notice JSX reproduce ordinary-status errors before the change
+and pass 12 scoped English/Spanish command/copy/export success/failure cases after
+it. TypeScript and the Windows frontend build pass. Clipboard and API boundaries
+are controlled; native interaction remains maintainer validation. No retained
+test or dependency is added, and no new installer is built for this change.
+
 The background task panel can hide all completed results in one action. Active,
 cancelled and failed tasks remain visible; existing task-ID checks protect a new
 operation that replaces an old completed result before the click. Clearing returns

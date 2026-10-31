@@ -32,7 +32,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
   const [command,setCommand] = useState('')
   const [following,setFollowing] = useState(true)
   const [clearedThrough,setClearedThrough] = useState<number|null>(null)
-  const [notice,setNotice] = useState<string|null>(null)
+  const [notice,setNotice] = useState<{kind:'success'|'error';message:string}|null>(null)
   const [exporting,setExporting] = useState(false)
   const [sending,setSending]=useState(false)
   const [commandHistory,setCommandHistory]=useState<string[]>([])
@@ -84,15 +84,15 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
         setCommandHistory(previous=>rememberCommand(previous,sent));setHistoryCursor(null);historyDraft.current=''
         setCommand(previous=>previous.trim()===sent?'':previous)
       }
-    }catch(cause){if(currentScope(current))setNotice(errorText(cause))}
+    }catch(cause){if(currentScope(current))setNotice({kind:'error',message:errorText(cause)})}
     finally{current.sending=false;if(currentScope(current))setSending(false)}
   }
   const copy = async () => {
     const current=scope.current
     try {
       await navigator.clipboard.writeText(visible.map(item => `${clockTime(item.timestamp,true)}  ${item.level.toUpperCase()}  ${item.message}`).join('\n'))
-      if(currentScope(current))setNotice(t("{0} líneas copiadas.", visible.length))
-    } catch {if(currentScope(current))setNotice(t("No se pudo copiar. Selecciona las líneas y usa Ctrl+C."))}
+      if(currentScope(current))setNotice({kind:'success',message:t("{0} líneas copiadas.", visible.length)})
+    } catch {if(currentScope(current))setNotice({kind:'error',message:t("No se pudo copiar. Selecciona las líneas y usa Ctrl+C.")})}
   }
   const exportFile = async () => {
     const current=scope.current
@@ -101,8 +101,8 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
     setExporting(true); setNotice(null)
     try {
       const destination = await api.exportLog(current.id)
-      if(destination&&currentScope(current))setNotice(t("Log exportado: {0}",destination))
-    } catch (error) {if(currentScope(current))setNotice(errorText(error))}
+      if(destination&&currentScope(current))setNotice({kind:'success',message:t("Log exportado: {0}",destination)})
+    } catch (error) {if(currentScope(current))setNotice({kind:'error',message:errorText(error)})}
     finally {current.exporting=false;if(currentScope(current))setExporting(false)}
   }
   return <section className="console-view">
@@ -114,7 +114,7 @@ export function ConsoleView({serverId,state,logs,busy,onSend,historyLoading,hist
       {visible.length ? visible.map(item => <ConsoleRow key={item.arrival} item={item} language={getLanguage()}/>) : <div className="log-empty">{clearedThrough!==null ? t("Vista limpia. Las nuevas líneas aparecerán aquí.") : query || level !== 'all' ? t("No hay líneas que coincidan con el filtro.") : historyError ? t("El historial no está disponible. Puedes reintentar su lectura.") : historyLoading ? t("Leyendo el historial del servidor…") : t("Aún no hay salida. Inicia el servidor para ver su actividad.")}</div>}
     </div>
     <div className={`console-follow ${following?'following':'paused'}`}><span><i aria-hidden="true"/>{following?t("Seguimiento activo"):t("Seguimiento pausado")}</span>{!following&&<small>{pendingLines===0?t("Las nuevas líneas siguen llegando."):pendingLines===1?t("1 línea nueva en la vista."):t("{0} líneas nuevas en la vista.",pendingLines)}</small>}<button aria-pressed={following} onClick={()=>following?pauseFollowing():setFollowing(true)}>{following?t("Dejar de seguir"):t("Ir a las últimas líneas")}</button></div>
-    {notice && <p className="console-notice" role="status">{translatedMessage(notice)}</p>}
+    {notice && <p className={`console-notice ${notice.kind==='error'?'form-error':''}`} role={notice.kind==='error'?'alert':'status'}>{translatedMessage(notice.message)}</p>}
     <form autoComplete="off" className="command-form" onSubmit={submit}><label htmlFor="command">{t("Comando")}</label><input id="command" autoComplete="off" autoCorrect="off" spellCheck={false} value={command} onChange={event => {setCommand(event.target.value);setHistoryCursor(null);historyDraft.current=''}} onKeyDown={event=>{if(event.nativeEvent.isComposing||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey||!['ArrowUp','ArrowDown'].includes(event.key)||!commandHistory.length)return;event.preventDefault();const next=recallCommand(commandHistory,historyCursor,historyDraft.current,command,event.key==='ArrowUp'?'up':'down');historyDraft.current=next.draft;setHistoryCursor(next.cursor);setCommand(next.value)}} placeholder={state === 'starting' ? t("Comando durante el inicio…") : acceptsCommands ? t("Escribe un comando…") : t("Inicia el servidor para enviar comandos")} disabled={!acceptsCommands} maxLength={512}/><button disabled={busy || sending || !acceptsCommands || !command.trim()}>{sending?t("Enviando…"):t("Enviar")}</button></form>
     {acceptsCommands&&<p className="command-help">{t("Enter para enviar. Flechas para recuperar comandos de esta sesión.")}</p>}
   </section>
