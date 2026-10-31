@@ -56,6 +56,11 @@ continue actionable work without repeated acceptance or screenshot requests.
   failed-copy selection fallback and address-scoped feedback. Seventeen scoped
   panel checks pass; physical router/clipboard and rendered appearance remain
   outside that evidence. Pending, attention, closing and expired endpoints hide.
+- Scheduler creation enforces its per-server capacity inside the insert statement.
+  An isolated native SQLite race previously saved 131 tasks from 99; the corrected
+  module saves exactly 100 under the same 32 concurrent additions, preserving
+  independent-server limits and validation. Full-engine/UI execution is untested
+  by this probe; source awaits later packaging.
 - Pending manual interaction checks remain scoped below and maintainer-owned.
 - Packaged in local 0.50.0: the task panel can hide completed results in one
   action, preserving failures, cancelled/active work and replacement task IDs.

@@ -88,10 +88,9 @@ pub fn add(root: &Path, server_id: &str, input: Input, now: i64) -> Result<Task,
         return Err("Elige una acción, una fecha futura y un intervalo de 1 minuto a 1 año.".into());
     }
     let db=connect(root)?;
-    let count:u32=db.query_row("SELECT count(*) FROM scheduled_tasks WHERE server_id=?1",[server_id],|r|r.get(0)).map_err(|e|e.to_string())?;
-    if count>=100 {return Err("Este servidor ya tiene 100 tareas. Elimina alguna antes de añadir otra.".into());}
     let task=Task{id:Uuid::new_v4().to_string(),server_id:server_id.into(),action:input.action,next_at:input.next_at,interval_minutes:input.interval_minutes,enabled:true,running:false,last_at:None,last_result:None,invalid:false};
-    db.execute("INSERT INTO scheduled_tasks(id,server_id,action,next_at,interval_minutes) VALUES(?1,?2,?3,?4,?5)",params![task.id,server_id,task.action,task.next_at,task.interval_minutes]).map_err(|e|e.to_string())?;
+    let changed=db.execute("INSERT INTO scheduled_tasks(id,server_id,action,next_at,interval_minutes) SELECT ?1,?2,?3,?4,?5 WHERE (SELECT count(*) FROM scheduled_tasks WHERE server_id=?2)<100",params![task.id,server_id,task.action,task.next_at,task.interval_minutes]).map_err(|e|e.to_string())?;
+    if changed!=1 {return Err("Este servidor ya tiene 100 tareas. Elimina alguna antes de añadir otra.".into());}
     Ok(task)
 }
 

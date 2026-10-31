@@ -2,6 +2,22 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Atomic scheduler capacity after 0.54.0
+
+Task creation checks its per-server limit inside the same SQLite statement that
+inserts the task. The previous separate count allowed concurrent callers to pass
+the limit together. The existing limit message, validation and returned task
+metadata are preserved; no scheduler schema or UI change is required.
+
+An isolated native probe compiles the actual scheduler module against SQLite,
+with a minimal storage adapter and temporary server records. Starting from 99
+tasks, 32 concurrent additions previously persisted 131 tasks. After the fix,
+one succeeds and 31 return the capacity error, leaving exactly 100. The same run
+checks an independent server, removal/re-addition, saved task metadata and invalid
+input preservation. This is not a full-engine, scheduled-action or native UI test.
+Temporary fixture, probe source and compiled dependencies are removed; compact
+logs remain local. Published 0.54 packaging is unchanged.
+
 ## Copyable active UPnP endpoint after 0.54.0
 
 UPnP now uses the existing address-row input/button pattern to copy its active
