@@ -568,7 +568,7 @@ function App() {
       : libraryOpen || !selected ? <ServerLibrary servers={servers} onCreate={openCreate} onImport={openImport} onPack={()=>{setPackResume(null);setPackOpen(true)}} onSelect={openServer} onMenu={openMenu}/>
       : <>
         <header className="page-head">
-          <div className="page-identity"><ServerArtwork server={selected}/><div><h1>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
+          <div className="page-identity"><ServerArtwork server={selected}/><div><h1 tabIndex={-1}>{selectedName}</h1><div className="page-context">{platformName(selected.platform)} <span>·</span> Minecraft {selected.version}</div></div></div>
           <div className="head-actions">
             {selected.state==='stopping'&&<button className="danger-button" onClick={()=>setForceStopTarget(selected)}>{t("Forzar cierre…")}</button>}
             {view !== 'overview' && <span className={`status-label ${selected.state}`}><span className={`state-dot ${selected.state}`} aria-hidden="true"/>{stateText(selected.state)}</span>}
@@ -598,7 +598,11 @@ function App() {
     </main>
     {sidebarTooltip && createPortal(<div className="sidebar-tooltip" role="tooltip" style={{top:sidebarTooltip.top,left:sidebarTooltip.left}}><strong>{sidebarTooltip.name}</strong><span>{sidebarTooltip.subtitle}</span></div>,document.body)}
     {menuTarget && <ServerMenu target={{...menuTarget,server:servers.find(server=>server.id===menuTarget.server.id) ?? menuTarget.server}} busy={operationBusy || activeInstallationIds.has(menuTarget.server.id)} onClose={closeMenu} onPin={()=>act(()=>api.setPinned(menuTarget.server.id,!menuTarget.server.pinned))} onSettings={()=>{setAppearanceOpen(false);setLibraryOpen(false);setSelectedId(menuTarget.server.id);setCreating(false);setImporting(false);setView('settings')}} onDelete={()=>setDeleteTarget(menuTarget.server)}/>}
-    {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>setDeleteTarget(null)} onDelete={()=>removeServer(deleteTarget)}/>}
+    {deleteTarget && <ServerDeleteDialog key={deleteTarget.id} server={deleteTarget} onClose={()=>{
+      const removed=!servers.some(server=>server.id===deleteTarget.id)
+      setDeleteTarget(null)
+      if(removed)requestAnimationFrame(()=>mainRef.current?.querySelector<HTMLElement>('h1')?.focus({preventScroll:true}))
+    }} onDelete={()=>removeServer(deleteTarget)}/>}
     {forceStopTarget&&<ForceStopDialog key={forceStopTarget.id} server={forceStopTarget} onClose={()=>setForceStopTarget(null)} onStopped={()=>void refresh()}/>}
     {startupOpen&&<Modal labelledBy="startup-title" busy={startupBusy} onClose={()=>setStartupOpen(false)}><h2 id="startup-title">{t("Inicio automático")}</h2><StartupPanel servers={servers} onBusy={setStartupBusy}/><div className="modal-actions"><button data-modal-close disabled={startupBusy}>{t("Cerrar")}</button></div></Modal>}
     {restoreTarget && <Modal labelledBy="restore-title" describedBy="restore-description" busy={operationBusy} onClose={()=>setRestoreTarget(null)}>

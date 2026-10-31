@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Focus after server removal after 0.55.0
+
+Closing the deletion dialog after its server leaves the inventory requests focus
+on the current page heading after dialog cleanup. Cancellation preserves normal
+return to the opener. Library/server headings accept programmatic focus without
+adding Tab stops. Actual App callback checks reproduce the missing fallback and
+cover deletion, cancellation and missing/disposed targets. TypeScript and the
+frontend build pass. Focus/frame boundaries are controlled; native keyboard,
+rendered appearance and deletion are not exercised. Temporary probe removed;
+local 0.55 packaging unchanged.
+
 ## Server snapshot ordering after 0.55.0
 
 Library reads carry request and process-event revisions. Superseded reads cannot

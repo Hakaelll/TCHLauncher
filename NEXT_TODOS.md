@@ -52,6 +52,9 @@ continue actionable work without repeated acceptance or screenshot requests.
   while accepting snapshot metadata. Native creation/rename/delete acknowledgement
   invalidates old reads. Twelve scoped actual-callback checks and frontend
   compilation pass; native event/delete and Windows interaction remain untested.
+- Post-removal dialog closure requests focus on the current heading when its
+  opener is gone. Scoped callback checks and frontend compilation pass; native
+  keyboard and rendered appearance remain outside that evidence.
 - Post-0.53 storage/retention notices now localize skipped links and cleanup
   results at render time, preserving external details. Scoped ES/EN component
   and callback checks and frontend compilation pass; real operations are unchanged.
