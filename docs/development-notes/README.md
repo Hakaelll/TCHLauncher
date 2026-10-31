@@ -4,6 +4,16 @@ Engineering records, test evidence and pending native checks.
 
 ## Source after published 0.47.0
 
+UPnP and NAT-PMP distinguish status-read failures from operation failures.
+Successful polling clears a recovered read error without hiding a failed
+discovery/open/close operation. Cached details remain visible, but an unreadable
+status is labeled unverified and disables new openings and pending confirmation.
+The confirmation dialog also shows the read failure. Removal remains available.
+Controlled checks reproduce both former sticky errors and cover recovery,
+preserved operation failures, opening guards, confirmation feedback, unmount and
+ES/EN markup. TypeScript and the Windows frontend build pass. No physical router
+was queried or changed by these checks.
+
 Initial numeric values and chart lines no longer schedule animation frames for
 unchanged geometry or values. A numeric value also recovers immediately from a
 non-finite starting value instead of propagating it through interpolation.

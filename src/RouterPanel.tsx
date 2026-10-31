@@ -11,6 +11,7 @@ const clock=(time:number)=>formatTime(time,{hour:'2-digit',minute:'2-digit',seco
 export function RouterPanel({server,network}:{server:Server;network:NetworkSnapshot|null}) {
   const [status,setStatus]=useState<RouterStatus|null>(null)
   const [error,setError]=useState<string|null>(null)
+  const [statusError,setStatusError]=useState<string|null>(null)
   const [busy,setBusy]=useState<'detect'|'open'|'close'|null>(null)
   const [consent,setConsent]=useState<{ip:string;port:number}|null>(null)
   const alive=useRef(false),inFlight=useRef(false),sequence=useRef(0),detectedInterface=useRef('')
@@ -19,8 +20,8 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
     const refresh=async()=>{
       if(inFlight.current)return
       const request=++sequence.current
-      try {const value=await api.routerStatus(server.id);if(alive.current&&request===sequence.current){setStatus(value)}}
-      catch(cause){if(alive.current&&request===sequence.current)setError(errorText(cause))}
+      try {const value=await api.routerStatus(server.id);if(alive.current&&request===sequence.current){setStatus(value);setStatusError(null)}}
+      catch(cause){if(alive.current&&request===sequence.current)setStatusError(errorText(cause))}
     }
     const stop=startVisibilityPolling(refresh,5000,{immediate:true})
     return()=>{alive.current=false;++sequence.current;stop()}
@@ -30,10 +31,10 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
     inFlight.current=true;++sequence.current;setBusy(kind);setError(null)
     try {
       const value=await operation()
-      if(alive.current){setStatus(value);if(kind==='open')setConsent(null)}
+      if(alive.current){setStatus(value);setStatusError(null);if(kind==='open')setConsent(null)}
     } catch(cause) {
       if(alive.current)setError(errorText(cause))
-      try{const value=await api.routerStatus(server.id);if(alive.current)setStatus(value)}catch{/* Preserve the actionable operation error. */}
+      try{const value=await api.routerStatus(server.id);if(alive.current){setStatus(value);setStatusError(null)}}catch(cause){if(alive.current)setStatusError(errorText(cause))}
     } finally {inFlight.current=false;if(alive.current)setBusy(null)}
   }
   useEffect(()=>{
@@ -44,9 +45,10 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
   },[server.id,network?.localIp,network?.lanAddress,busy])
   const mapping=status?.mapping
   const expired=!!mapping?.expiresAt&&mapping.expiresAt<=Date.now()
-  const canOpen=server.state==='running'&&network?.portState==='listening'&&!!network.lanAddress&&!!status?.router&&!mapping
+  const canOpen=!statusError&&server.state==='running'&&network?.portState==='listening'&&!!network.lanAddress&&!!status?.router&&!mapping
   return <section className="router-control" aria-labelledby="router-title">
-    <div className="router-heading"><div><h3 id="router-title">{t("Puerto del router · UPnP")}</h3></div><span className="router-discovery-status" role="status">{!network?.lanAddress?t("Esperando red local"):busy==='detect'?t("Buscando router…"):status?.router?t("Router compatible"):t("Sin UPnP detectado")}</span></div>
+    <div className="router-heading"><div><h3 id="router-title">{t("Puerto del router · UPnP")}</h3></div><span className="router-discovery-status" role="status">{!network?.lanAddress?t("Esperando red local"):busy==='detect'?t("Buscando router…"):statusError?t("Sin comprobar"):status?.router?t("Router compatible"):t("Sin UPnP detectado")}</span></div>
+    {statusError&&<p className="network-error" role="alert">{translatedMessage(statusError)}</p>}
     {error&&<p className="network-error" role="alert">{translatedMessage(error)}</p>}
     {status?.discoveryError&&<p className="muted-note">{translatedMessage(status.discoveryError)} <button className="text-button" disabled={!!busy} onClick={()=>void act('detect',()=>api.detectRouter(server.id))}>{t("Volver a comprobar")}</button></p>}
     {status?.router&&<dl className="data-list network-facts"><div><dt>Router</dt><dd>{status.router.name} · {status.router.ip}</dd></div><div><dt>{t("IP externa del router")}</dt><dd>{status.router.externalIp||t("No disponible")}</dd></div></dl>}
@@ -62,8 +64,9 @@ export function RouterPanel({server,network}:{server:Server;network:NetworkSnaps
     {consent&&<Modal labelledBy="router-consent-title" describedBy="router-consent-description" busy={!!busy} onClose={()=>setConsent(null)}>
       <h2 id="router-consent-title">{t("Abrir el puerto")} {consent.port} TCP</h2>
       <p id="router-consent-description">{t("Solicitar una apertura temporal hacia")} {consent.ip}:{consent.port}  {t("permitirá que el router dirija conexiones entrantes a este servidor. Duración solicitada:")} {Math.round((status?.leaseSeconds??3600)/60)}  {t("minutos, renovable mientras esté activo. Al detenerlo se intentará retirar la apertura. Esto no modifica el firewall ni comprueba el acceso desde internet.")}</p>
+      {statusError&&<p className="form-error" role="alert">{translatedMessage(statusError)}</p>}
       {error&&<p className="form-error" role="alert">{translatedMessage(error)}</p>}
-      <div className="modal-actions"><button data-modal-close disabled={!!busy}>{t("Cancelar")}</button><button className="primary-button" disabled={!!busy||server.state!=='running'} onClick={()=>void act('open',()=>api.openRouterPort(server.id,consent.ip,consent.port))}>{busy==='open'?t("Abriendo…"):t("Confirmar apertura")}</button></div>
+      <div className="modal-actions"><button data-modal-close disabled={!!busy}>{t("Cancelar")}</button><button className="primary-button" disabled={!!busy||!!statusError||server.state!=='running'} onClick={()=>void act('open',()=>api.openRouterPort(server.id,consent.ip,consent.port))}>{busy==='open'?t("Abriendo…"):t("Confirmar apertura")}</button></div>
     </Modal>}
   </section>
 }
