@@ -28,15 +28,11 @@ Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como 
 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
-La 0.48.0 está publicada como preview de Windows, solo con el EXE adjunto,
-cumpliendo la última petición de publicar al terminar la tanda de cambios.
-La última instrucción pide publicar la versión que cierre esta tanda de mejoras,
-sin esperar al margen habitual de 3 o 4 versiones. Las versiones intermedias
-siguen siendo locales. La publicación de la 0.48.0 cumple esa petición.
-Los commits no cuentan como versiones.
-La 0.50.0 agrupa avisos, limpieza de tareas, búsquedas locales y clientes HTTP
-compartidos en un instalador local. Se conservan los instaladores 0.49 y 0.50.
-GitHub permanece en la 0.48.0; no se publica cada iteración.
+La 0.51.0 está publicada como preview de Windows, solo con el EXE adjunto.
+Agrupa los hitos 0.49, 0.50 y 0.51; los commits no cuentan como versiones.
+Se mantiene la cadencia habitual de 3 o 4 versiones entre publicaciones y la
+petición de publicar la versión que cierre la tanda final. Se conservan los
+instaladores locales 0.50 y 0.51. Los checksums permanecen locales.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa

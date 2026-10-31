@@ -1,8 +1,8 @@
 # TCHLauncher 0.51.0
 
 Windows x64 preview. The installer is unsigned.
-Prepared for publication after the 0.49, 0.50 and 0.51 version milestones.
-Only the EXE installer will be attached; checksums stay local.
+Published after the 0.49, 0.50 and 0.51 version milestones.
+Only the EXE installer is attached; checksums stay local.
 
 ## Changes since the published 0.48.0
 
@@ -41,4 +41,4 @@ Minecraft-network gains, remote-provider outcomes or native keyboard/screen-read
 acceptance. Manual validation remains with the maintainer and does not block
 independent implementation. No dependency or retained test is added in this batch.
 
-Packaging evidence will be recorded after the installer is built.
+Packaged source: `7fc678d40a4f7302845f996b7474ebd531b1a64b`. TypeScript, the Windows frontend, optimized offline NSIS packaging, executable/setup versions and embedded icons pass. The unsigned installer is 6,900,811 bytes. Local retention keeps 0.50 and 0.51; generated-cache cleanup preserves their hashes. Native interaction and gameplay are not repeated for this package.

@@ -2,6 +2,21 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Published Windows 0.51.0
+
+[Preview release](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.51.0) groups the
+0.49, 0.50 and 0.51 milestones. Its only asset is the unsigned x64 EXE, built from
+`7fc678d40a4f7302845f996b7474ebd531b1a64b`. The tag, remote asset digest and
+6,900,811-byte size match the verified local package. TypeScript, five retained
+frontend tests, Windows frontend, optimized offline NSIS packaging, executable/setup
+versions and embedded icons pass. This does not add native interaction/gameplay
+acceptance beyond the scoped evidence below.
+
+Protected cleanup removes 3,714,008,336 logical bytes of generated files, with
+both retained setup hashes and the executable unchanged. The old local 0.49 setup
+is separately checked and removed; 0.50/0.51 remain. Checksums stay local. File
+length totals do not measure allocated-disk savings. No server library is changed.
+
 ## Independent storage measurement after 0.50.0
 
 Process metrics no longer wait for directory traversal. The size cache schedules
