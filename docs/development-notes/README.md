@@ -17,6 +17,13 @@ change, dependency or retained test is added; the temporary probe is removed.
 
 ### Source improvements
 
+Creation also shares ownership between world/image selection. Step changes and
+submission wait for selection completion, with busy controls and an `aria-busy`
+form state. Actual picker/navigation callbacks preserve selected data, cancellation,
+retry, busy rejection and disposal; TypeScript/frontend checks pass. Step names
+also localize the accessible "Step" prefix. Native dialogs, keyboard interaction
+and actual server creation are outside this probe; temporary files are removed.
+
 Existing-server import now shares immediate ownership between folder and image
 pickers. Folder inspection and catalog/picker results are ignored after leaving
 the view. Actual effect/handler checks reproduce overlapping native requests,

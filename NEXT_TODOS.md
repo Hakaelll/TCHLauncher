@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.57 creation pickers share ownership and prevent step/submission changes
+  while selection is pending. Actual callbacks and frontend compilation pass;
+  native dialogs, keyboard interaction and complete creation remain outside the probe.
 - Post-0.57 import folder/image pickers share immediate ownership and discard
   results after disposal. Actual effect/handler checks and frontend compilation
   pass; native dialogs and a complete import operation are not driven here.

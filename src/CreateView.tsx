@@ -16,7 +16,11 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
   const [step,setStep] = useState(0)
   const wizardRef=useRef<HTMLDivElement>(null)
   const [stepDirection,setStepDirection]=useState(1)
-  const moveStep=(next:number)=>{setStepDirection(next>step?1:-1);setStep(next)}
+  const [selecting,setSelecting]=useState(false)
+  const picker=useRef({active:false,working:false})
+  const locked=busy||selecting
+  useEffect(()=>{const current={active:true,working:false};picker.current=current;return()=>{current.active=false}},[])
+  const moveStep=(next:number)=>{if(!picker.current.active||locked||picker.current.working)return;setStepDirection(next>step?1:-1);setStep(next)}
   useNavigationMotion(wizardRef,String(step),stepDirection,16)
   const [furthestStep,setFurthestStep] = useState(0)
   const [versions,setVersions] = useState<Version[]>([])
@@ -50,21 +54,25 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
     return ()=>{active=false}
   },[input.platform,experimental,catalogRevision])
   const chooseImage = async () => {
-    setImageError(null)
+    const current=picker.current;if(!current.active||current.working||busy)return
+    current.working=true;setSelecting(true);setImageError(null)
     try {
       const image = await api.pickServerImage()
-      if (image) { setImagePreview(image.data); setInput(old => ({...old,imagePath:image.path})) }
-    } catch(e) { setImageError(errorText(e)) }
+      if (image&&current.active) { setImagePreview(image.data); setInput(old => ({...old,imagePath:image.path})) }
+    } catch(e) {if(current.active)setImageError(errorText(e))}
+    finally {current.working=false;if(current.active)setSelecting(false)}
   }
   const chooseWorld = async () => {
-    setWorldError(null)
-    try { const selected = await api.pickWorldFolder(); if (selected) setWorldSource(selected) }
-    catch(e) { setWorldError(errorText(e)) }
+    const current=picker.current;if(!current.active||current.working||busy)return
+    current.working=true;setSelecting(true);setWorldError(null)
+    try { const selected = await api.pickWorldFolder(); if (selected&&current.active) setWorldSource(selected) }
+    catch(e) {if(current.active)setWorldError(errorText(e))}
+    finally {current.working=false;if(current.active)setSelecting(false)}
   }
   const previousStep=useRef(step)
   useEffect(() => { if(previousStep.current!==step)wizardRef.current?.querySelector<HTMLElement>('h2')?.focus();previousStep.current=step },[step])
   const advance = () => {
-    if (!canAdvance || busy) return
+    if (!canAdvance || locked || !picker.current.active || picker.current.working) return
     if (step < steps.length - 1) {
       const next = step + 1
       moveStep(next)
@@ -73,23 +81,23 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
   }
   return <div className="form-page">
     <div className="form-heading wizard-heading"><button className="back-button" onClick={onCancel}><Icon name="back" size={15}/>  {t("Servidores")}</button><div className="wizard-title-row"><h1>{t("Nuevo servidor")}</h1><span className="wizard-counter">{t("Paso")} {step + 1}  {t("de")} {steps.length}</span></div></div>
-    <nav className="wizard-steps" aria-label={t("Pasos de creación")}><MovingIndicator active={String(step)} axis="horizontal"/>{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-label={`Paso ${index+1}: ${label}`} aria-current={index === step ? 'step' : undefined} disabled={busy || index > furthestStep} onClick={() => moveStep(index)}><span aria-hidden="true">{index < step ? '✓' : String(index + 1).padStart(2,'0')}</span><strong>{translatedMessage(label)}</strong></button>)}</nav>
-    <div className="form-layout wizard-layout"><form className="create-form wizard-form" onSubmit={e => { e.preventDefault(); advance() }}>
+    <nav className="wizard-steps" aria-label={t("Pasos de creación")}><MovingIndicator active={String(step)} axis="horizontal"/>{steps.map((label,index) => <button type="button" key={label} className={index === step ? 'active' : index < step ? 'completed' : ''} aria-label={`${t("Paso")} ${index+1}: ${label}`} aria-current={index === step ? 'step' : undefined} disabled={locked || index > furthestStep} onClick={() => moveStep(index)}><span aria-hidden="true">{index < step ? '✓' : String(index + 1).padStart(2,'0')}</span><strong>{translatedMessage(label)}</strong></button>)}</nav>
+    <div className="form-layout wizard-layout"><form className="create-form wizard-form" aria-busy={selecting||undefined} onSubmit={e => { e.preventDefault(); advance() }}>
       <div className="wizard-panel" key={step} ref={wizardRef}>
       {step === 0 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Nombre e imagen")}</h2><p>{t("Así aparecerá en tu biblioteca.")}</p></div>
-      <div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt={t("Vista previa de la imagen")}/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage} disabled={!isTauri()}>{t("Elegir imagen")}</button><p>{t("PNG, JPG o WebP · hasta 2 MB")}</p>{imageError && <p className="form-error" role="alert">{translatedMessage(imageError)}</p>}</div><div className="form-row"><label htmlFor="new-name">{t("Nombre del servidor")}</label><input id="new-name" autoFocus required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})} placeholder={t("Mi servidor")}/><p className="field-help">{t("Solo lo verás tú en este launcher.")}</p></div></div>
+      <div className="identity-fields"><div className="image-selector"><div className="image-preview">{imagePreview ? <img src={imagePreview} alt={t("Vista previa de la imagen")}/> : <Icon name="server" size={28}/>}</div><button type="button" onClick={chooseImage} disabled={locked||!isTauri()}>{t("Elegir imagen")}</button><p>{t("PNG, JPG o WebP · hasta 2 MB")}</p>{imageError && <p className="form-error" role="alert">{translatedMessage(imageError)}</p>}</div><div className="form-row"><label htmlFor="new-name">{t("Nombre del servidor")}</label><input id="new-name" autoFocus required maxLength={64} value={input.name} onChange={e => setInput({...input,name:e.target.value})} placeholder={t("Mi servidor")}/><p className="field-help">{t("Solo lo verás tú en este launcher.")}</p></div></div>
       </>}
       {step === 1 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Versión y tipo")}</h2><p>{t("Elige la versión de Minecraft que utilizarán tus jugadores.")}</p></div>
       <div className="form-pair version-step-grid"><div className="form-row"><label htmlFor="new-version">{t("Versión de Minecraft")}</label>{versionError ? <div className="form-error" role="alert">{t("No se pudo cargar el catálogo:")} {translatedMessage(versionError)} <button type="button" onClick={loadVersions}>{t("Reintentar")}</button></div> : <select id="new-version" className="minecraft-version-list" size={6} aria-describedby="new-version-help" disabled={versionLoading} required value={input.version} onChange={e => setInput({...input,version:e.target.value})}><option value="">{versionLoading ? t("Cargando versiones…") : t("Selecciona una versión")}</option>{versions.map(v => <option key={v.id} value={v.id}>{v.id}{v.kind==='snapshot'?' · Experimental':''}</option>)}</select>}<p id="new-version-help" className="field-help">{!versionLoading&&!versionError?t("{0} versiones en el catálogo · Desplázate para ver las anteriores.", versions.length):t("Versiones del catálogo oficial del tipo seleccionado.")}</p></div><fieldset className="version-platform-picker"><legend>{t("Tipo de servidor")}</legend><div>{(['vanilla','paper','fabric','neoforge'] as const).map(platform=><label key={platform}><input type="radio" name="new-platform" value={platform} checked={input.platform===platform} onChange={()=>{setVersionLoading(true);setVersionError(null);if(!['vanilla','fabric'].includes(platform))setExperimental(false);setInput(old=>({...old,platform}))}}/><span><strong>{platformName(platform)}</strong><small>{({vanilla:t("Minecraft original"),paper:t("Servidor con plugins"),fabric:t("Mods de Fabric"),neoforge:t("Mods de NeoForge")})[platform]}</small></span></label>)}</div></fieldset></div><p className="field-help type-help">{input.platform === 'neoforge' ? t("NeoForge permite mods de servidor. Incluye la edición histórica para Minecraft 1.20.1 y el catálogo moderno desde 1.20.2. No hay ediciones anteriores; usa mods compatibles con la versión elegida.") : input.platform === 'fabric' ? t("Fabric permite mods de servidor. Se elegirá automáticamente un loader estable compatible.") : input.platform === 'paper' ? t("Paper admite plugins y opciones extra de rendimiento.") : t("Vanilla ofrece la experiencia original de Minecraft.")}</p>
-      {['vanilla','fabric'].includes(input.platform)&&<div className="experimental-versions"><label><input type="checkbox" checked={experimental} disabled={busy} onChange={event=>{setVersionLoading(true);setExperimental(event.target.checked)}}/><span>{t("Mostrar versiones experimentales")}</span></label>{experimental&&<p className="field-help">{t("Incluye snapshots y versiones de prueba del catálogo oficial. Pueden fallar y cambiar el formato de los mundos; crea una instancia separada para probarlas.")}</p>}</div>}
+      {['vanilla','fabric'].includes(input.platform)&&<div className="experimental-versions"><label><input type="checkbox" checked={experimental} disabled={locked} onChange={event=>{setVersionLoading(true);setExperimental(event.target.checked)}}/><span>{t("Mostrar versiones experimentales")}</span></label>{experimental&&<p className="field-help">{t("Incluye snapshots y versiones de prueba del catálogo oficial. Pueden fallar y cambiar el formato de los mundos; crea una instancia separada para probarlas.")}</p>}</div>}
       </>}
       {step === 2 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Elige un mundo")}</h2><p>{t("Genera uno nuevo o importa un mundo de Minecraft Java.")}</p></div>
       <div className="world-choice"><label><input type="radio" name="world-mode" checked={worldMode === 'new'} onChange={() => setWorldMode('new')}/><span><strong>{t("Mundo nuevo")}</strong><small>{t("Minecraft lo generará en el primer inicio.")}</small></span></label><label><input type="radio" name="world-mode" checked={worldMode === 'existing'} onChange={() => setWorldMode('existing')}/><span><strong>{t("Usar un mundo existente")}</strong><small>{t("Se copiará a este servidor; el original se conserva.")}</small></span></label></div>
-      {worldMode === 'new' && <div className="world-generation"><label htmlFor="new-world-seed"><strong>{t("Semilla del mundo")}</strong><span className="field-optional">{t("Opcional")}</span></label><input id="new-world-seed" type="text" value={input.seed??''} disabled={busy} aria-invalid={invalidSeed} aria-describedby="new-world-seed-help" placeholder={t("Aleatoria si la dejas vacía")} onChange={event=>setInput({...input,seed:event.target.value})}/><p id="new-world-seed-help" className={invalidSeed?'form-error':'field-help'}>{invalidSeed?t("Usa hasta 1024 bytes, sin saltos de línea ni caracteres de control."):t("Número o texto. Se usará al generar el mundo en su primer inicio.")}</p></div>}
-      {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld}>{t("Elegir carpeta del mundo")}</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldSource&&<WorldImportPreview source={worldSource} name="world" platform={input.platform}/>}{worldError && <p className="form-error" role="alert">{translatedMessage(worldError)}</p>}</div>}
+      {worldMode === 'new' && <div className="world-generation"><label htmlFor="new-world-seed"><strong>{t("Semilla del mundo")}</strong><span className="field-optional">{t("Opcional")}</span></label><input id="new-world-seed" type="text" value={input.seed??''} disabled={locked} aria-invalid={invalidSeed} aria-describedby="new-world-seed-help" placeholder={t("Aleatoria si la dejas vacía")} onChange={event=>setInput({...input,seed:event.target.value})}/><p id="new-world-seed-help" className={invalidSeed?'form-error':'field-help'}>{invalidSeed?t("Usa hasta 1024 bytes, sin saltos de línea ni caracteres de control."):t("Número o texto. Se usará al generar el mundo en su primer inicio.")}</p></div>}
+      {worldMode === 'existing' && <div className="world-choice-source"><button type="button" onClick={chooseWorld} disabled={locked}>{t("Elegir carpeta del mundo")}</button>{worldSource && <div><strong>{worldSource.suggestedName}</strong><span>{fmtBytes(worldSource.sizeBytes)} · {worldSource.path}</span></div>}{worldSource&&<WorldImportPreview source={worldSource} name="world" platform={input.platform}/>}{worldError && <p className="form-error" role="alert">{translatedMessage(worldError)}</p>}</div>}
       </>}
       {step === 3 && <>
       <div className="wizard-panel-heading"><h2 tabIndex={-1}>{t("Capacidad del servidor")}</h2><p>{t("Reserva memoria para el sistema y para jugar.")}</p></div>
@@ -104,7 +112,7 @@ export function CreateView({onCancel,onCreate,busy,systemMemory}: {onCancel:()=>
       <p className="wizard-final-note">{t("La instalación descargará Java y los archivos del servidor. En la primera descarga te pediremos aceptar la EULA de Minecraft. La decisión se recordará en este equipo.")}</p>
       </>}
       </div>
-      <div className="form-actions wizard-actions"><div>{step > 0 && <button type="button" disabled={busy} onClick={() => moveStep(step - 1)}>{t("Anterior")}</button>}<button type="submit" className="primary-button" disabled={busy || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? t("Preparando…") : step === steps.length - 1 ? t("Crear e instalar") : t("Continuar")}<Icon name="arrow" size={16}/></button></div></div>
+      <div className="form-actions wizard-actions"><div>{step > 0 && <button type="button" disabled={locked} onClick={() => moveStep(step - 1)}>{t("Anterior")}</button>}<button type="submit" className="primary-button" disabled={locked || !canAdvance || (step === steps.length - 1 && !readyToCreate)}>{busy ? t("Preparando…") : step === steps.length - 1 ? t("Crear e instalar") : t("Continuar")}<Icon name="arrow" size={16}/></button></div></div>
     </form><aside className="form-aside wizard-preview"><div className="wizard-preview-art" aria-hidden="true"><img src={worldIllustration} alt=""/></div><div className="aside-title">{t("Tu configuración")}</div><div className="aside-server"><div className="image-preview small">{imagePreview ? <img src={imagePreview} alt=""/> : <Icon name="server" size={22}/>}</div><div><strong>{input.name.trim() || t("Nuevo servidor")}</strong><span>{platformName(input.platform)} · {input.version || t("Versión pendiente")}</span></div></div><dl><div><dt>{t("Mundo")}</dt><dd>{worldMode === 'existing' ? worldSource?.suggestedName || t("Por elegir") : t("Nuevo")}</dd></div><div><dt>{t("Memoria")}</dt><dd><AnimatedValue value={input.memoryMaxMb * 1024 * 1024} format={fmtBytes}/></dd></div><div><dt>{t("Jugadores")}</dt><dd>{t("Hasta")} <AnimatedValue value={input.maxPlayers}/></dd></div><div><dt>{t("Objetivo de espacio")}</dt><dd><AnimatedValue value={input.storageTargetGb}/> GB</dd></div><div><dt>{t("Puerto")}</dt><dd>{input.port}</dd></div></dl><p>{t("El servidor se ejecutará en este ordenador. Java y los archivos se descargarán al crearlo.")}</p></aside></div>
   </div>
 }
