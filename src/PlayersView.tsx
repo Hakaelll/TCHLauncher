@@ -130,15 +130,15 @@ export function PlayersView({server,players,loading,readError,busy,onAction,onTo
     }finally{current.working=false}
   }
   const items = players ?? { online:[],known:[],whitelisted:[],operators:[],bannedPlayers:[],bannedIps:[],maxPlayers:0,whitelistEnabled:false,enforceWhitelist:false,onlineMode:true }
-  const operators=new Set(items.operators.flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
-  const authorized=new Set(items.whitelisted.flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
+  const operators=new Set((group==='known'?items.operators:[]).flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
+  const authorized=new Set((group==='known'?items.whitelisted:[]).flatMap(player=>player.uuid?[identityKey(player.uuid)]:[]))
   const errors=playerActionErrors(action,target,reason)
   const windows={
-    online:playerWindow(items.online,query,player=>`${player.name} ${player.uuid??''}`,page),
-    known:playerWindow(items.known,query,player=>`${player.name} ${player.uuid??''}`,page),
-    whitelist:playerWindow(items.whitelisted,query,player=>`${player.name} ${player.uuid??''}`,page),
-    operators:playerWindow(items.operators,query,player=>`${player.name} ${player.uuid??''}`,page),
-    banned:playerWindow([...items.bannedPlayers.map(entry=>({type:'player' as const,entry})),...items.bannedIps.map(entry=>({type:'ip' as const,entry}))],query,item=>item.type==='player'?`${item.entry.name} ${item.entry.uuid??''}`:item.entry.ip,page),
+    online:playerWindow(group==='online'?items.online:[],query,player=>`${player.name} ${player.uuid??''}`,page),
+    known:playerWindow(group==='known'?items.known:[],query,player=>`${player.name} ${player.uuid??''}`,page),
+    whitelist:playerWindow(group==='whitelist'?items.whitelisted:[],query,player=>`${player.name} ${player.uuid??''}`,page),
+    operators:playerWindow(group==='operators'?items.operators:[],query,player=>`${player.name} ${player.uuid??''}`,page),
+    banned:playerWindow(group==='banned'?[...items.bannedPlayers.map(entry=>({type:'player' as const,entry})),...items.bannedIps.map(entry=>({type:'ip' as const,entry}))]:[],query,item=>item.type==='player'?`${item.entry.name} ${item.entry.uuid??''}`:item.entry.ip,page),
   }
   const window=windows[group]
   const identityGroup=group==='whitelist'||group==='operators'||group==='banned'

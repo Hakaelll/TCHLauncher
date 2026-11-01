@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.57 player search processes only the active tab and derives membership
+  indexes only for known players. Actual initializer/helper checks preserve
+  paging/order/identity; frontend checks pass without a runtime RAM/FPS claim.
 - Post-0.57 storage measurements and warning saves reject overlapping callbacks
   immediately. Scoped actual-callback checks and frontend compilation pass;
   native disk/UI behavior and runtime performance are not measured.

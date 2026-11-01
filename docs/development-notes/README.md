@@ -2,7 +2,13 @@
 
 Engineering records, test evidence and pending native checks.
 
-## Update blockers after 0.57.0
+## Source changes after 0.57.0
+
+Player search processes only the active group's rows; ban presentation records
+are built only for the banned tab, and authorization/operator indexes only for
+known players. Actual initializer/helper checks cover all five groups, two pages,
+source order and original identities. TypeScript/frontend checks pass. These are
+scoped operation checks, not a runtime RAM/FPS benchmark or native interaction.
 
 Storage measurements and warning saves now share immediate operation ownership.
 Controlled actual callbacks reproduce overlapping requests and verify exclusion,
