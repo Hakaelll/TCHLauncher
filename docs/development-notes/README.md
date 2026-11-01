@@ -17,6 +17,13 @@ change, dependency or retained test is added; the temporary probe is removed.
 
 ### Source improvements
 
+Existing-server import now shares immediate ownership between folder and image
+pickers. Folder inspection and catalog/picker results are ignored after leaving
+the view. Actual effect/handler checks reproduce overlapping native requests,
+then preserve selected path/JAR/image, cancellation, errors, retry and disposal.
+TypeScript/frontend checks pass; native dialogs and actual import are not driven.
+The temporary probe is removed; no retained test or dependency is added.
+
 The November 1 workspace inventory sums regular-file lengths without following
 symlinks or junctions, including Git history, dependencies, artifacts and packages.
 The result is about 161 MB; this excludes redirected dependency targets and is not

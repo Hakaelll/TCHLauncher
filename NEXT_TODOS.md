@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.57 import folder/image pickers share immediate ownership and discard
+  results after disposal. Actual effect/handler checks and frontend compilation
+  pass; native dialogs and a complete import operation are not driven here.
 - The actual theme tokens pass 168 opaque text/surface contrast comparisons
   against 4.5:1, with a minimum of 4.640816966481406. This scoped static check
   does not establish rendered, focus-border or full accessibility conformance.
