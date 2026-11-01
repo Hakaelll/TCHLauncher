@@ -2,6 +2,17 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows 0.58 package
+
+Source `e66a4d1a11842222bcc9064e8be4f9349318a082` produces the unsigned
+6,888,131-byte NSIS x64 installer. Five frontend tests, TypeScript, production
+frontend, optimized offline packaging, versions and embedded icons pass.
+Tauri's Cargo.toml formatting is restored after parsed TOML equality is checked.
+Local retention keeps 0.57/0.58 and removes the hash-verified 0.56 setup. Cache
+cleanup is deferred by the active-build guard before deletion; retained package
+and executable hashes are unchanged. GitHub stays on 0.57. No native dialog,
+keyboard or Minecraft client interaction is repeated for packaging.
+
 ## Source changes after 0.57.0
 
 ### Shared-theme text contrast

@@ -68,15 +68,15 @@ continue actionable work without repeated acceptance or screenshot requests.
   [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Latest local installer: 0.57.0, unsigned and published, from
-  `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`. See the
-  [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). Five retained frontend
+- Latest local installer: 0.58.0, unsigned and unpublished, from
+  `e66a4d1a11842222bcc9064e8be4f9349318a082`. See the
+  [0.58.0 changes](docs/release-notes/RELEASE_NOTES_v0.58.0.md). Five retained frontend
   tests, TypeScript, production frontend, optimized offline NSIS packaging,
-  versions and embedded icons pass. GitHub publishes the same verified package.
-- Local retention keeps 0.56/0.57; checksums stay local. Protected generated-cache
-  cleanup removes 2,151,068,244 logical bytes and preserves package/executable
-  hashes. The obsolete local 0.55 installer is verified and removed. File lengths
-  are not allocated-disk or runtime memory measurements.
+  versions and embedded icons pass. GitHub retains published preview 0.57.0.
+- Local retention keeps 0.57/0.58; checksums stay local. Generated-cache cleanup
+  is deferred by the active-build guard; retained package/executable hashes are
+  unchanged. The obsolete local 0.56 installer is verified and removed. File
+  lengths are not allocated-disk or runtime memory measurements.
 - Post-0.52 source cleanup removes 13 unused platform icon derivatives
   (3,413,415 logical bytes). Four configured Windows outputs keep their hashes;
   actual CLI generation and current executable/setup icon-pixel checks pass.
@@ -304,7 +304,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | Windows 0.57.0 NSIS x64 from commit 9c7bd68 is unsigned and published on GitHub with one verified EXE asset, grouping 0.55–0.57. Five frontend tests, TypeScript, frontend/optimized offline packaging, versions and icons pass. Source tag and remote asset size/digest match. Local retention keeps 0.56/0.57; protected cache cleanup preserves executable/package hashes. Native interaction and client gameplay are not repeated for packaging. |
+| REL-02 | REVIEW | Current installer | Local Windows 0.58.0 NSIS x64 from commit e66a4d1 is unsigned and unpublished; GitHub retains verified preview 0.57. Five frontend tests, TypeScript, frontend/optimized offline packaging, versions and icons pass. Local retention keeps 0.57/0.58 and removes the hash-verified 0.56 setup. Generated-cache cleanup is deferred by the active-build guard; package/executable hashes are unchanged. Native interaction and client gameplay are not repeated for packaging. |
 
 ## Implemented scope from earlier audits
 

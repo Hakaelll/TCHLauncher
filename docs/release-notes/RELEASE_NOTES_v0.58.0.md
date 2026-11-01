@@ -33,4 +33,13 @@ CPU, frame-rate or Internet-latency improvement is claimed. Remaining manual
 validation stays maintainer-owned and nonblocking. No retained test or dependency
 is added.
 
-Packaging evidence will be recorded after the Windows build finishes.
+## Windows package
+
+Packaged source: `e66a4d1a11842222bcc9064e8be4f9349318a082`.
+Five retained frontend tests, TypeScript, the production frontend and optimized
+offline Windows NSIS packaging pass. Executable/setup versions and embedded
+icons match. The unsigned installer is 6,888,131 bytes and remains unpublished.
+Local retention keeps 0.57/0.58; the obsolete 0.56 installer is verified and removed.
+Generated-cache cleanup is deferred by the active-build guard. The retained
+packages and executable preserve their verified hashes; checksums stay local.
+These are file lengths, not allocated disk usage or runtime memory measurements.
