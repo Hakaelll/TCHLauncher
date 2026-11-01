@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.57 storage measurements and warning saves reject overlapping callbacks
+  immediately. Scoped actual-callback checks and frontend compilation pass;
+  native disk/UI behavior and runtime performance are not measured.
 - Post-0.57 Minecraft update blockers use the existing message translator.
   Actual list-item static rendering preserves technical details and follows
   ES/EN changes; TypeScript/frontend checks pass without native update interaction.

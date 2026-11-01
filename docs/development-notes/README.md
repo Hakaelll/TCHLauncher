@@ -4,6 +4,12 @@ Engineering records, test evidence and pending native checks.
 
 ## Update blockers after 0.57.0
 
+Storage measurements and warning saves now share immediate operation ownership.
+Controlled actual callbacks reproduce overlapping requests and verify exclusion,
+draft preservation, acknowledged warning values, error recovery and disposal.
+TypeScript/frontend checks pass; native disk measurement, rendered interaction
+and runtime memory are not measured. Temporary probes are removed.
+
 Minecraft update blockers now use the existing native-message translator at
 render time. The actual list-item callback reproduces the untranslated English
 case, then passes ES/EN switching and unchanged unknown-detail checks in static

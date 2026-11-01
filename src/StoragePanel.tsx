@@ -14,19 +14,23 @@ export function StoragePanel({server,busy}:{server:Server;busy:boolean}){
   const [saved,setSaved]=useState<number|null>(null)
   const [notice,setNotice]=useState<string|null>(null)
   const mounted=useRef(true)
+  const operation=useRef(false)
   useEffect(()=>{
     mounted.current=true;let active=true
     void api.storageUsage(server.id).then(value=>{if(active){setUsage(value);setDraft(value.warningPercent);setSaved(value.warningPercent)}}).catch(error=>{if(active)setError(errorText(error))}).finally(()=>{if(active)setLoading(false)})
     return()=>{active=false;mounted.current=false}
   },[server.id])
   const refresh=async()=>{
+    if(!mounted.current||operation.current||loading||saving||busy)return
+    operation.current=true
     setLoading(true);setError(null)
-    try{const value=await api.storageUsage(server.id);if(mounted.current){setUsage(value);setDraft(draft=>saved===null||draft===saved?value.warningPercent:draft);setSaved(value.warningPercent)}}catch(error){if(mounted.current)setError(errorText(error))}finally{if(mounted.current)setLoading(false)}
+    try{const value=await api.storageUsage(server.id);if(mounted.current){setUsage(value);setDraft(draft=>saved===null||draft===saved?value.warningPercent:draft);setSaved(value.warningPercent)}}catch(error){if(mounted.current)setError(errorText(error))}finally{operation.current=false;if(mounted.current)setLoading(false)}
   }
   const save=async()=>{
-    if(!Number.isInteger(draft)||draft<1||draft>100)return
+    if(!mounted.current||operation.current||loading||saving||busy||!Number.isInteger(draft)||draft<1||draft>100)return
+    operation.current=true
     setSaving(true);setError(null);setNotice(null)
-    try{await api.saveStorageWarning(server.id,draft);if(mounted.current){setSaved(draft);setUsage(value=>value?{...value,warningPercent:draft}:value);setNotice(t("Aviso configurado al {0} % del objetivo.", draft))}}catch(error){if(mounted.current)setError(errorText(error))}finally{if(mounted.current)setSaving(false)}
+    try{await api.saveStorageWarning(server.id,draft);if(mounted.current){setSaved(draft);setUsage(value=>value?{...value,warningPercent:draft}:value);setNotice(t("Aviso configurado al {0} % del objetivo.", draft))}}catch(error){if(mounted.current)setError(errorText(error))}finally{operation.current=false;if(mounted.current)setSaving(false)}
   }
   const target=server.storageTargetGb*1024**3
   const warning=usage&&usage.serverBytes>=target*usage.warningPercent/100
