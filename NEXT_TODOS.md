@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Actual NAT-PMP UDP transport passes owned loopback address/open/close exchanges,
+  granted-value checks and invalid-request/response rejection. Physical routing,
+  discovery, manager renewal and Internet reachability remain outside that check.
 - Post-0.57 creation pickers share ownership and prevent step/submission changes
   while selection is pending. Actual callbacks and frontend compilation pass;
   native dialogs, keyboard interaction and complete creation remain outside the probe.

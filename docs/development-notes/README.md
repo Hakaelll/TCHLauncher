@@ -15,6 +15,17 @@ This is token evidence only: no rendered cascade, alpha compositing, disabled
 controls, non-text borders, keyboard or screen-reader pass is claimed. No palette
 change, dependency or retained test is added; the temporary probe is removed.
 
+### NAT-PMP transport evidence
+
+The actual Rust transport passes against an owned loopback UDP responder:
+address/open/close packet bytes, granted external port/lifetime, connected-peer
+and opcode filtering, mismatched internal-port rejection, and rejection of zero
+internal ports or invalid lease durations. The private fixture endpoint bypasses
+the production constructor only inside the removed probe; that constructor still
+rejects loopback. No physical gateway, discovery, durable manager/UI, renewal or
+Internet reachability is exercised. Temporary source/binary/PDB files are removed;
+no production behavior, retained test or dependency changes.
+
 ### Source improvements
 
 Creation also shares ownership between world/image selection. Step changes and
