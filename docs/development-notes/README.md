@@ -4,6 +4,19 @@ Engineering records, test evidence and pending native checks.
 
 ## Source changes after 0.57.0
 
+### Shared-theme text contrast
+
+On November 1, 2026, a PostCSS read of the actual End/Obsidian/Nether role tokens
+checks 168 opaque text/surface pairs. All exceed the normal-text 4.5:1 threshold;
+the minimum is 4.640816966481406 for Obsidian muted text `#b5bac7` over control
+hover `#444955`. The calculation uses linearized sRGB luminance and unrounded
+comparisons, following [WCAG contrast minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
+This is token evidence only: no rendered cascade, alpha compositing, disabled
+controls, non-text borders, keyboard or screen-reader pass is claimed. No palette
+change, dependency or retained test is added; the temporary probe is removed.
+
+### Source improvements
+
 Player search processes only the active group's rows; ban presentation records
 are built only for the banned tab, and authorization/operator indexes only for
 known players. Actual initializer/helper checks cover all five groups, two pages,

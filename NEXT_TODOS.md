@@ -14,6 +14,9 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- The actual theme tokens pass 168 opaque text/surface contrast comparisons
+  against 4.5:1, with a minimum of 4.640816966481406. This scoped static check
+  does not establish rendered, focus-border or full accessibility conformance.
 - Post-0.57 player search processes only the active tab and derives membership
   indexes only for known players. Actual initializer/helper checks preserve
   paging/order/identity; frontend checks pass without a runtime RAM/FPS claim.
