@@ -28,6 +28,11 @@ no production behavior, retained test or dependency changes.
 
 ### Source improvements
 
+Creation's new-world review now uses the existing localized label. Actual
+expression checks cover ES/EN, random/text/numeric seed choices and unchanged
+imported world names. TypeScript/frontend checks pass; no native creation or
+rendered UI is exercised. The narrow JSX-copy audit is not a full locale audit.
+
 Creation also shares ownership between world/image selection. Step changes and
 submission wait for selection completion, with busy controls and an `aria-busy`
 form state. Actual picker/navigation callbacks preserve selected data, cancellation,

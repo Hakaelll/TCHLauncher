@@ -14,6 +14,8 @@ continue actionable work without repeated acceptance or screenshot requests.
 
 ## Build and publication state
 
+- Post-0.57 new-world summaries use the selected language. Actual expression and
+  frontend checks preserve seed choices and imported names, without native creation.
 - Actual NAT-PMP UDP transport passes owned loopback address/open/close exchanges,
   granted-value checks and invalid-request/response rejection. Physical routing,
   discovery, manager renewal and Internet reachability remain outside that check.
