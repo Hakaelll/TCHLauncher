@@ -2,6 +2,28 @@
 
 Engineering records and scoped verification evidence.
 
+## Local Windows 0.60 logo update
+
+At the maintainer's request, the golden emblem is replaced with a generated
+Minecraft-inspired grass-and-obsidian server block, with two inset server bays
+and amethyst details. The selected master, exact generation prompt and asset paths
+are in [the asset guide](../../src/assets/README.md). UI, favicon, tray, executable,
+installer and uninstaller share the new mark. Superseded masters are removed from
+the current tree and remain recoverable from Git history.
+
+Source `e24e5bee5815ebc06d495e85fa76e6a42a8a1c2c` produces the unsigned local
+0.60 NSIS installer, 6,791,256 bytes. Production PNG dimensions/transparency,
+Windows ICO sizes, TypeScript, frontend and optimized offline packaging pass.
+The executable and installer icon pixels match the generated ICO. Packaging
+changes to Cargo.toml formatting are restored after parsed equality is checked.
+No new retained test or dependency is added; native UI interaction is not automated.
+
+Guarded cleanup removes 1,916,334,498 logical bytes of generated build files.
+Verified 0.59/0.60 installers and the current executable are preserved; the
+hash-verified obsolete 0.58 installer is removed. These lengths are not allocated
+disk usage or runtime RAM measurements. GitHub remains on published preview 0.59,
+following the requested release cadence. Version 0.60 is a local installer.
+
 ## Final maintainer acceptance
 
 On November 2, 2026, after the remaining closing checks were explained, the
