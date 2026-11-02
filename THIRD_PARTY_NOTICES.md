@@ -44,8 +44,8 @@ font files from the original game and is not affiliated with Mojang or Microsoft
 
 ## Launcher logo
 
-The violet server-block mark was generated with the built-in imagegen tool at the
-user's request. The transparent master is `src/assets/launcher-mark.png`; Tauri's
+The grass-and-obsidian server-block mark was generated with the built-in imagegen
+tool at the user's request. The transparent master is `src/assets/launcher-mark.png`; Tauri's
 icon tooling produces the desktop and UI sizes. The design uses original geometric
 artwork rather than extracted Minecraft textures or official game logos. The
 superseded user-supplied golden emblem remains recoverable from Git history.
