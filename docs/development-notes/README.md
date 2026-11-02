@@ -2,7 +2,32 @@
 
 Engineering records and scoped verification evidence.
 
-## Local Windows 0.60 logo update
+## Local Windows 0.60 black geometric logo
+
+The maintainer replaced the illustrated direction with a simple corporate symbol,
+then approved black. The new mark combines a cubic cap, a central cutout and two
+stacked hosting layers. The transparent black master is retained for reuse; the
+black-on-white rendition supplies UI and native icons for contrast on dark
+surfaces. Exact generation/edit prompts are in the asset guide.
+
+Source `73df7e472b1b2f8805f8d4dffa69cdae425e370d` produces the updated local
+0.60 installer, 6,687,646 bytes. PNG sizes, the transparent master, opaque icon
+renditions and ICO sizes pass the asset checks. TypeScript, production frontend
+and optimized offline NSIS packaging pass. Extracted executable and installer
+icon pixels match the generated ICO. Cargo.toml changes from packaging are
+restored after parsed equality, using the checkout's Windows line endings.
+
+Guarded cleanup removes 1,915,319,713 logical bytes while preserving verified
+0.59/0.60 installers and the current executable. The prior illustrated receipt is
+retained locally as history. These lengths do not measure allocated disk or RAM.
+This remains an unpublished local 0.60 revision; GitHub still publishes 0.59.
+
+The repository's GitHub About description is updated through its metadata API and
+read back successfully: "A Windows desktop app to host and manage Minecraft Java
+servers, with automatic Java setup, mods, worlds and backups." Only that metadata
+field changes. No new release or checksum asset is uploaded.
+
+## Earlier local Windows 0.60 illustrated logo
 
 At the maintainer's request, the golden emblem is replaced with a generated
 Minecraft-inspired grass-and-obsidian server block, with two inset server bays
