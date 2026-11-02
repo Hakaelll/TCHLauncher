@@ -1,6 +1,6 @@
 # TCHLauncher 0.59.0
 
-Prepared for publication. The installer is unsigned; only the EXE will be attached.
+Published Windows preview. The installer is unsigned; only the EXE is attached.
 This release closes the current implementation batch and includes 0.58.0.
 
 ## Changes

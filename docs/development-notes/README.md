@@ -22,7 +22,9 @@ versions and embedded icons pass. Generated TOML formatting is restored only aft
 parsed equality with committed source. Guarded cleanup removes 4,317,254,952
 logical bytes, preserving the verified packages/executable. Local retention keeps
 0.58/0.59 and removes the hash-verified local 0.57 setup. File lengths do not measure
-allocated disk or runtime RAM. Publication is prepared, not established here.
+allocated disk or runtime RAM. GitHub preview 0.59.0 is published with only the
+Windows EXE. Its source tag, sole asset, byte length and SHA-256 digest match the
+local package receipt. No checksum asset is uploaded.
 
 The owner-loss fixture is not a native launcher crash or client gameplay test.
 Job assignment follows creation; interruption in that interval is unverified.

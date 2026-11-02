@@ -44,8 +44,9 @@ authorized, but the current evidence does not establish full goal completion.
   followed by a restored boot. The temporary library and consent copy are removed.
 - Local Windows 0.59 from `926a9d608c806274f8237e105ec0460bc3f897db` passes five
   frontend tests, TypeScript, production frontend, optimized offline NSIS packaging,
-  versions and embedded icons. It is prepared for the authorized closing-batch
-  publication, not yet published. Guarded cleanup removes 4,317,254,952 logical
+  versions and embedded icons. The authorized closing-batch preview is
+  [published on GitHub](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.59.0)
+  with only the EXE; its tag, sole asset, length and digest are verified. Guarded cleanup removes 4,317,254,952 logical
   bytes, preserving the verified packages and executable. Local retention now
   keeps 0.58/0.59 and removes the verified local 0.57 setup. Checksums remain local.
 - Post-0.57 new-world summaries use the selected language. Actual expression and
@@ -95,7 +96,7 @@ authorized, but the current evidence does not establish full goal completion.
 - Command recall survives navigation within the app session, keeping up to 50
   acknowledged sends per server in memory. Scoped callback/helper and frontend
   checks pass; native commands/deletion/keyboard are not exercised by the probe.
-- Latest published preview: [0.57.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.57.0), grouping the
+- Previous published preview: [0.57.0](https://github.com/Hakaelll/TCHLauncher/releases/tag/v0.57.0), grouping the
   0.55, 0.56 and 0.57 milestones. Only the unsigned Windows x64 EXE is attached;
   GitHub asset size/digest and its source tag are verified.
 - Published/package source: `9c7bd682b25768994b46b5ae8cb7d7ce6cdf037b`. See the
@@ -338,7 +339,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | Local Windows 0.59.0 NSIS x64 from commit 926a9d6 is unsigned and prepared for closing-batch publication; GitHub still publishes 0.57 until remote verification. Five frontend tests, TypeScript, optimized offline packaging, versions and icons pass. The changed engine passes the real Vanilla three-session/restore case. Guarded cleanup removes 4,317,254,952 logical bytes and preserves verified packages/executable; retention keeps 0.58/0.59. Native Windows interaction and client gameplay remain unverified. |
+| REL-02 | REVIEW | Current installer | Windows 0.59.0 NSIS x64 from commit 926a9d6 is published as an unsigned preview with only the EXE; the source tag and sole remote asset match the verified package. Five frontend tests, TypeScript, optimized offline packaging, versions and icons pass. The changed engine passes the real Vanilla three-session/restore case. Guarded cleanup removes 4,317,254,952 logical bytes and preserves verified packages/executable; retention keeps 0.58/0.59. Native Windows interaction and client gameplay remain unverified. |
 
 ## Implemented scope from earlier audits
 
@@ -397,4 +398,3 @@ improvements do not substitute for closing the original scope.
 Historical iteration evidence belongs under [development notes](docs/development-notes/).
 Older roadmap wording is recoverable in Git history. Do not treat historical
 pending lists or test counts as the current state.
-

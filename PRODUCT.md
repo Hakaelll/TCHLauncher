@@ -28,14 +28,14 @@ Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como 
 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
-La 0.57.0 está publicada como preview de Windows, solo con el EXE adjunto.
-Agrupa los hitos 0.55, 0.56 y 0.57; los commits no cuentan como versiones.
-Se mantiene la cadencia habitual de 3 o 4 versiones entre publicaciones y la
-petición de publicar la versión que cierre la tanda final. Se conservan los
-instaladores locales 0.58 y 0.59. La 0.59 incluye la protección de procesos Java
-en Windows y está preparada para la publicación autorizada de cierre de tanda.
-GitHub sigue en la 0.57 hasta verificar esa publicación. Los checksums permanecen
-locales. La validación manual pendiente no se presenta como completada.
+La 0.59.0 está publicada como preview de Windows, solo con el EXE adjunto.
+Incluye los hitos 0.58 y 0.59 y cierra esta tanda de implementación por petición
+del usuario. La etiqueta apunta al código empaquetado; el archivo remoto coincide
+en nombre, tamaño y SHA-256 con el instalador local. No se sube un archivo de
+checksum. Se conservan los instaladores locales 0.58 y 0.59. Se mantiene la
+cadencia habitual de 3 o 4 versiones entre futuras publicaciones; los commits no
+cuentan como versiones. La validación manual pendiente no se presenta como
+completada.
 
 El usuario asume la validación manual pendiente. Se indican las pruebas no
 realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa
