@@ -20,7 +20,7 @@ current table contains 41 `REVIEW` areas, one `DONE` area and one explicitly
 entry. This is a roadmap inventory, not proof that every original requirement
 passes. No remaining-work percentage can be derived from these labels.
 
-The local 0.58 installer already exists. Remaining recorded acceptance covers
+The local 0.59 installer already exists. Remaining recorded acceptance covers
 native Windows workflows, keyboard and assistive-technology interaction,
 interactive installer choices, and physical-router lease cleanup. The scoped
 engine runs and maintainer reports below do not prove those missing observations.
@@ -39,7 +39,15 @@ authorized, but the current evidence does not establish full goal completion.
   These checks use harmless fixture processes, not Minecraft gameplay or a native
   launcher crash. Protection begins after assignment; interruption between spawn
   and assignment remains unverified. Abrupt cleanup cannot guarantee a world save.
-  This change is not included in the existing local 0.58 installer.
+  It is included in local 0.59. The existing real Vanilla 1.21.4 case also passes
+  three status/command/graceful-stop sessions and byte-identical world restore
+  followed by a restored boot. The temporary library and consent copy are removed.
+- Local Windows 0.59 from `926a9d608c806274f8237e105ec0460bc3f897db` passes five
+  frontend tests, TypeScript, production frontend, optimized offline NSIS packaging,
+  versions and embedded icons. It is prepared for the authorized closing-batch
+  publication, not yet published. Guarded cleanup removes 4,317,254,952 logical
+  bytes, preserving the verified packages and executable. Local retention now
+  keeps 0.58/0.59 and removes the verified local 0.57 setup. Checksums remain local.
 - Post-0.57 new-world summaries use the selected language. Actual expression and
   frontend checks preserve seed choices and imported names, without native creation.
 - Actual NAT-PMP UDP transport passes owned loopback address/open/close exchanges,
@@ -94,12 +102,12 @@ authorized, but the current evidence does not establish full goal completion.
   [0.57.0 changes](docs/release-notes/RELEASE_NOTES_v0.57.0.md). TypeScript,
   the retained frontend tests, Windows frontend, optimized offline NSIS packaging,
   executable/setup versions and embedded icons pass.
-- Latest local installer: 0.58.0, unsigned and unpublished, from
+- Previous local installer: 0.58.0, unsigned and unpublished, from
   `e66a4d1a11842222bcc9064e8be4f9349318a082`. See the
   [0.58.0 changes](docs/release-notes/RELEASE_NOTES_v0.58.0.md). Five retained frontend
   tests, TypeScript, production frontend, optimized offline NSIS packaging,
   versions and embedded icons pass. GitHub retains published preview 0.57.0.
-- Local retention keeps 0.57/0.58; checksums stay local. Generated-cache cleanup
+- At 0.58, local retention kept 0.57/0.58. Generated-cache cleanup
   is deferred by the active-build guard; retained package/executable hashes are
   unchanged. The obsolete local 0.56 installer is verified and removed. File
   lengths are not allocated-disk or runtime memory measurements.
@@ -330,7 +338,7 @@ not establish unobserved native interaction or client outcomes.
 | UX-04 | REVIEW | Creation and settings experience | Deferred wizard, seed, pre-start defaults and searched gameplay-first settings with sticky save controls implemented. Shared capacity sliders now use translated visible labels and announce MB/GB/percent units; ES/EN static React markup checks pass. Verify native flow, validation, focus, screen-reader behavior and narrow layouts. |
 | UX-05 | REVIEW | Deletion confirmation | Centered modal, explicit managed/external scope and focus return implemented. Confirmed native deletion now removes the local server/history/tasks immediately and uses the existing read-only recovery banner when refreshing the library fails. Production callback checks pass for deletion failure and successful deletion with either refresh result. Verify from scrolled settings and last-server deletion. |
 | REL-01 | REVIEW | Windows distribution | Silent clean install 0.40.0, upgrade to 0.43.0 and uninstall passed with a preserved user-owned fixture, unchanged original executable/database hashes and exact original registry restoration. No application launch or native UI was exercised. Maintainer confirms 0.39.0 login startup, tray/exit and external play. Interactive installer choices and broader usage remain open. Linux is deferred; unsigned Windows builds are previews. |
-| REL-02 | REVIEW | Current installer | Local Windows 0.58.0 NSIS x64 from commit e66a4d1 is unsigned and unpublished; GitHub retains verified preview 0.57. Five frontend tests, TypeScript, frontend/optimized offline packaging, versions and icons pass. Local retention keeps 0.57/0.58 and removes the hash-verified 0.56 setup. Generated-cache cleanup is deferred by the active-build guard; package/executable hashes are unchanged. Native interaction and client gameplay are not repeated for packaging. |
+| REL-02 | REVIEW | Current installer | Local Windows 0.59.0 NSIS x64 from commit 926a9d6 is unsigned and prepared for closing-batch publication; GitHub still publishes 0.57 until remote verification. Five frontend tests, TypeScript, optimized offline packaging, versions and icons pass. The changed engine passes the real Vanilla three-session/restore case. Guarded cleanup removes 4,317,254,952 logical bytes and preserves verified packages/executable; retention keeps 0.58/0.59. Native Windows interaction and client gameplay remain unverified. |
 
 ## Implemented scope from earlier audits
 
@@ -389,3 +397,4 @@ improvements do not substitute for closing the original scope.
 Historical iteration evidence belongs under [development notes](docs/development-notes/).
 Older roadmap wording is recoverable in Git history. Do not treat historical
 pending lists or test counts as the current state.
+

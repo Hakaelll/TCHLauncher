@@ -2,6 +2,33 @@
 
 Engineering records, test evidence and pending native checks.
 
+## Windows 0.59 process containment and package
+
+Source `926a9d608c806274f8237e105ec0460bc3f897db` produces the unsigned
+6,894,189-byte NSIS x64 installer. The Windows spawn path retains a separate
+kill-on-close Job Object per Java process. A real fixture reproduces the old
+surviving child and checks assigned-child termination, unrelated-process isolation
+and normal exit afterward. Existing `windows-sys` 0.61.2 bindings are used directly;
+the lockfile adds no package or version.
+
+One existing real Vanilla 1.21.4 case passes with managed Java 21, three
+ready/status/command/graceful-stop sessions, byte-identical world restoration,
+restored-world boot and pre-start gameplay settings. Its temporary library and
+copied existing consent record are removed. The original consent is read without
+writing the user database. No new retained test or acceptance action is added.
+
+Five frontend tests, TypeScript, production frontend, optimized offline packaging,
+versions and embedded icons pass. Generated TOML formatting is restored only after
+parsed equality with committed source. Guarded cleanup removes 4,317,254,952
+logical bytes, preserving the verified packages/executable. Local retention keeps
+0.58/0.59 and removes the hash-verified local 0.57 setup. File lengths do not measure
+allocated disk or runtime RAM. Publication is prepared, not established here.
+
+The owner-loss fixture is not a native launcher crash or client gameplay test.
+Job assignment follows creation; interruption in that interval is unverified.
+Emergency cleanup cannot guarantee a world save. Manual interaction, accessibility
+and physical-router acceptance remain maintainer-owned.
+
 ## Windows 0.58 package
 
 Source `e66a4d1a11842222bcc9064e8be4f9349318a082` produces the unsigned
