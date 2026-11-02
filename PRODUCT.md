@@ -47,7 +47,7 @@ se vuelven a usar para bloquear el trabajo.
 
 ## Brand Commitments
 
-TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El usuario proporcionó el emblema voxel dorado. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
+TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El logo simplifica un bloque voxel y un servidor con dos ranuras, en violeta y lavanda, por petición del usuario. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
 
 ## Evidence on Hand
 

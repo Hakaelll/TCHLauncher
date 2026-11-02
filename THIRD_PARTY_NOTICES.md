@@ -42,14 +42,14 @@ terms before sharing a world/content export, and review configurations for secre
 Monocraft is a fan-created font inspired by Minecraft's UI. It does not contain
 font files from the original game and is not affiliated with Mojang or Microsoft.
 
-## Launcher emblem
+## Launcher logo
 
-The gold voxel emblem was supplied by the user for the application logo and icon.
-The source image is preserved in `src/assets/launcher-emblem.png`. Desktop and UI icon
-sizes are generated with Tauri's icon tooling from a transparent exterior cutout.
-The built-in imagegen tool produced the cutout while retaining the dark central disk.
-The original supplied image is preserved. See `src/assets/README.md` for saved paths
-and the exact edit prompt.
+The violet server-block mark was generated with the built-in imagegen tool at the
+user's request. The transparent master is `src/assets/launcher-mark.png`; Tauri's
+icon tooling produces the desktop and UI sizes. The design uses original geometric
+artwork rather than extracted Minecraft textures or official game logos. The
+superseded user-supplied golden emblem remains recoverable from Git history.
+See `src/assets/README.md` for the generation prompt and saved paths.
 
 ## Block glyphs
 

@@ -1,22 +1,22 @@
 # Launcher visual assets
 
-These assets were produced with the built-in imagegen tool, then integrated into this workspace. Tauri icon tooling generates bounded UI sizes without cropping the objects. The user's original logo remains at `src/assets/launcher-emblem.png`.
+The current logo was generated with the built-in imagegen tool at the user's request. It combines a Minecraft-inspired voxel block with two server slots, using charcoal, violet and lavender. Its background has true transparent alpha. The previous golden emblem remains recoverable from Git history.
 
-`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size emblem. It stages the full derivative set in a temporary `artifacts/` folder and retains only the four configured Windows files: `32x32.png`, `128x128.png`, `128x128@2x.png` and `icon.ico`. The temporary directory is removed afterward; unused platform formats are not kept in the source tree. It does not redraw the former letter-T mark. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
+`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size server-block mark. It stages the full derivative set in a temporary `artifacts/` folder and retains only the four configured Windows files: `32x32.png`, `128x128.png`, `128x128@2x.png` and `icon.ico`. The temporary directory is removed afterward; unused platform formats are not kept in the source tree. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
 
 ## Final assets
 
 | Saved path | Use |
 | --- | --- |
 | `src/assets/launcher-logo.png` | Transparent logo at 256px; UI and welcome |
-| `src/assets/launcher-emblem-cutout.png` | Selected transparent edit, full resolution |
+| `src/assets/launcher-mark.png` | Generated transparent logo master, 1254px |
 | `src-tauri/icons/` | Four configured Windows app/tray/installer derivatives |
 | `public/launcher-icon.png` | Browser favicon |
 | `src/assets/choice-world.png` | Production 256px inventory illustration |
 | `src/assets/choice-import.png` | Production 256px inventory illustration |
 | `src/assets/choice-pack.png` | Production 256px inventory illustration |
 
-Only the production-size inventory artwork is retained in the current tree. Unused full-size originals were removed to keep the workspace smaller and remain recoverable from Git history. The original logo and its full-size cutout are retained for provenance and native icon generation. These illustrations decorate real create/import actions; they do not represent an actual server or bundled game item.
+Only the production-size inventory artwork is retained in the current tree. Unused full-size originals were removed to keep the workspace smaller and remain recoverable from Git history. The current logo master is retained for native icon generation; superseded full-size logo files are removed. These illustrations decorate real create/import actions; they do not represent an actual server or bundled game item.
 
 ## Regenerating deferred platform formats
 
@@ -25,14 +25,14 @@ use the installed Tauri CLI to generate the required formats and add only those
 to its configuration. The current wrapper intentionally keeps Windows outputs.
 
 ```powershell
-node node_modules/@tauri-apps/cli/tauri.js icon src/assets/launcher-emblem-cutout.png --output src-tauri/icons --fit contain
+node node_modules/@tauri-apps/cli/tauri.js icon src/assets/launcher-mark.png --output src-tauri/icons --fit contain
 ```
 
 ## Prompts
 
-### Logo: built-in edit, background-extraction
+### Logo: built-in generation, logo-brand
 
-Use case: background-extraction. Asset type: TCHLauncher application logo and Windows app icon. Input image 1 is the edit target, not a style reference. Remove ONLY the exterior black background around the existing golden voxel sun emblem and in the gaps between its rays, producing true transparent alpha. Preserve the golden blocks, all ray shapes and tips, lighting, colors, monogram and the opaque dark obsidian circular center exactly as supplied. The central black disk is part of the logo and must remain opaque. Center the full emblem in a square canvas with a small even transparent margin, about 3% on each side; keep every ray tip fully visible. No square backdrop, no halo painted into a black background, no redesign, no new text, no new symbols, no border, no extra objects. Clean sharp cutout suitable for use at 48px while faithfully preserving the original logo.
+Use case: logo-brand. Asset type: production desktop application icon and logo for TCHLauncher, a local Minecraft Java server manager. Create ONE exceptionally simple, distinctive compact logo: a chunky isometric voxel cube whose front face is also a server rack with exactly two broad horizontal slots and one small square violet status light per slot. The cube silhouette suggests a Minecraft block; the slots immediately communicate hosting/managing a server. No letters, no wordmark, no monogram. Clean vector-like flat geometric artwork with hard straight edges, a subtle stepped pixel corner treatment, thick readable shapes, no intricate pixel texture. Palette: dark charcoal outline #17141f, saturated medium purple #8461cb front, lighter lavender #c8b0fa top, deep violet #50347a side, near-white lavender slots #eee5ff. Strong clear contrast on BOTH light and dark UI. A single unified mark, not separate icons arranged together. Large centered symbol fills about 86 percent of a square canvas with even safe transparent margins. All of symbol inside canvas. Actual transparent background, no square backdrop, no ground shadow, no glow, no gradients, no gold, no sun rays, no realistic 3D rendering, no tiny decoration, no official Minecraft logos or Creeper faces. Design must stay identifiable as a server/block at 24 and 32 pixels. Deliver only the single finished icon.
 
 ### world: built-in generation, stylized-concept
 

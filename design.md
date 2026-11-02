@@ -3,8 +3,8 @@
 ## Authority and source files
 
 The current direction is Minecraft and the End: charcoal surfaces, violet accents,
-Monocraft where legible, raised rectangular controls and the user's golden voxel
-emblem. These later user instructions replace the original light, achromatic
+Monocraft where legible, raised rectangular controls and a compact violet
+server-block logo. These later user instructions replace the original light, achromatic
 reference. Keep the accepted appearance while improving clarity and interaction.
 
 This document defines current design rules. Iteration history and scoped checks
@@ -73,9 +73,10 @@ wins. Changing theme does not animate the entire page or steal focus.
 - Keep confirmations viewport-centered despite page scrolling. Busy operations
   cannot disappear because a pending exit animation finishes.
 
-The transparent golden emblem keeps its dark central disk. UI, favicon, executable,
-installer and uninstaller use that identity without a black square backdrop or
-inversion. Do not reuse a selected server image as a stretched workspace banner.
+The transparent logo combines a voxel block with two server slots. Keep its
+charcoal outline and violet/lavender faces readable at small sizes. UI, favicon,
+tray, executable, installer and uninstaller use the same mark without a square
+backdrop. Do not reuse a selected server image as a stretched workspace banner.
 
 ## Motion
 
