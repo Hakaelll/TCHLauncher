@@ -12,6 +12,24 @@ The maintainer owns pending manual validation and explicitly asks that its absen
 not block implementation. Report unverified behavior without claiming a pass;
 continue actionable work without repeated acceptance or screenshot requests.
 
+## Closing scope
+
+The November 2 scope review distinguishes implementation from acceptance. The
+current table contains 41 `REVIEW` areas, one `DONE` area and one explicitly
+`DEFERRED` area. It contains no `TODO`, `IN_PROGRESS` or `BLOCKED` implementation
+entry. This is a roadmap inventory, not proof that every original requirement
+passes. No remaining-work percentage can be derived from these labels.
+
+The local 0.58 installer already exists. Remaining recorded acceptance covers
+native Windows workflows, keyboard and assistive-technology interaction,
+interactive installer choices, and physical-router lease cleanup. The scoped
+engine runs and maintainer reports below do not prove those missing observations.
+The maintainer owns manual validation; do not request it again or reopen resolved
+reports. Work toward closure must address an unmet original requirement or a
+concrete defect. Additional cosmetic, localization and cleanup ideas are optional
+and must not repeatedly extend the closing scope. Final publication remains
+authorized, but the current evidence does not establish full goal completion.
+
 ## Build and publication state
 
 - Post-0.57 new-world summaries use the selected language. Actual expression and
@@ -350,9 +368,9 @@ missing content and the imported account/skin mismatch. Close these reports on
 that user-provided evidence; do not keep asking for their old logs or treat them
 as blockers. This is maintainer confirmation, not a newly reproduced local test.
 
-The maintainer owns remaining manual validation and explicitly requests continued
-implementation. Unobserved checks stay documented without stopping independent
-improvements or reopening these resolved reports.
+The maintainer owns remaining manual validation. Unobserved checks stay documented
+without blocking required fixes or reopening these resolved reports. Optional
+improvements do not substitute for closing the original scope.
 
 ## Deferred scope
 
