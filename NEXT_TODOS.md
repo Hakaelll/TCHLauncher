@@ -32,6 +32,14 @@ authorized, but the current evidence does not establish full goal completion.
 
 ## Build and publication state
 
+- Post-0.58 Windows source retains each Java process in its own kill-on-close Job
+  Object. A real owned-process fixture reproduces the previous surviving child,
+  then verifies owner termination cleans up the assigned child, leaves an unrelated
+  process alive and permits a normal child exit. Offline native compilation passes.
+  These checks use harmless fixture processes, not Minecraft gameplay or a native
+  launcher crash. Protection begins after assignment; interruption between spawn
+  and assignment remains unverified. Abrupt cleanup cannot guarantee a world save.
+  This change is not included in the existing local 0.58 installer.
 - Post-0.57 new-world summaries use the selected language. Actual expression and
   frontend checks preserve seed choices and imported names, without native creation.
 - Actual NAT-PMP UDP transport passes owned loopback address/open/close exchanges,

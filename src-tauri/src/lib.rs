@@ -47,6 +47,8 @@ mod players;
 mod access_lists;
 mod authentication;
 mod process;
+#[cfg(windows)]
+mod process_job;
 mod ticks;
 mod properties;
 mod server_settings;

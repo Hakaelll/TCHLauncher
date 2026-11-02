@@ -4290,6 +4290,7 @@ dependencies = [
  "walkdir",
  "webview2-com",
  "windows-core",
+ "windows-sys 0.61.2",
  "winreg",
  "yaml-rust2",
  "zip",

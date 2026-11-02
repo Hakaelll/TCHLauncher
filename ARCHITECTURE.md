@@ -171,6 +171,16 @@ servers or cancel. New operations are restricted while shutdown is admitted.
 Configured stop backups require a clean, previously running session; forced exits
 and failed startup do not claim a successful save.
 
+On Windows, [process_job.rs](src-tauri/src/process_job.rs) assigns each spawned
+Java process to its own kill-on-close Job Object before publishing the session.
+The process control retains the non-inheritable handle, including in tray mode.
+An abrupt launcher exit therefore terminates assigned Java processes instead of
+leaving them running without launcher control. This is forced termination, not
+a clean Minecraft save. Normal stop still uses the existing graceful path.
+Assignment failure stops and reaps the new child before reporting a launch error.
+Assignment follows process creation; atomic containment during that short launch
+interval is not established by this implementation or its checks.
+
 ## Worlds, imports and recovery
 
 - [world.rs](src-tauri/src/world.rs) discovers worlds through bounded `level.dat`

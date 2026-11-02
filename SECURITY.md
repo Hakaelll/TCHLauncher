@@ -44,6 +44,12 @@ JVM options are passed as individual arguments, not shell commands. Memory, entr
 
 Normal shutdown requests a graceful stop and waits for the process. Forced termination requires separate confirmation and cannot establish a clean world save. Minecraft EULA acceptance requires an explicit user action; remembered acceptance is used for subsequent setup.
 
+Post-0.58 Windows source also retains a separate Job Object for each assigned Java
+process. Windows terminates those processes if the launcher exits abruptly. This
+emergency cleanup cannot guarantee a world save. The normal confirmed shutdown
+continues to request a graceful stop. Containment is assigned after process
+creation, so interruption within that initial interval remains unverified.
+
 ### Images, identities and content
 
 Server artwork is limited to 2 MB, 4096 × 4096 dimensions and bounded decode allocation. The Minecraft server icon is derived as a 64 × 64 PNG. Image changes require the server to be stopped.

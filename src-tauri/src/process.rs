@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 pub struct ProcessControl {
+    #[cfg(windows)]
+    _job: std::os::windows::io::OwnedHandle,
     stop_requested: std::sync::atomic::AtomicBool,
     forced: std::sync::atomic::AtomicBool,
     child: Mutex<Child>,
@@ -26,8 +28,8 @@ pub struct ProcessControl {
 }
 
 impl ProcessControl {
-    fn new(child:Child,stdin:ChildStdin,paper:bool,started:Instant)->Self{
-        Self{forced:std::sync::atomic::AtomicBool::new(false),stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(crate::players::Connections::default()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
+    fn new(child:Child,stdin:ChildStdin,paper:bool,started:Instant,#[cfg(windows)] job:std::os::windows::io::OwnedHandle)->Self{
+        Self{#[cfg(windows)] _job:job,forced:std::sync::atomic::AtomicBool::new(false),stop_requested:std::sync::atomic::AtomicBool::new(false),child:Mutex::new(child),stdin:Mutex::new(stdin),started,startup_phase:Mutex::new(crate::startup::Phase::default()),running_since:Mutex::new(None),state:Mutex::new("starting".into()),online:Mutex::new(crate::players::Connections::default()),paper,ticks:Mutex::new(crate::ticks::Collector::default()),output:Mutex::new(crate::crash_diagnostics::Output::default()),session:uuid::Uuid::new_v4().to_string()}
     }
 }
 
@@ -292,15 +294,17 @@ impl ProcessManager {
             return Err("La aplicación se está cerrando".into());
         }
         let started=Instant::now();
-        let mut child = command
-            .args(crate::jvm::launch_arguments(server,jvm)?)
+        command.args(crate::jvm::launch_arguments(server,jvm)?)
             .current_dir(&server.directory)
-            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
-            .spawn().map_err(|e| format!("Java no pudo arrancar: {e}"))?;
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        #[cfg(windows)]
+        let (mut child,job) = crate::process_job::spawn(&mut command).map_err(|e|format!("Java no pudo arrancar: {e}"))?;
+        #[cfg(not(windows))]
+        let mut child = command.spawn().map_err(|e|format!("Java no pudo arrancar: {e}"))?;
         let stdin = child.stdin.take().ok_or("No se pudo abrir la entrada del servidor")?;
         let stdout = child.stdout.take().ok_or("No se pudo abrir la consola del servidor")?;
         let stderr = child.stderr.take().ok_or("No se pudo abrir la salida de errores")?;
-        let control = Arc::new(ProcessControl::new(child,stdin,server.platform=="paper",started));
+        let control = Arc::new(ProcessControl::new(child,stdin,server.platform=="paper",started,#[cfg(windows)] job));
         map.insert(server.id.clone(), control.clone());
         self.terminal_states.lock().unwrap().remove(&server.id);
         self.exits.lock().unwrap().remove(&server.id);
