@@ -3,8 +3,8 @@
 ## Authority and source files
 
 The current direction is Minecraft and the End: charcoal surfaces, violet accents,
-Monocraft where legible, raised rectangular controls and a Minecraft server-block
-logo. These later user instructions replace the original light, achromatic
+Monocraft where legible, raised rectangular controls and an abstract black
+block-and-layers logo. These later user instructions replace the original light, achromatic
 reference. Keep the accepted appearance while improving clarity and interaction.
 
 This document defines current design rules. Iteration history and scoped checks
@@ -73,12 +73,12 @@ wins. Changing theme does not animate the entire page or steal focus.
 - Keep confirmations viewport-centered despite page scrolling. Busy operations
   cannot disappear because a pending exit animation finishes.
 
-The transparent logo combines a grass-and-dirt Minecraft-inspired top with an
-obsidian server body, two readable bays and amethyst accents. Green is confined
-to the logo's grass; application surfaces keep their existing End palette. Keep
-the silhouette readable at small sizes. UI, favicon, tray, executable, installer
-and uninstaller use the same mark without a square backdrop. Do not reuse a
-selected server image as a stretched workspace banner.
+The logo is a flat black geometric block with two hosting layers and a central
+cutout. The block refers to Minecraft; the layers refer to managed servers.
+Keep the transparent master for reusable branding. UI and native icons use the
+black-on-white rendition to retain contrast on dark surfaces. The application's
+End palette remains unchanged. UI, favicon, tray, executable, installer and
+uninstaller share this identity. Do not use a selected server image as a banner.
 
 ## Motion
 

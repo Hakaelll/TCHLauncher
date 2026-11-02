@@ -5,7 +5,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 root = Path(__file__).resolve().parents[1]
-source = root / "src/assets/launcher-mark.png"
+source = root / "src/assets/launcher-icon-source.png"
 cli = root / "node_modules/@tauri-apps/cli/tauri.js"
 node = shutil.which("node")
 if not node or not cli.is_file() or not source.is_file():

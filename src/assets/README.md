@@ -1,15 +1,16 @@
 # Launcher visual assets
 
-The current logo was generated with the built-in imagegen tool at the user's request. It combines a Minecraft-inspired grass-and-dirt top with an obsidian server body, two inset server bays and amethyst details. Green is confined to the grass; the application keeps its existing End theme. Its background has true transparent alpha. The previous golden emblem remains recoverable from Git history.
+The current logo was generated with the built-in imagegen tool at the user's request. It is a flat black geometric block with stacked hosting layers and a central cutout. The block refers to Minecraft; the layers refer to managed servers. The reusable master has transparent alpha. The black-on-white rendition supplies the UI and native icons so the mark stays visible on dark surfaces. The previous golden emblem remains recoverable from Git history.
 
-`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the transparent full-size server-block mark. It stages the full derivative set in a temporary `artifacts/` folder and retains only the four configured Windows files: `32x32.png`, `128x128.png`, `128x128@2x.png` and `icon.ico`. The temporary directory is removed afterward; unused platform formats are not kept in the source tree. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
+`scripts/generate_icon.py` delegates icon-format generation to the installed Tauri CLI using the black-on-white icon rendition. It stages the full derivative set in a temporary `artifacts/` folder and retains only the four configured Windows files: `32x32.png`, `128x128.png`, `128x128@2x.png` and `icon.ico`. The temporary directory is removed afterward; unused platform formats are not kept in the source tree. The Windows build explicitly uses `icons/icon.ico`, tracks icon input changes and assigns the same icon to the NSIS installer and uninstaller. Run `scripts/verify_windows_icons.ps1` after packaging to compare the executable and installer icon pixels with the expected ICO at Windows small/large sizes.
 
 ## Final assets
 
 | Saved path | Use |
 | --- | --- |
-| `src/assets/launcher-logo.png` | Transparent logo at 256px; UI and welcome |
-| `src/assets/launcher-mark.png` | Generated transparent logo master, 1254px |
+| `src/assets/launcher-logo.png` | Black-on-white logo at 256px; UI and welcome |
+| `src/assets/launcher-mark.png` | Black geometric master with transparent background, 1254px |
+| `src/assets/launcher-icon-source.png` | Black-on-white rendition for UI and native icons, 1254px |
 | `src-tauri/icons/` | Four configured Windows app/tray/installer derivatives |
 | `public/launcher-icon.png` | Browser favicon |
 | `src/assets/choice-world.png` | Production 256px inventory illustration |
@@ -20,19 +21,29 @@ Only the production-size inventory artwork is retained in the current tree. Unus
 
 ## Regenerating deferred platform formats
 
-The full transparent emblem remains the source. When another platform resumes,
+The black-on-white icon rendition remains the native icon source. When another platform resumes,
 use the installed Tauri CLI to generate the required formats and add only those
 to its configuration. The current wrapper intentionally keeps Windows outputs.
 
 ```powershell
-node node_modules/@tauri-apps/cli/tauri.js icon src/assets/launcher-mark.png --output src-tauri/icons --fit contain
+node node_modules/@tauri-apps/cli/tauri.js icon src/assets/launcher-icon-source.png --output src-tauri/icons --fit contain
 ```
 
 ## Prompts
 
-### Logo: built-in generation, logo-brand
+### Logo: built-in generation and edits, logo-brand
 
-Use case: logo-brand. Create ONE polished, original application emblem for a Minecraft server manager. It must instantly communicate BOTH Minecraft worlds and hosting a server. Design a compact chunky Minecraft grass-and-dirt block transformed into a premium obsidian server block: unmistakable square voxel grass tiles across the top, a thin brown block-earth layer beneath the grass, and a dark charcoal/obsidian front with TWO inset server bays. Each bay has a broad readable pale-lavender slot, a few chunky ventilation squares, and one small square amethyst-purple status indicator. The visible right side has a restrained stepped amethyst circuit/rune inset, using just a few large geometric blocks. One cohesive strong cube silhouette in tasteful three-quarter isometric perspective. More carefully crafted and distinctive than a generic server-rack clipart: precise voxel construction, thoughtful proportions, tasteful stepped bevels, selective pixel material highlights, polished restrained game-icon shading. Minecraft grass green on the top only, dark obsidian charcoal body, purple/amethyst/lavender accents, earth brown as a thin rim. No green ambient lighting. Strong dark outer silhouette and clear bright interior forms, readable on both dark and light backgrounds. Keep all details large and deliberate so the mark remains identifiable at 32px; not a complex scene or a pile of props. Center the single symbol with 9 percent even transparent padding, completely inside a square canvas. Genuine transparent background. No text, no letters, no initials, no wordmark, no official Minecraft logo, no Creeper face, no sun emblem, no golden rays, no generic rounded-square app background, no cables trailing outside, no ground plane, no cast shadow, no surrounding scenery, no photorealism, no blurry bloom or sparkles. Deliver one final professionally finished Minecraft server-block emblem only, not a sheet of concepts.
+#### Geometric concept
+
+Use case: logo-brand. Design ONE genuinely simple, abstract corporate logo symbol for TCHLauncher, a Minecraft server management application. The concept is ONE modular block made of TWO stacked hosting layers: a cube suggests Minecraft's building blocks, and the two layers suggest hosted servers. Reduce this to a distinctive flat geometric mark, NOT an illustration of a cube or a piece of hardware. Use only three or four broad, carefully aligned angular shapes with deliberate generous negative space. Hint at a compact cubic/hexagonal silhouette through 30/60-degree geometry and TWO horizontal breaks, with a small square negative-space core joining the construction. The result should look like an intentional professional software identity designed on a precise grid, not a generic gaming badge. One solid ink color only: violet #AA88E8. Every filled shape must be exactly this color; transparent negative space. It must also work as a solid black silhouette with the same geometry. No text, letters, initials, slogan, status LEDs, circuitry, rack drawers, grass, dirt, textures, pixels within faces, outlines, shading, gradients, bevels, glow, shadows, 3D rendering, mascot, clouds, background tile or frame. Do not add additional small decorative elements. Balanced optical weight, thick substantial strokes/forms and clean cutouts. Recognizable and crisp at 16 and 32 pixels. Center a single coherent logo with about 12 percent even transparent padding in a square canvas. Actual transparent background. Only the finished flat geometric symbol, no mockup, no presentation sheet, no alternate logos.
+
+#### Black master and edge cleanup
+
+Edit the referenced geometric logo. Keep its EXACT silhouette, arrangement, proportions, square negative-space core, upper diamond shape and stacked angular bands. Recolor ALL filled areas to pure solid BLACK #000000, completely opaque, perfectly uniform, without any shading or purple. Clean up the raster artifacts: remove EVERY stray magenta/purple/blue speckle, mottled pixel and halo from the gaps and exterior. All negative space, including the square core, horizontal separations and surrounding canvas, must be genuinely transparent with clean crisp antialiased edges only. This is a precise corporate logo color change and edge cleanup, not a redesign. No new marks, outlines, borders, shadows, gradients, texture, text, white fill or background square. Keep original square canvas and optical centering. A professional, simple black geometric symbol on true transparent alpha.
+
+#### Black-on-white rendition
+
+Make a clean presentation version of this EXACT black geometric logo. Change ONLY the transparent background to pure opaque white #FFFFFF, keeping the existing black mark, negative-space cutouts, exact shape, margins, proportions and alignment. The mark must remain solid black with clean professional edges. No redesign, no extra geometry, no text, no shadows, no gradients, no texture, no frame. A black geometric corporate logo on a plain white square. This is simply the white-background preview so the black mark is clearly visible.
 
 ### world: built-in generation, stylized-concept
 

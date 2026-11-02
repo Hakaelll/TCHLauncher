@@ -44,12 +44,13 @@ font files from the original game and is not affiliated with Mojang or Microsoft
 
 ## Launcher logo
 
-The grass-and-obsidian server-block mark was generated with the built-in imagegen
-tool at the user's request. The transparent master is `src/assets/launcher-mark.png`; Tauri's
-icon tooling produces the desktop and UI sizes. The design uses original geometric
-artwork rather than extracted Minecraft textures or official game logos. The
-superseded user-supplied golden emblem remains recoverable from Git history.
-See `src/assets/README.md` for the generation prompt and saved paths.
+The abstract black block-and-layers mark was generated and refined with the
+built-in imagegen tool at the user's request. The transparent master is
+`src/assets/launcher-mark.png`; `src/assets/launcher-icon-source.png` is the
+black-on-white rendition used by Tauri's icon tooling for UI and desktop sizes.
+No Minecraft textures or official game logos are bundled in this mark.
+Superseded emblems remain recoverable from Git history. See
+`src/assets/README.md` for prompts and saved paths.
 
 ## Block glyphs
 

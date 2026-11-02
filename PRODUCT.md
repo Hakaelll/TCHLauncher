@@ -47,11 +47,11 @@ se vuelven a usar para bloquear el trabajo.
 
 ## Brand Commitments
 
-TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El logo combina césped y tierra con un servidor de obsidiana de dos módulos y detalles de amatista, por petición del usuario. El verde se limita al césped del logo. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
+TCHLauncher. Estética Minecraft y End: negro/gris oscuro, acentos morados, controles rectangulares con relieve y tipografía Monocraft donde es legible. El logo es un bloque geométrico negro con capas apiladas que representan servidores. El original tiene fondo transparente; los iconos usan su versión sobre blanco para mantener el contraste. Los temas End, Obsidiana y Nether y una preferencia de tipografía se eligen en Ajustes. `design.md` registra la dirección vigente.
 
-La actualización del logo está incluida en el instalador local 0.60, compilado
-desde `e24e5be`. Se han comprobado los recursos del icono del EXE y del instalador.
-GitHub sigue publicando la 0.59; se conservan localmente las versiones 0.59 y 0.60.
+La versión geométrica sustituye al logo ilustrado durante la revisión local de
+la 0.60. GitHub sigue publicando la 0.59; se conservan las versiones locales 0.59
+y 0.60. El apartado About de GitHub describe la aplicación en inglés.
 
 ## Evidence on Hand
 
