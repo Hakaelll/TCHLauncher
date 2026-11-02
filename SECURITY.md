@@ -71,8 +71,8 @@ Provider requests are made as needed for version metadata, downloads, Modrinth c
 
 Logs, world data, selected content configuration and exports can contain player identifiers, addresses or sensitive configuration. Review and redact them before sharing. Language switching preserves user-provided names, paths, commands and Minecraft logs; unknown diagnostics retain their original text.
 
-## Remaining verification
+## Verification boundaries
 
-Native window, tray and IPC behavior; full Minecraft gameplay and stop/restore scenarios; physical router access; and additional disk interruption scenarios remain open. Automated regression tests do not replace these checks. Dependency notices are an inventory, not a complete vulnerability or license compatibility audit.
+On November 2, 2026, the maintainer reported completion of the closing manual checks. This is user acceptance, not a new agent-run native UI, gameplay or physical-router test. Automated checks retain their documented scope; additional disk interruption scenarios and every hardware configuration are not covered. Dependency notices are an inventory, not a complete vulnerability or license compatibility audit.
 
 See [NEXT_TODOS.md](NEXT_TODOS.md), [ARCHITECTURE.md](ARCHITECTURE.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for implementation details and verification evidence.

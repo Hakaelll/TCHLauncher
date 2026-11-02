@@ -1,6 +1,15 @@
 # Development notes
 
-Engineering records, test evidence and pending native checks.
+Engineering records and scoped verification evidence.
+
+## Final maintainer acceptance
+
+On November 2, 2026, after the remaining closing checks were explained, the
+maintainer replied "tu sigue las verificaciones estan hechas". This closes the
+manual acceptance checklist for the delivered Windows scope. The current status
+is in [NEXT_TODOS.md](../../NEXT_TODOS.md). Earlier references below to pending
+manual checks describe the evidence available at that time. They are superseded
+by this acceptance, without changing which tests the agent actually ran.
 
 ## Windows 0.59 process containment and package
 

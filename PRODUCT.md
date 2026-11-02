@@ -24,7 +24,7 @@ Aplicación de escritorio para Windows 10/11. Linux está aplazado por petición
 
 ## Capabilities and Constraints
 
-Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como fuente de verdad del estado. Aceptación explícita de la EULA. Funciones incompletas registradas en `NEXT_TODOS.md`.
+Sin infraestructura cloud propia ni suscripción obligatoria. Backend Rust como fuente de verdad del estado. Aceptación explícita de la EULA. Cierre del alcance y trabajo aplazado registrados en `NEXT_TODOS.md`.
 
 Los commits y el push continúan entre iteraciones. Por petición del usuario,
 se acumulan 3 o 4 versiones antes de publicar otra release en GitHub.
@@ -34,12 +34,13 @@ del usuario. La etiqueta apunta al código empaquetado; el archivo remoto coinci
 en nombre, tamaño y SHA-256 con el instalador local. No se sube un archivo de
 checksum. Se conservan los instaladores locales 0.58 y 0.59. Se mantiene la
 cadencia habitual de 3 o 4 versiones entre futuras publicaciones; los commits no
-cuentan como versiones. La validación manual pendiente no se presenta como
-completada.
+cuentan como versiones.
 
-El usuario asume la validación manual pendiente. Se indican las pruebas no
-realizadas, pero su ausencia no bloquea ni detiene la implementación. No se usa
-Computer Use ni se repiten solicitudes de capturas o aceptación visual.
+El 2 de noviembre de 2026 el usuario confirma las verificaciones manuales
+pendientes con "tu sigue las verificaciones estan hechas". Se registra como
+aceptación del usuario, sin atribuir al agente pruebas que no ejecutó ni inventar
+resultados individuales de dispositivos. El alcance actual de Windows queda
+cerrado. No se usa Computer Use ni se repiten solicitudes de capturas o aceptación.
 El 31 de octubre de 2026 el usuario confirma que los fallos antiguos del otro
 ordenador ya están resueltos. Se cierran esos informes por su confirmación y no
 se vuelven a usar para bloquear el trabajo.

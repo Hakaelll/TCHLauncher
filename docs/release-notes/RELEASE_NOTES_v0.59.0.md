@@ -24,8 +24,9 @@ Pre-start seed, difficulty and game-mode checks also pass in that existing case.
 The owner-termination check uses harmless fixture processes. The Vanilla case
 does not exercise native windows or client gameplay. Assignment follows process
 creation; interruption during that initial interval is unverified. Emergency
-termination cannot guarantee a clean world save. Manual Windows interaction,
-accessibility and physical-router checks remain maintainer-owned. No runtime
+termination cannot guarantee a clean world save. The maintainer confirmed
+completion of the closing manual checks on November 2, 2026. This is user-reported
+acceptance, not another agent-run native UI or hardware test. No runtime
 memory or Internet-latency improvement is claimed.
 
 ## Windows package

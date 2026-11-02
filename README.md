@@ -17,9 +17,9 @@ See the [changes and verification](docs/release-notes/RELEASE_NOTES_v0.59.0.md).
 The release attaches only the unsigned EXE installer; checksums stay local.
 GitHub releases normally group three or four version milestones. Version 0.59
 publishes the closing implementation batch, including 0.58. Implementation
-evidence and remaining checks are in the [development notes](docs/development-notes/README.md).
+evidence is in the [development notes](docs/development-notes/README.md).
 
-TCHLauncher is a **Windows preview** under active development. Features below are implemented in the application, with automated checks where documented. The maintainer accepts the current visual design. Further keyboard/accessibility checks, complete gameplay scenarios and physical router tests remain outstanding. See the [roadmap](NEXT_TODOS.md) for the verification boundaries.
+TCHLauncher is an unsigned **Windows preview**. The current Windows scope is implemented, and the maintainer has accepted the design and confirmed completion of the closing manual checks. Automated evidence keeps its documented scope; this is not a guarantee for every router, modpack or hardware configuration. See the [scope closure](NEXT_TODOS.md) for acceptance and deferred work.
 
 Linux is deferred in [LINUX_LATER.md](LINUX_LATER.md). Minecraft client launching and Microsoft account integration are outside the current scope.
 
